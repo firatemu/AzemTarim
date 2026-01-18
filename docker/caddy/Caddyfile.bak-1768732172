@@ -1,0 +1,8 @@
+# STAGING ONLY — admin hariç
+{
+  email admin@otomuhasebe.com
+}
+
+staging.otomuhasebe.com {
+    reverse_proxy landing-page-staging:3000
+}

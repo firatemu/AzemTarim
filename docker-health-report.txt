@@ -1,0 +1,184 @@
+=== Docker/Socket/Compose Kontrolleri ===
+[32m✓ Docker service: active[0m
+[32m✓ Docker socket mevcut[0m
+Docker Compose version v2.40.3
+[32m✓ Compose bulundu[0m
+[32m✓ Docker context: default[0m
+=== Compose Dosyaları ===
+[32m✓ Base: /var/www/docker/compose/docker-compose.base.yml[0m
+[32m✓ Staging: /var/www/docker/compose/docker-compose.staging.yml[0m
+--- Compose merge testi (staging) ---
+[32m✓ Compose merge OK → /tmp/docker-health-1018155/compose.stg.merged.yml[0m
+=== Container & Network Durumu ===
+NAMES                       STATUS                    PORTS
+compose-backend-staging-1   Up 10 seconds (healthy)   3000/tcp
+otomuhasebe-postgres        Up 6 minutes (healthy)    5432/tcp
+otomuhasebe-redis           Up 15 minutes (healthy)   6379/tcp
+--- Compose ps (staging) ---
+time="2026-01-18T07:36:34Z" level=warning msg="/var/www/docker/compose/docker-compose.base.yml: the attribute `version` is obsolete, it will be ignored, please remove it to avoid potential confusion"
+time="2026-01-18T07:36:34Z" level=warning msg="/var/www/docker/compose/docker-compose.staging.yml: the attribute `version` is obsolete, it will be ignored, please remove it to avoid potential confusion"
+NAME                        IMAGE                     COMMAND                  SERVICE           CREATED          STATUS                    PORTS
+compose-backend-staging-1   compose-backend-staging   "docker-entrypoint.s…"   backend-staging   21 seconds ago   Up 10 seconds (healthy)   3000/tcp
+otomuhasebe-postgres        postgres:16-alpine        "docker-entrypoint.s…"   postgres          6 minutes ago    Up 6 minutes (healthy)    5432/tcp
+otomuhasebe-redis           redis:7-alpine            "docker-entrypoint.s…"   redis             15 minutes ago   Up 15 minutes (healthy)   6379/tcp
+--- Network listesi ---
+NETWORK ID     NAME              DRIVER    SCOPE
+edb647a20cf2   bridge            bridge    local
+17b61db01ad0   compose_app_net   bridge    local
+4321de0efd62   host              host      local
+9562a8540fcc   none              null      local
+=== PostgreSQL Bağlantı Testi ===
+time="2026-01-18T07:36:34Z" level=warning msg="/var/www/docker/compose/docker-compose.base.yml: the attribute `version` is obsolete, it will be ignored, please remove it to avoid potential confusion"
+[32m✓ Postgres container Up[0m
+[32m✓ pg_isready OK (user=postgres)[0m
+[32m✓ psql conninfo OK (user=postgres, db=postgres)[0m
+time="2026-01-18T07:36:35Z" level=warning msg="/var/www/docker/compose/docker-compose.base.yml: the attribute `version` is obsolete, it will be ignored, please remove it to avoid potential confusion"
+[32m✓ Hedef DB mevcut: otomuhasebe_stage[0m
+=== İç HTTP Testleri (Container içinden) ===
+time="2026-01-18T07:36:35Z" level=warning msg="/var/www/docker/compose/docker-compose.base.yml: the attribute `version` is obsolete, it will be ignored, please remove it to avoid potential confusion"
+time="2026-01-18T07:36:35Z" level=warning msg="/var/www/docker/compose/docker-compose.staging.yml: the attribute `version` is obsolete, it will be ignored, please remove it to avoid potential confusion"
+time="2026-01-18T07:36:35Z" level=warning msg="/var/www/docker/compose/docker-compose.base.yml: the attribute `version` is obsolete, it will be ignored, please remove it to avoid potential confusion"
+time="2026-01-18T07:36:35Z" level=warning msg="/var/www/docker/compose/docker-compose.staging.yml: the attribute `version` is obsolete, it will be ignored, please remove it to avoid potential confusion"
+[31m✗ backend-staging iç HTTP FAIL (/api/health)[0m
+time="2026-01-18T07:36:35Z" level=warning msg="/var/www/docker/compose/docker-compose.base.yml: the attribute `version` is obsolete, it will be ignored, please remove it to avoid potential confusion"
+time="2026-01-18T07:36:35Z" level=warning msg="/var/www/docker/compose/docker-compose.staging.yml: the attribute `version` is obsolete, it will be ignored, please remove it to avoid potential confusion"
+backend-staging-1  | [32m[Nest] 1  - [39m01/18/2026, 7:36:27 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/raporlama/overview, GET} route[39m[38;5;3m +0ms[39m
+backend-staging-1  | [32m[Nest] 1  - [39m01/18/2026, 7:36:27 AM [32m    LOG[39m [38;5;3m[RoutesResolver] [39m[32mMarkaController {/api/marka}:[39m[38;5;3m +0ms[39m
+backend-staging-1  | [32m[Nest] 1  - [39m01/18/2026, 7:36:27 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/marka, GET} route[39m[38;5;3m +0ms[39m
+backend-staging-1  | [32m[Nest] 1  - [39m01/18/2026, 7:36:27 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/marka, POST} route[39m[38;5;3m +1ms[39m
+backend-staging-1  | [32m[Nest] 1  - [39m01/18/2026, 7:36:27 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/marka/:markaAdi, GET} route[39m[38;5;3m +0ms[39m
+backend-staging-1  | [32m[Nest] 1  - [39m01/18/2026, 7:36:27 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/marka/:markaAdi, PUT} route[39m[38;5;3m +0ms[39m
+backend-staging-1  | [32m[Nest] 1  - [39m01/18/2026, 7:36:27 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/marka/:markaAdi, DELETE} route[39m[38;5;3m +0ms[39m
+backend-staging-1  | [32m[Nest] 1  - [39m01/18/2026, 7:36:27 AM [32m    LOG[39m [38;5;3m[RoutesResolver] [39m[32mKategoriController {/api/kategori}:[39m[38;5;3m +0ms[39m
+backend-staging-1  | [32m[Nest] 1  - [39m01/18/2026, 7:36:27 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/kategori, GET} route[39m[38;5;3m +1ms[39m
+backend-staging-1  | [32m[Nest] 1  - [39m01/18/2026, 7:36:27 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/kategori/:anaKategori/alt-kategoriler, GET} route[39m[38;5;3m +0ms[39m
+backend-staging-1  | [32m[Nest] 1  - [39m01/18/2026, 7:36:27 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/kategori/:anaKategori/alt-kategori, POST} route[39m[38;5;3m +0ms[39m
+backend-staging-1  | [32m[Nest] 1  - [39m01/18/2026, 7:36:27 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/kategori/ana-kategori, POST} route[39m[38;5;3m +1ms[39m
+backend-staging-1  | [32m[Nest] 1  - [39m01/18/2026, 7:36:27 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/kategori/:anaKategori/alt-kategori/:altKategori, DELETE} route[39m[38;5;3m +0ms[39m
+backend-staging-1  | [32m[Nest] 1  - [39m01/18/2026, 7:36:27 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/kategori/:anaKategori, DELETE} route[39m[38;5;3m +0ms[39m
+backend-staging-1  | [32m[Nest] 1  - [39m01/18/2026, 7:36:27 AM [32m    LOG[39m [38;5;3m[RoutesResolver] [39m[32mAracController {/api/arac}:[39m[38;5;3m +0ms[39m
+backend-staging-1  | [32m[Nest] 1  - [39m01/18/2026, 7:36:27 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/arac, POST} route[39m[38;5;3m +1ms[39m
+backend-staging-1  | [32m[Nest] 1  - [39m01/18/2026, 7:36:27 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/arac/markalar, GET} route[39m[38;5;3m +0ms[39m
+backend-staging-1  | [32m[Nest] 1  - [39m01/18/2026, 7:36:27 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/arac/yakit-tipleri, GET} route[39m[38;5;3m +1ms[39m
+backend-staging-1  | [32m[Nest] 1  - [39m01/18/2026, 7:36:27 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/arac/modeller, GET} route[39m[38;5;3m +0ms[39m
+backend-staging-1  | [32m[Nest] 1  - [39m01/18/2026, 7:36:27 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/arac, GET} route[39m[38;5;3m +1ms[39m
+backend-staging-1  | [32m[Nest] 1  - [39m01/18/2026, 7:36:27 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/arac/:id, GET} route[39m[38;5;3m +0ms[39m
+backend-staging-1  | [32m[Nest] 1  - [39m01/18/2026, 7:36:27 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/arac/:id, PATCH} route[39m[38;5;3m +0ms[39m
+backend-staging-1  | [32m[Nest] 1  - [39m01/18/2026, 7:36:27 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/arac/:id, DELETE} route[39m[38;5;3m +0ms[39m
+backend-staging-1  | [32m[Nest] 1  - [39m01/18/2026, 7:36:27 AM [32m    LOG[39m [38;5;3m[RoutesResolver] [39m[32mPurchaseOrdersController {/api/purchase-orders}:[39m[38;5;3m +1ms[39m
+backend-staging-1  | [32m[Nest] 1  - [39m01/18/2026, 7:36:27 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/purchase-orders, POST} route[39m[38;5;3m +0ms[39m
+backend-staging-1  | [32m[Nest] 1  - [39m01/18/2026, 7:36:27 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/purchase-orders, GET} route[39m[38;5;3m +0ms[39m
+backend-staging-1  | [32m[Nest] 1  - [39m01/18/2026, 7:36:27 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/purchase-orders/:id, GET} route[39m[38;5;3m +0ms[39m
+backend-staging-1  | [32m[Nest] 1  - [39m01/18/2026, 7:36:27 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/purchase-orders/:id, PATCH} route[39m[38;5;3m +1ms[39m
+backend-staging-1  | [32m[Nest] 1  - [39m01/18/2026, 7:36:27 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/purchase-orders/:id, DELETE} route[39m[38;5;3m +0ms[39m
+backend-staging-1  | [32m[Nest] 1  - [39m01/18/2026, 7:36:27 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/purchase-orders/:id/remaining-items, GET} route[39m[38;5;3m +0ms[39m
+backend-staging-1  | [32m[Nest] 1  - [39m01/18/2026, 7:36:27 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/purchase-orders/:id/create-invoice, POST} route[39m[38;5;3m +1ms[39m
+backend-staging-1  | [32m[Nest] 1  - [39m01/18/2026, 7:36:27 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/purchase-orders/from-remaining, POST} route[39m[38;5;3m +0ms[39m
+backend-staging-1  | [32m[Nest] 1  - [39m01/18/2026, 7:36:27 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/purchase-orders/:id/invoices, GET} route[39m[38;5;3m +1ms[39m
+backend-staging-1  | [32m[Nest] 1  - [39m01/18/2026, 7:36:27 AM [32m    LOG[39m [38;5;3m[RoutesResolver] [39m[32mBasitSiparisController {/api/basit-siparis}:[39m[38;5;3m +1ms[39m
+backend-staging-1  | [32m[Nest] 1  - [39m01/18/2026, 7:36:27 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/basit-siparis, POST} route[39m[38;5;3m +0ms[39m
+backend-staging-1  | [32m[Nest] 1  - [39m01/18/2026, 7:36:27 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/basit-siparis, GET} route[39m[38;5;3m +0ms[39m
+backend-staging-1  | [32m[Nest] 1  - [39m01/18/2026, 7:36:27 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/basit-siparis/:id, GET} route[39m[38;5;3m +0ms[39m
+backend-staging-1  | [32m[Nest] 1  - [39m01/18/2026, 7:36:27 AM [32m    LOG[39m [38;5;3m[RoutesResolver] [39m[32mSatinAlmaSiparisiController {/api/satin-alma-siparisi}:[39m[38;5;3m +0ms[39m
+backend-staging-1  | [32m[Nest] 1  - [39m01/18/2026, 7:36:27 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/satin-alma-siparisi, GET} route[39m[38;5;3m +1ms[39m
+backend-staging-1  | [32m[Nest] 1  - [39m01/18/2026, 7:36:27 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/satin-alma-siparisi/deleted, GET} route[39m[38;5;3m +0ms[39m
+backend-staging-1  | [32m[Nest] 1  - [39m01/18/2026, 7:36:27 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/satin-alma-siparisi/:id, GET} route[39m[38;5;3m +0ms[39m
+backend-staging-1  | [32m[Nest] 1  - [39m01/18/2026, 7:36:27 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/satin-alma-siparisi, POST} route[39m[38;5;3m +0ms[39m
+backend-staging-1  | [32m[Nest] 1  - [39m01/18/2026, 7:36:27 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/satin-alma-siparisi/:id, PUT} route[39m[38;5;3m +0ms[39m
+backend-staging-1  | [32m[Nest] 1  - [39m01/18/2026, 7:36:27 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/satin-alma-siparisi/:id, DELETE} route[39m[38;5;3m +1ms[39m
+backend-staging-1  | [32m[Nest] 1  - [39m01/18/2026, 7:36:27 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/satin-alma-siparisi/:id/iptal, PUT} route[39m[38;5;3m +0ms[39m
+backend-staging-1  | [32m[Nest] 1  - [39m01/18/2026, 7:36:27 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/satin-alma-siparisi/:id/durum, PUT} route[39m[38;5;3m +0ms[39m
+backend-staging-1  | [32m[Nest] 1  - [39m01/18/2026, 7:36:27 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/satin-alma-siparisi/:id/restore, PUT} route[39m[38;5;3m +0ms[39m
+backend-staging-1  | [32m[Nest] 1  - [39m01/18/2026, 7:36:27 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/satin-alma-siparisi/:id/faturalandi, PUT} route[39m[38;5;3m +1ms[39m
+backend-staging-1  | [32m[Nest] 1  - [39m01/18/2026, 7:36:27 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/satin-alma-siparisi/:id/sevk-et, POST} route[39m[38;5;3m +0ms[39m
+backend-staging-1  | [32m[Nest] 1  - [39m01/18/2026, 7:36:27 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/satin-alma-siparisi/:id/create-irsaliye, POST} route[39m[38;5;3m +0ms[39m
+backend-staging-1  | [32m[Nest] 1  - [39m01/18/2026, 7:36:27 AM [32m    LOG[39m [38;5;3m[RoutesResolver] [39m[32mTechnicianController {/api/technicians}:[39m[38;5;3m +0ms[39m
+backend-staging-1  | [32m[Nest] 1  - [39m01/18/2026, 7:36:27 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/technicians, POST} route[39m[38;5;3m +1ms[39m
+backend-staging-1  | [32m[Nest] 1  - [39m01/18/2026, 7:36:27 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/technicians, GET} route[39m[38;5;3m +0ms[39m
+backend-staging-1  | [32m[Nest] 1  - [39m01/18/2026, 7:36:27 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/technicians/:id, GET} route[39m[38;5;3m +0ms[39m
+backend-staging-1  | [32m[Nest] 1  - [39m01/18/2026, 7:36:27 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/technicians/:id/workload, GET} route[39m[38;5;3m +0ms[39m
+backend-staging-1  | [32m[Nest] 1  - [39m01/18/2026, 7:36:27 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/technicians/:id, PUT} route[39m[38;5;3m +0ms[39m
+backend-staging-1  | [32m[Nest] 1  - [39m01/18/2026, 7:36:27 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/technicians/:id, DELETE} route[39m[38;5;3m +1ms[39m
+backend-staging-1  | [32m[Nest] 1  - [39m01/18/2026, 7:36:27 AM [32m    LOG[39m [38;5;3m[RoutesResolver] [39m[32mVehicleController {/api/vehicles}:[39m[38;5;3m +0ms[39m
+backend-staging-1  | [32m[Nest] 1  - [39m01/18/2026, 7:36:27 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/vehicles/reminders/upcoming, GET} route[39m[38;5;3m +0ms[39m
+backend-staging-1  | [32m[Nest] 1  - [39m01/18/2026, 7:36:27 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/vehicles/reminders/overdue, GET} route[39m[38;5;3m +0ms[39m
+backend-staging-1  | [32m[Nest] 1  - [39m01/18/2026, 7:36:27 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/vehicles/reminders/all, GET} route[39m[38;5;3m +0ms[39m
+backend-staging-1  | [32m[Nest] 1  - [39m01/18/2026, 7:36:27 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/vehicles/reminders/:reminderId/mark-sent, POST} route[39m[38;5;3m +1ms[39m
+backend-staging-1  | [32m[Nest] 1  - [39m01/18/2026, 7:36:27 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/vehicles, POST} route[39m[38;5;3m +0ms[39m
+backend-staging-1  | [32m[Nest] 1  - [39m01/18/2026, 7:36:27 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/vehicles, GET} route[39m[38;5;3m +0ms[39m
+backend-staging-1  | [32m[Nest] 1  - [39m01/18/2026, 7:36:27 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/vehicles/:id, GET} route[39m[38;5;3m +0ms[39m
+backend-staging-1  | [32m[Nest] 1  - [39m01/18/2026, 7:36:27 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/vehicles/:id, PUT} route[39m[38;5;3m +0ms[39m
+backend-staging-1  | [32m[Nest] 1  - [39m01/18/2026, 7:36:27 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/vehicles/:id, DELETE} route[39m[38;5;3m +1ms[39m
+backend-staging-1  | [32m[Nest] 1  - [39m01/18/2026, 7:36:27 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/vehicles/:id/history, GET} route[39m[38;5;3m +0ms[39m
+backend-staging-1  | [32m[Nest] 1  - [39m01/18/2026, 7:36:27 AM [32m    LOG[39m [38;5;3m[RoutesResolver] [39m[32mWorkOrderController {/api/work-orders}:[39m[38;5;3m +0ms[39m
+backend-staging-1  | [32m[Nest] 1  - [39m01/18/2026, 7:36:27 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/work-orders, POST} route[39m[38;5;3m +0ms[39m
+backend-staging-1  | [32m[Nest] 1  - [39m01/18/2026, 7:36:27 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/work-orders, GET} route[39m[38;5;3m +1ms[39m
+backend-staging-1  | [32m[Nest] 1  - [39m01/18/2026, 7:36:27 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/work-orders/:id, GET} route[39m[38;5;3m +0ms[39m
+backend-staging-1  | [32m[Nest] 1  - [39m01/18/2026, 7:36:27 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/work-orders/:id/assign-technician, PUT} route[39m[38;5;3m +0ms[39m
+backend-staging-1  | [32m[Nest] 1  - [39m01/18/2026, 7:36:27 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/work-orders/:id/status, PUT} route[39m[38;5;3m +0ms[39m
+backend-staging-1  | [32m[Nest] 1  - [39m01/18/2026, 7:36:27 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/work-orders/:id/labor-line, POST} route[39m[38;5;3m +0ms[39m
+backend-staging-1  | [32m[Nest] 1  - [39m01/18/2026, 7:36:27 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/work-orders/:id/part-line, POST} route[39m[38;5;3m +0ms[39m
+backend-staging-1  | [32m[Nest] 1  - [39m01/18/2026, 7:36:27 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/work-orders/:id/parts/from-stock, POST} route[39m[38;5;3m +0ms[39m
+backend-staging-1  | [32m[Nest] 1  - [39m01/18/2026, 7:36:27 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/work-orders/:id/parts/request-supply, POST} route[39m[38;5;3m +0ms[39m
+backend-staging-1  | [32m[Nest] 1  - [39m01/18/2026, 7:36:27 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/work-orders/:id/supply-requests, GET} route[39m[38;5;3m +0ms[39m
+backend-staging-1  | [32m[Nest] 1  - [39m01/18/2026, 7:36:27 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/work-orders/:id/supply-requests/:lineId/approve, PUT} route[39m[38;5;3m +1ms[39m
+backend-staging-1  | [32m[Nest] 1  - [39m01/18/2026, 7:36:27 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/work-orders/:id/supply-requests/:lineId/reject, PUT} route[39m[38;5;3m +0ms[39m
+backend-staging-1  | [32m[Nest] 1  - [39m01/18/2026, 7:36:27 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/work-orders/:id/request-approval, POST} route[39m[38;5;3m +0ms[39m
+backend-staging-1  | [32m[Nest] 1  - [39m01/18/2026, 7:36:27 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/work-orders/:id/approve, POST} route[39m[38;5;3m +0ms[39m
+backend-staging-1  | [32m[Nest] 1  - [39m01/18/2026, 7:36:27 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/work-orders/:id/close, POST} route[39m[38;5;3m +0ms[39m
+backend-staging-1  | [32m[Nest] 1  - [39m01/18/2026, 7:36:27 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/work-orders/:id/mark-part-used, POST} route[39m[38;5;3m +1ms[39m
+backend-staging-1  | [32m[Nest] 1  - [39m01/18/2026, 7:36:27 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/work-orders/:id/mark-all-parts-used, POST} route[39m[38;5;3m +0ms[39m
+backend-staging-1  | [32m[Nest] 1  - [39m01/18/2026, 7:36:27 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/work-orders/:id/parts/:lineId/toggle-used, PUT} route[39m[38;5;3m +0ms[39m
+backend-staging-1  | [32m[Nest] 1  - [39m01/18/2026, 7:36:27 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/work-orders/:id/generate-invoice, POST} route[39m[38;5;3m +0ms[39m
+backend-staging-1  | [32m[Nest] 1  - [39m01/18/2026, 7:36:27 AM [32m    LOG[39m [38;5;3m[RoutesResolver] [39m[32mServiceWorkflowController {/api/service-workflow}:[39m[38;5;3m +1ms[39m
+backend-staging-1  | [32m[Nest] 1  - [39m01/18/2026, 7:36:27 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/service-workflow/technical-findings, POST} route[39m[38;5;3m +0ms[39m
+backend-staging-1  | [32m[Nest] 1  - [39m01/18/2026, 7:36:27 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/service-workflow/technical-findings/:id, PUT} route[39m[38;5;3m +0ms[39m
+backend-staging-1  | [32m[Nest] 1  - [39m01/18/2026, 7:36:27 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/service-workflow/work-orders/:workOrderId/technical-findings, GET} route[39m[38;5;3m +0ms[39m
+backend-staging-1  | [32m[Nest] 1  - [39m01/18/2026, 7:36:27 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/service-workflow/diagnostic-notes, POST} route[39m[38;5;3m +1ms[39m
+backend-staging-1  | [32m[Nest] 1  - [39m01/18/2026, 7:36:27 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/service-workflow/work-orders/:workOrderId/diagnostic-notes, GET} route[39m[38;5;3m +0ms[39m
+backend-staging-1  | [32m[Nest] 1  - [39m01/18/2026, 7:36:27 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/service-workflow/solution-packages, POST} route[39m[38;5;3m +0ms[39m
+backend-staging-1  | [32m[Nest] 1  - [39m01/18/2026, 7:36:27 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/service-workflow/solution-packages/:id, PUT} route[39m[38;5;3m +0ms[39m
+backend-staging-1  | [32m[Nest] 1  - [39m01/18/2026, 7:36:27 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/service-workflow/solution-packages/:id, DELETE} route[39m[38;5;3m +0ms[39m
+backend-staging-1  | [32m[Nest] 1  - [39m01/18/2026, 7:36:27 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/service-workflow/work-orders/:workOrderId/solution-packages, GET} route[39m[38;5;3m +0ms[39m
+backend-staging-1  | [32m[Nest] 1  - [39m01/18/2026, 7:36:27 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/service-workflow/solution-packages/:id, GET} route[39m[38;5;3m +1ms[39m
+backend-staging-1  | [32m[Nest] 1  - [39m01/18/2026, 7:36:27 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/service-workflow/solution-packages/:packageId/parts, POST} route[39m[38;5;3m +0ms[39m
+backend-staging-1  | [32m[Nest] 1  - [39m01/18/2026, 7:36:27 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/service-workflow/solution-packages/parts/:partId, PUT} route[39m[38;5;3m +0ms[39m
+backend-staging-1  | [32m[Nest] 1  - [39m01/18/2026, 7:36:27 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/service-workflow/solution-packages/parts/:partId, DELETE} route[39m[38;5;3m +0ms[39m
+backend-staging-1  | [32m[Nest] 1  - [39m01/18/2026, 7:36:27 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/service-workflow/work-orders/:workOrderId/request-approval, POST} route[39m[38;5;3m +1ms[39m
+backend-staging-1  | [32m[Nest] 1  - [39m01/18/2026, 7:36:27 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/service-workflow/work-orders/approve, POST} route[39m[38;5;3m +0ms[39m
+backend-staging-1  | [32m[Nest] 1  - [39m01/18/2026, 7:36:27 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/service-workflow/work-orders/reject, POST} route[39m[38;5;3m +0ms[39m
+backend-staging-1  | [32m[Nest] 1  - [39m01/18/2026, 7:36:27 AM [32m    LOG[39m [38;5;3m[RouterExplorer] [39m[32mMapped {/api/service-workflow/work-orders/:workOrderId/approval-status, GET} route[39m[38;5;3m +0ms[39m
+backend-staging-1  | [33m[Nest] 1  - [39m01/18/2026, 7:36:27 AM [33m   WARN[39m [38;5;3m[EmailService] [39m[33mSMTP bağlantı hatası: connect ECONNREFUSED 127.0.0.1:587[39m
+backend-staging-1  | [33m[Nest] 1  - [39m01/18/2026, 7:36:27 AM [33m   WARN[39m [38;5;3m[EmailService] [39m[33mSMTP bağlantı hatası: connect ECONNREFUSED 127.0.0.1:587[39m
+backend-staging-1  | 🔄 [Redis] Connecting...
+backend-staging-1  | ✅ [Redis] Connected and ready
+backend-staging-1  | [32m[Nest] 1  - [39m01/18/2026, 7:36:29 AM [32m    LOG[39m [38;5;3m[NestApplication] [39m[32mNest application successfully started[39m[38;5;3m +1731ms[39m
+backend-staging-1  | 🚀 Yedek Parça Otomasyonu Backend çalışıyor: http://localhost:3000
+backend-staging-1  | 📚 API Endpoint: http://localhost:3000/api
+backend-staging-1  | 🔍 [TenantMiddleware] Tüm header'lar: []
+backend-staging-1  | 🔍 [TenantMiddleware] x-tenant-id header: undefined
+backend-staging-1  | 🔍 [TenantMiddleware] Environment check: {
+backend-staging-1  |   NODE_ENV: 'production',
+backend-staging-1  |   isStaging: false,
+backend-staging-1  |   STAGING_DEFAULT_TENANT_ID: 'cmi5of04z0000ksb3g5eyu6ts'
+backend-staging-1  | }
+time="2026-01-18T07:36:35Z" level=warning msg="/var/www/docker/compose/docker-compose.base.yml: the attribute `version` is obsolete, it will be ignored, please remove it to avoid potential confusion"
+time="2026-01-18T07:36:35Z" level=warning msg="/var/www/docker/compose/docker-compose.staging.yml: the attribute `version` is obsolete, it will be ignored, please remove it to avoid potential confusion"
+[33m⚠️  admin-panel-staging Up değil[0m
+time="2026-01-18T07:36:35Z" level=warning msg="/var/www/docker/compose/docker-compose.base.yml: the attribute `version` is obsolete, it will be ignored, please remove it to avoid potential confusion"
+time="2026-01-18T07:36:35Z" level=warning msg="/var/www/docker/compose/docker-compose.staging.yml: the attribute `version` is obsolete, it will be ignored, please remove it to avoid potential confusion"
+[33m⚠️  landing-page-staging Up değil[0m
+=== Caddy & Dış HTTP (DNS/SSL) ===
+time="2026-01-18T07:36:35Z" level=warning msg="/var/www/docker/compose/docker-compose.base.yml: the attribute `version` is obsolete, it will be ignored, please remove it to avoid potential confusion"
+[33m⚠️  Caddy Up değil[0m
+HTTP 502 - https://staging-api.otomuhasebe.com/api/health
+HTTP 000 - https://admin-staging.otomuhasebe.com/
+HTTP 200 - https://staging.otomuhasebe.com/
+=== Özet ===
+[31m✗ İç HTTP testleri: FAIL[0m
+time="2026-01-18T07:36:36Z" level=warning msg="/var/www/docker/compose/docker-compose.base.yml: the attribute `version` is obsolete, it will be ignored, please remove it to avoid potential confusion"
+time="2026-01-18T07:36:36Z" level=warning msg="/var/www/docker/compose/docker-compose.staging.yml: the attribute `version` is obsolete, it will be ignored, please remove it to avoid potential confusion"
+[32m✓ Staging servisleri: en az biri Up[0m
+[33m⚠️  Dış HTTP smoke bazı alanlarda başarısız (Caddy logları/DNS/SSL kontrol edin)[0m
+Log dosyası: /var/www/docker-health-report.txt
+>>> GENEL DURUM: ATTENTION (bazı testler başarısız)

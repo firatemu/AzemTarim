@@ -1,0 +1,22 @@
+# ==========================================
+# PRODUCTION – CADDY ANA KAPI
+# ==========================================
+{
+    email admin@otomuhasebe.com
+}
+
+{panel.otomuhasebe.com} {
+    reverse_proxy {user-panel}:{3000}
+}
+
+{admin.otomuhasebe.com} {
+    reverse_proxy {admin-panel}:80
+}
+
+{www.otomuhasebe.com} {
+    reverse_proxy {landing-page}:{3000}
+}
+
+{api.otomuhasebe.com} {
+    reverse_proxy {backend}:{3000}
+}

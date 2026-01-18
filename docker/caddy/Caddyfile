@@ -1,0 +1,78 @@
+# ==========================================================
+# CADDY PROD FINAL (Hardening + Rate-limit + Logs)
+# ==========================================================
+
+# Global options (opsiyonel e-posta ekleyebilirsin)
+{
+  email admin@otomuhasebe.com
+  # acme_ca https://acme-v02.api.letsencrypt.org/directory
+}
+
+# ---- Ortak güvenlik ve performans ayarları (snippet) ----
+(common_security) {
+  header {
+    Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+    X-Content-Type-Options "nosniff"
+    X-Frame-Options "SAMEORIGIN"
+    Referrer-Policy "strict-origin-when-cross-origin"
+    Content-Security-Policy "default-src 'self' 'unsafe-inline' 'unsafe-eval' https: data:"
+    # İhtiyacına göre CSP'yi sıkılaştır
+  }
+  encode gzip zstd
+  # Access log format (JSON gibi structured log istiyorsan uncomment)
+  # log {
+  #   output file /var/log/caddy/access.log
+  #   format json
+  # }
+}
+
+# ---- Basit rate-limit snippet (IP başına) ----
+# Not: Caddy'nin built-in basit limit örneği (golang matcher + requests)
+# Daha gelişmiş ihtiyaçlar için rate-limiter eklentisi veya upstream limit önerilir.
+(rate_limited_auth) {
+  @authPaths {
+    path /login*
+    path /auth*
+    path /api/login*
+    path /api/auth*
+  }
+  # Client IP başına 1dk'da 60 istek (örnek)
+  rate_limit @authPaths {
+    key {remote_host}
+    window 1m
+    burst 20
+    rate 60
+  }
+}
+
+# ==========================================================
+#    PROD ROUTING (Service-name → Docker içi :3000)
+# ==========================================================
+
+# User Panel
+panel.otomuhasebe.com {
+  import common_security
+  reverse_proxy user-panel:3000
+}
+
+# Admin Panel
+admin.otomuhasebe.com {
+  import common_security
+  import rate_limited_auth
+  # Admin panel container port 80 (Vite)
+  reverse_proxy admin-panel:80
+}
+
+# Landing (www)
+www.otomuhasebe.com {
+  import common_security
+  reverse_proxy landing-page:3000
+}
+
+# API (opsiyonel ayrı domain)
+api.otomuhasebe.com {
+  import common_security
+  # API login/auth rate-limit uygula
+  import rate_limited_auth
+  reverse_proxy backend:3000
+}

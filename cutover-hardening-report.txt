@@ -1,0 +1,180 @@
+=== Ön Kontroller ===
+time="2026-01-18T10:39:37Z" level=warning msg="/var/www/docker/compose/docker-compose.base.yml: the attribute `version` is obsolete, it will be ignored, please remove it to avoid potential confusion"
+✅ Docker & Compose OK, dosyalar mevcut.
+
+=== Caddyfile hardening + prod routing yazılıyor ===
+✅ Caddyfile güncellendi: /var/www/docker/caddy/Caddyfile
+
+=== Caddy 80/443 ile başlatılıyor ===
+time="2026-01-18T10:39:37Z" level=warning msg="/var/www/docker/compose/docker-compose.base.yml: the attribute `version` is obsolete, it will be ignored, please remove it to avoid potential confusion"
+time="2026-01-18T10:39:37Z" level=warning msg="/tmp/caddy-prod-override.yml: the attribute `version` is obsolete, it will be ignored, please remove it to avoid potential confusion"
+time="2026-01-18T10:39:37Z" level=warning msg="Found orphan containers ([compose-landing-page-1 compose-user-panel-1 compose-admin-panel-1 compose-backend-1 compose-backend-staging-1 compose-admin-panel-staging-1]) for this project. If you removed or renamed this service in your compose file, you can run this command with the --remove-orphans flag to clean it up."
+ Container otomuhasebe-caddy  Running
+time="2026-01-18T10:39:42Z" level=warning msg="/var/www/docker/compose/docker-compose.base.yml: the attribute `version` is obsolete, it will be ignored, please remove it to avoid potential confusion"
+time="2026-01-18T10:39:42Z" level=warning msg="/tmp/caddy-prod-override.yml: the attribute `version` is obsolete, it will be ignored, please remove it to avoid potential confusion"
+NAME                IMAGE     COMMAND                  SERVICE   CREATED         STATUS         PORTS
+otomuhasebe-caddy   caddy:2   "caddy run --config …"   caddy     5 minutes ago   Up 4 minutes   0.0.0.0:80->80/tcp, [::]:80->80/tcp, 0.0.0.0:443->443/tcp, [::]:443->443/tcp, 443/udp, 2019/tcp
+time="2026-01-18T10:39:42Z" level=warning msg="/var/www/docker/compose/docker-compose.base.yml: the attribute `version` is obsolete, it will be ignored, please remove it to avoid potential confusion"
+time="2026-01-18T10:39:42Z" level=warning msg="/tmp/caddy-prod-override.yml: the attribute `version` is obsolete, it will be ignored, please remove it to avoid potential confusion"
+otomuhasebe-caddy  | {"level":"info","ts":1768732448.700324,"msg":"maxprocs: Leaving GOMAXPROCS=4: CPU quota undefined"}
+otomuhasebe-caddy  | {"level":"info","ts":1768732448.7006397,"msg":"GOMEMLIMIT is updated","package":"github.com/KimMachineGun/automemlimit/memlimit","GOMEMLIMIT":15093087436,"previous":9223372036854775807}
+otomuhasebe-caddy  | {"level":"info","ts":1768732448.7008965,"msg":"using config from file","file":"/etc/caddy/Caddyfile"}
+otomuhasebe-caddy  | {"level":"info","ts":1768732448.7037857,"msg":"maxprocs: No GOMAXPROCS change to reset"}
+otomuhasebe-caddy  | Error: adapting config using caddyfile: subject does not qualify for certificate: '{panel.otomuhasebe.com}'
+otomuhasebe-caddy  | {"level":"info","ts":1768732449.270673,"msg":"maxprocs: Leaving GOMAXPROCS=4: CPU quota undefined"}
+otomuhasebe-caddy  | {"level":"info","ts":1768732449.2709477,"msg":"GOMEMLIMIT is updated","package":"github.com/KimMachineGun/automemlimit/memlimit","GOMEMLIMIT":15093087436,"previous":9223372036854775807}
+otomuhasebe-caddy  | {"level":"info","ts":1768732449.2710073,"msg":"using config from file","file":"/etc/caddy/Caddyfile"}
+otomuhasebe-caddy  | {"level":"info","ts":1768732449.2740521,"msg":"maxprocs: No GOMAXPROCS change to reset"}
+otomuhasebe-caddy  | Error: adapting config using caddyfile: subject does not qualify for certificate: '{panel.otomuhasebe.com}'
+otomuhasebe-caddy  | {"level":"info","ts":1768732449.8723288,"msg":"maxprocs: Leaving GOMAXPROCS=4: CPU quota undefined"}
+otomuhasebe-caddy  | {"level":"info","ts":1768732449.8725808,"msg":"GOMEMLIMIT is updated","package":"github.com/KimMachineGun/automemlimit/memlimit","GOMEMLIMIT":15093087436,"previous":9223372036854775807}
+otomuhasebe-caddy  | {"level":"info","ts":1768732449.8726232,"msg":"using config from file","file":"/etc/caddy/Caddyfile"}
+otomuhasebe-caddy  | {"level":"info","ts":1768732449.87358,"msg":"maxprocs: No GOMAXPROCS change to reset"}
+otomuhasebe-caddy  | Error: adapting config using caddyfile: subject does not qualify for certificate: '{panel.otomuhasebe.com}'
+otomuhasebe-caddy  | {"level":"info","ts":1768732450.6097307,"msg":"maxprocs: Leaving GOMAXPROCS=4: CPU quota undefined"}
+otomuhasebe-caddy  | {"level":"info","ts":1768732450.6100302,"msg":"GOMEMLIMIT is updated","package":"github.com/KimMachineGun/automemlimit/memlimit","GOMEMLIMIT":15093087436,"previous":9223372036854775807}
+otomuhasebe-caddy  | {"level":"info","ts":1768732450.6100912,"msg":"using config from file","file":"/etc/caddy/Caddyfile"}
+otomuhasebe-caddy  | {"level":"info","ts":1768732450.610946,"msg":"maxprocs: No GOMAXPROCS change to reset"}
+otomuhasebe-caddy  | Error: adapting config using caddyfile: subject does not qualify for certificate: '{panel.otomuhasebe.com}'
+otomuhasebe-caddy  | {"level":"info","ts":1768732451.7456021,"msg":"maxprocs: Leaving GOMAXPROCS=4: CPU quota undefined"}
+otomuhasebe-caddy  | {"level":"info","ts":1768732451.7460532,"msg":"GOMEMLIMIT is updated","package":"github.com/KimMachineGun/automemlimit/memlimit","GOMEMLIMIT":15093087436,"previous":9223372036854775807}
+otomuhasebe-caddy  | {"level":"info","ts":1768732451.7461305,"msg":"using config from file","file":"/etc/caddy/Caddyfile"}
+otomuhasebe-caddy  | {"level":"info","ts":1768732451.7473712,"msg":"maxprocs: No GOMAXPROCS change to reset"}
+otomuhasebe-caddy  | Error: adapting config using caddyfile: subject does not qualify for certificate: '{panel.otomuhasebe.com}'
+otomuhasebe-caddy  | {"level":"info","ts":1768732453.6572368,"msg":"maxprocs: Leaving GOMAXPROCS=4: CPU quota undefined"}
+otomuhasebe-caddy  | {"level":"info","ts":1768732453.6576312,"msg":"GOMEMLIMIT is updated","package":"github.com/KimMachineGun/automemlimit/memlimit","GOMEMLIMIT":15093087436,"previous":9223372036854775807}
+otomuhasebe-caddy  | {"level":"info","ts":1768732453.6576889,"msg":"using config from file","file":"/etc/caddy/Caddyfile"}
+otomuhasebe-caddy  | {"level":"info","ts":1768732453.6586356,"msg":"maxprocs: No GOMAXPROCS change to reset"}
+otomuhasebe-caddy  | Error: adapting config using caddyfile: subject does not qualify for certificate: '{panel.otomuhasebe.com}'
+otomuhasebe-caddy  | {"level":"info","ts":1768732457.253139,"msg":"maxprocs: Leaving GOMAXPROCS=4: CPU quota undefined"}
+otomuhasebe-caddy  | {"level":"info","ts":1768732457.2535198,"msg":"GOMEMLIMIT is updated","package":"github.com/KimMachineGun/automemlimit/memlimit","GOMEMLIMIT":15093087436,"previous":9223372036854775807}
+otomuhasebe-caddy  | {"level":"info","ts":1768732457.2535598,"msg":"using config from file","file":"/etc/caddy/Caddyfile"}
+otomuhasebe-caddy  | {"level":"info","ts":1768732457.254264,"msg":"maxprocs: No GOMAXPROCS change to reset"}
+otomuhasebe-caddy  | Error: adapting config using caddyfile: subject does not qualify for certificate: '{panel.otomuhasebe.com}'
+otomuhasebe-caddy  | {"level":"info","ts":1768732463.985915,"msg":"maxprocs: Leaving GOMAXPROCS=4: CPU quota undefined"}
+otomuhasebe-caddy  | {"level":"info","ts":1768732463.9861212,"msg":"GOMEMLIMIT is updated","package":"github.com/KimMachineGun/automemlimit/memlimit","GOMEMLIMIT":15093087436,"previous":9223372036854775807}
+otomuhasebe-caddy  | {"level":"info","ts":1768732463.9861653,"msg":"using config from file","file":"/etc/caddy/Caddyfile"}
+otomuhasebe-caddy  | {"level":"info","ts":1768732463.986902,"msg":"maxprocs: No GOMAXPROCS change to reset"}
+otomuhasebe-caddy  | Error: adapting config using caddyfile: subject does not qualify for certificate: '{panel.otomuhasebe.com}'
+otomuhasebe-caddy  | {"level":"info","ts":1768732486.6076617,"msg":"maxprocs: Leaving GOMAXPROCS=4: CPU quota undefined"}
+otomuhasebe-caddy  | {"level":"info","ts":1768732486.6081796,"msg":"GOMEMLIMIT is updated","package":"github.com/KimMachineGun/automemlimit/memlimit","GOMEMLIMIT":15093087436,"previous":9223372036854775807}
+otomuhasebe-caddy  | {"level":"info","ts":1768732486.6082258,"msg":"using config from file","file":"/etc/caddy/Caddyfile"}
+otomuhasebe-caddy  | {"level":"info","ts":1768732486.610064,"msg":"adapted config to JSON","adapter":"caddyfile"}
+otomuhasebe-caddy  | {"level":"warn","ts":1768732486.6100776,"msg":"Caddyfile input is not formatted; run 'caddy fmt --overwrite' to fix inconsistencies","adapter":"caddyfile","file":"/etc/caddy/Caddyfile","line":5}
+otomuhasebe-caddy  | {"level":"info","ts":1768732486.6115794,"logger":"admin","msg":"admin endpoint started","address":"localhost:2019","enforce_origin":false,"origins":["//localhost:2019","//[::1]:2019","//127.0.0.1:2019"]}
+otomuhasebe-caddy  | {"level":"info","ts":1768732486.6119654,"logger":"http.auto_https","msg":"server is listening only on the HTTPS port but has no TLS connection policies; adding one to enable TLS","server_name":"srv0","https_port":443}
+otomuhasebe-caddy  | {"level":"info","ts":1768732486.6119847,"logger":"http.auto_https","msg":"enabling automatic HTTP->HTTPS redirects","server_name":"srv0"}
+otomuhasebe-caddy  | {"level":"info","ts":1768732486.612069,"logger":"tls.cache.maintenance","msg":"started background certificate maintenance","cache":"0xc0006e0880"}
+otomuhasebe-caddy  | {"level":"info","ts":1768732486.6133757,"logger":"http","msg":"enabling HTTP/3 listener","addr":":443"}
+otomuhasebe-caddy  | {"level":"info","ts":1768732486.6136496,"msg":"failed to sufficiently increase receive buffer size (was: 208 kiB, wanted: 7168 kiB, got: 416 kiB). See https://github.com/quic-go/quic-go/wiki/UDP-Buffer-Sizes for details."}
+otomuhasebe-caddy  | {"level":"info","ts":1768732486.613978,"logger":"http.log","msg":"server running","name":"srv0","protocols":["h1","h2","h3"]}
+otomuhasebe-caddy  | {"level":"warn","ts":1768732486.6141138,"logger":"http","msg":"HTTP/2 skipped because it requires TLS","network":"tcp","addr":":80"}
+otomuhasebe-caddy  | {"level":"warn","ts":1768732486.6144207,"logger":"http","msg":"HTTP/3 skipped because it requires TLS","network":"tcp","addr":":80"}
+otomuhasebe-caddy  | {"level":"info","ts":1768732486.6144466,"logger":"http.log","msg":"server running","name":"remaining_auto_https_redirects","protocols":["h1","h2","h3"]}
+otomuhasebe-caddy  | {"level":"info","ts":1768732486.6145337,"logger":"http","msg":"enabling automatic TLS certificate management","domains":["panel.otomuhasebe.com","admin.otomuhasebe.com","www.otomuhasebe.com","api.otomuhasebe.com"]}
+otomuhasebe-caddy  | {"level":"info","ts":1768732486.619416,"msg":"autosaved config (load with --resume flag)","file":"/config/caddy/autosave.json"}
+otomuhasebe-caddy  | {"level":"info","ts":1768732486.6194732,"msg":"serving initial configuration"}
+otomuhasebe-caddy  | {"level":"info","ts":1768732486.6210492,"logger":"tls.obtain","msg":"acquiring lock","identifier":"panel.otomuhasebe.com"}
+otomuhasebe-caddy  | {"level":"info","ts":1768732486.6217587,"logger":"tls","msg":"storage cleaning happened too recently; skipping for now","storage":"FileStorage:/data/caddy","instance":"fc2fb66a-d4f5-40a2-b107-457a1d698e9b","try_again":1768818886.6217573,"try_again_in":86399.999999679}
+otomuhasebe-caddy  | {"level":"info","ts":1768732486.6220856,"logger":"tls","msg":"finished cleaning storage units"}
+otomuhasebe-caddy  | {"level":"info","ts":1768732486.6225994,"logger":"tls.obtain","msg":"lock acquired","identifier":"panel.otomuhasebe.com"}
+otomuhasebe-caddy  | {"level":"info","ts":1768732486.6227026,"logger":"tls.obtain","msg":"obtaining certificate","identifier":"panel.otomuhasebe.com"}
+otomuhasebe-caddy  | {"level":"info","ts":1768732486.6232686,"logger":"tls.issuance.acme","msg":"waiting on internal rate limiter","identifiers":["panel.otomuhasebe.com"],"ca":"https://acme-v02.api.letsencrypt.org/directory","account":"admin@otomuhasebe.com"}
+otomuhasebe-caddy  | {"level":"info","ts":1768732486.6233833,"logger":"tls.issuance.acme","msg":"done waiting on internal rate limiter","identifiers":["panel.otomuhasebe.com"],"ca":"https://acme-v02.api.letsencrypt.org/directory","account":"admin@otomuhasebe.com"}
+otomuhasebe-caddy  | {"level":"info","ts":1768732486.6234872,"logger":"tls.issuance.acme","msg":"using ACME account","account_id":"https://acme-v02.api.letsencrypt.org/acme/acct/2973682986","account_contact":["mailto:admin@otomuhasebe.com"]}
+otomuhasebe-caddy  | {"level":"info","ts":1768732487.454256,"msg":"trying to solve challenge","identifier":"panel.otomuhasebe.com","challenge_type":"http-01","ca":"https://acme-v02.api.letsencrypt.org/directory"}
+otomuhasebe-caddy  | {"level":"info","ts":1768732487.9726317,"logger":"tls.issuance.acme","msg":"served key authentication","identifier":"panel.otomuhasebe.com","challenge":"http-01","remote":"23.178.112.108:40549","distributed":false}
+otomuhasebe-caddy  | {"level":"info","ts":1768732488.280413,"logger":"tls.issuance.acme","msg":"served key authentication","identifier":"panel.otomuhasebe.com","challenge":"http-01","remote":"16.16.94.16:24562","distributed":false}
+otomuhasebe-caddy  | {"level":"info","ts":1768732488.376265,"logger":"tls.issuance.acme","msg":"served key authentication","identifier":"panel.otomuhasebe.com","challenge":"http-01","remote":"3.128.170.224:22652","distributed":false}
+otomuhasebe-caddy  | {"level":"info","ts":1768732488.5577836,"logger":"tls.issuance.acme","msg":"served key authentication","identifier":"panel.otomuhasebe.com","challenge":"http-01","remote":"13.214.201.68:13878","distributed":false}
+otomuhasebe-caddy  | {"level":"info","ts":1768732488.5700033,"logger":"tls.issuance.acme","msg":"served key authentication","identifier":"panel.otomuhasebe.com","challenge":"http-01","remote":"16.144.18.75:18924","distributed":false}
+otomuhasebe-caddy  | {"level":"info","ts":1768732489.5035093,"msg":"authorization finalized","identifier":"panel.otomuhasebe.com","authz_status":"valid"}
+otomuhasebe-caddy  | {"level":"info","ts":1768732489.503573,"msg":"validations succeeded; finalizing order","order":"https://acme-v02.api.letsencrypt.org/acme/order/2973682986/470802122686"}
+otomuhasebe-caddy  | {"level":"info","ts":1768732490.290126,"msg":"got renewal info","names":["panel.otomuhasebe.com"],"window_start":1773836423,"window_end":1773991872,"selected_time":1773869075,"recheck_after":1768754090.290116,"explanation_url":""}
+otomuhasebe-caddy  | {"level":"info","ts":1768732490.559136,"msg":"got renewal info","names":["panel.otomuhasebe.com"],"window_start":1773836423,"window_end":1773991872,"selected_time":1773907037,"recheck_after":1768754090.559125,"explanation_url":""}
+otomuhasebe-caddy  | {"level":"info","ts":1768732490.559292,"msg":"successfully downloaded available certificate chains","count":2,"first_url":"https://acme-v02.api.letsencrypt.org/acme/cert/05877661ad47b10cfddb0ed139c47d990a36"}
+otomuhasebe-caddy  | {"level":"info","ts":1768732490.56826,"logger":"tls.obtain","msg":"certificate obtained successfully","identifier":"panel.otomuhasebe.com","issuer":"acme-v02.api.letsencrypt.org-directory"}
+otomuhasebe-caddy  | {"level":"info","ts":1768732490.568439,"logger":"tls.obtain","msg":"releasing lock","identifier":"panel.otomuhasebe.com"}
+
+=== PROD CHECKLIST & SMOKE ===
+1) 80/443'ü Caddy dinliyor mu?
+LISTEN 0      4096         0.0.0.0:80         0.0.0.0:*    users:(("docker-proxy",pid=1201652,fd=7))                                                                                                                                            
+LISTEN 0      4096         0.0.0.0:443        0.0.0.0:*    users:(("docker-proxy",pid=1201675,fd=7))                                                                                                                                            
+LISTEN 0      4096            [::]:80            [::]:*    users:(("docker-proxy",pid=1201659,fd=7))                                                                                                                                            
+LISTEN 0      4096            [::]:443           [::]:*    users:(("docker-proxy",pid=1201682,fd=7))                                                                                                                                            
+
+2) Docker servisleri up mı?
+time="2026-01-18T10:39:43Z" level=warning msg="/var/www/docker/compose/docker-compose.base.yml: the attribute `version` is obsolete, it will be ignored, please remove it to avoid potential confusion"
+NAME                            IMAGE                         COMMAND                  SERVICE               CREATED          STATUS                    PORTS
+compose-admin-panel-1           compose-admin-panel           "/docker-entrypoint.…"   admin-panel           48 minutes ago   Up 48 minutes (healthy)   0.0.0.0:3022->80/tcp, [::]:3022->80/tcp
+compose-admin-panel-staging-1   compose-admin-panel-staging   "/docker-entrypoint.…"   admin-panel-staging   3 hours ago      Up 3 hours (healthy)      80/tcp
+compose-backend-1               compose-backend               "docker-entrypoint.s…"   backend               48 minutes ago   Up 48 minutes (healthy)   0.0.0.0:3021->3000/tcp, [::]:3021->3000/tcp
+compose-backend-staging-1       compose-backend-staging       "docker-entrypoint.s…"   backend-staging       3 hours ago      Up 3 hours (healthy)      3000/tcp
+compose-landing-page-1          compose-landing-page          "dumb-init -- node s…"   landing-page          48 minutes ago   Up 48 minutes (healthy)   0.0.0.0:3023->3000/tcp, [::]:3023->3000/tcp
+compose-user-panel-1            compose-user-panel            "docker-entrypoint.s…"   user-panel            48 minutes ago   Up 48 minutes (healthy)   0.0.0.0:3025->3000/tcp, [::]:3025->3000/tcp
+otomuhasebe-caddy               caddy:2                       "caddy run --config …"   caddy                 5 minutes ago    Up 4 minutes              0.0.0.0:80->80/tcp, [::]:80->80/tcp, 0.0.0.0:443->443/tcp, [::]:443->443/tcp, 443/udp, 2019/tcp
+otomuhasebe-postgres            postgres:16-alpine            "docker-entrypoint.s…"   postgres              3 hours ago      Up 3 hours (healthy)      5432/tcp
+otomuhasebe-redis               redis:7-alpine                "docker-entrypoint.s…"   redis                 3 hours ago      Up 3 hours (healthy)      6379/tcp
+
+3) Domain Smoke (2xx/3xx beklenir)
+→ https://panel.otomuhasebe.com → HTTP 200
+→ https://admin.otomuhasebe.com → HTTP 200
+→ https://www.otomuhasebe.com → HTTP 200
+→ https://api.otomuhasebe.com/api/health → HTTP 200
+
+4) Caddy loglarında kritik hata var mı? (özet)
+time="2026-01-18T10:39:43Z" level=warning msg="/var/www/docker/compose/docker-compose.base.yml: the attribute `version` is obsolete, it will be ignored, please remove it to avoid potential confusion"
+otomuhasebe-caddy  | Error: adapting config using caddyfile: subject does not qualify for certificate: '{panel.otomuhasebe.com}'
+otomuhasebe-caddy  | Error: adapting config using caddyfile: subject does not qualify for certificate: '{panel.otomuhasebe.com}'
+otomuhasebe-caddy  | Error: adapting config using caddyfile: subject does not qualify for certificate: '{panel.otomuhasebe.com}'
+otomuhasebe-caddy  | {"level":"info","ts":1768732486.6119654,"logger":"http.auto_https","msg":"server is listening only on the HTTPS port but has no TLS connection policies; adding one to enable TLS","server_name":"srv0","https_port":443}
+otomuhasebe-caddy  | {"level":"info","ts":1768732486.612069,"logger":"tls.cache.maintenance","msg":"started background certificate maintenance","cache":"0xc0006e0880"}
+otomuhasebe-caddy  | {"level":"warn","ts":1768732486.6141138,"logger":"http","msg":"HTTP/2 skipped because it requires TLS","network":"tcp","addr":":80"}
+otomuhasebe-caddy  | {"level":"warn","ts":1768732486.6144207,"logger":"http","msg":"HTTP/3 skipped because it requires TLS","network":"tcp","addr":":80"}
+otomuhasebe-caddy  | {"level":"info","ts":1768732486.6145337,"logger":"http","msg":"enabling automatic TLS certificate management","domains":["panel.otomuhasebe.com","admin.otomuhasebe.com","www.otomuhasebe.com","api.otomuhasebe.com"]}
+otomuhasebe-caddy  | {"level":"info","ts":1768732486.6210492,"logger":"tls.obtain","msg":"acquiring lock","identifier":"panel.otomuhasebe.com"}
+otomuhasebe-caddy  | {"level":"info","ts":1768732486.6217587,"logger":"tls","msg":"storage cleaning happened too recently; skipping for now","storage":"FileStorage:/data/caddy","instance":"fc2fb66a-d4f5-40a2-b107-457a1d698e9b","try_again":1768818886.6217573,"try_again_in":86399.999999679}
+otomuhasebe-caddy  | {"level":"info","ts":1768732486.6220856,"logger":"tls","msg":"finished cleaning storage units"}
+otomuhasebe-caddy  | {"level":"info","ts":1768732486.6225994,"logger":"tls.obtain","msg":"lock acquired","identifier":"panel.otomuhasebe.com"}
+otomuhasebe-caddy  | {"level":"info","ts":1768732486.6227026,"logger":"tls.obtain","msg":"obtaining certificate","identifier":"panel.otomuhasebe.com"}
+otomuhasebe-caddy  | {"level":"info","ts":1768732486.6232686,"logger":"tls.issuance.acme","msg":"waiting on internal rate limiter","identifiers":["panel.otomuhasebe.com"],"ca":"https://acme-v02.api.letsencrypt.org/directory","account":"admin@otomuhasebe.com"}
+otomuhasebe-caddy  | {"level":"info","ts":1768732486.6233833,"logger":"tls.issuance.acme","msg":"done waiting on internal rate limiter","identifiers":["panel.otomuhasebe.com"],"ca":"https://acme-v02.api.letsencrypt.org/directory","account":"admin@otomuhasebe.com"}
+otomuhasebe-caddy  | {"level":"info","ts":1768732486.6234872,"logger":"tls.issuance.acme","msg":"using ACME account","account_id":"https://acme-v02.api.letsencrypt.org/acme/acct/2973682986","account_contact":["mailto:admin@otomuhasebe.com"]}
+otomuhasebe-caddy  | {"level":"info","ts":1768732487.454256,"msg":"trying to solve challenge","identifier":"panel.otomuhasebe.com","challenge_type":"http-01","ca":"https://acme-v02.api.letsencrypt.org/directory"}
+otomuhasebe-caddy  | {"level":"info","ts":1768732487.9726317,"logger":"tls.issuance.acme","msg":"served key authentication","identifier":"panel.otomuhasebe.com","challenge":"http-01","remote":"23.178.112.108:40549","distributed":false}
+otomuhasebe-caddy  | {"level":"info","ts":1768732488.280413,"logger":"tls.issuance.acme","msg":"served key authentication","identifier":"panel.otomuhasebe.com","challenge":"http-01","remote":"16.16.94.16:24562","distributed":false}
+otomuhasebe-caddy  | {"level":"info","ts":1768732488.376265,"logger":"tls.issuance.acme","msg":"served key authentication","identifier":"panel.otomuhasebe.com","challenge":"http-01","remote":"3.128.170.224:22652","distributed":false}
+otomuhasebe-caddy  | {"level":"info","ts":1768732488.5577836,"logger":"tls.issuance.acme","msg":"served key authentication","identifier":"panel.otomuhasebe.com","challenge":"http-01","remote":"13.214.201.68:13878","distributed":false}
+otomuhasebe-caddy  | {"level":"info","ts":1768732488.5700033,"logger":"tls.issuance.acme","msg":"served key authentication","identifier":"panel.otomuhasebe.com","challenge":"http-01","remote":"16.144.18.75:18924","distributed":false}
+otomuhasebe-caddy  | {"level":"info","ts":1768732489.503573,"msg":"validations succeeded; finalizing order","order":"https://acme-v02.api.letsencrypt.org/acme/order/2973682986/470802122686"}
+otomuhasebe-caddy  | {"level":"info","ts":1768732490.559292,"msg":"successfully downloaded available certificate chains","count":2,"first_url":"https://acme-v02.api.letsencrypt.org/acme/cert/05877661ad47b10cfddb0ed139c47d990a36"}
+otomuhasebe-caddy  | {"level":"info","ts":1768732490.56826,"logger":"tls.obtain","msg":"certificate obtained successfully","identifier":"panel.otomuhasebe.com","issuer":"acme-v02.api.letsencrypt.org-directory"}
+otomuhasebe-caddy  | {"level":"info","ts":1768732490.568439,"logger":"tls.obtain","msg":"releasing lock","identifier":"panel.otomuhasebe.com"}
+
+=== CHECKLIST SONUÇ ===
+✅ PROD READY: Tüm kontroller geçti.
+
+==========================================================
+ PostgreSQL Role Hardening (öneri – prod öncesi 5dk)
+==========================================================
+- Şu an root (superuser) ile çalışmanız yeterli oldu.
+- Prod için aşağıdaki yaklaşımı öneririz:
+
+1) Uygulama rolü oluşturun (süperuser değil):
+   CREATE ROLE app_user WITH LOGIN PASSWORD 'GÜÇLÜ_PAROLA';
+   GRANT CONNECT ON DATABASE otomuhasebe_prod TO app_user;
+
+2) Şema/tabela yetkilerini kademeli verin (örnek):
+   \c otomuhasebe_prod
+   CREATE SCHEMA IF NOT EXISTS app AUTHORIZATION app_user;
+   GRANT USAGE ON SCHEMA public TO app_user;
+   GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO app_user;
+   ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO app_user;
+
+3) .env.production içinde:
+   DATABASE_URL=postgresql://app_user:...@postgres:5432/otomuhasebe_prod
+
+Not: Prisma migrate işlemleri için ayrı bir yetkili rol kullanabilirsiniz (migration runner).
+
+=== TAMAMLANDI ===
+Rapor: /var/www/cutover-hardening-report.txt
