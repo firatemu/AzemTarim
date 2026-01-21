@@ -151,6 +151,30 @@
     color: var(--foreground);
   }
   
+  /* Dialog overrides for both light and dark mode */
+  .MuiDialog-paper {
+    background-color: var(--card);
+    background-image: none;
+    color: var(--card-foreground);
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+  }
+  
+  .MuiDialogContent-root {
+    background-color: var(--background);
+    color: var(--foreground);
+  }
+  
+  .MuiDialogTitle-root {
+    color: var(--foreground);
+    border-bottom: 1px solid var(--border);
+  }
+  
+  .MuiDialogActions-root {
+    border-top: 1px solid var(--border);
+    background-color: var(--card);
+  }
+  
   /* Reusable MUI Component Styles */
   
   /* Form Control - Select Dropdown */
