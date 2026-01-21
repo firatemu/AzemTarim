@@ -78,7 +78,7 @@ export default function LoginPage() {
       <Box
         sx={{
           minHeight: '100vh',
-          background: 'linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%)',
+          background: 'var(--background)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -91,7 +91,7 @@ export default function LoginPage() {
     <Box
       sx={{
         minHeight: '100vh',
-        background: 'linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%)',
+        background: 'var(--background)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -120,7 +120,7 @@ export default function LoginPage() {
               width: `${100 + i * 50}px`,
               height: `${100 + i * 50}px`,
               borderRadius: '50%',
-              background: alpha('#fff', 0.05),
+              background: 'color-mix(in srgb, var(--primary) 8%, transparent)',
               left: `${Math.random() * 100}%`,
               top: `${Math.random() * 100}%`,
               animation: `float ${10 + i * 2}s ease-in-out infinite`,

@@ -3,6 +3,7 @@
 import { theme } from '@/lib/theme';
 import QueryProvider from '@/providers/QueryProvider';
 import StorageGuard from '@/providers/StorageGuard';
+import { useThemeStore } from '@/stores/themeStore';
 import { AppRouterCacheProvider } from '@mui/material-nextjs/v15-appRouter';
 import CssBaseline from '@mui/material/CssBaseline';
 import { ThemeProvider } from '@mui/material/styles';
@@ -14,6 +15,8 @@ export default function ClientLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const { isDarkMode, setDarkMode } = useThemeStore();
+
   useEffect(() => {
     // Clear corrupted cache on first load
     if (typeof window !== 'undefined') {
@@ -34,8 +37,21 @@ export default function ClientLayout({
       } catch (e) {
         // ignore localStorage errors - storage might not be available
       }
+
+      // Initialize dark mode from localStorage
+      try {
+        const themeData = window.localStorage?.getItem('theme-storage');
+        if (themeData) {
+          const parsed = JSON.parse(themeData);
+          if (parsed.state?.isDarkMode !== undefined) {
+            setDarkMode(parsed.state.isDarkMode);
+          }
+        }
+      } catch (e) {
+        // ignore localStorage errors
+      }
     }
-  }, []);
+  }, [setDarkMode]);
 
   return (
     <StorageGuard>

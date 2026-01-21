@@ -22,8 +22,11 @@ import {
   PushPinOutlined,
   Settings,
   Notifications,
+  LightMode,
+  DarkMode,
 } from '@mui/icons-material';
 import { useAuthStore } from '@/stores/authStore';
+import { useThemeStore } from '@/stores/themeStore';
 import { useRouter } from 'next/navigation';
 import { SIDEBAR_WIDTH } from './Sidebar';
 
@@ -37,6 +40,7 @@ export default function Header({ onToggleSidebar, onToggleSidebarPin, sidebarPin
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
   const [currentDateTime, setCurrentDateTime] = useState('');
   const { user, clearAuth } = useAuthStore();
+  const { isDarkMode, toggleDarkMode } = useThemeStore();
   const router = useRouter();
 
   // Sistem tarih/saat güncelleme
@@ -142,6 +146,31 @@ export default function Header({ onToggleSidebar, onToggleSidebarPin, sidebarPin
 
         {/* Right Section - Actions & User */}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+          {/* Dark Mode Toggle */}
+          <IconButton
+            onClick={toggleDarkMode}
+            size="small"
+            sx={{
+              color: 'var(--muted-foreground)',
+              bgcolor: 'var(--muted)',
+              border: '1px solid var(--border)',
+              '&:hover': {
+                bgcolor: 'var(--accent)',
+                color: 'var(--foreground)',
+                borderColor: 'var(--primary)',
+                transform: 'scale(1.05)',
+              },
+              transition: 'all 0.2s ease',
+            }}
+            title={isDarkMode ? 'Aydınlık Mod' : 'Karanlık Mod'}
+          >
+            {isDarkMode ? (
+              <LightMode sx={{ fontSize: 20, color: 'var(--chart-3)' }} />
+            ) : (
+              <DarkMode sx={{ fontSize: 20, color: 'var(--primary)' }} />
+            )}
+          </IconButton>
+
           {/* Date/Time Chip */}
           <Chip
             icon={<CalendarMonth sx={{ fontSize: 16 }} />}
