@@ -28,6 +28,7 @@ import {
   Divider,
   InputAdornment,
   FormHelperText,
+  CircularProgress,
 } from '@mui/material';
 import { Add, Edit, Delete, Search, FileDownload, History, CompareArrows } from '@mui/icons-material';
 import * as XLSX from 'xlsx';
@@ -1810,75 +1811,104 @@ export default function MalzemeListesiPage() {
         onClose={handleCloseEsdegerDialog}
         maxWidth="md"
         fullWidth
+        PaperProps={{
+          sx: {
+            bgcolor: 'var(--card)',
+            backgroundImage: 'none',
+          },
+        }}
       >
-        <DialogTitle sx={{ bgcolor: '#191970', color: 'white', py: 2 }}>
+        <DialogTitle sx={{ 
+          bgcolor: 'var(--secondary)', 
+          color: 'var(--secondary-foreground)', 
+          py: 2,
+          borderBottom: '1px solid var(--border)',
+        }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <CompareArrows />
-            <Typography variant="h6" fontWeight={600}>
+            <CompareArrows sx={{ color: 'var(--secondary-foreground)' }} />
+            <Typography variant="h6" fontWeight={700}>
               Eşdeğer Ürünler
             </Typography>
           </Box>
         </DialogTitle>
-        <DialogContent sx={{ mt: 2 }}>
+        <DialogContent sx={{ mt: 2, bgcolor: 'var(--background)' }}>
           {esdegerMalzeme && (
-            <Box sx={{ mb: 3 }}>
-              <Typography variant="body2" color="text.secondary">
+            <Box sx={{ mb: 3, p: 2, bgcolor: 'color-mix(in srgb, var(--primary) 5%, transparent)', borderRadius: 'var(--radius)', border: '1px solid var(--border)' }}>
+              <Typography variant="body2" sx={{ color: 'var(--muted-foreground)', mb: 0.5 }}>
                 Ürün:
               </Typography>
-              <Typography variant="h6" fontWeight={600} color="#191970">
+              <Typography variant="h6" fontWeight={700} sx={{ color: 'var(--primary)' }}>
                 {esdegerMalzeme.stokKodu} - {esdegerMalzeme.stokAdi}
               </Typography>
             </Box>
           )}
 
           {esdegerLoading ? (
-            <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
-              <Typography variant="body2" color="text.secondary">
+            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 4 }}>
+              <CircularProgress size={24} sx={{ mr: 2 }} />
+              <Typography variant="body2" sx={{ color: 'var(--muted-foreground)' }}>
                 Yükleniyor...
               </Typography>
             </Box>
           ) : esdegerUrunler.length === 0 ? (
             <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', py: 4 }}>
-              <CompareArrows sx={{ fontSize: 48, color: 'text.secondary', mb: 2 }} />
-              <Typography variant="body1" color="text.secondary" fontWeight={500}>
+              <CompareArrows sx={{ fontSize: 48, color: 'var(--muted-foreground)', mb: 2 }} />
+              <Typography variant="body1" sx={{ color: 'var(--foreground)', fontWeight: 500 }}>
                 Bu ürünün eşdeğeri bulunmamaktadır
               </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+              <Typography variant="body2" sx={{ color: 'var(--muted-foreground)', mt: 1 }}>
                 Eşdeğer ürünleri eklemek için eşleştirme yapabilirsiniz
               </Typography>
             </Box>
           ) : (
-            <TableContainer>
+            <TableContainer component={Paper} sx={{ bgcolor: 'var(--card)', boxShadow: 'var(--shadow-sm)' }}>
               <Table size="small">
-                <TableHead sx={{ bgcolor: '#f5f5f5' }}>
-                  <TableRow>
-                    <TableCell><strong>Stok Kodu</strong></TableCell>
-                    <TableCell><strong>Stok Adı</strong></TableCell>
-                    <TableCell><strong>Marka</strong></TableCell>
-                    <TableCell align="center"><strong>Miktar</strong></TableCell>
-                    <TableCell align="right"><strong>Alış Fiyatı</strong></TableCell>
-                    <TableCell align="right"><strong>Satış Fiyatı</strong></TableCell>
+                <TableHead>
+                  <TableRow sx={{ bgcolor: 'var(--muted)' }}>
+                    <TableCell sx={{ fontWeight: 700, color: 'var(--foreground) !important' }}><strong>Stok Kodu</strong></TableCell>
+                    <TableCell sx={{ fontWeight: 700, color: 'var(--foreground) !important' }}><strong>Stok Adı</strong></TableCell>
+                    <TableCell sx={{ fontWeight: 700, color: 'var(--foreground) !important' }}><strong>Marka</strong></TableCell>
+                    <TableCell align="center" sx={{ fontWeight: 700, color: 'var(--foreground) !important' }}><strong>Miktar</strong></TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 700, color: 'var(--foreground) !important' }}><strong>Alış Fiyatı</strong></TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 700, color: 'var(--foreground) !important' }}><strong>Satış Fiyatı</strong></TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
                   {esdegerUrunler.map((urun: any) => (
-                    <TableRow key={urun.id} hover>
+                    <TableRow 
+                      key={urun.id} 
+                      hover
+                      sx={{
+                        bgcolor: 'var(--background)',
+                        '&:hover': {
+                          bgcolor: 'var(--muted) !important',
+                        },
+                        borderBottom: '1px solid var(--border)',
+                      }}
+                    >
                       <TableCell>
-                        <Typography variant="body2" fontWeight={600} color="#191970">
+                        <Typography variant="body2" fontWeight={600} sx={{ color: 'var(--primary)' }}>
                           {urun.stokKodu}
                         </Typography>
                       </TableCell>
-                      <TableCell>{urun.stokAdi}</TableCell>
-                      <TableCell>{urun.marka || '-'}</TableCell>
+                      <TableCell sx={{ color: 'var(--foreground)' }}>{urun.stokAdi}</TableCell>
+                      <TableCell sx={{ color: 'var(--muted-foreground)' }}>{urun.marka || '-'}</TableCell>
                       <TableCell align="center">
                         <Chip
                           label={urun.miktar ?? 0}
                           size="small"
-                          color={urun.miktar > 0 ? 'success' : 'error'}
+                          sx={{
+                            bgcolor: urun.miktar > 0 
+                              ? 'color-mix(in srgb, var(--chart-2) 15%, transparent)' 
+                              : 'color-mix(in srgb, var(--destructive) 15%, transparent)',
+                            color: urun.miktar > 0 ? 'var(--chart-2)' : 'var(--destructive)',
+                            borderColor: urun.miktar > 0 ? 'var(--chart-2)' : 'var(--destructive)',
+                          }}
+                          variant="outlined"
                         />
                       </TableCell>
                       <TableCell align="right">
-                        <Typography variant="body2">
+                        <Typography variant="body2" sx={{ color: 'var(--foreground)' }}>
                           ₺{Number(urun.alisFiyati ?? 0).toLocaleString('tr-TR', {
                             minimumFractionDigits: 2,
                             maximumFractionDigits: 2,
@@ -1886,7 +1916,7 @@ export default function MalzemeListesiPage() {
                         </Typography>
                       </TableCell>
                       <TableCell align="right">
-                        <Typography variant="body2" fontWeight={600}>
+                        <Typography variant="body2" fontWeight={600} sx={{ color: 'var(--primary)' }}>
                           ₺{Number(urun.satisFiyati ?? 0).toLocaleString('tr-TR', {
                             minimumFractionDigits: 2,
                             maximumFractionDigits: 2,
@@ -1900,8 +1930,19 @@ export default function MalzemeListesiPage() {
             </TableContainer>
           )}
         </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button onClick={handleCloseEsdegerDialog} variant="outlined">
+        <DialogActions sx={{ px: 3, pb: 2, bgcolor: 'var(--card)', borderTop: '1px solid var(--border)' }}>
+          <Button 
+            onClick={handleCloseEsdegerDialog} 
+            variant="outlined"
+            sx={{
+              borderColor: 'var(--border)',
+              color: 'var(--foreground)',
+              '&:hover': {
+                borderColor: 'var(--primary)',
+                bgcolor: 'color-mix(in srgb, var(--primary) 10%, transparent)',
+              },
+            }}
+          >
             Kapat
           </Button>
         </DialogActions>
