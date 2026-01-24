@@ -1,10 +1,12 @@
 module.exports = {
   apps: [{
     name: 'api-stage',
-    script: './dist/main.js',
+    script: 'npm',
+    args: 'run start:dev',
+    cwd: '/var/www/api-stage/server',
     instances: 1,
     autorestart: true,
-    watch: false,
+    watch: false, // NestJS kendi watch'ını kullanıyor
     max_memory_restart: '1G',
     env: {
       NODE_ENV: 'production',

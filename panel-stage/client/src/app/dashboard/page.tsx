@@ -41,6 +41,7 @@ import {
   DateRange,
   NotificationsActive,
   Email,
+  CreditCard,
 } from '@mui/icons-material';
 import MainLayout from '@/components/Layout/MainLayout';
 import axios from '@/lib/axios';
@@ -64,6 +65,7 @@ interface GunlukHatirlatici {
   cekSenetler: any[];
   personelOdemeleri: any[];
   vadesiGecenFaturalar: any[];
+  firmaKrediKartlari: any[];
 }
 
 export default function DashboardPage() {
@@ -72,6 +74,7 @@ export default function DashboardPage() {
     cekSenetler: [],
     personelOdemeleri: [],
     vadesiGecenFaturalar: [],
+    firmaKrediKartlari: [],
   });
   const [hatirlaticiOpen, setHatirlaticiOpen] = useState(true);
   const [loading, setLoading] = useState(false);
@@ -92,7 +95,8 @@ export default function DashboardPage() {
   const toplamHatirlatici = 
     hatirlaticilar.cekSenetler.length + 
     hatirlaticilar.personelOdemeleri.length + 
-    hatirlaticilar.vadesiGecenFaturalar.length;
+    hatirlaticilar.vadesiGecenFaturalar.length +
+    hatirlaticilar.firmaKrediKartlari.length;
 
   useEffect(() => {
     fetchGunlukHatirlaticilar();
@@ -219,16 +223,27 @@ export default function DashboardPage() {
         console.log('Fatura hatırlatıcıları yüklenemedi:', faturaError);
       }
 
+      // Firma kredi kartı hatırlatıcıları
+      let firmaKrediKartlari: any[] = [];
+      try {
+        const kartRes = await axios.get('/firma-kredi-karti/hatirlaticilar/bugun');
+        firmaKrediKartlari = kartRes.data || [];
+      } catch (kartError) {
+        console.error('Firma kredi kartı hatırlatıcıları yüklenemedi:', kartError);
+      }
+
       console.log('📊 Hatırlatıcı Özeti:', {
         cekSenet: cekSenetler.length,
         personel: personelOdemeleri.length,
         fatura: vadesiGecenFaturalar.length,
+        firmaKrediKartlari: firmaKrediKartlari.length,
       });
 
       setHatirlaticilar({
         cekSenetler: cekSenetler,
         personelOdemeleri,
         vadesiGecenFaturalar: vadesiGecenFaturalar.slice(0, 5),
+        firmaKrediKartlari,
       });
     } catch (error) {
       console.error('Hatırlatıcılar yüklenirken hata:', error);
@@ -237,6 +252,7 @@ export default function DashboardPage() {
         cekSenetler: [],
         personelOdemeleri: [],
         vadesiGecenFaturalar: [],
+        firmaKrediKartlari: [],
       });
     } finally {
       setLoading(false);
@@ -1038,6 +1054,97 @@ export default function DashboardPage() {
                           }}
                         >
                           Tümünü Gör ({hatirlaticilar.vadesiGecenFaturalar.length})
+                        </Button>
+                      )}
+                    </List>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Firma Kredi Kartı Hatırlatıcıları */}
+              {hatirlaticilar.firmaKrediKartlari.length > 0 && (
+                <Card sx={{ 
+                  flex: '1 1 calc(33.33% - 16px)', 
+                  minWidth: 280,
+                  borderRadius: 'var(--radius)',
+                  border: '1px solid var(--border)',
+                  bgcolor: 'var(--card)',
+                  boxShadow: 'var(--shadow-sm)',
+                  transition: 'all 0.2s ease',
+                  '&:hover': {
+                    boxShadow: 'var(--shadow-md)',
+                  },
+                }}>
+                  <CardContent sx={{ p: 2 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <CreditCard sx={{ fontSize: 20, color: 'var(--chart-3)' }} />
+                        <Typography variant="h6" sx={{ fontSize: '0.9375rem', fontWeight: 600 }}>
+                          Firma Kredi Kartları
+                        </Typography>
+                      </Box>
+                      <Chip 
+                        label={hatirlaticilar.firmaKrediKartlari.length} 
+                        size="small" 
+                        sx={{ 
+                          bgcolor: 'var(--chart-3)',
+                          color: 'white',
+                          fontWeight: 600,
+                          fontSize: '0.75rem',
+                        }} 
+                      />
+                    </Box>
+                    <List dense sx={{ p: 0 }}>
+                      {hatirlaticilar.firmaKrediKartlari.slice(0, 3).map((r: any) => (
+                        <ListItem 
+                          key={r.id} 
+                          sx={{ 
+                            px: 1.5,
+                            py: 1,
+                            mb: 0.75,
+                            cursor: 'pointer',
+                            borderRadius: 'var(--radius-md)',
+                            bgcolor: 'transparent',
+                            border: '1px solid transparent',
+                            '&:hover': {
+                              bgcolor: 'color-mix(in srgb, var(--chart-3) 8%, transparent)',
+                              borderColor: 'color-mix(in srgb, var(--chart-3) 20%, transparent)',
+                            },
+                            transition: 'all 0.2s ease',
+                          }}
+                          onClick={() => router.push(`/kasa/${r.kart.kasa.id}`)}
+                        >
+                          <ListItemText
+                            primary={
+                              <Typography variant="body2" sx={{ fontWeight: 600, fontSize: '0.8125rem' }}>
+                                {r.kart.kartAdi || r.kart.kartKodu}
+                              </Typography>
+                            }
+                            secondary={
+                              <Typography variant="caption" sx={{ color: 'var(--muted-foreground)', fontSize: '0.75rem' }}>
+                                {r.kart.bankaAdi} • {r.tip === 'HESAP_KESIM_TARIHI' ? 'Hesap Kesim' : 'Son Ödeme'}
+                              </Typography>
+                            }
+                          />
+                        </ListItem>
+                      ))}
+                      {hatirlaticilar.firmaKrediKartlari.length > 3 && (
+                        <Button 
+                          size="small" 
+                          fullWidth 
+                          onClick={() => router.push('/kasa')}
+                          sx={{ 
+                            mt: 1,
+                            textTransform: 'none',
+                            fontWeight: 600,
+                            bgcolor: 'var(--muted)',
+                            color: 'var(--foreground)',
+                            '&:hover': {
+                              bgcolor: 'var(--muted-hover)',
+                            },
+                          }}
+                        >
+                          Tümünü Gör ({hatirlaticilar.firmaKrediKartlari.length})
                         </Button>
                       )}
                     </List>

@@ -2,7 +2,8 @@
 
 import MainLayout from '@/components/Layout/MainLayout';
 import axios from '@/lib/axios';
-import { Add, Assignment, Close, Delete, Edit, Print, Search, Undo, Visibility, Send, CheckCircle, Error as ErrorIcon, HourglassEmpty, CloudUpload, LocalShipping, Cancel, ArrowUpward, ArrowDownward, MoreVert } from '@mui/icons-material';
+import { getProfitByInvoice, type ProfitByInvoiceResponse } from '@/services/invoiceProfitService';
+import { Add, Assignment, Close, Delete, Edit, Print, Search, Undo, Visibility, Send, CheckCircle, Error as ErrorIcon, HourglassEmpty, CloudUpload, LocalShipping, Cancel, ArrowUpward, ArrowDownward, MoreVert, TrendingUp } from '@mui/icons-material';
 import {
   Alert,
   Box,
@@ -148,6 +149,11 @@ export default function SatisFaturalariPage() {
   // Açılır menü state
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [menuFaturaId, setMenuFaturaId] = useState<string | null>(null);
+
+  // Kar görüntüleme state
+  const [openProfitDialog, setOpenProfitDialog] = useState(false);
+  const [profitData, setProfitData] = useState<any>(null);
+  const [loadingProfit, setLoadingProfit] = useState(false);
 
 
 
@@ -1143,6 +1149,40 @@ export default function SatisFaturalariPage() {
                         <Typography variant="body2">İade Oluştur</Typography>
                       </MenuItem>
 
+                      {fatura.faturaTipi === 'SATIS' && (
+                        <MenuItem
+                          onClick={async () => {
+                            try {
+                              setLoadingProfit(true);
+                              const profit = await getProfitByInvoice(fatura.id);
+                              setProfitData(profit);
+                              setOpenProfitDialog(true);
+                            } catch (error: any) {
+                              showSnackbar(
+                                error.response?.data?.message || 'Kar bilgileri yüklenirken hata oluştu',
+                                'error'
+                              );
+                            } finally {
+                              setLoadingProfit(false);
+                              handleMenuClose();
+                            }
+                          }}
+                          disabled={loadingProfit}
+                          sx={{
+                            gap: 1.5,
+                            py: 1,
+                            '&:hover': { bgcolor: 'color-mix(in srgb, #10b981 10%, transparent)' }
+                          }}
+                        >
+                          {loadingProfit ? (
+                            <CircularProgress size={16} sx={{ color: '#10b981' }} />
+                          ) : (
+                            <TrendingUp fontSize="small" sx={{ color: '#10b981' }} />
+                          )}
+                          <Typography variant="body2" sx={{ color: 'var(--foreground)' }}>Karlılık Görüntüle</Typography>
+                        </MenuItem>
+                      )}
+
                       {fatura.durum === 'ONAYLANDI' && fatura.faturaTipi === 'SATIS' && (
                         <MenuItem
                           onClick={() => {
@@ -1598,6 +1638,193 @@ export default function SatisFaturalariPage() {
             }}
           >
             Onayla ve Değiştir
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Kar Görüntüleme Dialog */}
+      <Dialog
+        open={openProfitDialog}
+        onClose={() => {
+          setOpenProfitDialog(false);
+          setProfitData(null);
+        }}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle>
+          <Box display="flex" alignItems="center" gap={2}>
+            <TrendingUp sx={{ color: '#10b981' }} />
+            <Typography variant="h6">Fatura Karlılığı</Typography>
+            {profitData && (
+              <Chip
+                label={profitData.fatura.faturaNo}
+                color="primary"
+                size="small"
+              />
+            )}
+          </Box>
+        </DialogTitle>
+        <DialogContent>
+          {loadingProfit ? (
+            <Box display="flex" justifyContent="center" py={4}>
+              <CircularProgress />
+            </Box>
+          ) : profitData ? (
+            <Box>
+              {/* Fatura Özeti */}
+              <Paper elevation={1} sx={{ p: 3, mb: 3, bgcolor: '#f9fafb' }}>
+                <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                  Fatura Özeti
+                </Typography>
+                <Box display="flex" justifyContent="space-between" mb={2}>
+                  <Typography variant="body2">Cari:</Typography>
+                  <Typography variant="body2" fontWeight="bold">
+                    {profitData.fatura.cari.unvan}
+                  </Typography>
+                </Box>
+                <Box display="flex" justifyContent="space-between" mb={2}>
+                  <Typography variant="body2">Tarih:</Typography>
+                  <Typography variant="body2">
+                    {new Date(profitData.fatura.tarih).toLocaleDateString('tr-TR')}
+                  </Typography>
+                </Box>
+                <Box display="flex" justifyContent="space-between" mb={2}>
+                  <Typography variant="body2">Toplam Satış:</Typography>
+                  <Typography variant="body2" fontWeight="bold" color="primary">
+                    {new Intl.NumberFormat('tr-TR', {
+                      style: 'currency',
+                      currency: 'TRY',
+                    }).format(profitData.fatura.toplamSatisTutari)}
+                  </Typography>
+                </Box>
+                <Box display="flex" justifyContent="space-between" mb={2}>
+                  <Typography variant="body2">Toplam Maliyet:</Typography>
+                  <Typography variant="body2" fontWeight="bold">
+                    {new Intl.NumberFormat('tr-TR', {
+                      style: 'currency',
+                      currency: 'TRY',
+                    }).format(profitData.fatura.toplamMaliyet)}
+                  </Typography>
+                </Box>
+                <Box display="flex" justifyContent="space-between" mb={2}>
+                  <Typography variant="body2" fontWeight="bold">Toplam Kar:</Typography>
+                  <Typography
+                    variant="h6"
+                    fontWeight="bold"
+                    color={profitData.fatura.toplamKar >= 0 ? 'success.main' : 'error.main'}
+                  >
+                    {new Intl.NumberFormat('tr-TR', {
+                      style: 'currency',
+                      currency: 'TRY',
+                    }).format(profitData.fatura.toplamKar)}
+                  </Typography>
+                </Box>
+                <Box display="flex" justifyContent="space-between">
+                  <Typography variant="body2">Kar Oranı:</Typography>
+                  <Typography
+                    variant="body2"
+                    fontWeight="bold"
+                    color={profitData.fatura.karOrani >= 0 ? 'success.main' : 'error.main'}
+                  >
+                    {profitData.fatura.karOrani.toFixed(2)}%
+                  </Typography>
+                </Box>
+              </Paper>
+
+              {/* Kalem Detayları */}
+              <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                Kalem Detayları
+              </Typography>
+              <TableContainer component={Paper} variant="outlined">
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Ürün</TableCell>
+                      <TableCell align="right">Miktar</TableCell>
+                      <TableCell align="right">Birim Fiyat</TableCell>
+                      <TableCell align="right">Birim Maliyet</TableCell>
+                      <TableCell align="right">Toplam Satış</TableCell>
+                      <TableCell align="right">Toplam Maliyet</TableCell>
+                      <TableCell align="right">Kar</TableCell>
+                      <TableCell align="right">Kar Oranı</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {profitData.kalemler.map((kalem: any) => (
+                      <TableRow key={kalem.id}>
+                        <TableCell>
+                          <Typography variant="body2" fontWeight="medium">
+                            {kalem.stok?.stokKodu || '-'}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            {kalem.stok?.stokAdi || '-'}
+                          </Typography>
+                        </TableCell>
+                        <TableCell align="right">{kalem.miktar}</TableCell>
+                        <TableCell align="right">
+                          {new Intl.NumberFormat('tr-TR', {
+                            style: 'currency',
+                            currency: 'TRY',
+                          }).format(kalem.birimFiyat)}
+                        </TableCell>
+                        <TableCell align="right">
+                          {new Intl.NumberFormat('tr-TR', {
+                            style: 'currency',
+                            currency: 'TRY',
+                          }).format(kalem.birimMaliyet)}
+                        </TableCell>
+                        <TableCell align="right">
+                          {new Intl.NumberFormat('tr-TR', {
+                            style: 'currency',
+                            currency: 'TRY',
+                          }).format(kalem.toplamSatisTutari)}
+                        </TableCell>
+                        <TableCell align="right">
+                          {new Intl.NumberFormat('tr-TR', {
+                            style: 'currency',
+                            currency: 'TRY',
+                          }).format(kalem.toplamMaliyet)}
+                        </TableCell>
+                        <TableCell
+                          align="right"
+                          sx={{
+                            color: kalem.kar >= 0 ? 'success.main' : 'error.main',
+                            fontWeight: 'bold',
+                          }}
+                        >
+                          {new Intl.NumberFormat('tr-TR', {
+                            style: 'currency',
+                            currency: 'TRY',
+                          }).format(kalem.kar)}
+                        </TableCell>
+                        <TableCell
+                          align="right"
+                          sx={{
+                            color: kalem.karOrani >= 0 ? 'success.main' : 'error.main',
+                            fontWeight: 'bold',
+                          }}
+                        >
+                          {kalem.karOrani.toFixed(2)}%
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </Box>
+          ) : (
+            <Typography variant="body2" color="text.secondary">
+              Kar bilgisi bulunamadı
+            </Typography>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => {
+            setOpenProfitDialog(false);
+            setProfitData(null);
+          }}>
+            Kapat
           </Button>
         </DialogActions>
       </Dialog>

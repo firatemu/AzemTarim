@@ -117,9 +117,9 @@ export default function KasaPage() {
   };
 
   const openAddDialog = async () => {
-    await resetForm();
     setEditMode(false);
     setOpenDialog(true);
+    await resetForm();
   };
 
   const openEditDialog = (kasa: Kasa) => {

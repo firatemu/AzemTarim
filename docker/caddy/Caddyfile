@@ -47,7 +47,16 @@ panel.otomuhasebe.com {
 
 staging.otomuhasebe.com {
   import common_security
-  reverse_proxy compose-user-panel-staging-1:3000
+  
+  # API routes to backend
+  handle /api/* {
+    reverse_proxy compose-backend-staging-1:3000
+  }
+  
+  # All other routes to user panel
+  handle {
+    reverse_proxy compose-user-panel-staging-1:3000
+  }
 }
 
 staging-api.otomuhasebe.com {

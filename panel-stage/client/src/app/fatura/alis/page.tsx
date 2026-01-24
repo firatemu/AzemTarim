@@ -1051,17 +1051,24 @@ export default function AlisFaturalariPage() {
                         </TableRow>
                       </TableHead>
                       <TableBody>
-                        {selectedFatura.kalemler.map((kalem, index) => (
-                          <TableRow key={index}>
-                            <TableCell>{kalem.stok?.stokAdi || '-'}</TableCell>
-                            <TableCell>{kalem.miktar}</TableCell>
-                            <TableCell>{formatCurrency(kalem.birimFiyat)}</TableCell>
-                            <TableCell>%{kalem.kdvOrani}</TableCell>
-                            <TableCell align="right">
-                              {formatCurrency((kalem.tutar || 0) + (kalem.kdvTutar || 0))}
-                            </TableCell>
-                          </TableRow>
-                        ))}
+                        {selectedFatura.kalemler.map((kalem, index) => {
+                          // Tutar hesaplaması: (miktar * birimFiyat) + KDV
+                          const araToplam = kalem.miktar * kalem.birimFiyat;
+                          const kdvTutar = (araToplam * kalem.kdvOrani) / 100;
+                          const toplamTutar = araToplam + kdvTutar;
+                          
+                          return (
+                            <TableRow key={index}>
+                              <TableCell>{kalem.stok?.stokAdi || '-'}</TableCell>
+                              <TableCell>{kalem.miktar}</TableCell>
+                              <TableCell>{formatCurrency(kalem.birimFiyat)}</TableCell>
+                              <TableCell>%{kalem.kdvOrani}</TableCell>
+                              <TableCell align="right">
+                                {formatCurrency(toplamTutar)}
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
                       </TableBody>
                     </Table>
                   </TableContainer>

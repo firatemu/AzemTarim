@@ -132,6 +132,7 @@ const menuItems = [
       { id: 'fatura-alis', label: 'Satın Alma Faturaları', icon: ShoppingCart, path: '/fatura/alis', color: '#f59e0b' },
       { id: 'fatura-iade-satis', label: 'Satış İade Faturaları', icon: TrendingDown, path: '/fatura/iade/satis', color: '#ef4444' },
       { id: 'fatura-iade-alis', label: 'Satınalma İade Faturaları', icon: TrendingUp, path: '/fatura/iade/alis', color: '#06b6d4' },
+      { id: 'fatura-karlilik', label: 'Fatura Karlılığı', icon: TrendingUp, path: '/fatura/karlilik', color: '#10b981' },
       { id: 'fatura-arsiv', label: 'Fatura Arşivi', icon: Assessment, path: '/fatura/arsiv', color: '#ef4444' },
       { id: 'fatura-gelen-efatura', label: 'Gelen E-Faturalar', icon: CloudDownload, path: '/efatura/gelen', color: '#0ea5e9' },
     ],
@@ -267,6 +268,7 @@ const menuItems = [
     bgColor: '#f9fafb',
     subItems: [
       { id: 'ayarlar-numara-sablonlari', label: 'Numara Şablonları', icon: Settings, path: '/ayarlar/numara-sablonlari', color: '#6b7280' },
+      { id: 'ayarlar-parametreler', label: 'Parametreler', icon: Settings, path: '/ayarlar/parametreler', color: '#6b7280' },
     ],
   },
 ];

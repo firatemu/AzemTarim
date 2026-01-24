@@ -25,6 +25,7 @@ import { CodeTemplateModule } from './modules/code-template/code-template.module
 import { CostingModule } from './modules/costing/costing.module';
 import { DepoModule } from './modules/depo/depo.module';
 import { FaturaModule } from './modules/fatura/fatura.module';
+import { InvoiceProfitModule } from './modules/invoice-profit/invoice-profit.module';
 import { FirmaKrediKartiModule } from './modules/firma-kredi-karti/firma-kredi-karti.module';
 import { KasaModule } from './modules/kasa/kasa.module';
 import { KategoriModule } from './modules/kategori/kategori.module';
@@ -48,6 +49,7 @@ import { StockMoveModule } from './modules/stock-move/stock-move.module';
 import { StokHareketModule } from './modules/stok-hareket/stok-hareket.module';
 import { StokModule } from './modules/stok/stok.module';
 import { SubscriptionsModule } from './modules/subscriptions/subscriptions.module';
+import { SystemParameterModule } from './modules/system-parameter/system-parameter.module';
 import { TahsilatModule } from './modules/tahsilat/tahsilat.module';
 import { TeklifModule } from './modules/teklif/teklif.module';
 import { TenantsModule } from './modules/tenants/tenants.module';
@@ -94,6 +96,7 @@ import { ServiceWorkflowModule } from './modules/service-workflow/service-workfl
     SatınAlmaIrsaliyesiModule,
     TeklifModule,
     SayimModule,
+    SystemParameterModule,
     TahsilatModule,
     KasaModule,
     BankaHesapModule,
@@ -110,6 +113,7 @@ import { ServiceWorkflowModule } from './modules/service-workflow/service-workfl
     CodeTemplateModule,
     PriceCardModule,
     CostingModule,
+    InvoiceProfitModule,
     RaporlamaModule,
     MarkaModule,
     KategoriModule,

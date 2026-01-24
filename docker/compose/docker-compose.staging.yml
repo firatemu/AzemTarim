@@ -8,6 +8,8 @@ services:
     env_file:
       - .env.staging
     networks: [app_net]
+    ports:
+      - "3020:3000"
     depends_on:
       - postgres
     healthcheck:

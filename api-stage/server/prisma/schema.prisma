@@ -30,28 +30,28 @@ model Tenant {
   createdAt DateTime     @default(now())
   updatedAt DateTime     @updatedAt
 
-  users                User[]
-  subscription         Subscription?
-  settings             TenantSettings?
-  invoices             Fatura[]
-  auditLogs            AuditLog[]
-  stoklar              Stok[]
-  cariler              Cari[]
-  siparisler           Siparis[]
-  teklifler            Teklif[]
-  tahsilatlar          Tahsilat[]
-  kasalar              Kasa[]
-  sayimlar             Sayim[]
-  masraflar            Masraf[]
-  personeller          Personel[]
-  purchaseOrders       PurchaseOrder[]
-  basitSiparisler      BasitSiparis[]
-  satinAlmaSiparisleri SatınAlmaSiparisi[]
-  warehouses           Warehouse[]
-  bankaHavaleler       BankaHavale[]
-  cekSenetler          CekSenet[]
-  invitations          Invitation[]
-  satisIrsaliyeleri    SatisIrsaliyesi[]    @relation("SatisIrsaliyesiTenant")
+  users                  User[]
+  subscription           Subscription?
+  settings               TenantSettings?
+  invoices               Fatura[]
+  auditLogs              AuditLog[]
+  stoklar                Stok[]
+  cariler                Cari[]
+  siparisler             Siparis[]
+  teklifler              Teklif[]
+  tahsilatlar            Tahsilat[]
+  kasalar                Kasa[]
+  sayimlar               Sayim[]
+  masraflar              Masraf[]
+  personeller            Personel[]
+  purchaseOrders         PurchaseOrder[]
+  basitSiparisler        BasitSiparis[]
+  satinAlmaSiparisleri   SatınAlmaSiparisi[]
+  warehouses             Warehouse[]
+  bankaHavaleler         BankaHavale[]
+  cekSenetler            CekSenet[]
+  invitations            Invitation[]
+  satisIrsaliyeleri      SatisIrsaliyesi[]      @relation("SatisIrsaliyesiTenant")
   satınAlmaIrsaliyeleri SatınAlmaIrsaliyesi[] @relation("SatınAlmaIrsaliyesiTenant")
 
   // Servis Modülü
@@ -59,6 +59,8 @@ model Tenant {
   technicians          Technician[]
   workOrders           WorkOrder[]
   maintenanceReminders VehicleMaintenanceReminder[]
+  InvoiceProfit        InvoiceProfit[]
+  systemParameters     SystemParameter[]
 
   @@index([subdomain])
   @@index([domain])
@@ -84,6 +86,24 @@ model TenantSettings {
   updatedAt   DateTime @updatedAt
 
   @@map("tenant_settings")
+}
+
+model SystemParameter {
+  id          String   @id @default(uuid())
+  tenantId    String?
+  key         String
+  value       Json
+  description String?
+  category    String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tenant Tenant? @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, key])
+  @@index([tenantId])
+  @@index([category])
+  @@map("system_parameters")
 }
 
 enum SubscriptionStatus {
@@ -249,55 +269,55 @@ model User {
   updatedAt     DateTime      @updatedAt
 
   // Relations for audit trail
-  createdFaturalar           Fatura[]               @relation("FaturaCreatedBy")
-  updatedFaturalar           Fatura[]               @relation("FaturaUpdatedBy")
-  deletedFaturalar           Fatura[]               @relation("FaturaDeletedBy")
-  faturaLogs                 FaturaLog[]
-  createdKasalar             Kasa[]                 @relation("KasaCreatedBy")
-  updatedKasalar             Kasa[]                 @relation("KasaUpdatedBy")
-  createdKasaHareketler      KasaHareket[]          @relation("KasaHareketCreatedBy")
-  createdTahsilatlar         Tahsilat[]             @relation("TahsilatCreatedBy")
-  createdBankaHavaleler      BankaHavale[]          @relation("BankaHavaleCreatedBy")
-  updatedBankaHavaleler      BankaHavale[]          @relation("BankaHavaleUpdatedBy")
-  deletedBankaHavaleler      BankaHavale[]          @relation("BankaHavaleDeletedBy")
-  deletedBankaHavaleRecords  DeletedBankaHavale[]   @relation("DeletedBankaHavaleDeletedBy")
-  bankaHavaleLogs            BankaHavaleLog[]
-  createdCekSenetler         CekSenet[]             @relation("CekSenetCreatedBy")
-  updatedCekSenetler         CekSenet[]             @relation("CekSenetUpdatedBy")
-  deletedCekSenetler         CekSenet[]             @relation("CekSenetDeletedBy")
-  deletedCekSenetRecords     DeletedCekSenet[]      @relation("DeletedCekSenetDeletedBy")
-  cekSenetLogs               CekSenetLog[]
-  createdPersoneller         Personel[]             @relation("PersonelCreatedBy")
-  updatedPersoneller         Personel[]             @relation("PersonelUpdatedBy")
-  createdPersonelOdemeler    PersonelOdeme[]        @relation("PersonelOdemeCreatedBy")
-  stockMoves                 StockMove[]            @relation("StockMoveCreatedBy")
-  createdSiparisler          Siparis[]              @relation("SiparisCreatedBy")
-  updatedSiparisler          Siparis[]              @relation("SiparisUpdatedBy")
-  deletedSiparisler          Siparis[]              @relation("SiparisDeletedBy")
-  siparisLogs                SiparisLog[]
-  siparisHazirliklar         SiparisHazirlik[]      @relation("SiparisHazirlikCreatedBy")
-  createdSatisIrsaliyeleri   SatisIrsaliyesi[]      @relation("SatisIrsaliyesiCreatedBy")
-  updatedSatisIrsaliyeleri   SatisIrsaliyesi[]      @relation("SatisIrsaliyesiUpdatedBy")
-  deletedSatisIrsaliyeleri   SatisIrsaliyesi[]      @relation("SatisIrsaliyesiDeletedBy")
-  satisIrsaliyesiLogs        SatisIrsaliyesiLog[]   @relation("SatisIrsaliyesiLogUser")
-  createdTeklifler           Teklif[]               @relation("TeklifCreatedBy")
-  updatedTeklifler           Teklif[]               @relation("TeklifUpdatedBy")
-  deletedTeklifler           Teklif[]               @relation("TeklifDeletedBy")
-  teklifLogs                 TeklifLog[]            @relation("TeklifLogUser")
-  createdSayimlar            Sayim[]                @relation("SayimCreatedBy")
-  updatedSayimlar            Sayim[]                @relation("SayimUpdatedBy")
-  createdSatinAlmaSiparisler SatınAlmaSiparisi[]   @relation("SatınAlmaSiparisiCreatedBy")
-  updatedSatinAlmaSiparisler SatınAlmaSiparisi[]   @relation("SatınAlmaSiparisiUpdatedBy")
-  deletedSatinAlmaSiparisler SatınAlmaSiparisi[]   @relation("SatınAlmaSiparisiDeletedBy")
-  satinAlmaSiparisLogs       SatınAlmaSiparisLog[] @relation("SatınAlmaSiparisLogUser")
-  createdSatınAlmaIrsaliyeleri   SatınAlmaIrsaliyesi[]      @relation("SatınAlmaIrsaliyesiCreatedBy")
-  updatedSatınAlmaIrsaliyeleri   SatınAlmaIrsaliyesi[]      @relation("SatınAlmaIrsaliyesiUpdatedBy")
-  deletedSatınAlmaIrsaliyeleri   SatınAlmaIrsaliyesi[]      @relation("SatınAlmaIrsaliyesiDeletedBy")
-  satınAlmaIrsaliyesiLogs        SatınAlmaIrsaliyesiLog[]   @relation("SatınAlmaIrsaliyesiLogUser")
-  onayladigiSayimlar         Sayim[]                @relation("SayimOnaylayan")
-  createdPriceCards          PriceCard[]            @relation("PriceCardCreatedBy")
-  updatedPriceCards          PriceCard[]            @relation("PriceCardUpdatedBy")
-  approvedWorkOrderLines     WorkOrderLine[]        @relation("ApprovedByUser")
+  createdFaturalar              Fatura[]                  @relation("FaturaCreatedBy")
+  updatedFaturalar              Fatura[]                  @relation("FaturaUpdatedBy")
+  deletedFaturalar              Fatura[]                  @relation("FaturaDeletedBy")
+  faturaLogs                    FaturaLog[]
+  createdKasalar                Kasa[]                    @relation("KasaCreatedBy")
+  updatedKasalar                Kasa[]                    @relation("KasaUpdatedBy")
+  createdKasaHareketler         KasaHareket[]             @relation("KasaHareketCreatedBy")
+  createdTahsilatlar            Tahsilat[]                @relation("TahsilatCreatedBy")
+  createdBankaHavaleler         BankaHavale[]             @relation("BankaHavaleCreatedBy")
+  updatedBankaHavaleler         BankaHavale[]             @relation("BankaHavaleUpdatedBy")
+  deletedBankaHavaleler         BankaHavale[]             @relation("BankaHavaleDeletedBy")
+  deletedBankaHavaleRecords     DeletedBankaHavale[]      @relation("DeletedBankaHavaleDeletedBy")
+  bankaHavaleLogs               BankaHavaleLog[]
+  createdCekSenetler            CekSenet[]                @relation("CekSenetCreatedBy")
+  updatedCekSenetler            CekSenet[]                @relation("CekSenetUpdatedBy")
+  deletedCekSenetler            CekSenet[]                @relation("CekSenetDeletedBy")
+  deletedCekSenetRecords        DeletedCekSenet[]         @relation("DeletedCekSenetDeletedBy")
+  cekSenetLogs                  CekSenetLog[]
+  createdPersoneller            Personel[]                @relation("PersonelCreatedBy")
+  updatedPersoneller            Personel[]                @relation("PersonelUpdatedBy")
+  createdPersonelOdemeler       PersonelOdeme[]           @relation("PersonelOdemeCreatedBy")
+  stockMoves                    StockMove[]               @relation("StockMoveCreatedBy")
+  createdSiparisler             Siparis[]                 @relation("SiparisCreatedBy")
+  updatedSiparisler             Siparis[]                 @relation("SiparisUpdatedBy")
+  deletedSiparisler             Siparis[]                 @relation("SiparisDeletedBy")
+  siparisLogs                   SiparisLog[]
+  siparisHazirliklar            SiparisHazirlik[]         @relation("SiparisHazirlikCreatedBy")
+  createdSatisIrsaliyeleri      SatisIrsaliyesi[]         @relation("SatisIrsaliyesiCreatedBy")
+  updatedSatisIrsaliyeleri      SatisIrsaliyesi[]         @relation("SatisIrsaliyesiUpdatedBy")
+  deletedSatisIrsaliyeleri      SatisIrsaliyesi[]         @relation("SatisIrsaliyesiDeletedBy")
+  satisIrsaliyesiLogs           SatisIrsaliyesiLog[]      @relation("SatisIrsaliyesiLogUser")
+  createdTeklifler              Teklif[]                  @relation("TeklifCreatedBy")
+  updatedTeklifler              Teklif[]                  @relation("TeklifUpdatedBy")
+  deletedTeklifler              Teklif[]                  @relation("TeklifDeletedBy")
+  teklifLogs                    TeklifLog[]               @relation("TeklifLogUser")
+  createdSayimlar               Sayim[]                   @relation("SayimCreatedBy")
+  updatedSayimlar               Sayim[]                   @relation("SayimUpdatedBy")
+  createdSatinAlmaSiparisler    SatınAlmaSiparisi[]      @relation("SatınAlmaSiparisiCreatedBy")
+  updatedSatinAlmaSiparisler    SatınAlmaSiparisi[]      @relation("SatınAlmaSiparisiUpdatedBy")
+  deletedSatinAlmaSiparisler    SatınAlmaSiparisi[]      @relation("SatınAlmaSiparisiDeletedBy")
+  satinAlmaSiparisLogs          SatınAlmaSiparisLog[]    @relation("SatınAlmaSiparisLogUser")
+  createdSatınAlmaIrsaliyeleri SatınAlmaIrsaliyesi[]    @relation("SatınAlmaIrsaliyesiCreatedBy")
+  updatedSatınAlmaIrsaliyeleri SatınAlmaIrsaliyesi[]    @relation("SatınAlmaIrsaliyesiUpdatedBy")
+  deletedSatınAlmaIrsaliyeleri SatınAlmaIrsaliyesi[]    @relation("SatınAlmaIrsaliyesiDeletedBy")
+  satınAlmaIrsaliyesiLogs      SatınAlmaIrsaliyesiLog[] @relation("SatınAlmaIrsaliyesiLogUser")
+  onayladigiSayimlar            Sayim[]                   @relation("SayimOnaylayan")
+  createdPriceCards             PriceCard[]               @relation("PriceCardCreatedBy")
+  updatedPriceCards             PriceCard[]               @relation("PriceCardUpdatedBy")
+  approvedWorkOrderLines        WorkOrderLine[]           @relation("ApprovedByUser")
 
   @@unique([email, tenantId])
   @@index([tenantId])
@@ -370,24 +390,25 @@ model Stok {
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
-  esdegerGrup               EsdegerGrup?              @relation(fields: [esdegerGrupId], references: [id])
-  esdegers                  StokEsdeger[]             @relation("Stok1")
-  esdegers2                 StokEsdeger[]             @relation("Stok2")
-  faturaKalemleri           FaturaKalemi[]
-  siparisKalemleri          SiparisKalemi[]
-  teklifKalemleri           TeklifKalemi[]
-  satisIrsaliyesiKalemleri  SatisIrsaliyesiKalemi[]   @relation("SatisIrsaliyesiKalemiStok")
-  stokHareketleri           StokHareket[]
-  urunRaflar                UrunRaf[]
-  productBarcodes           ProductBarcode[]
-  productLocationStocks     ProductLocationStock[]
-  stockMoves                StockMove[]
-  sayimKalemleri            SayimKalemi[]
-  priceCards                PriceCard[]
-  costHistory               StockCostHistory[]
-  purchaseOrderItems        PurchaseOrderItem[]       @relation("PurchaseOrderItemStok")
-  basitSiparisler           BasitSiparis[]            @relation("BasitSiparisStok")
-  satinAlmaSiparisKalemleri SatınAlmaSiparisKalemi[] @relation("SatınAlmaSiparisKalemiStok")
+  esdegerGrup                  EsdegerGrup?                 @relation(fields: [esdegerGrupId], references: [id])
+  esdegers                     StokEsdeger[]                @relation("Stok1")
+  esdegers2                    StokEsdeger[]                @relation("Stok2")
+  faturaKalemleri              FaturaKalemi[]
+  siparisKalemleri             SiparisKalemi[]
+  teklifKalemleri              TeklifKalemi[]
+  satisIrsaliyesiKalemleri     SatisIrsaliyesiKalemi[]      @relation("SatisIrsaliyesiKalemiStok")
+  stokHareketleri              StokHareket[]
+  urunRaflar                   UrunRaf[]
+  productBarcodes              ProductBarcode[]
+  productLocationStocks        ProductLocationStock[]
+  stockMoves                   StockMove[]
+  sayimKalemleri               SayimKalemi[]
+  priceCards                   PriceCard[]
+  costHistory                  StockCostHistory[]
+  invoiceProfits               InvoiceProfit[] // Fatura karlılık kayıtları
+  purchaseOrderItems           PurchaseOrderItem[]          @relation("PurchaseOrderItemStok")
+  basitSiparisler              BasitSiparis[]               @relation("BasitSiparisStok")
+  satinAlmaSiparisKalemleri    SatınAlmaSiparisKalemi[]    @relation("SatınAlmaSiparisKalemiStok")
   satinAlmaIrsaliyesiKalemleri SatınAlmaIrsaliyesiKalemi[] @relation("SatınAlmaIrsaliyesiKalemiStok")
 
   // Servis Modülü
@@ -536,7 +557,7 @@ model Cari {
   basitSiparisler           BasitSiparis[]           @relation("BasitSiparisCari")
   satinAlmaSiparisleri      SatınAlmaSiparisi[]     @relation("SatınAlmaSiparisiCari")
   satisIrsaliyeleri         SatisIrsaliyesi[]        @relation("SatisIrsaliyesiCari")
-  satınAlmaIrsaliyeleri     SatınAlmaIrsaliyesi[]    @relation("SatınAlmaIrsaliyesiCari")
+  satınAlmaIrsaliyeleri    SatınAlmaIrsaliyesi[]   @relation("SatınAlmaIrsaliyesiCari")
 
   // Servis Modülü
   vehicles   Vehicle[] // Müşterinin araçları
@@ -674,22 +695,25 @@ model BankaHesapHareket {
 
 // Firma Kredi Kartı Kasasına bağlı kartlar
 model FirmaKrediKarti {
-  id          String   @id @default(uuid())
-  kasaId      String // Hangi Firma KK kasasına bağlı
-  kartKodu    String   @unique
-  kartAdi     String // "Ziraat Visa - Ahmet Bey" vb.
-  bankaAdi    String // Ziraat, Garanti vb.
-  kartTipi    String? // Visa, MasterCard vb.
-  sonDortHane String? // Kartın son 4 hanesi
-  limit       Decimal? @db.Decimal(15, 2) // Kart limiti
-  bakiye      Decimal  @default(0) @db.Decimal(15, 2) // Harcanan tutar (borç)
-  aktif       Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id                String    @id @default(uuid())
+  kasaId            String // Hangi Firma KK kasasına bağlı
+  kartKodu          String    @unique
+  kartAdi           String // "Ziraat Visa - Ahmet Bey" vb.
+  bankaAdi          String // Ziraat, Garanti vb.
+  kartTipi          String? // Visa, MasterCard vb.
+  sonDortHane       String? // Kartın son 4 hanesi
+  limit             Decimal?  @db.Decimal(15, 2) // Kart limiti
+  bakiye            Decimal   @default(0) @db.Decimal(15, 2) // Harcanan tutar (borç)
+  hesapKesimTarihi  DateTime? // Hesap kesim tarihi
+  sonOdemeTarihi    DateTime? // Son ödeme tarihi
+  aktif             Boolean   @default(true)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 
   kasa        Kasa                     @relation(fields: [kasaId], references: [id], onDelete: Cascade)
   hareketler  FirmaKrediKartiHareket[]
   tahsilatlar Tahsilat[] // Firma kartı ile yapılan ödemeler
+  hatirlaticilar FirmaKrediKartiHatirlatici[] // Hatırlatıcılar
 
   @@index([kasaId])
   @@map("firma_kredi_kartlari")
@@ -711,6 +735,24 @@ model FirmaKrediKartiHareket {
 
   @@index([kartId, tarih])
   @@map("firma_kredi_karti_hareketler")
+}
+
+// Firma Kredi Kartı Hatırlatıcıları
+model FirmaKrediKartiHatirlatici {
+  id          String   @id @default(uuid())
+  kartId      String
+  tip         String   // HESAP_KESIM_TARIHI veya SON_ODEME_TARIHI
+  gun         Int      // Ayın kaçıncı günü (1-31)
+  aktif       Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  kart FirmaKrediKarti @relation(fields: [kartId], references: [id], onDelete: Cascade)
+
+  @@unique([kartId, tip]) // Her kart için her tip hatırlatıcıdan sadece bir tane
+  @@index([kartId])
+  @@index([gun, aktif])
+  @@map("firma_kredi_karti_hatirlaticilar")
 }
 
 enum BankaHesapTipi {
@@ -810,14 +852,15 @@ model Fatura {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  cari              Cari                @relation(fields: [cariId], references: [id])
+  cari              Cari                  @relation(fields: [cariId], references: [id])
   kalemler          FaturaKalemi[]
+  invoiceProfits    InvoiceProfit[] // Fatura karlılık kayıtları
   tahsilatlar       Tahsilat[] // Deprecated - Eski ilişki
   faturaTahsilatlar FaturaTahsilat[] // FIFO: Tahsilat dağılımları
   logs              FaturaLog[]
-  purchaseOrder     PurchaseOrder?      @relation("PurchaseOrderFatura", fields: [purchaseOrderId], references: [id])
-  satinAlmaSiparisi SatınAlmaSiparisi? @relation("SatınAlmaSiparisiFatura", fields: [satinAlmaSiparisiId], references: [id])
-  irsaliye          SatisIrsaliyesi?    @relation("SatisIrsaliyesiFatura", fields: [deliveryNoteId], references: [id])
+  purchaseOrder     PurchaseOrder?        @relation("PurchaseOrderFatura", fields: [purchaseOrderId], references: [id])
+  satinAlmaSiparisi SatınAlmaSiparisi?   @relation("SatınAlmaSiparisiFatura", fields: [satinAlmaSiparisiId], references: [id])
+  irsaliye          SatisIrsaliyesi?      @relation("SatisIrsaliyesiFatura", fields: [deliveryNoteId], references: [id])
   satinAlmaIrsaliye SatınAlmaIrsaliyesi? @relation("SatınAlmaIrsaliyesiFatura", fields: [satinAlmaIrsaliyeId], references: [id])
 
   // Servis Modülü
@@ -908,7 +951,39 @@ model FaturaKalemi {
   stok              Stok               @relation(fields: [stokId], references: [id])
   purchaseOrderItem PurchaseOrderItem? @relation("PurchaseOrderItemFaturaKalemi", fields: [purchaseOrderItemId], references: [id])
 
+  invoiceProfits InvoiceProfit[] @relation("FaturaKalemiProfit")
+
   @@map("fatura_kalemleri")
+}
+
+// ============= FATURA KARLILIK =============
+
+model InvoiceProfit {
+  id                String   @id @default(uuid())
+  faturaId          String   @map("fatura_id")
+  faturaKalemiId    String?  @map("fatura_kalemi_id") // Nullable - fatura bazlı toplam için
+  stokId            String   @map("stok_id")
+  tenantId          String?  @map("tenant_id")
+  miktar            Int
+  birimFiyat        Decimal  @map("birim_fiyat") @db.Decimal(10, 2)
+  birimMaliyet      Decimal  @map("birim_maliyet") @db.Decimal(12, 4)
+  toplamSatisTutari Decimal  @map("toplam_satis_tutari") @db.Decimal(12, 2)
+  toplamMaliyet     Decimal  @map("toplam_maliyet") @db.Decimal(12, 2)
+  kar               Decimal  @db.Decimal(12, 2)
+  karOrani          Decimal  @map("kar_orani") @db.Decimal(10, 2)
+  hesaplamaTarihi   DateTime @default(now()) @map("hesaplama_tarihi")
+  guncellemeTarihi  DateTime @updatedAt @map("guncelleme_tarihi")
+
+  fatura       Fatura        @relation(fields: [faturaId], references: [id], onDelete: Cascade)
+  faturaKalemi FaturaKalemi? @relation("FaturaKalemiProfit", fields: [faturaKalemiId], references: [id], onDelete: Cascade)
+  stok         Stok          @relation(fields: [stokId], references: [id])
+  tenant       Tenant?       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([faturaId])
+  @@index([stokId])
+  @@index([tenantId, faturaId])
+  @@index([faturaKalemiId])
+  @@map("invoice_profit")
 }
 
 // ============= TAHSİLAT YÖNETİMİ =============
@@ -1035,16 +1110,16 @@ model Siparis {
 }
 
 model SiparisKalemi {
-  id              String   @id @default(uuid())
-  siparisId       String
-  stokId          String
-  miktar          Int
-  sevkEdilenMiktar Int     @default(0) // Sevk edilen miktar (kısmi sevk için)
-  birimFiyat      Decimal  @db.Decimal(10, 2)
-  kdvOrani        Int
-  kdvTutar        Decimal  @db.Decimal(10, 2)
-  tutar           Decimal  @db.Decimal(10, 2)
-  createdAt       DateTime @default(now())
+  id               String   @id @default(uuid())
+  siparisId        String
+  stokId           String
+  miktar           Int
+  sevkEdilenMiktar Int      @default(0) // Sevk edilen miktar (kısmi sevk için)
+  birimFiyat       Decimal  @db.Decimal(10, 2)
+  kdvOrani         Int
+  kdvTutar         Decimal  @db.Decimal(10, 2)
+  tutar            Decimal  @db.Decimal(10, 2)
+  createdAt        DateTime @default(now())
 
   siparis       Siparis           @relation(fields: [siparisId], references: [id], onDelete: Cascade)
   stok          Stok              @relation(fields: [stokId], references: [id])
@@ -1412,12 +1487,12 @@ model Warehouse {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  locations             Location[]
-  stockMoves            StockMove[]            @relation("FromWarehouse")
-  stockMoves2           StockMove[]            @relation("ToWarehouse")
-  productLocationStocks ProductLocationStock[]
-  satisIrsaliyeleri     SatisIrsaliyesi[]      @relation("SatisIrsaliyesiDepo")
-  satınAlmaIrsaliyeleri SatınAlmaIrsaliyesi[]  @relation("SatınAlmaIrsaliyesiDepo")
+  locations              Location[]
+  stockMoves             StockMove[]            @relation("FromWarehouse")
+  stockMoves2            StockMove[]            @relation("ToWarehouse")
+  productLocationStocks  ProductLocationStock[]
+  satisIrsaliyeleri      SatisIrsaliyesi[]      @relation("SatisIrsaliyesiDepo")
+  satınAlmaIrsaliyeleri SatınAlmaIrsaliyesi[] @relation("SatınAlmaIrsaliyesiDepo")
 
   @@unique([code, tenantId])
   @@index([tenantId])
@@ -2093,13 +2168,13 @@ model SatınAlmaSiparisi {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  cari                  Cari                         @relation("SatınAlmaSiparisiCari", fields: [cariId], references: [id])
-  kalemler              SatınAlmaSiparisKalemi[]
-  logs                  SatınAlmaSiparisLog[]
-  fatura                Fatura?                      @relation("SatınAlmaSiparisiFatura")
-  deliveryNoteId        String?                      // İrsaliye ID (nullable)
-  irsaliye              SatınAlmaIrsaliyesi?         @relation("SatınAlmaSiparisIrsaliye", fields: [deliveryNoteId], references: [id])
-  kaynakIrsaliyeleri    SatınAlmaIrsaliyesi[]        @relation("IrsaliyeKaynakSatınAlmaSiparis") // Bu siparişten oluşturulan irsaliyeler
+  cari               Cari                      @relation("SatınAlmaSiparisiCari", fields: [cariId], references: [id])
+  kalemler           SatınAlmaSiparisKalemi[]
+  logs               SatınAlmaSiparisLog[]
+  fatura             Fatura?                   @relation("SatınAlmaSiparisiFatura")
+  deliveryNoteId     String? // İrsaliye ID (nullable)
+  irsaliye           SatınAlmaIrsaliyesi?     @relation("SatınAlmaSiparisIrsaliye", fields: [deliveryNoteId], references: [id])
+  kaynakIrsaliyeleri SatınAlmaIrsaliyesi[]    @relation("IrsaliyeKaynakSatınAlmaSiparis") // Bu siparişten oluşturulan irsaliyeler
 
   createdByUser User? @relation("SatınAlmaSiparisiCreatedBy", fields: [createdBy], references: [id])
   updatedByUser User? @relation("SatınAlmaSiparisiUpdatedBy", fields: [updatedBy], references: [id])
@@ -2192,12 +2267,12 @@ model SatınAlmaIrsaliyesi {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  cari                    Cari                      @relation("SatınAlmaIrsaliyesiCari", fields: [cariId], references: [id])
-  depo                    Warehouse?                @relation("SatınAlmaIrsaliyesiDepo", fields: [depoId], references: [id])
-  kaynakSiparis           SatınAlmaSiparisi?        @relation("IrsaliyeKaynakSatınAlmaSiparis", fields: [kaynakId], references: [id])
-  siparisFromDeliveryNote SatınAlmaSiparisi?        @relation("SatınAlmaSiparisIrsaliye") // SatınAlmaSiparisi.deliveryNoteId back-relation
+  cari                    Cari                         @relation("SatınAlmaIrsaliyesiCari", fields: [cariId], references: [id])
+  depo                    Warehouse?                   @relation("SatınAlmaIrsaliyesiDepo", fields: [depoId], references: [id])
+  kaynakSiparis           SatınAlmaSiparisi?          @relation("IrsaliyeKaynakSatınAlmaSiparis", fields: [kaynakId], references: [id])
+  siparisFromDeliveryNote SatınAlmaSiparisi?          @relation("SatınAlmaSiparisIrsaliye") // SatınAlmaSiparisi.deliveryNoteId back-relation
   kalemler                SatınAlmaIrsaliyesiKalemi[]
-  faturalar               Fatura[]                  @relation("SatınAlmaIrsaliyesiFatura")
+  faturalar               Fatura[]                     @relation("SatınAlmaIrsaliyesiFatura")
   logs                    SatınAlmaIrsaliyesiLog[]
 
   createdByUser User? @relation("SatınAlmaIrsaliyesiCreatedBy", fields: [createdBy], references: [id])
