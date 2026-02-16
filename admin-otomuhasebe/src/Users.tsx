@@ -1,5 +1,15 @@
 import React, { useState, useMemo } from 'react';
-import { ColumnDef } from '@tanstack/react-table';
+import {
+  useReactTable,
+  getCoreRowModel,
+  getPaginationRowModel,
+  getSortedRowModel,
+  getFilteredRowModel,
+  flexRender,
+  ColumnDef,
+  SortingState,
+  ColumnFiltersState,
+} from '@tanstack/react-table';
 import {
   Box,
   Typography,
@@ -20,7 +30,20 @@ import {
   Card,
   CardContent,
   Divider,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  TablePagination,
+  useTheme,
+  useMediaQuery,
+  Stack,
+  Grid,
+  Tooltip,
 } from '@mui/material';
+import { alpha } from '@mui/material/styles';
 import {
   Download,
   MoreVertical,
@@ -29,9 +52,11 @@ import {
   Trash2,
   UserX,
   UserCheck,
+  ArrowUpDown,
+  Search,
+  Filter,
 } from 'lucide-react';
 import MainLayout from '@/components/Layout/MainLayout';
-import DataTable from '@/components/ui/DataTable';
 import StatusChip from '@/components/ui/StatusChip';
 import ConfirmDialog from '@/components/ui/ConfirmDialog';
 import {
@@ -48,6 +73,10 @@ import { formatDateTime, formatDateOnly } from '@/lib/dateUtils';
 import { toast } from 'sonner';
 
 export default function Users() {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const isTablet = useMediaQuery(theme.breakpoints.down('md'));
+
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [roleFilter, setRoleFilter] = useState<string>('ALL');
@@ -59,12 +88,20 @@ export default function Users() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [suspendDialogOpen, setSuspendDialogOpen] = useState(false);
 
+  // Table state
+  const [sorting, setSorting] = useState<SortingState>([]);
+  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
+  const [pagination, setPagination] = useState({
+    pageIndex: 0,
+    pageSize: 10,
+  });
+
   const { data: usersData, isLoading } = useUsers({
     search,
     status: statusFilter !== 'ALL' ? statusFilter : undefined,
   });
 
-  // Güvenli array kontrolü - her zaman array garantisi
+  // Safe array check
   const users: User[] = useMemo(() => {
     if (Array.isArray(usersData)) {
       return usersData;
@@ -82,15 +119,15 @@ export default function Users() {
   const updateUser = useUpdateUser();
   const approveSubscription = useApproveUserSubscription();
   const assignTenantId = useAssignTenantId();
-  
+
   const [approveDialogOpen, setApproveDialogOpen] = useState(false);
   const [assignTenantDialogOpen, setAssignTenantDialogOpen] = useState(false);
 
-  // Filtrelenmiş kullanıcılar
+  // Filtered users
   const filteredUsers = useMemo(() => {
     let result = users;
 
-    // Durum filtresi
+    // Status filter
     if (statusFilter !== 'ALL') {
       result = result.filter((u) => {
         if (statusFilter === 'ACTIVE') return u.isActive === true;
@@ -99,7 +136,7 @@ export default function Users() {
       });
     }
 
-    // Rol filtresi
+    // Role filter
     if (roleFilter !== 'ALL') {
       result = result.filter((u) => u.role === roleFilter);
     }
@@ -108,6 +145,7 @@ export default function Users() {
   }, [users, statusFilter, roleFilter]);
 
   const handleMenuOpen = (event: React.MouseEvent<HTMLElement>, user: User) => {
+    event.stopPropagation();
     setAnchorEl(event.currentTarget);
     setMenuUser(user);
   };
@@ -194,40 +232,45 @@ export default function Users() {
     }
   };
 
-  // Özet kartları - Güvenli array işlemleri
+  // Summary Cards
   const summaryCards = useMemo(() => {
     const safeUsers = Array.isArray(filteredUsers) ? filteredUsers : [];
-    
+
     return [
       {
         title: 'Toplam Kullanıcı',
         value: safeUsers.length,
-        color: 'primary',
+        color: theme.palette.primary.main,
+        bgColor: theme.palette.primary.light,
       },
       {
         title: 'Aktif Kullanıcı',
         value: safeUsers.filter((u: User) => u?.isActive === true).length,
-        color: 'success',
+        color: theme.palette.success.main,
+        bgColor: theme.palette.success.light,
       },
       {
         title: 'Pasif Kullanıcı',
         value: safeUsers.filter((u: User) => u?.isActive === false).length,
-        color: 'error',
+        color: theme.palette.error.main,
+        bgColor: theme.palette.error.light,
       },
       {
         title: 'Admin',
         value: safeUsers.filter((u: User) => u?.role === 'SUPER_ADMIN' || u?.role === 'TENANT_ADMIN').length,
-        color: 'warning',
+        color: theme.palette.warning.main,
+        bgColor: theme.palette.warning.light,
       },
       {
         title: 'Toplam Harcama',
         value: `₺${safeUsers
           .reduce((sum: number, u: User) => sum + (u?.totalSpent || 0), 0)
           .toLocaleString('tr-TR')}`,
-        color: 'info',
+        color: theme.palette.info.main,
+        bgColor: theme.palette.info.light,
       },
     ];
-  }, [filteredUsers]);
+  }, [filteredUsers, theme]);
 
   const columns: ColumnDef<User>[] = useMemo(() => [
     {
@@ -237,7 +280,7 @@ export default function Users() {
         const user = row.original;
         return (
           <Box>
-            <Typography variant="body2" fontWeight="medium">
+            <Typography variant="body2" fontWeight="medium" color="text.primary">
               {user?.fullName || user?.username || 'N/A'}
             </Typography>
             <Typography variant="caption" color="text.secondary">
@@ -264,6 +307,7 @@ export default function Users() {
             size="small"
             color={role === 'SUPER_ADMIN' ? 'error' : role === 'TENANT_ADMIN' ? 'warning' : 'default'}
             variant="outlined"
+            sx={{ fontWeight: 500 }}
           />
         );
       },
@@ -276,12 +320,12 @@ export default function Users() {
         const tenantId = row.original?.tenantId || tenant?.id;
         return (
           <Box>
-            <Typography variant="body2">
+            <Typography variant="body2" color="text.primary">
               {tenant?.name || 'N/A'}
             </Typography>
-            <Typography 
-              variant="caption" 
-              color={tenantId ? "primary.main" : "text.secondary"} 
+            <Typography
+              variant="caption"
+              color={tenantId ? "primary.main" : "text.secondary"}
               fontFamily="monospace"
               fontWeight={tenantId ? "bold" : "normal"}
               sx={{ display: 'block', mt: 0.5 }}
@@ -304,7 +348,7 @@ export default function Users() {
       header: 'Kayıt Tarihi',
       cell: ({ row }) => {
         const date = row.original?.registeredAt || row.original?.createdAt;
-        return date ? formatDateOnly(date) : '-';
+        return <Typography variant="body2">{date ? formatDateOnly(date) : '-'}</Typography>;
       },
     },
     {
@@ -312,7 +356,7 @@ export default function Users() {
       header: 'Son Giriş',
       cell: ({ row }) => {
         const lastLogin = row.original?.lastLoginAt;
-        return lastLogin ? formatDateOnly(lastLogin) : '-';
+        return <Typography variant="body2">{lastLogin ? formatDateOnly(lastLogin) : '-'}</Typography>;
       },
     },
     {
@@ -329,19 +373,52 @@ export default function Users() {
     },
   ], []);
 
+  const table = useReactTable({
+    data: filteredUsers,
+    columns,
+    getCoreRowModel: getCoreRowModel(),
+    getPaginationRowModel: getPaginationRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+    getFilteredRowModel: getFilteredRowModel(),
+    onSortingChange: setSorting,
+    onColumnFiltersChange: setColumnFilters,
+    state: {
+      sorting,
+      columnFilters,
+      pagination,
+    },
+    onPaginationChange: setPagination,
+  });
+
+  const handleChangePage = (event: unknown, newPage: number) => {
+    setPagination((prev) => ({ ...prev, pageIndex: newPage }));
+  };
+
+  const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setPagination((prev) => ({
+      ...prev,
+      pageSize: parseInt(event.target.value, 10),
+      pageIndex: 0,
+    }));
+  };
+
   return (
     <MainLayout>
-      <Box sx={{ p: 3 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+      <Box sx={{ p: { xs: 2, md: 3 } }}>
+        {/* Header */}
+        <Stack
+          direction={{ xs: 'column', sm: 'row' }}
+          justifyContent="space-between"
+          alignItems={{ xs: 'stretch', sm: 'center' }}
+          spacing={2}
+          sx={{ mb: 3 }}
+        >
           <Typography
             variant="h4"
             fontWeight="bold"
             sx={{
-              fontSize: { xs: '1.75rem', sm: '2rem' },
-              background: 'linear-gradient(135deg, rgb(216, 121, 67) 0%, rgb(231, 138, 83) 100%)',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-              backgroundClip: 'text',
+              fontSize: { xs: '1.5rem', sm: '2rem' },
+              color: theme.palette.primary.main,
             }}
           >
             Kullanıcılar
@@ -350,166 +427,274 @@ export default function Users() {
             variant="contained"
             startIcon={<Download size={18} />}
             sx={{
-              background: 'linear-gradient(135deg, rgb(216, 121, 67) 0%, rgb(231, 138, 83) 100%)',
-              color: 'white',
+              backgroundColor: theme.palette.primary.main,
+              color: theme.palette.primary.contrastText,
               '&:hover': {
-                background: 'linear-gradient(135deg, rgb(200, 105, 50) 0%, rgb(220, 125, 70) 100%)',
-                boxShadow: '0 4px 12px rgba(216, 121, 67, 0.4)',
+                backgroundColor: theme.palette.primary.dark,
               },
-              textTransform: 'none',
               fontWeight: 600,
               px: 3,
-              py: 1,
             }}
           >
             Export Excel
           </Button>
-        </Box>
+        </Stack>
 
-        {/* Özet Kartları */}
-        <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "repeat(2, 1fr)", md: "repeat(5, 1fr)" }, gap: 3, mb: 3 }}>
+        {/* Summary Cards */}
+        <Grid container spacing={3} sx={{ mb: 3 }}>
           {summaryCards.map((card, index) => (
-            <Card
-              key={index}
-              sx={{
-                p: 2,
-                borderRadius: 3,
-                boxShadow: '0 2px 12px rgba(0,0,0,0.08)',
-                transition: 'all 0.3s ease',
-                '&:hover': {
-                  transform: 'translateY(-4px)',
-                  boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
-                },
-                border: `1px solid ${
-                  card.color === 'success'
-                    ? 'rgba(0, 200, 83, 0.2)'
-                    : card.color === 'error'
-                    ? 'rgba(244, 67, 54, 0.2)'
-                    : card.color === 'warning'
-                    ? 'rgba(255, 152, 0, 0.2)'
-                    : card.color === 'info'
-                    ? 'rgba(33, 150, 243, 0.2)'
-                    : 'rgba(216, 121, 67, 0.2)'
-                }`,
-              }}
-            >
-              <CardContent sx={{ p: 0, '&:last-child': { pb: 0 } }}>
-                <Typography variant="body2" color="text.secondary" gutterBottom sx={{ fontSize: '0.875rem', fontWeight: 500, mb: 1.5 }}>
-                  {card.title}
-                </Typography>
-                <Typography
-                  variant="h4"
-                  fontWeight="bold"
-                  sx={{
-                    color:
-                      card.color === 'success'
-                        ? 'rgb(16, 185, 129)'
-                        : card.color === 'error'
-                        ? 'rgb(239, 68, 68)'
-                        : card.color === 'warning'
-                        ? 'rgb(245, 158, 11)'
-                        : card.color === 'info'
-                        ? 'rgb(59, 130, 246)'
-                        : 'rgb(216, 121, 67)',
-                    fontSize: { xs: '1.75rem', sm: '2rem' },
-                  }}
-                >
-                  {card.value}
-                </Typography>
-              </CardContent>
-            </Card>
+            <Grid key={index} size={{ xs: 12, sm: 6, md: 2.4 }}>
+              <Card
+                sx={{
+                  borderRadius: 2,
+                  boxShadow: theme.shadows[1],
+                  border: `1px solid ${theme.palette.divider}`,
+                  transition: 'all 0.3s ease',
+                  '&:hover': {
+                    transform: 'translateY(-4px)',
+                    boxShadow: theme.shadows[4],
+                  },
+                }}
+              >
+                <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
+                  <Typography variant="body2" color="text.secondary" fontWeight="500" gutterBottom>
+                    {card.title}
+                  </Typography>
+                  <Typography
+                    variant="h5"
+                    fontWeight="bold"
+                    sx={{ color: card.color }}
+                  >
+                    {card.value}
+                  </Typography>
+                </CardContent>
+              </Card>
+            </Grid>
           ))}
-        </Box>
+        </Grid>
 
-        {/* Filtreler */}
+        {/* Filters */}
         <Paper
           sx={{
-            p: 3,
+            p: 2,
             mb: 3,
-            borderRadius: 3,
-            boxShadow: '0 2px 12px rgba(0,0,0,0.08)',
+            borderRadius: 2,
+            border: `1px solid ${theme.palette.divider}`,
+            boxShadow: 'none',
           }}
         >
-          <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
+          <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
             <TextField
               placeholder="İsim, email veya kullanıcı adı ile ara..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               size="small"
-              sx={{
-                flex: 1,
-                minWidth: 250,
-                '& .MuiOutlinedInput-root': {
-                  borderRadius: 2,
-                  '&:hover fieldset': {
-                    borderColor: 'rgb(216, 121, 67)',
-                  },
-                  '&.Mui-focused fieldset': {
-                    borderColor: 'rgb(216, 121, 67)',
-                  },
-                },
+              fullWidth
+              InputProps={{
+                startAdornment: <Search size={18} style={{ marginRight: 8, opacity: 0.5 }} />,
               }}
+              sx={{ flex: 1 }}
             />
-            <FormControl size="small" sx={{ minWidth: 180 }}>
-              <InputLabel>Durum</InputLabel>
-              <Select
-                value={statusFilter}
-                label="Durum"
-                onChange={(e) => setStatusFilter(e.target.value)}
-                sx={{
-                  borderRadius: 2,
-                  '&:hover fieldset': {
-                    borderColor: 'rgb(216, 121, 67)',
-                  },
-                  '&.Mui-focused fieldset': {
-                    borderColor: 'rgb(216, 121, 67)',
-                  },
-                }}
-              >
-                <MenuItem value="ALL">Tümü</MenuItem>
-                <MenuItem value="ACTIVE">Aktif</MenuItem>
-                <MenuItem value="SUSPENDED">Pasif</MenuItem>
-              </Select>
-            </FormControl>
-            <FormControl size="small" sx={{ minWidth: 180 }}>
-              <InputLabel>Rol</InputLabel>
-              <Select
-                value={roleFilter}
-                label="Rol"
-                onChange={(e) => setRoleFilter(e.target.value)}
-                sx={{
-                  borderRadius: 2,
-                  '&:hover fieldset': {
-                    borderColor: 'rgb(216, 121, 67)',
-                  },
-                  '&.Mui-focused fieldset': {
-                    borderColor: 'rgb(216, 121, 67)',
-                  },
-                }}
-              >
-                <MenuItem value="ALL">Tümü</MenuItem>
-                <MenuItem value="SUPER_ADMIN">Süper Admin</MenuItem>
-                <MenuItem value="TENANT_ADMIN">Admin</MenuItem>
-                <MenuItem value="USER">Kullanıcı</MenuItem>
-              </Select>
-            </FormControl>
-          </Box>
+            <Stack direction="row" spacing={2} sx={{ width: { xs: '100%', md: 'auto' } }}>
+              <FormControl size="small" sx={{ minWidth: 150, flex: 1 }}>
+                <InputLabel>Durum</InputLabel>
+                <Select
+                  value={statusFilter}
+                  label="Durum"
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                >
+                  <MenuItem value="ALL">Tümü</MenuItem>
+                  <MenuItem value="ACTIVE">Aktif</MenuItem>
+                  <MenuItem value="SUSPENDED">Pasif</MenuItem>
+                </Select>
+              </FormControl>
+              <FormControl size="small" sx={{ minWidth: 150, flex: 1 }}>
+                <InputLabel>Rol</InputLabel>
+                <Select
+                  value={roleFilter}
+                  label="Rol"
+                  onChange={(e) => setRoleFilter(e.target.value)}
+                >
+                  <MenuItem value="ALL">Tümü</MenuItem>
+                  <MenuItem value="SUPER_ADMIN">Süper Admin</MenuItem>
+                  <MenuItem value="TENANT_ADMIN">Admin</MenuItem>
+                  <MenuItem value="USER">Kullanıcı</MenuItem>
+                </Select>
+              </FormControl>
+            </Stack>
+          </Stack>
         </Paper>
 
-        {/* Tablo */}
-        <DataTable
-          data={filteredUsers}
-          columns={columns}
-          isLoading={isLoading}
-          onRowClick={handleViewDetails}
-        />
+        {/* Content: Table or Cards */}
+        {isLoading ? (
+          <Paper sx={{ p: 4, textAlign: 'center', borderRadius: 2 }}>
+            <Typography>Yükleniyor...</Typography>
+          </Paper>
+        ) : isMobile ? (
+          // Mobile Card View
+          <Stack spacing={2}>
+            {table.getRowModel().rows.map((row) => (
+              <Card
+                key={row.id}
+                sx={{
+                  borderRadius: 2,
+                  border: `1px solid ${theme.palette.divider}`,
+                  boxShadow: 'none',
+                }}
+                onClick={() => handleViewDetails(row.original)}
+              >
+                <CardContent sx={{ p: 2 }}>
+                  <Stack direction="row" justifyContent="space-between" alignItems="flex-start" mb={1}>
+                    <Box>
+                      <Typography variant="subtitle1" fontWeight="bold">
+                        {row.original.fullName || row.original.username || 'N/A'}
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        {row.original.email || 'N/A'}
+                      </Typography>
+                    </Box>
+                    <Box onClick={(e) => e.stopPropagation()}>
+                      <IconButton size="small" onClick={(e) => handleMenuOpen(e, row.original)}>
+                        <MoreVertical size={18} />
+                      </IconButton>
+                    </Box>
+                  </Stack>
 
-        {/* Detay Modal */}
+                  <Divider sx={{ my: 1.5 }} />
+
+                  <Stack spacing={1}>
+                    <Stack direction="row" justifyContent="space-between">
+                      <Typography variant="body2" color="text.secondary">Rol:</Typography>
+                      <Chip
+                        label={row.original.role}
+                        size="small"
+                        variant="outlined"
+                        color={row.original.role === 'SUPER_ADMIN' ? 'error' : row.original.role === 'TENANT_ADMIN' ? 'warning' : 'default'}
+                      />
+                    </Stack>
+                    <Stack direction="row" justifyContent="space-between">
+                      <Typography variant="body2" color="text.secondary">Durum:</Typography>
+                      <StatusChip status={row.original.isActive ? 'ACTIVE' : 'SUSPENDED'} />
+                    </Stack>
+                    {row.original.tenant && (
+                      <Stack direction="row" justifyContent="space-between">
+                        <Typography variant="body2" color="text.secondary">Şirket:</Typography>
+                        <Typography variant="body2" fontWeight="medium">{row.original.tenant.name}</Typography>
+                      </Stack>
+                    )}
+                  </Stack>
+                </CardContent>
+              </Card>
+            ))}
+            {table.getRowModel().rows.length === 0 && (
+              <Typography textAlign="center" color="text.secondary" py={4}>Veri bulunamadı</Typography>
+            )}
+            {table.getRowModel().rows.length > 0 && (
+              <TablePagination
+                rowsPerPageOptions={[5, 10, 25]}
+                component="div"
+                count={filteredUsers.length}
+                rowsPerPage={pagination.pageSize}
+                page={pagination.pageIndex}
+                onPageChange={handleChangePage}
+                onRowsPerPageChange={handleChangeRowsPerPage}
+                labelRowsPerPage="Satır:"
+                sx={{
+                  '.MuiTablePagination-selectLabel': { mb: 0 },
+                  '.MuiTablePagination-displayedRows': { mb: 0 },
+                }}
+              />
+            )}
+          </Stack>
+        ) : (
+          // Desktop Table View
+          <Paper
+            sx={{
+              width: '100%',
+              mb: 2,
+              borderRadius: 2,
+              overflow: 'hidden',
+              border: `1px solid ${theme.palette.divider}`,
+              boxShadow: 'none',
+            }}
+          >
+            <TableContainer>
+              <Table size="small">
+                <TableHead>
+                  {table.getHeaderGroups().map((headerGroup) => (
+                    <TableRow key={headerGroup.id} sx={{ bgcolor: theme.palette.background.default }}>
+                      {headerGroup.headers.map((header) => (
+                        <TableCell
+                          key={header.id}
+                          align="left"
+                          padding="normal"
+                          sx={{ fontWeight: 600, color: theme.palette.text.secondary }}
+                          onClick={header.column.getToggleSortingHandler()}
+                        >
+                          <Stack direction="row" alignItems="center" spacing={0.5} sx={{ cursor: header.column.getCanSort() ? 'pointer' : 'default' }}>
+                            <Box component="span">
+                              {flexRender(header.column.columnDef.header, header.getContext())}
+                            </Box>
+                            {header.column.getCanSort() && (
+                              <ArrowUpDown size={14} style={{ opacity: 0.5 }} />
+                            )}
+                          </Stack>
+                        </TableCell>
+                      ))}
+                    </TableRow>
+                  ))}
+                </TableHead>
+                <TableBody>
+                  {table.getRowModel().rows.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={columns.length} align="center" sx={{ py: 4 }}>
+                        <Typography color="text.secondary">Veri bulunamadı</Typography>
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    table.getRowModel().rows.map((row) => (
+                      <TableRow
+                        hover
+                        key={row.id}
+                        onClick={() => handleViewDetails(row.original)}
+                        sx={{ cursor: 'pointer' }}
+                      >
+                        {row.getVisibleCells().map((cell) => (
+                          <TableCell key={cell.id}>
+                            {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                          </TableCell>
+                        ))}
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </TableContainer>
+            <TablePagination
+              rowsPerPageOptions={[5, 10, 25]}
+              component="div"
+              count={filteredUsers.length}
+              rowsPerPage={pagination.pageSize}
+              page={pagination.pageIndex}
+              onPageChange={handleChangePage}
+              onRowsPerPageChange={handleChangeRowsPerPage}
+              labelRowsPerPage="Sayfa başına:"
+              labelDisplayedRows={({ from, to, count }) => `${from}-${to} / ${count}`}
+            />
+          </Paper>
+        )}
+
+        {/* Modal Declarations (same structure as before, styled with MUI keys) */}
+
+        {/* Detail Modal */}
         <Dialog
           open={detailModalOpen}
           onClose={() => setDetailModalOpen(false)}
           maxWidth="sm"
           fullWidth
+          PaperProps={{
+            sx: { borderRadius: 2 }
+          }}
         >
           {selectedUser && userDetail && (
             <>
@@ -518,149 +703,87 @@ export default function Users() {
                   Kullanıcı Detayları
                 </Typography>
               </DialogTitle>
-              <DialogContent>
-                <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, 1fr)' }, gap: 2, mt: 1 }}>
-                  <Box>
+              <DialogContent dividers>
+                <Grid container spacing={2}>
+                  <Grid size={{ xs: 12, sm: 6 }}>
                     <Typography variant="body2" color="text.secondary" gutterBottom>
                       Ad Soyad
                     </Typography>
                     <Typography variant="body1" fontWeight="medium">
                       {userDetail?.fullName || 'N/A'}
                     </Typography>
-                  </Box>
-                  <Box>
+                  </Grid>
+                  <Grid size={{ xs: 12, sm: 6 }}>
                     <Typography variant="body2" color="text.secondary" gutterBottom>
                       Email
                     </Typography>
                     <Typography variant="body1" fontWeight="medium">
                       {userDetail?.email || 'N/A'}
                     </Typography>
-                  </Box>
-                  <Box>
+                  </Grid>
+                  <Grid size={{ xs: 12, sm: 6 }}>
                     <Typography variant="body2" color="text.secondary" gutterBottom>
                       Kullanıcı Adı
                     </Typography>
                     <Typography variant="body1" fontWeight="medium">
                       {userDetail?.username || 'N/A'}
                     </Typography>
-                  </Box>
-                  <Box>
+                  </Grid>
+                  <Grid size={{ xs: 12, sm: 6 }}>
                     <Typography variant="body2" color="text.secondary" gutterBottom>
                       Rol
                     </Typography>
-                    <Box>
-                      <Chip
-                        label={
-                          userDetail?.role === 'SUPER_ADMIN'
-                            ? 'Süper Admin'
-                            : userDetail?.role === 'TENANT_ADMIN'
-                            ? 'Admin'
-                            : userDetail?.role || 'N/A'
-                        }
-                        size="small"
-                        color={userDetail?.role === 'SUPER_ADMIN' ? 'error' : userDetail?.role === 'TENANT_ADMIN' ? 'warning' : 'default'}
-                      />
-                    </Box>
-                  </Box>
-                  <Box>
+                    <Chip
+                      label={userDetail?.role === 'SUPER_ADMIN' ? 'Süper Admin' : userDetail?.role === 'TENANT_ADMIN' ? 'Admin' : 'Kullanıcı'}
+                      size="small"
+                      color={userDetail?.role === 'SUPER_ADMIN' ? 'error' : userDetail?.role === 'TENANT_ADMIN' ? 'warning' : 'default'}
+                    />
+                  </Grid>
+                  <Grid size={{ xs: 12, sm: 6 }}>
                     <Typography variant="body2" color="text.secondary" gutterBottom>
                       Durum
                     </Typography>
                     <StatusChip status={userDetail?.isActive ? 'ACTIVE' : 'SUSPENDED'} />
-                  </Box>
-                  <Box sx={{ gridColumn: { xs: '1', sm: '1 / -1' } }}>
-                    <Divider sx={{ my: 1 }} />
-                  </Box>
-                  <Box>
+                  </Grid>
+
+                  <Grid size={12}>
+                    <Divider />
+                  </Grid>
+
+                  <Grid size={12}>
                     <Typography variant="body2" color="text.secondary" gutterBottom>
                       Tenant ID
                     </Typography>
-                    <Typography 
-                      variant="body1" 
-                      fontWeight="bold" 
-                      fontFamily="monospace" 
-                      color={userDetail?.tenantId || userDetail?.tenant?.id ? "primary.main" : "error.main"}
-                      sx={{ 
-                        p: 1, 
-                        bgcolor: userDetail?.tenantId || userDetail?.tenant?.id ? 'primary.50' : 'error.50',
-                        borderRadius: 1,
-                        border: `1px solid ${userDetail?.tenantId || userDetail?.tenant?.id ? 'primary.main' : 'error.main'}`,
-                      }}
-                    >
-                      {userDetail?.tenantId || userDetail?.tenant?.id || '⚠️ Tenant ID Bulunamadı'}
-                    </Typography>
-                    {!(userDetail?.tenantId || userDetail?.tenant?.id) && (
-                      <Typography variant="caption" color="error.main" sx={{ mt: 0.5, display: 'block' }}>
-                        SaaS multi-tenant için tenant ID gereklidir!
+                    <Box sx={{
+                      p: 1.5,
+                      borderRadius: 1,
+                      bgcolor: userDetail?.tenantId ? alpha(theme.palette.primary.main, 0.1) : alpha(theme.palette.error.main, 0.1),
+                      border: `1px solid ${userDetail?.tenantId ? theme.palette.primary.main : theme.palette.error.main}`
+                    }}>
+                      <Typography
+                        variant="body1"
+                        fontWeight="bold"
+                        fontFamily="monospace"
+                        color={userDetail?.tenantId ? 'primary.main' : 'error.main'}
+                      >
+                        {userDetail?.tenantId || 'Tenant ID Bulunamadı'}
                       </Typography>
-                    )}
-                  </Box>
+                    </Box>
+                  </Grid>
+
                   {userDetail?.tenant && (
                     <>
-                      <Box>
-                        <Typography variant="body2" color="text.secondary" gutterBottom>
-                          Şirket Adı
-                        </Typography>
-                        <Typography variant="body1" fontWeight="medium">
-                          {userDetail?.tenant?.name || 'N/A'}
-                        </Typography>
-                      </Box>
-                      {userDetail?.tenant?.domain && (
-                        <Box>
-                          <Typography variant="body2" color="text.secondary" gutterBottom>
-                            Domain
-                          </Typography>
-                          <Typography variant="body2" fontFamily="monospace">
-                            {userDetail?.tenant?.domain}
-                          </Typography>
-                        </Box>
-                      )}
+                      <Grid size={{ xs: 12, sm: 6 }}>
+                        <Typography variant="body2" color="text.secondary" gutterBottom>Şirket Adı</Typography>
+                        <Typography variant="body1">{userDetail.tenant.name}</Typography>
+                      </Grid>
+                      <Grid size={{ xs: 12, sm: 6 }}>
+                        <Typography variant="body2" color="text.secondary" gutterBottom>Domain</Typography>
+                        <Typography variant="body1" fontFamily="monospace">{userDetail.tenant.domain}</Typography>
+                      </Grid>
                     </>
                   )}
-                  <Box sx={{ gridColumn: { xs: '1', sm: '1 / -1' } }}>
-                    <Divider sx={{ my: 1 }} />
-                  </Box>
-                  <Box>
-                    <Typography variant="body2" color="text.secondary" gutterBottom>
-                      Kayıt Tarihi
-                    </Typography>
-                    <Typography variant="body2">
-                      {userDetail?.createdAt || userDetail?.registeredAt 
-                        ? formatDateTime(userDetail?.createdAt || userDetail?.registeredAt) 
-                        : '-'}
-                    </Typography>
-                  </Box>
-                  {userDetail?.lastLoginAt && (
-                    <Box>
-                      <Typography variant="body2" color="text.secondary" gutterBottom>
-                        Son Giriş
-                      </Typography>
-                      <Typography variant="body2">
-                        {formatDateTime(userDetail?.lastLoginAt)}
-                      </Typography>
-                    </Box>
-                  )}
-                  {userDetail?.totalSpent !== undefined && (
-                    <Box>
-                      <Typography variant="body2" color="text.secondary" gutterBottom>
-                        Toplam Harcama
-                      </Typography>
-                      <Typography variant="body1" fontWeight="medium" color="primary">
-                        ₺{userDetail?.totalSpent.toLocaleString('tr-TR')}
-                      </Typography>
-                    </Box>
-                  )}
-                  {userDetail?.invoiceCount !== undefined && (
-                    <Box>
-                      <Typography variant="body2" color="text.secondary" gutterBottom>
-                        Fatura Sayısı
-                      </Typography>
-                      <Typography variant="body1" fontWeight="medium">
-                        {userDetail?.invoiceCount}
-                      </Typography>
-                    </Box>
-                  )}
-                </Box>
+                </Grid>
               </DialogContent>
               <DialogActions sx={{ p: 2 }}>
                 {!(userDetail?.tenantId || userDetail?.tenant?.id) && (
@@ -673,7 +796,7 @@ export default function Users() {
                     }}
                     disabled={approveSubscription.isPending}
                   >
-                    {approveSubscription.isPending ? 'Onaylanıyor...' : 'Aboneliği Onayla (Tenant ID Ata)'}
+                    {approveSubscription.isPending ? 'Onaylanıyor...' : 'Aboneliği Onayla'}
                   </Button>
                 )}
                 <Button onClick={() => setDetailModalOpen(false)}>Kapat</Button>
@@ -682,7 +805,7 @@ export default function Users() {
           )}
         </Dialog>
 
-        {/* Menü */}
+        {/* Menu */}
         <Menu
           anchorEl={anchorEl}
           open={Boolean(anchorEl)}
@@ -710,7 +833,7 @@ export default function Users() {
             )}
           </MenuItem>
           {!(menuUser?.tenantId || menuUser?.tenant?.id) && (
-            <MenuItem 
+            <MenuItem
               onClick={() => {
                 handleMenuClose();
                 setSelectedUser(menuUser);
@@ -728,11 +851,11 @@ export default function Users() {
           </MenuItem>
         </Menu>
 
-        {/* Onay Dialog'ları */}
+        {/* Dialogs */}
         <ConfirmDialog
           open={deleteDialogOpen}
           title="Kullanıcı Silme"
-          description={`${(menuUser || selectedUser)?.fullName || (menuUser || selectedUser)?.email || 'Bu'} kullanıcısını silmek istediğinize emin misiniz? Bu işlem geri alınamaz.`}
+          description={`${(menuUser || selectedUser)?.fullName || 'Bu'} kullanıcısını silmek istediğinize emin misiniz?`}
           confirmText="Sil"
           cancelText="Vazgeç"
           severity="error"
@@ -746,9 +869,7 @@ export default function Users() {
         <ConfirmDialog
           open={suspendDialogOpen}
           title={(menuUser || selectedUser)?.isActive ? 'Kullanıcı Askıya Alma' : 'Kullanıcı Aktif Etme'}
-          description={`${(menuUser || selectedUser)?.fullName || (menuUser || selectedUser)?.email || 'Bu'} kullanıcısını ${
-            (menuUser || selectedUser)?.isActive ? 'askıya almak' : 'aktif hale getirmek'
-          } istediğinize emin misiniz?`}
+          description={`${(menuUser || selectedUser)?.fullName || 'Bu'} kullanıcısını ${(menuUser || selectedUser)?.isActive ? 'askıya almak' : 'aktif hale getirmek'} istediğinize emin misiniz?`}
           confirmText={(menuUser || selectedUser)?.isActive ? 'Askıya Al' : 'Aktif Et'}
           cancelText="Vazgeç"
           severity="warning"
@@ -762,7 +883,7 @@ export default function Users() {
         <ConfirmDialog
           open={approveDialogOpen}
           title="Abonelik Onaylama"
-          description={`${(menuUser || selectedUser)?.fullName || (menuUser || selectedUser)?.email || 'Bu'} kullanıcısının aboneliğini onaylamak ve Tenant ID atamak istediğinize emin misiniz? Bu işlemden sonra kullanıcı panel'e giriş yapabilecektir.`}
+          description="Kullanıcı aboneliğini onaylamak ve Tenant ID atamak istiyor musunuz?"
           confirmText="Onayla"
           cancelText="Vazgeç"
           severity="info"
@@ -774,7 +895,8 @@ export default function Users() {
           }}
         />
       </Box>
-    </MainLayout>
+    </MainLayout >
   );
 }
+
 
