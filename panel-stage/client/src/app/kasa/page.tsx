@@ -300,7 +300,7 @@ export default function KasaPage() {
         {/* Table */}
         <TableContainer component={Paper} sx={{ borderRadius: 2 }}>
           <Table>
-            <TableHead sx={{ bgcolor: '#f8f9fa' }}>
+            <TableHead sx={{ bgcolor: 'var(--muted)' }}>
               <TableRow>
                 <TableCell sx={{ fontWeight: 600 }}>Tip</TableCell>
                 <TableCell sx={{ fontWeight: 600 }}>Kasa Kodu</TableCell>
@@ -372,7 +372,7 @@ export default function KasaPage() {
                             onClick={() => router.push(`/kasa/${kasa.id}`)}
                             sx={{
                               color: '#3b82f6',
-                              '&:hover': { bgcolor: '#eff6ff' }
+                              '&:hover': { bgcolor: 'color-mix(in srgb, var(--chart-1) 15%, transparent)' }
                             }}
                           >
                             <Visibility fontSize="small" />
@@ -384,7 +384,7 @@ export default function KasaPage() {
                             onClick={() => openEditDialog(kasa)}
                             sx={{
                               color: '#f59e0b',
-                              '&:hover': { bgcolor: '#fffbeb' }
+                              '&:hover': { bgcolor: 'color-mix(in srgb, var(--chart-2) 15%, transparent)' }
                             }}
                           >
                             <Edit fontSize="small" />
@@ -397,7 +397,7 @@ export default function KasaPage() {
                               onClick={() => openDeleteDialog(kasa)}
                               sx={{
                                 color: '#ef4444',
-                                '&:hover': { bgcolor: '#fef2f2' }
+                                '&:hover': { bgcolor: 'color-mix(in srgb, var(--destructive) 15%, transparent)' }
                               }}
                             >
                               <Delete fontSize="small" />
@@ -415,7 +415,7 @@ export default function KasaPage() {
 
         {/* Add/Edit Dialog */}
         <Dialog open={openDialog} onClose={() => setOpenDialog(false)} maxWidth="sm" fullWidth>
-          <DialogTitle sx={{ fontWeight: 'bold', borderBottom: '1px solid #e0e0e0' }}>
+          <DialogTitle component="div" sx={{ fontWeight: 'bold', borderBottom: '1px solid #e0e0e0' }} component="div">
             {editMode ? 'Kasa Düzenle' : 'Yeni Kasa Ekle'}
           </DialogTitle>
           <DialogContent>
@@ -480,7 +480,7 @@ export default function KasaPage() {
 
         {/* Delete Dialog */}
         <Dialog open={openDelete} onClose={() => setOpenDelete(false)}>
-          <DialogTitle sx={{ fontWeight: 'bold' }}>Kasa Sil</DialogTitle>
+          <DialogTitle component="div" sx={{ fontWeight: 'bold' }} component="div">Kasa Sil</DialogTitle>
           <DialogContent>
             <Typography>
               <strong>{selectedKasa?.kasaAdi}</strong> kasasını silmek istediğinizden emin misiniz?

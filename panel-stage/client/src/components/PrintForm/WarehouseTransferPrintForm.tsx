@@ -106,7 +106,7 @@ const WarehouseTransferPrintForm: React.FC<WarehouseTransferPrintFormProps> = ({
                     maxWidth: '850px',
                     maxHeight: '95vh',
                     m: 2,
-                    bgcolor: '#f5f5f5'
+                    bgcolor: 'var(--muted)'
                 }
             }}
         >

@@ -228,7 +228,7 @@ export default function RolesPage() {
 
             {/* Create Dialog */}
             <Dialog open={createDialogOpen} onClose={() => setCreateDialogOpen(false)} maxWidth="sm" fullWidth>
-                <DialogTitle sx={{ pb: 1 }}>Yeni Rol Oluştur</DialogTitle>
+                <DialogTitle component="div" sx={{ pb: 1 }} component="div">Yeni Rol Oluştur</DialogTitle>
                 <DialogContent>
                     <DialogContentText sx={{ mb: 2 }}>
                         Yeni bir rol oluşturun. Daha sonra detay sayfasından izinlerini ayarlayabilirsiniz.
@@ -271,7 +271,7 @@ export default function RolesPage() {
 
             {/* Delete Dialog */}
             <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)}>
-                <DialogTitle>Rolü Sil</DialogTitle>
+                <DialogTitle component="div">Rolü Sil</DialogTitle>
                 <DialogContent>
                     <DialogContentText>
                         "{selectedRole?.name}" rolünü silmek istediğinize emin misiniz? Bu role atanmış kullanıcı varsa işlem gerçekleştirilemez.

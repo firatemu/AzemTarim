@@ -122,7 +122,7 @@ const TemplateFormDialog = memo(({
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>
+      <DialogTitle component="div">
         {editingTemplate ? 'Şablon Düzenle' : 'Yeni Şablon Ekle'}
       </DialogTitle>
       <DialogContent>
@@ -312,7 +312,7 @@ const ResetCounterDialog = memo(({
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
-      <DialogTitle>Sayaç Sıfırla</DialogTitle>
+      <DialogTitle component="div">Sayaç Sıfırla</DialogTitle>
       <DialogContent>
         <Box sx={{ mt: 2 }}>
           <Alert severity="warning" sx={{ mb: 2 }}>

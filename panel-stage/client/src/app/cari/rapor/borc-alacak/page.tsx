@@ -268,14 +268,14 @@ export default function DebtCreditReportPage() {
                             boxShadow: 'var(--shadow-sm)',
                             border: '1px solid var(--border)',
                             height: '100%',
-                            bgcolor: '#ffffff'
+                            bgcolor: 'var(--card)'
                         }}>
                             <CardContent sx={{ p: 2.5, '&:last-child': { pb: 2.5 } }}>
                                 <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
                                     <Typography variant="subtitle2" sx={{ fontWeight: 600, color: 'var(--muted-foreground)', textTransform: 'uppercase', fontSize: '0.75rem' }}>
                                         TOPLAM ALACAK
                                     </Typography>
-                                    <Box sx={{ p: 0.5, borderRadius: 1, bgcolor: '#ecfdf5', color: '#059669' }}>
+                                    <Box sx={{ p: 0.5, borderRadius: 1, bgcolor: 'color-mix(in srgb, var(--chart-3) 15%, transparent)', color: 'var(--chart-3)' }}>
                                         <TrendingDown fontSize="small" />
                                     </Box>
                                 </Box>
@@ -291,14 +291,14 @@ export default function DebtCreditReportPage() {
                             boxShadow: 'var(--shadow-sm)',
                             border: '1px solid var(--border)',
                             height: '100%',
-                            bgcolor: '#ffffff'
+                            bgcolor: 'var(--card)'
                         }}>
                             <CardContent sx={{ p: 2.5, '&:last-child': { pb: 2.5 } }}>
                                 <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
                                     <Typography variant="subtitle2" sx={{ fontWeight: 600, color: 'var(--muted-foreground)', textTransform: 'uppercase', fontSize: '0.75rem' }}>
                                         TOPLAM BORÇ
                                     </Typography>
-                                    <Box sx={{ p: 0.5, borderRadius: 1, bgcolor: '#fef2f2', color: '#dc2626' }}>
+                                    <Box sx={{ p: 0.5, borderRadius: 1, bgcolor: 'color-mix(in srgb, var(--destructive) 15%, transparent)', color: 'var(--destructive)' }}>
                                         <TrendingUp fontSize="small" />
                                     </Box>
                                 </Box>
@@ -314,14 +314,14 @@ export default function DebtCreditReportPage() {
                             boxShadow: 'var(--shadow-sm)',
                             border: '1px solid var(--border)',
                             height: '100%',
-                            bgcolor: '#ffffff'
+                            bgcolor: 'var(--card)'
                         }}>
                             <CardContent sx={{ p: 2.5, '&:last-child': { pb: 2.5 } }}>
                                 <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
                                     <Typography variant="subtitle2" sx={{ fontWeight: 600, color: 'var(--muted-foreground)', textTransform: 'uppercase', fontSize: '0.75rem' }}>
                                         NET BAKİYE
                                     </Typography>
-                                    <Box sx={{ p: 0.5, borderRadius: 1, bgcolor: '#eff6ff', color: '#2563eb' }}>
+                                    <Box sx={{ p: 0.5, borderRadius: 1, bgcolor: 'color-mix(in srgb, var(--chart-1) 15%, transparent)', color: 'var(--chart-1)' }}>
                                         <AccountBalanceWallet fontSize="small" />
                                     </Box>
                                 </Box>
@@ -340,14 +340,14 @@ export default function DebtCreditReportPage() {
                             boxShadow: 'var(--shadow-sm)',
                             border: '1px solid var(--border)',
                             height: '100%',
-                            bgcolor: '#ffffff'
+                            bgcolor: 'var(--card)'
                         }}>
                             <CardContent sx={{ p: 2.5, '&:last-child': { pb: 2.5 } }}>
                                 <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
                                     <Typography variant="subtitle2" sx={{ fontWeight: 600, color: 'var(--muted-foreground)', textTransform: 'uppercase', fontSize: '0.75rem' }}>
                                         CARİ SAYISI
                                     </Typography>
-                                    <Box sx={{ p: 0.5, borderRadius: 1, bgcolor: '#f3f4f6', color: '#4b5563' }}>
+                                    <Box sx={{ p: 0.5, borderRadius: 1, bgcolor: 'var(--muted)', color: 'var(--muted-foreground)' }}>
                                         <FilterList fontSize="small" />
                                     </Box>
                                 </Box>
@@ -492,7 +492,7 @@ export default function DebtCreditReportPage() {
                                                 label={item.balance > 0 ? 'Alacaklı' : item.balance < 0 ? 'Borçlu' : 'Dengeli'}
                                                 size="small"
                                                 sx={{
-                                                    bgcolor: item.balance > 0 ? '#ecfdf5' : item.balance < 0 ? '#fef2f2' : '#f3f4f6',
+                                                    bgcolor: item.balance > 0 ? 'color-mix(in srgb, var(--chart-3) 15%, transparent)' : item.balance < 0 ? 'color-mix(in srgb, var(--destructive) 15%, transparent)' : 'var(--muted)',
                                                     color: item.balance > 0 ? '#059669' : item.balance < 0 ? '#dc2626' : '#4b5563',
                                                     fontWeight: 600,
                                                     borderRadius: 1

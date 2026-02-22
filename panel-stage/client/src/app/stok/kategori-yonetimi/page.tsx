@@ -75,7 +75,7 @@ const AltKategoriDialog = React.memo(({
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>
+      <DialogTitle component="div">
         {anaKategori} - Alt Kategori Ekle
       </DialogTitle>
       <DialogContent>
@@ -159,7 +159,7 @@ const AnaKategoriDialog = React.memo(({
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>
+      <DialogTitle component="div">
         Yeni Ana Kategori Ekle
       </DialogTitle>
       <DialogContent>
@@ -460,13 +460,13 @@ export default function KategoriYonetimiPage() {
                 <AccordionSummary
                   expandIcon={<ExpandMore />}
                   sx={{
-                    bgcolor: '#f5f5f5',
+                    bgcolor: 'var(--muted)',
                     borderRadius: expandedKategori === kategori.anaKategori ? '8px 8px 0 0' : '8px',
                     '&:hover': {
-                      bgcolor: '#eeeeee',
+                      bgcolor: 'var(--muted)',
                     },
                     '&.Mui-expanded': {
-                      bgcolor: '#e3f2fd',
+                      bgcolor: 'color-mix(in srgb, var(--chart-1) 15%, transparent)',
                       borderRadius: '8px 8px 0 0',
                     },
                   }}
@@ -487,6 +487,7 @@ export default function KategoriYonetimiPage() {
                       />
                       <Tooltip title="Alt Kategori Ekle">
                         <IconButton
+                          component="span"
                           size="small"
                           color="primary"
                           onClick={(e) => {
@@ -494,8 +495,8 @@ export default function KategoriYonetimiPage() {
                             handleOpenAltKategoriDialog(kategori.anaKategori);
                           }}
                           sx={{
-                            bgcolor: 'white',
-                            '&:hover': { bgcolor: '#e0e8ff' }
+                            bgcolor: 'var(--card)',
+                            '&:hover': { bgcolor: 'color-mix(in srgb, var(--chart-1) 15%, transparent)' }
                           }}
                         >
                           <Add fontSize="small" />
@@ -508,7 +509,7 @@ export default function KategoriYonetimiPage() {
                   <TableContainer>
                     <Table size="small">
                       <TableHead>
-                        <TableRow sx={{ bgcolor: '#fafafa' }}>
+                        <TableRow sx={{ bgcolor: 'var(--muted)' }}>
                           <TableCell><strong>Alt Kategori</strong></TableCell>
                           <TableCell align="right"><strong>İşlemler</strong></TableCell>
                         </TableRow>
@@ -538,7 +539,7 @@ export default function KategoriYonetimiPage() {
                               hover
                               sx={{
                                 '&:hover': {
-                                  bgcolor: '#f9f9f9',
+                                  bgcolor: 'var(--muted)',
                                 },
                                 '&:last-child td': {
                                   borderBottom: 'none',

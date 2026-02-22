@@ -25,12 +25,10 @@ import {
   Notifications,
   LightMode,
   DarkMode,
-  AddCircleOutline,
 } from '@mui/icons-material';
 import * as Icons from '@mui/icons-material';
 import { useAuthStore } from '@/stores/authStore';
 import { useThemeStore } from '@/stores/themeStore';
-import { useQuickMenuStore } from '@/stores/quickMenuStore';
 import { useRouter } from 'next/navigation';
 import { SIDEBAR_WIDTH } from './Sidebar';
 
@@ -45,12 +43,8 @@ export default function Header({ onToggleSidebar, onToggleSidebarPin, sidebarPin
   const [currentDateTime, setCurrentDateTime] = useState('');
   const { user, clearAuth } = (useAuthStore as any)();
   const { isDarkMode, toggleDarkMode } = (useThemeStore as any)();
-  const { items: quickMenuItems, fetchQuickMenuItems } = (useQuickMenuStore as any)();
   const router = useRouter();
 
-  useEffect(() => {
-    fetchQuickMenuItems();
-  }, [fetchQuickMenuItems]);
 
   // Sistem tarih/saat güncelleme
   useEffect(() => {
@@ -204,40 +198,6 @@ export default function Header({ onToggleSidebar, onToggleSidebarPin, sidebarPin
             }}
           />
 
-          {/* Quick Actions */}
-          <Box sx={{ display: { xs: 'none', lg: 'flex' }, alignItems: 'center', gap: 1 }}>
-            {quickMenuItems
-              .filter((item: any) => item.enabled)
-              .sort((a: any, b: any) => a.order - b.order)
-              .map((item: any) => {
-                const IconComponent = (Icons as any)[item.icon];
-                return (
-                  <Tooltip key={item.id} title={item.label} arrow>
-                    <IconButton
-                      size="small"
-                      onClick={() => router.push(item.path)}
-                      sx={{
-                        color: item.color,
-                        bgcolor: 'var(--muted)',
-                        border: '1px solid var(--border)',
-                        '&:hover': {
-                          bgcolor: 'var(--accent)',
-                          borderColor: item.color,
-                          transform: 'scale(1.05)',
-                        },
-                        transition: 'all 0.2s ease',
-                      }}
-                    >
-                      {IconComponent ? (
-                        <IconComponent sx={{ fontSize: 20 }} />
-                      ) : (
-                        <AddCircleOutline sx={{ fontSize: 20 }} />
-                      )}
-                    </IconButton>
-                  </Tooltip>
-                );
-              })}
-          </Box>
 
           {/* Notifications Button */}
           <IconButton

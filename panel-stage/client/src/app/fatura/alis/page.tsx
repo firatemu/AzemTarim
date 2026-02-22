@@ -510,7 +510,7 @@ export default function AlisFaturalariPage() {
         maxWidth="lg"
         fullWidth
       >
-        <DialogTitle sx={{ fontWeight: 'bold' }}>
+        <DialogTitle component="div" sx={{ fontWeight: 'bold' }} component="div">
           {openAdd ? 'Yeni Satış Faturası' : 'Satış Faturası Düzenle'}
         </DialogTitle>
         <DialogContent>
@@ -718,7 +718,7 @@ export default function AlisFaturalariPage() {
             </Box>
 
             {/* Toplam */}
-            <Paper variant="outlined" sx={{ p: 2, bgcolor: '#f9fafb' }}>
+            <Paper variant="outlined" sx={{ p: 2, bgcolor: 'var(--muted)' }}>
               <Box sx={{ display: 'flex', gap: 2, justifyContent: 'space-between' }}>
                 <Box>
                   <Typography variant="body2" color="text.secondary">Ara Toplam:</Typography>
@@ -823,7 +823,7 @@ export default function AlisFaturalariPage() {
 
       <TableContainer component={Paper} sx={{ borderRadius: 2 }}>
         <Table>
-          <TableHead sx={{ bgcolor: '#f8f9fa' }}>
+          <TableHead sx={{ bgcolor: 'var(--muted)' }}>
             <TableRow>
               <TableCell sx={{ fontWeight: 600 }}>Fatura No</TableCell>
               <TableCell sx={{ fontWeight: 600 }}>Tarih</TableCell>
@@ -860,7 +860,7 @@ export default function AlisFaturalariPage() {
                 <TableRow
                   key={fatura.id}
                   hover
-                  sx={{ '&:hover': { bgcolor: '#f9f9f9' } }}
+                  sx={{ '&:hover': { bgcolor: 'var(--muted)' } }}
                 >
                   <TableCell>
                     <Typography variant="body2" fontWeight="600" color="#f59e0b">
@@ -929,7 +929,7 @@ export default function AlisFaturalariPage() {
               sx={{
                 gap: 1.5,
                 py: 1,
-                '&:hover': { bgcolor: '#eff6ff' }
+                '&:hover': { bgcolor: 'color-mix(in srgb, var(--chart-1) 15%, transparent)' }
               }}
             >
               <Visibility fontSize="small" sx={{ color: '#3b82f6' }} />
@@ -945,7 +945,7 @@ export default function AlisFaturalariPage() {
               sx={{
                 gap: 1.5,
                 py: 1,
-                '&:hover': { bgcolor: '#fffbeb' }
+                '&:hover': { bgcolor: 'color-mix(in srgb, var(--chart-2) 15%, transparent)' }
               }}
             >
               <Edit fontSize="small" sx={{ color: '#f59e0b' }} />
@@ -961,7 +961,7 @@ export default function AlisFaturalariPage() {
               sx={{
                 gap: 1.5,
                 py: 1,
-                '&:hover': { bgcolor: '#ecfdf5' }
+                '&:hover': { bgcolor: 'color-mix(in srgb, var(--chart-3) 15%, transparent)' }
               }}
             >
               <Print fontSize="small" sx={{ color: '#10b981' }} />
@@ -971,13 +971,16 @@ export default function AlisFaturalariPage() {
             <MenuItem
               key="return"
               onClick={() => {
-                router.push(`/fatura/iade/alis/yeni?originalId=${fatura.id}`);
+                const path = `/fatura/iade/alis/yeni?originalId=${fatura.id}`;
+                addTab({ id: 'fatura-iade-alis-yeni', label: 'Yeni Satın Alma İade Faturası', path });
+                setActiveTab('fatura-iade-alis-yeni');
+                router.push(path);
                 handleMenuClose();
               }}
               sx={{
                 gap: 1.5,
                 py: 1,
-                '&:hover': { bgcolor: '#ecfeff' }
+                '&:hover': { bgcolor: 'color-mix(in srgb, var(--chart-1) 15%, transparent)' }
               }}
             >
               <Undo fontSize="small" sx={{ color: '#06b6d4' }} />
@@ -994,7 +997,7 @@ export default function AlisFaturalariPage() {
                 sx={{
                   gap: 1.5,
                   py: 1,
-                  '&:hover': { bgcolor: '#ecfdf5' }
+                  '&:hover': { bgcolor: 'color-mix(in srgb, var(--chart-3) 15%, transparent)' }
                 }}
               >
                 <Box sx={{ width: 20, display: 'flex', justifyContent: 'center' }} />
@@ -1012,7 +1015,7 @@ export default function AlisFaturalariPage() {
                 sx={{
                   gap: 1.5,
                   py: 1,
-                  '&:hover': { bgcolor: '#f3f4f6' }
+                  '&:hover': { bgcolor: 'var(--muted)' }
                 }}
               >
                 <Box sx={{ width: 20, display: 'flex', justifyContent: 'center' }} />
@@ -1030,7 +1033,7 @@ export default function AlisFaturalariPage() {
               sx={{
                 gap: 1.5,
                 py: 1,
-                '&:hover': { bgcolor: '#fef2f2' },
+                '&:hover': { bgcolor: 'color-mix(in srgb, var(--destructive) 15%, transparent)' },
                 '&.Mui-disabled': { opacity: 0.5 }
               }}
             >
@@ -1048,7 +1051,7 @@ export default function AlisFaturalariPage() {
               sx={{
                 gap: 1.5,
                 py: 1,
-                '&:hover': { bgcolor: '#fef2f2' },
+                '&:hover': { bgcolor: 'color-mix(in srgb, var(--destructive) 15%, transparent)' },
                 '&.Mui-disabled': { opacity: 0.5 }
               }}
             >
@@ -1075,7 +1078,7 @@ export default function AlisFaturalariPage() {
         maxWidth="md"
         fullWidth
       >
-        <DialogTitle sx={{ fontWeight: 'bold' }}>
+        <DialogTitle component="div" sx={{ fontWeight: 'bold' }} component="div">
           Fatura Detayı
         </DialogTitle>
         <DialogContent>
@@ -1144,7 +1147,7 @@ export default function AlisFaturalariPage() {
                 </Box>
               )}
 
-              <Paper variant="outlined" sx={{ p: 2, bgcolor: '#f8fafc', borderRadius: 2, mb: 2 }}>
+              <Paper variant="outlined" sx={{ p: 2, bgcolor: 'var(--card)', borderRadius: 2, mb: 2 }}>
                 <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 1 }}>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', width: '250px' }}>
                     <Typography variant="body2" color="text.secondary">Ara Toplam:</Typography>
@@ -1175,7 +1178,7 @@ export default function AlisFaturalariPage() {
               </Paper>
 
               {/* Audit Bilgileri */}
-              <Paper variant="outlined" sx={{ p: 2, bgcolor: '#f0f9ff' }}>
+              <Paper variant="outlined" sx={{ p: 2, bgcolor: 'color-mix(in srgb, var(--chart-1) 10%, transparent)' }}>
                 <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600, color: '#0369a1' }}>
                   📋 Denetim Bilgileri
                 </Typography>
@@ -1260,7 +1263,7 @@ export default function AlisFaturalariPage() {
 
       {/* Delete Dialog */}
       <Dialog open={openDelete} onClose={() => setOpenDelete(false)}>
-        <DialogTitle sx={{ fontWeight: 'bold' }}>Fatura Sil</DialogTitle>
+        <DialogTitle component="div" sx={{ fontWeight: 'bold' }} component="div">Fatura Sil</DialogTitle>
         <DialogContent>
           <Typography>
             <strong>{selectedFatura?.faturaNo}</strong> nolu faturayı silmek istediğinizden emin misiniz?
@@ -1279,7 +1282,7 @@ export default function AlisFaturalariPage() {
 
       {/* Durum Değişikliği Onay Dialog */}
       <Dialog open={openDurumOnay} onClose={handleDurumChangeCancel} maxWidth="sm" fullWidth>
-        <DialogTitle sx={{
+        <DialogTitle component="div" sx={{
           background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
           color: 'white',
           display: 'flex',
@@ -1305,10 +1308,10 @@ export default function AlisFaturalariPage() {
               </Typography>
               <Box sx={{
                 p: 2,
-                bgcolor: '#f9fafb',
+                bgcolor: 'var(--muted)',
                 borderRadius: 1,
                 mb: 2,
-                border: '1px solid #e5e7eb'
+                border: '1px solid var(--border)'
               }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                   <Box sx={{ flex: 1 }}>
@@ -1378,7 +1381,7 @@ export default function AlisFaturalariPage() {
 
       {/* İptal Dialog */}
       <Dialog open={openIptal} onClose={() => { setOpenIptal(false); setIrsaliyeIptal(false); }} maxWidth="sm" fullWidth>
-        <DialogTitle sx={{
+        <DialogTitle component="div" sx={{
           background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
           color: 'white',
           display: 'flex',
@@ -1405,10 +1408,10 @@ export default function AlisFaturalariPage() {
               {selectedFatura.satinAlmaIrsaliyesi && (
                 <Box sx={{
                   p: 2,
-                  bgcolor: '#f9fafb',
+                  bgcolor: 'var(--muted)',
                   borderRadius: 1,
                   mb: 2,
-                  border: '1px solid #e5e7eb'
+                  border: '1px solid var(--border)'
                 }}>
                   <Typography variant="body2" sx={{ mb: 1, fontWeight: 600 }}>
                     Bu faturaya bağlı bir irsaliye bulunmaktadır:

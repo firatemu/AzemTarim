@@ -1,40 +1,35 @@
 'use client';
 
-import React, { useState } from 'react';
+import React from 'react';
 import { Box, Toolbar } from '@mui/material';
 import Sidebar, { SIDEBAR_WIDTH } from './Sidebar';
 import Header from './Header';
 import TabBar from './TabBar';
+import { useLayoutStore } from '@/stores/layoutStore';
 
 interface MainLayoutProps {
   children: React.ReactNode;
 }
 
 export default function MainLayout({ children }: MainLayoutProps) {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [sidebarPinned, setSidebarPinned] = useState(false);
+  const {
+    sidebarOpen,
+    sidebarPinned,
+    toggleSidebar,
+    toggleSidebarPin,
+    setSidebarOpen
+  } = useLayoutStore();
 
   const handleToggleSidebar = () => {
-    if (sidebarPinned) {
-      return;
-    }
-    setSidebarOpen((prev) => !prev);
+    toggleSidebar();
   };
 
   const handleTogglePin = () => {
-    setSidebarPinned((prev) => {
-      const next = !prev;
-      if (next) {
-        setSidebarOpen(true);
-      }
-      return next;
-    });
+    toggleSidebarPin();
   };
 
   const handleCloseSidebar = () => {
-    if (sidebarPinned) {
-      return;
-    }
+    if (sidebarPinned) return;
     setSidebarOpen(false);
   };
 
@@ -50,7 +45,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
         component="main"
         sx={{
           flexGrow: 1,
-          width: '100%',
+          minWidth: 0,
           bgcolor: 'var(--background)',
         }}
       >
@@ -61,7 +56,7 @@ export default function MainLayout({ children }: MainLayoutProps) {
         />
         <Toolbar />
         <TabBar />
-        <Box sx={{ p: 3, bgcolor: 'var(--background)' }}>{children}</Box>
+        <Box sx={{ p: 3, bgcolor: 'var(--background)', overflowX: 'auto' }}>{children}</Box>
       </Box>
     </Box>
   );

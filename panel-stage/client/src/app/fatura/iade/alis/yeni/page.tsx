@@ -26,6 +26,7 @@ import {
   CircularProgress,
   useTheme,
   useMediaQuery,
+  Chip,
 } from '@mui/material';
 import { Delete, Save, ArrowBack, ToggleOn, ToggleOff, ShoppingCart } from '@mui/icons-material';
 import MainLayout from '@/components/Layout/MainLayout';
@@ -46,6 +47,7 @@ interface Stok {
   alisFiyati: number;
   kdvOrani: number;
   barkod?: string;
+  miktar?: number;
 }
 
 interface FaturaKalemi {
@@ -66,18 +68,22 @@ function YeniAlisIadeFaturasiContent() {
   const originalId = searchParams.get('originalId');
   const [cariler, setCariler] = useState<Cari[]>([]);
   const [stoklar, setStoklar] = useState<Stok[]>([]);
+  const [warehouses, setWarehouses] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
 
   const [formData, setFormData] = useState({
     faturaNo: '',
     faturaTipi: 'ALIS_IADE' as const,
     cariId: '',
+    warehouseId: '',
     tarih: new Date().toISOString().split('T')[0],
     vade: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
     durum: 'ONAYLANDI' as 'ACIK' | 'ONAYLANDI',
     genelIskontoOran: 0,
     genelIskontoTutar: 0,
     aciklama: '',
+    dovizCinsi: 'TRY' as 'TRY' | 'USD' | 'EUR' | 'GBP',
+    dovizKuru: 1,
     kalemler: [] as FaturaKalemi[],
   });
 
@@ -127,9 +133,64 @@ function YeniAlisIadeFaturasiContent() {
             }}
             options={stoklar}
             getOptionLabel={(option) => `${option.stokKodu} - ${option.stokAdi}`}
+            filterOptions={(options, params) => {
+              const { inputValue } = params;
+              if (!inputValue) return options;
+
+              const lowerInput = inputValue.toLowerCase();
+              return options.filter(option =>
+                option.stokKodu.toLowerCase().includes(lowerInput) ||
+                option.stokAdi.toLowerCase().includes(lowerInput) ||
+                (option.barkod && option.barkod.toLowerCase().includes(lowerInput))
+              );
+            }}
+            renderOption={(props, option) => {
+              const { key, ...otherProps } = props;
+              let stockColor = 'var(--success)';
+              if (option.miktar !== undefined) {
+                if (option.miktar <= 0) stockColor = 'var(--destructive)';
+                else if (option.miktar < 10) stockColor = 'var(--warning)';
+              }
+
+              return (
+                <Box component="li" key={key} {...otherProps}>
+                  <Box sx={{ width: '100%' }}>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <Typography variant="body2" fontWeight="600">
+                        {option.stokAdi}
+                      </Typography>
+                      {option.miktar !== undefined && (
+                        <Chip
+                          label={`Stok: ${option.miktar}`}
+                          size="small"
+                          sx={{
+                            height: 20,
+                            fontSize: '0.7rem',
+                            bgcolor: `color-mix(in srgb, ${stockColor} 10%, transparent)`,
+                            color: stockColor,
+                            border: `1px solid ${stockColor}`,
+                          }}
+                        />
+                      )}
+                    </Box>
+                    <Box sx={{ display: 'flex', gap: 1, mt: 0.5 }}>
+                      <Typography variant="caption" color="text.secondary">
+                        Kod: {option.stokKodu}
+                      </Typography>
+                      {option.barkod && (
+                        <Typography variant="caption" color="text.secondary">
+                          | Barkod: {option.barkod}
+                        </Typography>
+                      )}
+                    </Box>
+                  </Box>
+                </Box>
+              );
+            }}
             renderInput={(params) => (
-              <TextField {...params} placeholder="Stok seçin..." />
+              <TextField {...params} placeholder="Stok kodu, adı veya barkod ile ara..." />
             )}
+            noOptionsText="Stok bulunamadı"
             isOptionEqualToValue={(option, value) => option.id === value.id}
           />
         </Box>
@@ -227,6 +288,7 @@ function YeniAlisIadeFaturasiContent() {
   useEffect(() => {
     fetchCariler();
     fetchStoklar();
+    fetchWarehouses();
     generateFaturaNo();
 
     // Orijinal faturadan iade oluşturma
@@ -254,6 +316,29 @@ function YeniAlisIadeFaturasiContent() {
       setStoklar(response.data.data || []);
     } catch (error) {
       console.error('Stoklar yüklenirken hata:', error);
+    }
+  };
+
+  const fetchWarehouses = async () => {
+    try {
+      const response = await axios.get('/warehouse?active=true');
+      const warehouseList = response.data || [];
+      setWarehouses(warehouseList);
+
+      if (warehouseList.length === 0) {
+        showSnackbar('Sistemde tanımlı ambar bulunamadı! Lütfen önce bir ambar tanımlayın.', 'error');
+        return;
+      }
+
+      const defaultWarehouse = warehouseList.find((w: any) => w.isDefault);
+      if (defaultWarehouse && !formData.warehouseId) {
+        setFormData(prev => ({ ...prev, warehouseId: defaultWarehouse.id }));
+      } else if (warehouseList.length === 1 && !formData.warehouseId) {
+        setFormData(prev => ({ ...prev, warehouseId: warehouseList[0].id }));
+      }
+    } catch (error) {
+      console.error('Ambar listesi alınamadı:', error);
+      showSnackbar('Ambar listesi alınamadı', 'error');
     }
   };
 
@@ -296,6 +381,7 @@ function YeniAlisIadeFaturasiContent() {
       setFormData(prev => ({
         ...prev,
         cariId: originalFatura.cariId,
+        warehouseId: originalFatura.warehouseId || prev.warehouseId,
         tarih: new Date().toISOString().split('T')[0], // İade tarihi bugün
         vade: originalFatura.vade ? new Date(originalFatura.vade).toISOString().split('T')[0] : prev.vade,
         genelIskontoOran: 0,
@@ -475,10 +561,37 @@ function YeniAlisIadeFaturasiContent() {
     setFormData(prev => ({ ...prev, genelIskontoOran: oran, genelIskontoTutar: tutar }));
   };
 
+  const handleCurrencyChange = async (currency: 'TRY' | 'USD' | 'EUR' | 'GBP') => {
+    if (currency === 'TRY') {
+      setFormData(prev => ({ ...prev, dovizCinsi: currency, dovizKuru: 1 }));
+      return;
+    }
+
+    try {
+      setFormData(prev => ({ ...prev, dovizCinsi: currency }));
+      const response = await axios.get('/fatura/exchange-rate', {
+        params: { currency }
+      });
+
+      if (response.data.rate) {
+        setFormData(prev => ({ ...prev, dovizKuru: response.data.rate }));
+      }
+    } catch (error) {
+      console.error('Kur alınamadı:', error);
+      showSnackbar('Döviz kuru alınamadı, lütfen manuel giriniz.', 'info');
+      setFormData(prev => ({ ...prev, dovizKuru: 0 }));
+    }
+  };
+
   const handleSave = async () => {
     try {
       if (!formData.cariId) {
         showSnackbar('Cari seçimi zorunludur', 'error');
+        return;
+      }
+
+      if (!formData.warehouseId) {
+        showSnackbar('Ambar seçimi zorunludur. Lütfen bir ambar seçiniz.', 'error');
         return;
       }
 
@@ -506,11 +619,16 @@ function YeniAlisIadeFaturasiContent() {
         iskonto: Number(formData.genelIskontoTutar) || 0,
         aciklama: formData.aciklama || null,
         durum: formData.durum,
+        dovizCinsi: formData.dovizCinsi,
+        dovizKuru: formData.dovizKuru,
+        warehouseId: formData.warehouseId || null,
         kalemler: validKalemler.map(k => ({
           stokId: k.stokId,
           miktar: Number(k.miktar),
           birimFiyat: Number(k.birimFiyat),
           kdvOrani: Number(k.kdvOrani),
+          iskontoOrani: Number(k.iskontoOran) || 0,
+          iskontoTutari: Number(k.iskontoTutar) || 0,
         })),
       });
 
@@ -580,6 +698,11 @@ function YeniAlisIadeFaturasiContent() {
               Fatura Bilgileri
             </Typography>
             <Divider sx={{ mb: isMobile ? 2 : 3, borderColor: 'var(--border)' }} />
+            {warehouses.length === 0 && (
+              <Alert severity="error" sx={{ mb: 2 }}>
+                Sistemde tanımlı ambar bulunmamaktadır. İşlem yapabilmek için lütfen önce ambar tanımlayınız.
+              </Alert>
+            )}
           </Box>
 
           <Box sx={{
@@ -612,6 +735,20 @@ function YeniAlisIadeFaturasiContent() {
               InputLabelProps={{ shrink: true }}
             />
             <FormControl fullWidth required>
+              <InputLabel>Ambar</InputLabel>
+              <Select
+                value={formData.warehouseId}
+                onChange={(e) => setFormData(prev => ({ ...prev, warehouseId: e.target.value }))}
+                label="Ambar"
+              >
+                {warehouses.map((warehouse) => (
+                  <MenuItem key={warehouse.id} value={warehouse.id}>
+                    {warehouse.name} {warehouse.isDefault && '(Varsayılan)'}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <FormControl fullWidth required>
               <InputLabel>Durum</InputLabel>
               <Select
                 value={formData.durum}
@@ -622,6 +759,29 @@ function YeniAlisIadeFaturasiContent() {
                 <MenuItem value="ONAYLANDI">Onaylandı</MenuItem>
               </Select>
             </FormControl>
+            <FormControl fullWidth required>
+              <InputLabel>Döviz</InputLabel>
+              <Select
+                value={formData.dovizCinsi}
+                onChange={(e) => handleCurrencyChange(e.target.value as any)}
+                label="Döviz"
+              >
+                <MenuItem value="TRY">Türk Lirası (₺)</MenuItem>
+                <MenuItem value="USD">Amerikan Doları ($)</MenuItem>
+                <MenuItem value="EUR">Euro (€)</MenuItem>
+                <MenuItem value="GBP">İngiliz Sterlini (£)</MenuItem>
+              </Select>
+            </FormControl>
+            {formData.dovizCinsi !== 'TRY' && (
+              <TextField
+                fullWidth
+                type="number"
+                label="Döviz Kuru"
+                value={formData.dovizKuru}
+                onChange={(e) => setFormData(prev => ({ ...prev, dovizKuru: parseFloat(e.target.value) || 1 }))}
+                inputProps={{ min: 0, step: 0.01 }}
+              />
+            )}
           </Box>
 
           <Box>
@@ -730,9 +890,73 @@ function YeniAlisIadeFaturasiContent() {
                               }}
                               options={stoklar}
                               getOptionLabel={(option) => `${option.stokKodu} - ${option.stokAdi}`}
+                              filterOptions={(options, params) => {
+                                const { inputValue } = params;
+                                if (!inputValue) return options;
+
+                                const lowerInput = inputValue.toLowerCase();
+                                return options.filter(option =>
+                                  option.stokKodu.toLowerCase().includes(lowerInput) ||
+                                  option.stokAdi.toLowerCase().includes(lowerInput) ||
+                                  (option.barkod && option.barkod.toLowerCase().includes(lowerInput))
+                                );
+                              }}
+                              renderOption={(props, option) => {
+                                const { key, ...otherProps } = props;
+                                let stockColor = 'var(--success)';
+                                if (option.miktar !== undefined) {
+                                  if (option.miktar <= 0) stockColor = 'var(--destructive)';
+                                  else if (option.miktar < 10) stockColor = 'var(--warning)';
+                                }
+
+                                return (
+                                  <Box component="li" key={key} {...otherProps}>
+                                    <Box sx={{ width: '100%' }}>
+                                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <Typography variant="body2" fontWeight="600">
+                                          {option.stokAdi}
+                                        </Typography>
+                                        {option.miktar !== undefined && (
+                                          <Chip
+                                            label={`Stok: ${option.miktar}`}
+                                            size="small"
+                                            sx={{
+                                              height: 20,
+                                              fontSize: '0.7rem',
+                                              bgcolor: `color-mix(in srgb, ${stockColor} 10%, transparent)`,
+                                              color: stockColor,
+                                              border: `1px solid ${stockColor}`,
+                                            }}
+                                          />
+                                        )}
+                                      </Box>
+                                      <Box sx={{ display: 'flex', gap: 1, mt: 0.5 }}>
+                                        <Typography variant="caption" color="text.secondary">
+                                          Kod: {option.stokKodu}
+                                        </Typography>
+                                        {option.barkod && (
+                                          <Typography variant="caption" color="text.secondary">
+                                            | Barkod: {option.barkod}
+                                          </Typography>
+                                        )}
+                                      </Box>
+                                    </Box>
+                                  </Box>
+                                );
+                              }}
                               renderInput={(params) => (
-                                <TextField {...params} placeholder="Stok seçin..." />
+                                <TextField
+                                  {...params}
+                                  placeholder="Stok kodu, adı veya barkod ile ara..."
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter' && !(autocompleteOpenStates[index])) {
+                                      e.preventDefault();
+                                      handleAddKalem();
+                                    }
+                                  }}
+                                />
                               )}
+                              noOptionsText="Stok bulunamadı"
                               isOptionEqualToValue={(option, value) => option.id === value.id}
                             />
                           </TableCell>

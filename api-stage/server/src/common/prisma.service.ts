@@ -14,7 +14,7 @@ const TENANT_MODELS = [
   'Warehouse', 'Location', 'StockMove', 'ProductLocationStock',
   'Banka', 'BankaHesabi', 'BankaHavale', 'Bordro', 'CekSenet',
   'SatisIrsaliyesi', 'SatisIrsaliyesiKalemi', 'SatınAlmaIrsaliyesi', 'SatınAlmaIrsaliyesiKalemi',
-  'Arac', 'Technician', 'WorkOrder', 'PriceQuote', 'TechnicalFinding', 'DiagnosticNote', 'SolutionPackage',
+  'Arac', 'CustomerVehicle', 'WorkOrder', 'WorkOrderItem', 'PartRequest', 'InventoryTransaction', 'ServiceInvoice', 'JournalEntry', 'JournalEntryLine',
   'PurchaseOrder', 'PurchaseOrderItem', 'BasitSiparis', 'SatınAlmaSiparisi', 'SatınAlmaSiparisKalemi',
   'Masraf', 'MasrafKategori', 'SatisElemani', 'Randevu', 'SystemParameter'
 ] as const;
@@ -40,6 +40,20 @@ const createExtendedClient = (client: PrismaClient) => {
             if (!isBypass) {
               // 2. Fail-Fast: strict check
               if (!context.tenantId) {
+                if (model === 'SystemParameter') {
+                  // Allow reading Global Parameters (where tenantId is null)
+                  if (operation === 'findFirst' || operation === 'findMany' || operation === 'count') {
+                    if (args.where && (args.where as any).tenantId === null) {
+                      return query(args);
+                    }
+                    if (!context.tenantId) {
+                      // If no tenant context, only allow finding global parameters by injecting tenantId: null
+                      args.where = { ...(args.where as any), tenantId: null };
+                      return query(args);
+                    }
+                  }
+                }
+
                 throw new BadRequestException(
                   `[Security] Tenant context missing for operation on ${model}.`
                 );
@@ -65,8 +79,12 @@ const createExtendedClient = (client: PrismaClient) => {
               }
 
               if (['findUnique', 'findFirst', 'findMany', 'count', 'groupBy', 'aggregate', 'update', 'updateMany', 'delete', 'deleteMany', 'upsert'].includes(operation)) {
-                // Safe inject into where
-                args.where = { ...(args.where as any), tenantId: context.tenantId };
+                // Safe inject into where, but don't override if explicitly querying for null (global)
+                if (args.where && (args.where as any).tenantId === null) {
+                  // Keep it as null (e.g. for global SystemParameters)
+                } else {
+                  args.where = { ...(args.where as any), tenantId: context.tenantId };
+                }
               }
             }
           }
@@ -76,7 +94,7 @@ const createExtendedClient = (client: PrismaClient) => {
           const SOFT_DELETE_MODELS = [
             'User', 'Tenant', 'Stok', 'StokHareket', 'Cari', 'CariHareket', 'Fatura',
             'Tahsilat', 'Siparis', 'Teklif', 'Personel', 'Warehouse', 'Banka', 'CekSenet',
-            'SatisIrsaliyesi', 'SatınAlmaIrsaliyesi', 'Arac', 'Technician', 'WorkOrder',
+            'SatisIrsaliyesi', 'SatınAlmaIrsaliyesi', 'Arac', 'WorkOrder', 'ServiceInvoice',
             'PurchaseOrder', 'BasitSiparis', 'SatınAlmaSiparisi', 'Masraf'
           ];
 

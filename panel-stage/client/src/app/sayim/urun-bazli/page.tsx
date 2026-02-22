@@ -569,7 +569,7 @@ export default function UrunBazliSayimPage() {
 
         {/* Manuel Ürün Ekleme Dialog */}
         <Dialog open={manuelDialog} onClose={() => setManuelDialog(false)} maxWidth="sm" fullWidth>
-          <DialogTitle>Manuel Ürün Ekle</DialogTitle>
+          <DialogTitle component="div">Manuel Ürün Ekle</DialogTitle>
           <DialogContent>
             <Box sx={{ pt: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
               <Autocomplete

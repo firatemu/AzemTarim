@@ -1,10 +1,10 @@
 import type { NextConfig } from 'next';
 
-// API Proxy Target - staging ortamında backend URL'i
-const apiProxyTarget = (process.env.API_PROXY_TARGET || 'https://staging-api.otomuhasebe.com').replace(/\/$/, '');
+// API Proxy Target: Docker'da API_PROXY_TARGET (http://backend-staging:3000), local'de localhost:3020
+const apiProxyTarget = (process.env.API_PROXY_TARGET || 'http://localhost:3020').replace(/\/$/, '');
 const isDevelopment = process.env.NODE_ENV === 'development';
 const isProduction = process.env.NODE_ENV === 'production';
-const isStaging = (process.env.NODE_ENV as string) === 'staging' || process.env.STAGING_DEV_MODE === 'true';
+const isStaging = (process.env.NODE_ENV as string) === 'staging';
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
@@ -69,6 +69,20 @@ const nextConfig: NextConfig = {
     deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048, 3840],
     imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
     minimumCacheTTL: 60,
+    remotePatterns: [
+      {
+        protocol: 'http',
+        hostname: 'localhost',
+      },
+      {
+        protocol: 'https',
+        hostname: 'api.otomuhasebe.com',
+      },
+      {
+        protocol: 'http',
+        hostname: 'backend-staging',
+      }
+    ],
   },
 
 

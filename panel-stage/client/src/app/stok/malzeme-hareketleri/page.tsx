@@ -38,6 +38,14 @@ interface Stok {
   marka?: string;
 }
 
+interface FaturaKalemi {
+  id: string;
+  birimFiyat: number;
+  iskontoOrani?: number | null;
+  iskontoTutari?: number | null;
+  tutar: number;
+}
+
 interface StokHareket {
   id: string;
   stokId: string;
@@ -47,6 +55,7 @@ interface StokHareket {
   aciklama?: string;
   createdAt: string;
   stok: Stok;
+  faturaKalemi?: FaturaKalemi | null;
 }
 
 interface Stats {
@@ -123,9 +132,9 @@ export default function MalzemeHareketleriPage() {
   const getHareketLabel = (tip: string) => {
     switch (tip) {
       case 'GIRIS': return 'Giriş';
-      case 'CIKIS': return 'Çıkış';
-      case 'SATIS': return 'Satış';
-      case 'IADE': return 'İade';
+      case 'CIKIS': return 'Çıkış';   // Satınalma iade dahil
+      case 'SATIS': return 'Çıkış';   // Satış faturası
+      case 'IADE': return 'Giriş';   // Satış iade faturası
       case 'SAYIM': return 'Sayım';
       default: return tip;
     }
@@ -145,7 +154,7 @@ export default function MalzemeHareketleriPage() {
       {/* İstatistik Kartları */}
       <Grid container spacing={2} sx={{ mb: 3 }}>
         <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-          <Card sx={{ bgcolor: '#ecfdf5', borderLeft: '4px solid #10b981' }}>
+          <Card sx={{ bgcolor: 'color-mix(in srgb, var(--chart-3) 15%, transparent)', borderLeft: '4px solid var(--chart-3)' }}>
             <CardContent>
               <Stack direction="row" justifyContent="space-between" alignItems="center">
                 <Box>
@@ -167,7 +176,7 @@ export default function MalzemeHareketleriPage() {
         </Grid>
 
         <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-          <Card sx={{ bgcolor: '#fef2f2', borderLeft: '4px solid #ef4444' }}>
+          <Card sx={{ bgcolor: 'color-mix(in srgb, var(--destructive) 15%, transparent)', borderLeft: '4px solid var(--destructive)' }}>
             <CardContent>
               <Stack direction="row" justifyContent="space-between" alignItems="center">
                 <Box>
@@ -189,7 +198,7 @@ export default function MalzemeHareketleriPage() {
         </Grid>
 
         <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-          <Card sx={{ bgcolor: '#eff6ff', borderLeft: '4px solid #3b82f6' }}>
+          <Card sx={{ bgcolor: 'color-mix(in srgb, var(--chart-1) 15%, transparent)', borderLeft: '4px solid var(--chart-1)' }}>
             <CardContent>
               <Stack direction="row" justifyContent="space-between" alignItems="center">
                 <Box>
@@ -211,7 +220,7 @@ export default function MalzemeHareketleriPage() {
         </Grid>
 
         <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-          <Card sx={{ bgcolor: '#fffbeb', borderLeft: '4px solid #f59e0b' }}>
+          <Card sx={{ bgcolor: 'color-mix(in srgb, var(--chart-2) 15%, transparent)', borderLeft: '4px solid var(--chart-2)' }}>
             <CardContent>
               <Stack direction="row" justifyContent="space-between" alignItems="center">
                 <Box>
@@ -310,7 +319,7 @@ export default function MalzemeHareketleriPage() {
       {/* Hareketler Tablosu */}
       <TableContainer component={Paper}>
         <Table>
-          <TableHead sx={{ bgcolor: '#f5f5f5' }}>
+          <TableHead sx={{ bgcolor: 'var(--muted)' }}>
             <TableRow>
               <TableCell><strong>Tarih</strong></TableCell>
               <TableCell><strong>Ürün Kodu</strong></TableCell>
@@ -318,16 +327,18 @@ export default function MalzemeHareketleriPage() {
               <TableCell><strong>Hareket Tipi</strong></TableCell>
               <TableCell align="right"><strong>Miktar</strong></TableCell>
               <TableCell align="right"><strong>Birim Fiyat</strong></TableCell>
+              <TableCell align="right"><strong>İndirim</strong></TableCell>
+              <TableCell align="right"><strong>Birim Net</strong></TableCell>
               <TableCell align="right"><strong>Toplam</strong></TableCell>
               <TableCell><strong>Açıklama</strong></TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {hareketlerLoading ? (
-              <TableSkeleton rows={5} columns={8} />
+              <TableSkeleton rows={5} columns={10} />
             ) : hareketler.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} align="center" sx={{ py: 8 }}>
+                <TableCell colSpan={10} align="center" sx={{ py: 8 }}>
                   <Typography variant="body1" color="text.secondary">
                     Hareket bulunamadı
                   </Typography>
@@ -341,7 +352,7 @@ export default function MalzemeHareketleriPage() {
                 <TableRow
                   key={hareket.id}
                   hover
-                  sx={{ '&:hover': { bgcolor: '#f9f9f9' } }}
+                  sx={{ '&:hover': { bgcolor: 'var(--muted)' } }}
                 >
                   <TableCell>
                     <Typography variant="caption" color="text.secondary">
@@ -382,9 +393,50 @@ export default function MalzemeHareketleriPage() {
                     </Typography>
                   </TableCell>
                   <TableCell align="right">
-                    <Typography variant="body2" fontWeight="600">
-                      {formatMoney(hareket.miktar * Number(hareket.birimFiyat))}
-                    </Typography>
+                    {hareket.faturaKalemi ? (
+                      <Box>
+                        {hareket.faturaKalemi.iskontoTutari && Number(hareket.faturaKalemi.iskontoTutari) > 0 ? (
+                          <Box>
+                            <Typography variant="body2" color="error" fontWeight="600">
+                              {formatMoney(Number(hareket.faturaKalemi.iskontoTutari) / hareket.miktar)}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary" display="block">
+                              Toplam: {formatMoney(Number(hareket.faturaKalemi.iskontoTutari))}
+                            </Typography>
+                          </Box>
+                        ) : hareket.faturaKalemi.iskontoOrani && Number(hareket.faturaKalemi.iskontoOrani) > 0 ? (
+                          <Typography variant="body2" color="error" fontWeight="600">
+                            %{Number(hareket.faturaKalemi.iskontoOrani).toFixed(2)}
+                          </Typography>
+                        ) : (
+                          <Typography variant="body2" color="text.secondary">-</Typography>
+                        )}
+                      </Box>
+                    ) : (
+                      <Typography variant="body2" color="text.secondary">-</Typography>
+                    )}
+                  </TableCell>
+                  <TableCell align="right">
+                    {hareket.faturaKalemi ? (
+                      <Typography variant="body2" fontWeight="600" color="primary">
+                        {formatMoney(Number(hareket.faturaKalemi.tutar) / hareket.miktar)}
+                      </Typography>
+                    ) : (
+                      <Typography variant="body2" color="text.secondary">
+                        {formatMoney(hareket.birimFiyat)}
+                      </Typography>
+                    )}
+                  </TableCell>
+                  <TableCell align="right">
+                    {hareket.faturaKalemi ? (
+                      <Typography variant="body2" fontWeight="600">
+                        {formatMoney(Number(hareket.faturaKalemi.tutar))}
+                      </Typography>
+                    ) : (
+                      <Typography variant="body2" fontWeight="600">
+                        {formatMoney(hareket.miktar * Number(hareket.birimFiyat))}
+                      </Typography>
+                    )}
                   </TableCell>
                   <TableCell>
                     <Typography variant="caption" color="text.secondary">

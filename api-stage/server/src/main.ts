@@ -126,9 +126,17 @@ async function bootstrap() {
   // Global prefix
   app.setGlobalPrefix('api');
 
-  // Static files serving - uploads klasörü için
+  // Static files serving - uploads klasörü için (Docker volume ile kalıcı)
   const express = require('express');
-  app.use('/api/uploads', express.static('uploads'));
+  const path = require('path');
+  const fs = require('fs');
+  const uploadsDir = path.join(__dirname, '..', '..', 'uploads');
+  try {
+    fs.mkdirSync(uploadsDir, { recursive: true });
+  } catch {
+    // Klasör zaten var veya volume mount sonrası oluşacak
+  }
+  app.use('/api/uploads', express.static(uploadsDir));
 
   // Sabit port: 3020 (staging API portu)
   const port = process.env.PORT || 3020;

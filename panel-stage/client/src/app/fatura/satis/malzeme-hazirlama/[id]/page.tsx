@@ -277,7 +277,7 @@ export default function MalzemeHazirlamaFisiPage() {
       >
         <Table size="small">
           <TableHead>
-            <TableRow sx={{ bgcolor: '#f5f5f5' }}>
+            <TableRow sx={{ bgcolor: 'var(--muted)' }}>
               <TableCell sx={{ fontWeight: 'bold', border: '1px solid #000' }}>Sıra</TableCell>
               <TableCell sx={{ fontWeight: 'bold', border: '1px solid #000' }}>Stok Kodu</TableCell>
               <TableCell sx={{ fontWeight: 'bold', border: '1px solid #000' }}>Ürün Adı</TableCell>

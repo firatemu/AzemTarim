@@ -293,7 +293,7 @@ export default function SayimListePage() {
         <Dialog open={detayDialog} onClose={() => setDetayDialog(false)} maxWidth="md" fullWidth>
           {selectedSayim && (
             <>
-              <DialogTitle>
+              <DialogTitle component="div">
                 <Box>
                   <Typography variant="h6">{selectedSayim.sayimNo}</Typography>
                   <Typography variant="caption" color="text.secondary">
@@ -422,7 +422,7 @@ export default function SayimListePage() {
 
         {/* Onay Dialog */}
         <Dialog open={onayDialog} onClose={() => setOnayDialog(false)}>
-          <DialogTitle>Sayımı Onayla</DialogTitle>
+          <DialogTitle component="div">Sayımı Onayla</DialogTitle>
           <DialogContent>
             <Typography>
               Bu sayımı onaylamak istediğinizden emin misiniz? 

@@ -409,7 +409,7 @@ export default function InvoiceViewModal({ open, onClose, document }: InvoiceVie
         },
       }}
     >
-      <DialogTitle>
+      <DialogTitle component="div">
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <Box>
             <Typography variant="h6" component="span">

@@ -195,8 +195,8 @@ export default function NewPurchaseOrderPage() {
           <IconButton
             onClick={() => router.push('/purchase-orders')}
             sx={{
-              bgcolor: '#f3f4f6',
-              '&:hover': { bgcolor: '#e5e7eb' }
+              bgcolor: 'var(--muted)',
+              '&:hover': { bgcolor: 'var(--border)' }
             }}
           >
             <ArrowBack />
@@ -399,7 +399,7 @@ export default function NewPurchaseOrderPage() {
           </Box>
 
           {/* Toplam */}
-          <Paper variant="outlined" sx={{ p: 3, bgcolor: '#f9fafb' }}>
+          <Paper variant="outlined" sx={{ p: 3, bgcolor: 'var(--muted)' }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <Typography variant="h6" fontWeight="bold">
                 Genel Toplam:

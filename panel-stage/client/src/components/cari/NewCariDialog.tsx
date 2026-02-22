@@ -177,7 +177,7 @@ export default function NewCariDialog({ open, onClose, onSuccess, showSnackbar }
                 },
             }}
         >
-            <DialogTitle sx={{
+            <DialogTitle component="div" sx={{
                 bgcolor: 'var(--secondary)',
                 color: 'var(--secondary-foreground)',
                 display: 'flex',

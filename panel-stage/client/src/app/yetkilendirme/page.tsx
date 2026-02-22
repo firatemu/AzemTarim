@@ -464,7 +464,7 @@ export default function YetkilendirmePage() {
 
                 {/* Role Change Dialog */}
                 <Dialog open={roleDialogOpen} onClose={() => setRoleDialogOpen(false)} maxWidth="sm" fullWidth>
-                    <DialogTitle>Rol Değiştir</DialogTitle>
+                    <DialogTitle component="div">Rol Değiştir</DialogTitle>
                     <DialogContent>
                         {selectedUser && (
                             <Box sx={{ pt: 1 }}>
@@ -496,7 +496,7 @@ export default function YetkilendirmePage() {
 
                 {/* Delete Confirmation Dialog */}
                 <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)} maxWidth="sm" fullWidth>
-                    <DialogTitle>Kullanıcıyı Sil</DialogTitle>
+                    <DialogTitle component="div">Kullanıcıyı Sil</DialogTitle>
                     <DialogContent>
                         {selectedUser && (
                             <Alert severity="warning" sx={{ mt: 1 }}>

@@ -967,165 +967,8 @@ export class FaturaService {
         });
       }
 
-      // Sadece ONAYLANDI durumunda cari ve stok güncellemesi yap
-      if (faturaData.durum === 'ONAYLANDI') {
-        const currentCari = await prisma.cari.findUnique({
-          where: { id: faturaData.cariId },
-          select: { bakiye: true }
-        });
-
-        if (!currentCari) throw new NotFoundException('Cari bulunamadı');
-
-        // Cari hareket kaydı oluştur
-        await prisma.cariHareket.create({
-          data: {
-            cariId: faturaData.cariId,
-            tip: faturaData.faturaTipi === 'SATIS' ? 'BORC' : 'ALACAK',
-            tutar: genelToplam,
-            bakiye:
-              faturaData.faturaTipi === 'SATIS'
-                ? currentCari.bakiye.toNumber() + genelToplam
-                : currentCari.bakiye.toNumber() - genelToplam,
-            belgeTipi: 'FATURA',
-            belgeNo: faturaData.faturaNo,
-            tarih: new Date(faturaData.tarih),
-            aciklama: `${faturaData.faturaTipi === 'SATIS' ? 'Satış' : 'Alış'} Faturası: ${faturaData.faturaNo}`,
-          },
-        });
-
-        // Cari bakiyeyi güncelle
-        await prisma.cari.update({
-          where: { id: faturaData.cariId },
-          data: {
-            bakiye:
-              faturaData.faturaTipi === 'SATIS'
-                ? { increment: genelToplam }
-                : { decrement: genelToplam },
-          },
-        });
-
-        // Stok hareketi oluştur
-        if (faturaData.faturaTipi === 'SATIS') {
-          // Satış faturası: Stoktan düş
-
-          // Eğer sipariş hazırlık kayıtları varsa, raf bazlı stok düş
-          if (siparisHazirliklar.length > 0) {
-            for (const hazirlik of siparisHazirliklar) {
-              // ProductLocationStock'tan stok düş
-              const locationStock = await prisma.productLocationStock.findFirst(
-                {
-                  where: {
-                    productId: hazirlik.siparisKalemi.stokId,
-                    locationId: hazirlik.locationId,
-                  },
-                },
-              );
-
-              if (locationStock) {
-                await prisma.productLocationStock.update({
-                  where: { id: locationStock.id },
-                  data: {
-                    qtyOnHand: { decrement: hazirlik.miktar },
-                  },
-                });
-              }
-
-              // StockMove kaydı oluştur
-              await prisma.stockMove.create({
-                data: {
-                  productId: hazirlik.siparisKalemi.stokId,
-                  fromWarehouseId: locationStock?.warehouseId,
-                  fromLocationId: hazirlik.locationId,
-                  toWarehouseId: locationStock!.warehouseId,
-                  toLocationId: hazirlik.locationId,
-                  qty: hazirlik.miktar,
-                  moveType: 'SALE',
-                  refType: 'Fatura',
-                  refId: fatura.id,
-                  note: `Satış Faturası: ${faturaData.faturaNo}`,
-                  createdBy: userId,
-                },
-              });
-            }
-          }
-
-          // Stok hareket kaydı (genel)
-          for (const kalem of kalemlerWithCalculations) {
-            await prisma.stokHareket.create({
-              data: {
-                stokId: kalem.stokId,
-                hareketTipi: 'SATIS',
-                miktar: kalem.miktar,
-                birimFiyat: kalem.birimFiyat,
-                aciklama: `Satış Faturası: ${faturaData.faturaNo}`,
-                warehouseId: transactionWarehouseId
-              },
-            });
-          }
-
-          // If no order preparation, update warehouse stock from default location
-          if (siparisHazirliklar.length === 0 && fatura.deliveryNoteId) {
-            const satisIrsaliyesi = await prisma.satisIrsaliyesi.findUnique({
-              where: { id: fatura.deliveryNoteId },
-              select: { depoId: true },
-            });
-
-            if (satisIrsaliyesi?.depoId) {
-              for (const kalem of kalemlerWithCalculations) {
-                await this.updateWarehouseStock(
-                  satisIrsaliyesi.depoId,
-                  kalem.stokId,
-                  kalem.miktar,
-                  'SALE',
-                  fatura.id,
-                  'Fatura',
-                  `Satış Faturası: ${faturaData.faturaNo}`,
-                  userId,
-                  prisma,
-                );
-              }
-            }
-          }
-        } else if (faturaData.faturaTipi === 'ALIS') {
-          // Alış faturası: Stoğa ekle
-          for (const kalem of kalemlerWithCalculations) {
-            await prisma.stokHareket.create({
-              data: {
-                stokId: kalem.stokId,
-                hareketTipi: 'GIRIS',
-                miktar: kalem.miktar,
-                birimFiyat: kalem.birimFiyat,
-                aciklama: `Alış Faturası: ${faturaData.faturaNo}`,
-                warehouseId: transactionWarehouseId
-              },
-            });
-          }
-
-          // Update warehouse stock if warehouse is selected
-          if (fatura.satinAlmaIrsaliyeId) {
-            const satinAlmaIrsaliyesi = await prisma.satınAlmaIrsaliyesi.findUnique({
-              where: { id: fatura.satinAlmaIrsaliyeId },
-              select: { depoId: true },
-            });
-
-            if (satinAlmaIrsaliyesi?.depoId) {
-              for (const kalem of kalemlerWithCalculations) {
-                await this.updateWarehouseStock(
-                  satinAlmaIrsaliyesi.depoId,
-                  kalem.stokId,
-                  kalem.miktar,
-                  'PUT_AWAY',
-                  fatura.id,
-                  'Fatura',
-                  `Alış Faturası: ${faturaData.faturaNo}`,
-                  userId,
-                  prisma,
-                );
-              }
-            }
-          }
-        }
-      }
+      // Create movements using the refactored method
+      await this.processInvoiceMovements(fatura, prisma, userId, transactionWarehouseId, siparisHazirliklar, tenantId);
 
       // Audit log oluştur (transaction içinde)
       await this.createLog(
@@ -1158,8 +1001,6 @@ export class FaturaService {
               userId,
             },
           );
-          // Hata durumunda fatura oluşturma devam eder, ancak profit kaydı oluşmaz
-          // Kullanıcı daha sonra manuel olarak yeniden hesaplayabilir
         }
       }
 
@@ -1203,7 +1044,7 @@ export class FaturaService {
 
     // Eğer kalemler güncellenmiyorsa sadece fatura bilgilerini güncelle
     if (!updateFaturaDto.kalemler) {
-      const { cariId, faturaNo, faturaTipi, kalemler, warehouseId, siparisId, irsaliyeId, ...updateData } =
+      const { cariId, faturaNo, faturaTipi, kalemler, warehouseId, siparisId, irsaliyeId, satisElemaniId, ...updateData } =
         updateFaturaDto;
 
       const updated = await this.prisma.fatura.update({
@@ -1211,7 +1052,7 @@ export class FaturaService {
         data: {
           ...updateData,
           updatedBy: userId,
-          satisElemaniId: updateFaturaDto.satisElemaniId,
+          satisElemaniId,
         },
         include: {
           cari: true,
@@ -1224,89 +1065,25 @@ export class FaturaService {
       });
 
       // Audit log
-      await this.createLog(
-        id,
-        'UPDATE',
-        userId,
-        updateData,
-        ipAddress,
-        userAgent,
-      );
+      await this.createLog(id, 'UPDATE', userId, updateData, ipAddress, userAgent);
 
-      // Durum değişikliği kontrolü (maliyetlendirme için)
-      if (
-        fatura.faturaTipi === 'ALIS' &&
-        updateData.durum &&
-        updateData.durum !== fatura.durum
-      ) {
-        // Eğer durum ONAYLANDI'ya geçiyorsa
-        if (updateData.durum === 'ONAYLANDI') {
-          // Transaction içinde işlemleri yap
-          await this.prisma.$transaction(async (prisma) => {
-            // 1. Cari Hareket Oluştur
-            await prisma.cariHareket.create({
-              data: {
-                cariId: updated.cariId,
-                tip: 'ALACAK',
-                tutar: updated.genelToplam,
-                bakiye: updated.cari.bakiye.toNumber() - updated.genelToplam.toNumber(),
-                belgeTipi: 'FATURA',
-                belgeNo: updated.faturaNo,
-                tarih: new Date(updated.tarih),
-                aciklama: `Alış Faturası: ${updated.faturaNo}`,
-              },
-            });
+      // Durum değişikliği ve hareketlerin işlenmesi
+      if (updateFaturaDto.durum === 'ONAYLANDI' && fatura.durum !== 'ONAYLANDI') {
+        const whId = updateFaturaDto.warehouseId ?? (updated as { warehouseId?: string | null }).warehouseId ?? (fatura as { warehouseId?: string | null }).warehouseId ?? undefined;
+        await this.prisma.$transaction(async (tx) => {
+          await this.processInvoiceMovements(updated, tx, userId, whId, [], updated.tenantId ?? fatura.tenantId);
+        });
+      }
 
-            // 2. Cari Bakiyeyi Güncelle
-            await prisma.cari.update({
-              where: { id: updated.cariId },
-              data: {
-                bakiye: { decrement: updated.genelToplam },
-              },
-            });
-
-            // 3. Stok Hareketlerini Oluştur
-            for (const kalem of updated.kalemler) {
-              await prisma.stokHareket.create({
-                data: {
-                  stokId: kalem.stokId,
-                  hareketTipi: 'GIRIS',
-                  miktar: kalem.miktar,
-                  birimFiyat: kalem.birimFiyat,
-                  aciklama: `Alış Faturası: ${updated.faturaNo}`,
-                },
-              });
-            }
-          });
-        }
-
-        // Durum değiştiğinde parametre açıksa maliyetlendirme yap
+      // Maliyetlendirme
+      if (updated.faturaTipi === 'ALIS') {
         try {
-          const autoCostingEnabled = await this.systemParameterService.getParameterAsBoolean(
-            'AUTO_COSTING_ON_PURCHASE_INVOICE',
-            true, // Varsayılan: true
-          );
-
+          const autoCostingEnabled = await this.systemParameterService.getParameterAsBoolean('AUTO_COSTING_ON_PURCHASE_INVOICE', true);
           if (autoCostingEnabled) {
-            await this.calculateCostsForInvoiceItems(
-              updated.kalemler,
-              updated.id,
-              updated.faturaNo,
-            );
+            await this.calculateCostsForInvoiceItems(updated.kalemler, updated.id, updated.faturaNo);
           }
         } catch (error: any) {
-          console.error(
-            `[FaturaService] Fatura ${updated.id} (${updated.faturaNo}) için durum değişikliği maliyetlendirme hatası:`,
-            {
-              faturaId: updated.id,
-              faturaNo: updated.faturaNo,
-              eskiDurum: fatura.durum,
-              yeniDurum: updateData.durum,
-              error: error?.message || error,
-              stack: error?.stack,
-              userId,
-            },
-          );
+          console.error(`Maliyetlendirme hatası (update): ${error.message}`);
         }
       }
 
@@ -1423,8 +1200,7 @@ export class FaturaService {
         prisma,
       );
 
-      // Kar hesaplama güncelleme (sadece SATIS faturaları için)
-      if (fatura.faturaTipi === 'SATIS') {
+      if (updated.faturaTipi === 'SATIS') {
         try {
           await this.invoiceProfitService.calculateAndSaveProfit(
             updated.id,
@@ -1432,91 +1208,13 @@ export class FaturaService {
             prisma,
           );
         } catch (error: any) {
-          console.error(
-            `[FaturaService] Fatura ${updated.id} (${updated.faturaNo}) için kar hesaplama güncelleme hatası:`,
-            {
-              faturaId: updated.id,
-              faturaNo: updated.faturaNo,
-              error: error?.message || error,
-              stack: error?.stack,
-              userId,
-            },
-          );
+          console.error(`Kar hesaplama hatası (update): ${error.message}`);
         }
       }
 
-      // Maliyetlendirme (sadece ALIS faturaları için ve parametre açıksa)
-      // Kalemler güncellendiğinde veya durum değiştiğinde maliyetlendirme yap
-      if (fatura.faturaTipi === 'ALIS') {
-        // Eğer durum ONAYLANDI'ya geçiyorsa ve eski durum ONAYLANDI değilse
-        if (updateFaturaDto.durum === 'ONAYLANDI' && fatura.durum !== 'ONAYLANDI') {
-          // 1. Cari Hareket Oluştur
-          await prisma.cariHareket.create({
-            data: {
-              cariId: updated.cariId,
-              tip: 'ALACAK',
-              tutar: updated.genelToplam,
-              bakiye: updated.cari.bakiye.toNumber() - updated.genelToplam.toNumber(), // Alış faturası carinin alacağını (bizim borcumuzu) artırır, yani bakiyeyi azaltır (negatif bakiye borç demektir)
-              belgeTipi: 'FATURA',
-              belgeNo: updated.faturaNo,
-              tarih: new Date(updated.tarih),
-              aciklama: `Alış Faturası: ${updated.faturaNo}`,
-            },
-          });
-
-          // 2. Cari Bakiyeyi Güncelle (Azalt - Borçlanıyoruz)
-          await prisma.cari.update({
-            where: { id: updated.cariId },
-            data: {
-              bakiye: { decrement: updated.genelToplam },
-            },
-          });
-
-          // 3. Stok Hareketlerini Oluştur
-          for (const kalem of updated.kalemler) {
-            await prisma.stokHareket.create({
-              data: {
-                stokId: kalem.stokId,
-                hareketTipi: 'GIRIS',
-                miktar: kalem.miktar,
-                birimFiyat: kalem.birimFiyat,
-                aciklama: `Alış Faturası: ${updated.faturaNo}`,
-              },
-            });
-          }
-        }
-
-        const shouldCalculateCosts =
-          fatura.durum !== 'ONAYLANDI' || updateFaturaDto.kalemler || updateFaturaDto.durum;
-
-        if (shouldCalculateCosts) {
-          try {
-            const autoCostingEnabled = await this.systemParameterService.getParameterAsBoolean(
-              'AUTO_COSTING_ON_PURCHASE_INVOICE',
-              true, // Varsayılan: true
-            );
-
-            if (autoCostingEnabled) {
-              // Transaction dışında çalıştır
-              await this.calculateCostsForInvoiceItems(
-                updated.kalemler,
-                updated.id,
-                updated.faturaNo,
-              );
-            }
-          } catch (error: any) {
-            console.error(
-              `[FaturaService] Fatura ${updated.id} (${updated.faturaNo}) için maliyetlendirme güncelleme hatası:`,
-              {
-                faturaId: updated.id,
-                faturaNo: updated.faturaNo,
-                error: error?.message || error,
-                stack: error?.stack,
-                userId,
-              },
-            );
-          }
-        }
+      // Durum değişikliği ve hareketlerin işlenmesi (kalemler güncellendiğinde)
+      if (updateFaturaDto.durum === 'ONAYLANDI' && fatura.durum !== 'ONAYLANDI') {
+        await this.processInvoiceMovements(updated, prisma, userId, warehouseId ?? (updated as { warehouseId?: string | null }).warehouseId ?? undefined, [], updated.tenantId ?? fatura.tenantId);
       }
 
       return updated;
@@ -1798,7 +1496,7 @@ export class FaturaService {
           },
         });
 
-        // Stok hareketlerini yeniden oluştur
+        // Stok hareketlerini yeniden oluştur - fatura kalemi ile ilişkilendir
         if (fatura.faturaTipi === 'SATIS') {
           for (const kalem of fatura.kalemler) {
             await prisma.stokHareket.create({
@@ -1808,6 +1506,7 @@ export class FaturaService {
                 miktar: kalem.miktar,
                 birimFiyat: kalem.birimFiyat,
                 aciklama: `Satış Faturası: ${fatura.faturaNo} (Geri Yüklendi)`,
+                faturaKalemiId: kalem.id,
               },
             });
           }
@@ -1820,6 +1519,7 @@ export class FaturaService {
                 miktar: kalem.miktar,
                 birimFiyat: kalem.birimFiyat,
                 aciklama: `Alış Faturası: ${fatura.faturaNo} (Geri Yüklendi)`,
+                faturaKalemiId: kalem.id,
               },
             });
           }
@@ -2131,7 +1831,7 @@ export class FaturaService {
             },
           });
 
-          // Stok hareketi oluştur
+          // Stok hareketi oluştur - fatura kalemi ile ilişkilendir
           if (fatura.faturaTipi === 'SATIS') {
             // Satış faturası: Stoktan düş
             for (const kalem of fatura.kalemler) {
@@ -2142,6 +1842,7 @@ export class FaturaService {
                   miktar: kalem.miktar,
                   birimFiyat: kalem.birimFiyat,
                   aciklama: `Satış Faturası: ${fatura.faturaNo}`,
+                  faturaKalemiId: kalem.id,
                 },
               });
             }
@@ -2155,6 +1856,7 @@ export class FaturaService {
                   miktar: kalem.miktar,
                   birimFiyat: kalem.birimFiyat,
                   aciklama: `Alış Faturası: ${fatura.faturaNo}`,
+                  faturaKalemiId: kalem.id,
                 },
               });
             }
@@ -3134,5 +2836,301 @@ export class FaturaService {
         },
       },
     });
+  }
+
+  /**
+   * Process and create Cari and Stok movements for an approved invoice
+   */
+  private async processInvoiceMovements(
+    fatura: any,
+    prisma: any,
+    userId?: string,
+    warehouseId?: string,
+    siparisHazirliklar: any[] = [],
+    tenantId?: string | null,
+  ) {
+    console.log('[processInvoiceMovements] Başladı:', {
+      faturaId: fatura.id,
+      faturaNo: fatura.faturaNo,
+      faturaTipi: fatura.faturaTipi,
+      kalemlerCount: fatura.kalemler?.length ?? 0,
+      kalemlerSample: fatura.kalemler?.slice(0, 2)?.map((k: any) => ({ id: k.id, stokId: k.stokId, miktar: k.miktar })),
+      warehouseId,
+      tenantId,
+      faturaTenantId: fatura.tenantId,
+    });
+
+    const currentCari = await prisma.cari.findUnique({
+      where: { id: fatura.cariId },
+      select: { bakiye: true },
+    });
+
+    if (!currentCari) throw new NotFoundException('Cari bulunamadı');
+
+    const genelToplam = Number(fatura.genelToplam);
+    const mevcutBakiye = Number(currentCari.bakiye ?? 0);
+    let cariHareketTipi: 'BORC' | 'ALACAK';
+    let cariBakiyeDegisimi: number;
+    let aciklama: string;
+    let bakiyeUpdate: { increment?: number; decrement?: number };
+
+    if (fatura.faturaTipi === 'SATIS') {
+      cariHareketTipi = 'BORC';
+      cariBakiyeDegisimi = mevcutBakiye + genelToplam;
+      aciklama = `Satış Faturası: ${fatura.faturaNo}`;
+      bakiyeUpdate = { increment: genelToplam };
+    } else if (fatura.faturaTipi === 'SATIS_IADE') {
+      cariHareketTipi = 'ALACAK';
+      cariBakiyeDegisimi = mevcutBakiye - genelToplam;
+      aciklama = `Satış İade Faturası: ${fatura.faturaNo}`;
+      bakiyeUpdate = { decrement: genelToplam };
+    } else if (fatura.faturaTipi === 'ALIS') {
+      cariHareketTipi = 'ALACAK';
+      cariBakiyeDegisimi = mevcutBakiye - genelToplam;
+      aciklama = `Alış Faturası: ${fatura.faturaNo}`;
+      bakiyeUpdate = { decrement: genelToplam };
+    } else {
+      // ALIS_IADE
+      cariHareketTipi = 'BORC';
+      cariBakiyeDegisimi = mevcutBakiye + genelToplam;
+      aciklama = `Alış İade Faturası: ${fatura.faturaNo}`;
+      bakiyeUpdate = { increment: genelToplam };
+    }
+
+    const effectiveTenantId = tenantId ?? fatura.tenantId ?? undefined;
+
+    // 1. Create Cari Movement
+    await prisma.cariHareket.create({
+      data: {
+        cariId: fatura.cariId,
+        tip: cariHareketTipi,
+        tutar: genelToplam,
+        bakiye: cariBakiyeDegisimi,
+        belgeTipi: 'FATURA',
+        belgeNo: fatura.faturaNo,
+        tarih: new Date(fatura.tarih),
+        aciklama,
+        ...(effectiveTenantId && { tenantId: effectiveTenantId }),
+      },
+    });
+
+    // 2. Update Cari Balance
+    await prisma.cari.update({
+      where: { id: fatura.cariId },
+      data: { bakiye: bakiyeUpdate },
+    });
+
+    // 3. Create Stock Movements (warehouseId from param or fatura; normalize empty string to undefined)
+    const rawWh = warehouseId ?? (fatura as any).warehouseId;
+    const transactionWarehouseId = rawWh && String(rawWh).trim() ? String(rawWh).trim() : undefined;
+
+    if (fatura.faturaTipi === 'SATIS') {
+      if (siparisHazirliklar.length > 0) {
+        for (const hazirlik of siparisHazirliklar) {
+          const locationStock = await prisma.productLocationStock.findFirst({
+            where: {
+              productId: hazirlik.siparisKalemi.stokId,
+              locationId: hazirlik.locationId,
+            },
+          });
+
+          if (locationStock) {
+            await prisma.productLocationStock.update({
+              where: { id: locationStock.id },
+              data: { qtyOnHand: { decrement: hazirlik.miktar } },
+            });
+          }
+
+          await prisma.stockMove.create({
+            data: {
+              productId: hazirlik.siparisKalemi.stokId,
+              fromWarehouseId: locationStock?.warehouseId,
+              fromLocationId: hazirlik.locationId,
+              toWarehouseId: locationStock!.warehouseId,
+              toLocationId: hazirlik.locationId,
+              qty: hazirlik.miktar,
+              moveType: 'SALE',
+              refType: 'Fatura',
+              refId: fatura.id,
+              note: aciklama,
+              createdBy: userId,
+            },
+          });
+        }
+      }
+
+      const kalemlerSatis = Array.isArray(fatura.kalemler) ? fatura.kalemler : [];
+      console.log('[processInvoiceMovements] SATIS - Kalem sayısı:', kalemlerSatis.length, 'warehouseId:', transactionWarehouseId, 'tenantId:', effectiveTenantId);
+      for (const kalem of kalemlerSatis) {
+        if (!kalem.stokId) {
+          console.error('[processInvoiceMovements] SATIS - stokId eksik, kalem atlanıyor:', kalem);
+          continue;
+        }
+        console.log('[processInvoiceMovements] SATIS - StokHareket oluşturuluyor:', { stokId: kalem.stokId, miktar: kalem.miktar, faturaKalemiId: kalem.id });
+        const createdStokHareket = await prisma.stokHareket.create({
+          data: {
+            stokId: kalem.stokId,
+            hareketTipi: 'SATIS',
+            miktar: kalem.miktar,
+            birimFiyat: typeof kalem.birimFiyat === 'object' && kalem.birimFiyat != null && 'toNumber' in kalem.birimFiyat ? (kalem.birimFiyat as any).toNumber() : Number(kalem.birimFiyat),
+            aciklama,
+            warehouseId: transactionWarehouseId,
+            faturaKalemiId: kalem.id,
+            ...(effectiveTenantId && { tenantId: effectiveTenantId }),
+          },
+        });
+        console.log('[processInvoiceMovements] SATIS - StokHareket oluşturuldu:', createdStokHareket.id);
+      }
+
+      if (siparisHazirliklar.length === 0 && fatura.deliveryNoteId) {
+        const satisIrsaliyesi = await prisma.satisIrsaliyesi.findUnique({
+          where: { id: fatura.deliveryNoteId },
+          select: { depoId: true },
+        });
+
+        if (satisIrsaliyesi?.depoId) {
+          for (const kalem of kalemlerSatis) {
+            await this.updateWarehouseStock(
+              satisIrsaliyesi.depoId,
+              kalem.stokId,
+              kalem.miktar,
+              'SALE',
+              fatura.id,
+              'Fatura',
+              aciklama,
+              userId,
+              prisma,
+            );
+          }
+        }
+      }
+    } else if (fatura.faturaTipi === 'SATIS_IADE') {
+      const kalemler = Array.isArray(fatura.kalemler) ? fatura.kalemler : [];
+      console.log('[processInvoiceMovements] SATIS_IADE - Kalem sayısı:', kalemler.length, 'warehouseId:', transactionWarehouseId, 'tenantId:', effectiveTenantId);
+      for (const kalem of kalemler) {
+        if (!kalem.stokId) {
+          console.error('[processInvoiceMovements] SATIS_IADE - stokId eksik, kalem atlanıyor:', kalem);
+          continue;
+        }
+        if (!kalem.miktar || kalem.miktar <= 0) {
+          console.error('[processInvoiceMovements] SATIS_IADE - miktar geçersiz, kalem atlanıyor:', { stokId: kalem.stokId, miktar: kalem.miktar });
+          continue;
+        }
+        const birimFiyat = typeof kalem.birimFiyat === 'object' && kalem.birimFiyat != null && 'toNumber' in kalem.birimFiyat ? (kalem.birimFiyat as any).toNumber() : Number(kalem.birimFiyat);
+        console.log('[processInvoiceMovements] SATIS_IADE - StokHareket oluşturuluyor:', { stokId: kalem.stokId, miktar: kalem.miktar, faturaKalemiId: kalem.id });
+        const createdStokHareket = await prisma.stokHareket.create({
+          data: {
+            stokId: kalem.stokId,
+            hareketTipi: 'GIRIS',
+            miktar: kalem.miktar,
+            birimFiyat,
+            aciklama,
+            warehouseId: transactionWarehouseId,
+            faturaKalemiId: kalem.id,
+            ...(effectiveTenantId && { tenantId: effectiveTenantId }),
+          },
+        });
+        console.log('[processInvoiceMovements] SATIS_IADE - StokHareket oluşturuldu:', createdStokHareket.id);
+
+        if (transactionWarehouseId) {
+          await this.updateWarehouseStock(
+            transactionWarehouseId,
+            kalem.stokId,
+            kalem.miktar,
+            'PUT_AWAY',
+            fatura.id,
+            'Fatura',
+            aciklama,
+            userId,
+            prisma,
+          );
+        }
+      }
+    } else if (fatura.faturaTipi === 'ALIS') {
+      const kalemlerAlis = Array.isArray(fatura.kalemler) ? fatura.kalemler : [];
+      console.log('[processInvoiceMovements] ALIS - Kalem sayısı:', kalemlerAlis.length, 'warehouseId:', transactionWarehouseId, 'tenantId:', effectiveTenantId);
+      for (const kalem of kalemlerAlis) {
+        if (!kalem.stokId) {
+          console.error('[processInvoiceMovements] ALIS - stokId eksik, kalem atlanıyor:', kalem);
+          continue;
+        }
+        const birimFiyatAlis = typeof kalem.birimFiyat === 'object' && kalem.birimFiyat != null && 'toNumber' in kalem.birimFiyat ? (kalem.birimFiyat as any).toNumber() : Number(kalem.birimFiyat);
+        console.log('[processInvoiceMovements] ALIS - StokHareket oluşturuluyor:', { stokId: kalem.stokId, miktar: kalem.miktar, faturaKalemiId: kalem.id });
+        const createdStokHareket = await prisma.stokHareket.create({
+          data: {
+            stokId: kalem.stokId,
+            hareketTipi: 'GIRIS',
+            miktar: kalem.miktar,
+            birimFiyat: birimFiyatAlis,
+            aciklama,
+            warehouseId: transactionWarehouseId,
+            faturaKalemiId: kalem.id,
+            ...(effectiveTenantId && { tenantId: effectiveTenantId }),
+          },
+        });
+        console.log('[processInvoiceMovements] ALIS - StokHareket oluşturuldu:', createdStokHareket.id);
+      }
+
+      const depoId =
+        transactionWarehouseId ||
+        (fatura.satinAlmaIrsaliyeId
+          ? (
+            await prisma.satınAlmaIrsaliyesi.findUnique({
+              where: { id: fatura.satinAlmaIrsaliyeId },
+              select: { depoId: true },
+            })
+          )?.depoId
+          : null);
+
+      if (depoId) {
+        for (const kalem of kalemlerAlis) {
+          await this.updateWarehouseStock(
+            depoId,
+            kalem.stokId,
+            kalem.miktar,
+            'PUT_AWAY',
+            fatura.id,
+            'Fatura',
+            aciklama,
+            userId,
+            prisma,
+          );
+        }
+      }
+    } else if (fatura.faturaTipi === 'ALIS_IADE') {
+      const kalemlerAlisIade = Array.isArray(fatura.kalemler) ? fatura.kalemler : [];
+      for (const kalem of kalemlerAlisIade) {
+        if (!kalem.stokId) continue;
+        const miktarNum = Number(kalem.miktar);
+        if (!Number.isFinite(miktarNum) || miktarNum <= 0) continue;
+        const birimFiyatAlisIade = typeof kalem.birimFiyat === 'object' && kalem.birimFiyat != null && 'toNumber' in kalem.birimFiyat ? (kalem.birimFiyat as any).toNumber() : Number(kalem.birimFiyat);
+        await prisma.stokHareket.create({
+          data: {
+            stokId: kalem.stokId,
+            hareketTipi: 'CIKIS',
+            miktar: miktarNum,
+            birimFiyat: birimFiyatAlisIade,
+            aciklama,
+            warehouseId: transactionWarehouseId || null,
+            faturaKalemiId: kalem.id,
+            ...(effectiveTenantId && { tenantId: effectiveTenantId }),
+          },
+        });
+
+        if (transactionWarehouseId) {
+          await this.updateWarehouseStock(
+            transactionWarehouseId,
+            kalem.stokId,
+            miktarNum,
+            'SALE',
+            fatura.id,
+            'Fatura',
+            aciklama,
+            userId,
+            prisma,
+          );
+        }
+      }
+    }
   }
 }

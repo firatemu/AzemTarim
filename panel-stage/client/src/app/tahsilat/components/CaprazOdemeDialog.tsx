@@ -55,7 +55,7 @@ const CaprazOdemeDialog: React.FC<CaprazOdemeDialogProps> = ({
                 sx: { borderRadius: 3, boxShadow: '0 8px 32px rgba(0, 0, 0, 0.08)' }
             }}
         >
-            <DialogTitle sx={{
+            <DialogTitle component="div" sx={{
                 bgcolor: '#7c3aed',
                 color: 'white',
                 display: 'flex',
@@ -173,8 +173,8 @@ const CaprazOdemeDialog: React.FC<CaprazOdemeDialogProps> = ({
                             label="İşlem Tutarı"
                             type="number"
                             required
-                            value={formData.tutar || ''}
-                            onChange={(e) => handleChange('tutar', parseFloat(e.target.value) || 0)}
+                            value={formData.tutar}
+                            onChange={(e) => handleChange('tutar', e.target.value)}
                             InputProps={{
                                 startAdornment: <InputAdornment position="start"><AttachMoney /></InputAdornment>,
                             }}
@@ -224,12 +224,17 @@ const CaprazOdemeDialog: React.FC<CaprazOdemeDialogProps> = ({
 
             <Divider />
 
-            <DialogActions sx={{ p: 3, bgcolor: '#f9fafb' }}>
+            <DialogActions sx={{ p: 3, bgcolor: 'var(--muted)' }}>
                 <Button onClick={onClose} disabled={submitting} sx={{ color: 'text.secondary' }}>
                     İptal
                 </Button>
                 <Button
-                    onClick={onSubmit}
+                    onClick={() => {
+                        const tutarNum = typeof formData.tutar === 'string' ? parseFloat(formData.tutar) : formData.tutar;
+                        if (!isNaN(tutarNum) && tutarNum > 0) {
+                            onSubmit();
+                        }
+                    }}
                     variant="contained"
                     disabled={submitting || !formData.tahsilatCariId || !formData.odemeCariId || !formData.tutar}
                     startIcon={<SwapHoriz />}

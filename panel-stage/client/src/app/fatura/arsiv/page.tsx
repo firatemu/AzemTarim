@@ -425,7 +425,7 @@ function FaturaArsivContent() {
 
         {/* View Dialog */}
         <Dialog open={openView} onClose={() => setOpenView(false)} maxWidth="lg" fullWidth>
-          <DialogTitle sx={{ fontWeight: 'bold', borderBottom: '1px solid #e0e0e0' }}>
+          <DialogTitle component="div" sx={{ fontWeight: 'bold', borderBottom: '1px solid #e0e0e0' }} component="div">
             Fatura Detayı (Silinmiş)
           </DialogTitle>
           <DialogContent>
@@ -561,7 +561,7 @@ function FaturaArsivContent() {
             updateUrl(params);
           }}
         >
-          <DialogTitle sx={{ fontWeight: 'bold' }}>Fatura Geri Yükle</DialogTitle>
+          <DialogTitle component="div" sx={{ fontWeight: 'bold' }} component="div">Fatura Geri Yükle</DialogTitle>
           <DialogContent>
             <Typography>
               <strong>{selectedFatura?.faturaNo}</strong> nolu faturayı geri yüklemek istediğinizden emin misiniz?

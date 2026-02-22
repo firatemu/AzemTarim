@@ -252,7 +252,7 @@ export default function DepoYonetimiPage() {
 
       {/* Depo Oluştur/Düzenle Dialog */}
       <Dialog open={dialogOpen} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
-        <DialogTitle>
+        <DialogTitle component="div">
           {editingId ? 'Depo Düzenle' : 'Yeni Depo Oluştur'}
         </DialogTitle>
         <DialogContent>

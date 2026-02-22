@@ -832,7 +832,7 @@ export default function FirmaAyarlariPage() {
 
         {/* Ambar Dialog */}
         <Dialog open={dialogOpen} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
-          <DialogTitle>
+          <DialogTitle component="div">
             {editingWarehouse ? 'Ambar Düzenle' : 'Yeni Ambar'}
           </DialogTitle>
           <DialogContent>

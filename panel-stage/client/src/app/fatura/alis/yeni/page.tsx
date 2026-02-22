@@ -1384,7 +1384,7 @@ function YeniAlisFaturasiPageContent() {
         fullWidth
         fullScreen={isMobile}
       >
-        <DialogTitle>Faturalandırılmamış İrsaliyeleri Seçin</DialogTitle>
+        <DialogTitle component="div">Faturalandırılmamış İrsaliyeleri Seçin</DialogTitle>
         <DialogContent>
           <DialogContentText sx={{ mb: 2 }}>
             Seçili cari hesaba ait faturalandırılmamış irsaliyelerden kalemleri faturaya ekleyebilirsiniz.

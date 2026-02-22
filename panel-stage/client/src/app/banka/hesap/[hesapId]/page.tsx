@@ -994,7 +994,7 @@ export default function HesapDetayPage() {
 
                 {/* Regular Transaction Dialog */}
                 <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="sm" fullWidth>
-                    <DialogTitle>Yeni Hareket Ekle</DialogTitle>
+                    <DialogTitle component="div">Yeni Hareket Ekle</DialogTitle>
                     <form onSubmit={handleSubmit(onSubmit)}>
                         <DialogContent>
                             <Stack spacing={2.5}>
@@ -1066,7 +1066,7 @@ export default function HesapDetayPage() {
 
                 {/* POS Tahsilat Dialog */}
                 <Dialog open={posDialogOpen} onClose={() => setPosDialogOpen(false)} maxWidth="sm" fullWidth>
-                    <DialogTitle>POS Tahsilatı</DialogTitle>
+                    <DialogTitle component="div">POS Tahsilatı</DialogTitle>
                     <form onSubmit={handlePosSubmit(onPosSubmit)}>
                         <DialogContent>
                             <Stack spacing={2.5}>

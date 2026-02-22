@@ -141,7 +141,7 @@ const PlanDetailDialog = React.memo(({ open, onClose, plan }: { open: boolean, o
 
     return (
         <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
-            <DialogTitle>Maaş & Ödeme Detayları (İşlem Geçmişi)</DialogTitle>
+            <DialogTitle component="div">Maaş & Ödeme Detayları (İşlem Geçmişi)</DialogTitle>
             <DialogContent dividers>
                 <Box mb={3}>
                     <Typography variant="h6" gutterBottom>{plan?.personel.ad} {plan?.personel.soyad} - {plan?.yil}/{plan?.ay}</Typography>
@@ -349,7 +349,7 @@ const MaasOdemeDialog = React.memo(({ open, onClose, plan, kasalar, bankaHesapla
 
     return (
         <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
-            <DialogTitle>Maaş Ödemesi Yap</DialogTitle>
+            <DialogTitle component="div">Maaş Ödemesi Yap</DialogTitle>
             <DialogContent dividers>
                 <Grid container spacing={2}>
                     <Grid size={{ xs: 12 }}>
@@ -382,7 +382,7 @@ const MaasOdemeDialog = React.memo(({ open, onClose, plan, kasalar, bankaHesapla
                     </Grid>
 
                     <Grid size={{ xs: 12 }}>
-                        <Paper variant="outlined" sx={{ p: 2, mb: 2, bgcolor: '#f5f5f5' }}>
+                        <Paper variant="outlined" sx={{ p: 2, mb: 2, bgcolor: 'var(--muted)' }}>
                             <Typography variant="subtitle2" gutterBottom>Ödeme Kalemi Ekle</Typography>
                             <Grid container spacing={2} alignItems="flex-end">
                                 <Grid size={{ xs: 3 }}>
@@ -527,7 +527,7 @@ const CreatePlanDialog = React.memo(({ open, onClose, personelList, onSave }: Cr
 
     return (
         <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-            <DialogTitle>Yeni Maaş Planı Oluştur</DialogTitle>
+            <DialogTitle component="div">Yeni Maaş Planı Oluştur</DialogTitle>
             <DialogContent dividers>
                 <FormControl fullWidth margin="normal">
                     <InputLabel id="personel-select-label">Personel</InputLabel>

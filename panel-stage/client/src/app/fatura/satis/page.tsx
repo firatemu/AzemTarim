@@ -761,7 +761,7 @@ export default function SatisFaturalariPage() {
         maxWidth="lg"
         fullWidth
       >
-        <DialogTitle sx={{ fontWeight: 'bold' }}>
+        <DialogTitle component="div" sx={{ fontWeight: 'bold' }} component="div">
           {openAdd ? 'Yeni Satış Faturası' : 'Satış Faturası Düzenle'}
         </DialogTitle>
         <DialogContent>
@@ -1305,7 +1305,7 @@ export default function SatisFaturalariPage() {
         maxWidth="md"
         fullWidth
       >
-        <DialogTitle sx={{ fontWeight: 'bold' }}>
+        <DialogTitle component="div" sx={{ fontWeight: 'bold' }} component="div">
           Fatura Detayı
         </DialogTitle>
         <DialogContent>
@@ -1508,7 +1508,7 @@ export default function SatisFaturalariPage() {
 
       {/* Delete Dialog */}
       <Dialog open={openDelete} onClose={() => setOpenDelete(false)}>
-        <DialogTitle sx={{ fontWeight: 'bold' }}>Fatura Sil</DialogTitle>
+        <DialogTitle component="div" sx={{ fontWeight: 'bold' }} component="div">Fatura Sil</DialogTitle>
         <DialogContent>
           <Typography>
             <strong>{selectedFatura?.faturaNo}</strong> nolu faturayı silmek istediğinizden emin misiniz?
@@ -1527,7 +1527,7 @@ export default function SatisFaturalariPage() {
 
       {/* Iptal Dialog */}
       <Dialog open={openIptal} onClose={() => { setOpenIptal(false); setIrsaliyeIptal(false); }} maxWidth="sm" fullWidth>
-        <DialogTitle sx={{
+        <DialogTitle component="div" sx={{
           background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
           color: 'white',
           display: 'flex',
@@ -1613,7 +1613,7 @@ export default function SatisFaturalariPage() {
 
       {/* Durum Onay Dialog */}
       <Dialog open={openDurumOnay} onClose={handleDurumChangeCancel} maxWidth="sm" fullWidth>
-        <DialogTitle sx={{
+        <DialogTitle component="div" sx={{
           background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
           color: 'white',
           display: 'flex',
@@ -1696,7 +1696,7 @@ export default function SatisFaturalariPage() {
         maxWidth="md"
         fullWidth
       >
-        <DialogTitle>
+        <DialogTitle component="div">
           <Box display="flex" alignItems="center" gap={2}>
             <TrendingUp sx={{ color: '#10b981' }} />
             <Typography variant="h6">Fatura Karlılığı</Typography>

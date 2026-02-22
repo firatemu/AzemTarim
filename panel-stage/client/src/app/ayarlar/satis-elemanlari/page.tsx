@@ -67,7 +67,7 @@ const SatisElemaniDialog = memo(({ open, initialData, isEditing, onClose, onSubm
 
     return (
         <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-            <DialogTitle>{isEditing ? 'Satış Elemanı Düzenle' : 'Yeni Satış Elemanı'}</DialogTitle>
+            <DialogTitle component="div">{isEditing ? 'Satış Elemanı Düzenle' : 'Yeni Satış Elemanı'}</DialogTitle>
             <DialogContent>
                 <Box sx={{ mt: 2 }}>
                     <Grid container spacing={2}>

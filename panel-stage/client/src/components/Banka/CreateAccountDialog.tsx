@@ -147,7 +147,7 @@ export default function CreateAccountDialog({ open, onClose, onSuccess, bankaId,
 
     return (
         <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-            <DialogTitle>
+            <DialogTitle component="div">
                 {mode === 'EDIT' ? 'Hesabı Güncelle' : 'Yeni Hesap Ekle'}
                 {bankaAdi && <div style={{ fontSize: '0.875rem', color: 'rgba(0, 0, 0, 0.6)', marginTop: 4 }}>{bankaAdi}</div>}
             </DialogTitle>

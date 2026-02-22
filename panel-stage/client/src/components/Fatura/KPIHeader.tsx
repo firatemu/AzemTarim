@@ -32,7 +32,7 @@ export default function KPIHeader({ loading, data, type }: StatsProps) {
             count: data?.aylikSatis.adet || 0,
             icon: isSatis ? <TrendingUp /> : <TrendingDown />,
             color: isSatis ? '#10b981' : '#f59e0b', // emerald-500 : amber-500
-            bgColor: isSatis ? '#ecfdf5' : '#fffbeb',
+            bgColor: isSatis ? 'color-mix(in srgb, var(--chart-3) 15%, transparent)' : 'color-mix(in srgb, var(--chart-2) 15%, transparent)',
         },
         {
             title: isSatis ? 'Tahsilat Bekleyen' : 'Ödeme Bekleyen',
@@ -40,7 +40,7 @@ export default function KPIHeader({ loading, data, type }: StatsProps) {
             count: data?.tahsilatBekleyen.adet || 0,
             icon: <HourglassEmpty />,
             color: '#3b82f6', // blue-500
-            bgColor: '#eff6ff',
+            bgColor: 'color-mix(in srgb, var(--chart-1) 15%, transparent)',
         },
         {
             title: 'Vadesi Geçmiş',
@@ -48,7 +48,7 @@ export default function KPIHeader({ loading, data, type }: StatsProps) {
             count: data?.vadesiGecmis.adet || 0,
             icon: <Dangerous />,
             color: '#ef4444', // red-500
-            bgColor: '#fef2f2',
+            bgColor: 'color-mix(in srgb, var(--destructive) 15%, transparent)',
         },
     ];
 

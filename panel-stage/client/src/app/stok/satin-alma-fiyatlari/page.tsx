@@ -165,7 +165,7 @@ export default function SatinAlmaFiyatlariPage() {
 
         <TableContainer component={Paper} sx={{ borderRadius: 2 }}>
           <Table>
-            <TableHead sx={{ bgcolor: '#f5f5f5' }}>
+            <TableHead sx={{ bgcolor: 'var(--muted)' }}>
               <TableRow>
                 <TableCell><strong>Stok Kodu</strong></TableCell>
                 <TableCell><strong>Stok Adı</strong></TableCell>

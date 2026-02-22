@@ -18,6 +18,10 @@ export class CreateTahsilatDto {
   @IsOptional()
   faturaId?: string;
 
+  @IsString()
+  @IsOptional()
+  serviceInvoiceId?: string; // Servis faturası tahsilatı (iş emri üzerinden)
+
   @IsEnum(TahsilatTip)
   tip: TahsilatTip; // TAHSILAT veya ODEME
 

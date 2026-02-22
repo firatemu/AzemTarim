@@ -1,7 +1,7 @@
 'use client';
 
 import InactivityTracker from '@/components/InactivityTracker';
-import { theme } from '@/lib/theme';
+import { lightTheme, darkTheme } from '@/lib/theme';
 import QueryProvider from '@/providers/QueryProvider';
 import StorageGuard from '@/providers/StorageGuard';
 import { useThemeStore } from '@/stores/themeStore';
@@ -17,6 +17,16 @@ export default function ClientLayout({
   children: React.ReactNode;
 }) {
   const { isDarkMode, setDarkMode } = useThemeStore();
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      if (isDarkMode) {
+        document.documentElement.classList.add('dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+      }
+    }
+  }, [isDarkMode]);
 
   useEffect(() => {
     // Clear corrupted cache on first load
@@ -58,7 +68,7 @@ export default function ClientLayout({
     <StorageGuard>
     <QueryProvider>
       <AppRouterCacheProvider>
-        <ThemeProvider theme={theme}>
+        <ThemeProvider theme={isDarkMode ? darkTheme : lightTheme}>
           <CssBaseline />
           {children}
           <InactivityTracker />

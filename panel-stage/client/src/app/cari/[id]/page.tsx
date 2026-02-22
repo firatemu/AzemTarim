@@ -870,7 +870,7 @@ export default function CariDetayPage() {
 
       {/* Add Dialog */}
       <Dialog open={openAdd} onClose={() => setOpenAdd(false)} maxWidth="sm" fullWidth fullScreen={isMobile}>
-        <DialogTitle sx={{
+        <DialogTitle component="div" sx={{
           background: 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)',
           color: 'white',
           fontWeight: 'bold',
@@ -956,7 +956,7 @@ export default function CariDetayPage() {
 
       {/* İncele Dialog */}
       <Dialog open={openIncele} onClose={() => setOpenIncele(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Hareket Detayı</DialogTitle>
+        <DialogTitle component="div">Hareket Detayı</DialogTitle>
         <DialogContent>
           {selectedHareket && (
             <List>

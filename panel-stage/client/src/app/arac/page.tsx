@@ -93,7 +93,7 @@ const AracFormDialog = React.memo(({
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle sx={{ bgcolor: '#191970', color: 'white', fontSize: '1.25rem', py: 2 }}>
+      <DialogTitle component="div" sx={{ bgcolor: '#191970', color: 'white', fontSize: '1.25rem', py: 2 }} component="div">
         {editingArac ? '✏️ Araç Düzenle' : '➕ Yeni Araç Ekle'}
       </DialogTitle>
       <DialogContent sx={{ mt: 3 }}>
@@ -480,7 +480,7 @@ export default function AracPage() {
       {/* Araç Listesi */}
       <TableContainer component={Paper}>
         <Table>
-          <TableHead sx={{ bgcolor: '#f5f5f5' }}>
+          <TableHead sx={{ bgcolor: 'var(--muted)' }}>
             <TableRow>
               <TableCell><strong>Marka</strong></TableCell>
               <TableCell><strong>Model</strong></TableCell>

@@ -69,3 +69,6 @@ docker-health-report.txt
 # Environment files
 .env*
 !.env.example
+
+# Uploaded files (firma logosu vb. - Docker volume / bind mount ile kalıcı)
+api-stage/server/uploads/

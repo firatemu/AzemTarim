@@ -341,7 +341,7 @@ export default function SilinenHavalelerPage() {
 
         {/* Detay Dialog */}
         <Dialog open={openDetail} onClose={() => setOpenDetail(false)} maxWidth="md" fullWidth>
-          <DialogTitle sx={{ bgcolor: '#f9fafb' }}>
+          <DialogTitle component="div" sx={{ bgcolor: '#f9fafb' }} component="div">
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               <DeleteForever sx={{ color: '#ef4444' }} />
               Silinen Havale Detayı

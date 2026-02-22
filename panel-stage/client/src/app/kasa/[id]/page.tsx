@@ -237,7 +237,7 @@ const BankaHesabiHareketleri: React.FC<BankaHesabiHareketleriProps> = ({ bankaHe
   if (!havaleHareketleri || havaleHareketleri.length === 0) {
     return (
       <Box sx={{ p: 3 }}>
-        <Box sx={{ mb: 2, p: 2, bgcolor: '#f8f9fa', borderRadius: 1 }}>
+        <Box sx={{ mb: 2, p: 2, bgcolor: 'var(--muted)', borderRadius: 1 }}>
           <Typography variant="body2" color="text.secondary">
             Toplam Bakiye
           </Typography>
@@ -394,7 +394,7 @@ const BankaHesabiHareketleri: React.FC<BankaHesabiHareketleriProps> = ({ bankaHe
 
   return (
     <Box>
-      <Box sx={{ mb: 2, p: 2, bgcolor: '#f8f9fa', borderRadius: 1 }}>
+      <Box sx={{ mb: 2, p: 2, bgcolor: 'var(--muted)', borderRadius: 1 }}>
         <Typography variant="body2" color="text.secondary">
           Toplam Bakiye
         </Typography>
@@ -414,7 +414,7 @@ const BankaHesabiHareketleri: React.FC<BankaHesabiHareketleriProps> = ({ bankaHe
               fontSize: '0.875rem',
             },
             '& .MuiDataGrid-columnHeaders': {
-              bgcolor: '#f8f9fa',
+              bgcolor: 'var(--muted)',
               fontWeight: 600,
             },
           }}
@@ -703,7 +703,7 @@ const KasaHareketleri: React.FC<KasaHareketleriProps> = ({ kasaId, kasaTipi }) =
             fontSize: '0.875rem',
           },
           '& .MuiDataGrid-columnHeaders': {
-            bgcolor: '#f8f9fa',
+            bgcolor: 'var(--muted)',
             fontWeight: 600,
           },
         }}
@@ -1035,7 +1035,7 @@ export default function KasaDetayPage() {
 
             <TableContainer component={Paper}>
               <Table>
-                <TableHead sx={{ bgcolor: '#f8f9fa' }}>
+                <TableHead sx={{ bgcolor: 'var(--muted)' }}>
                   <TableRow>
                     <TableCell sx={{ fontWeight: 600 }}>Tip</TableCell>
                     <TableCell sx={{ fontWeight: 600 }}>Hesap Kodu</TableCell>
@@ -1160,7 +1160,7 @@ export default function KasaDetayPage() {
 
             <TableContainer component={Paper}>
               <Table>
-                <TableHead sx={{ bgcolor: '#f8f9fa' }}>
+                <TableHead sx={{ bgcolor: 'var(--muted)' }}>
                   <TableRow>
                     <TableCell sx={{ fontWeight: 600 }}>Kart Kodu</TableCell>
                     <TableCell sx={{ fontWeight: 600 }}>Kart Adı</TableCell>
@@ -1248,7 +1248,7 @@ export default function KasaDetayPage() {
 
         {/* BANKA HESAP DIALOG */}
         <Dialog open={openDialog && kasa.kasaTipi === 'BANKA'} onClose={() => setOpenDialog(false)} maxWidth="md" fullWidth>
-          <DialogTitle sx={{ bgcolor: '#3b82f6', color: 'white' }}>
+          <DialogTitle component="div" sx={{ bgcolor: '#3b82f6', color: 'white' }} component="div">
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               <AccountBalance />
               {editingItem ? 'Banka Hesabı Düzenle' : 'Yeni Banka Hesabı Ekle'}
@@ -1370,7 +1370,7 @@ export default function KasaDetayPage() {
 
         {/* FİRMA KREDİ KARTI DIALOG */}
         <Dialog open={openDialog && kasa.kasaTipi === 'FIRMA_KREDI_KARTI'} onClose={() => setOpenDialog(false)} maxWidth="md" fullWidth>
-          <DialogTitle sx={{ bgcolor: '#ef4444', color: 'white' }}>
+          <DialogTitle component="div" sx={{ bgcolor: '#ef4444', color: 'white' }} component="div">
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               <CreditCard />
               {editingItem ? 'Firma Kredi Kartı Düzenle' : 'Yeni Firma Kredi Kartı Ekle'}
@@ -1634,7 +1634,7 @@ export default function KasaDetayPage() {
           maxWidth="lg"
           fullWidth
         >
-          <DialogTitle>
+          <DialogTitle component="div">
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               <AccountBalance />
               {selectedBankaHesabi
@@ -1656,7 +1656,7 @@ export default function KasaDetayPage() {
 
         {/* SİLME ONAY DIALOG */}
         <Dialog open={openDeleteDialog} onClose={() => setOpenDeleteDialog(false)}>
-          <DialogTitle>Silme Onayı</DialogTitle>
+          <DialogTitle component="div">Silme Onayı</DialogTitle>
           <DialogContent>
             <Alert severity="warning">
               <Typography>

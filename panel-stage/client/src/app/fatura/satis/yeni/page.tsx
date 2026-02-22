@@ -1938,7 +1938,7 @@ function YeniSatisFaturasiPageContent() {
         fullWidth
         fullScreen={isMobile}
       >
-        <DialogTitle>Faturalandırılmamış İrsaliyeleri Seçin</DialogTitle>
+        <DialogTitle component="div">Faturalandırılmamış İrsaliyeleri Seçin</DialogTitle>
         <DialogContent>
           <DialogContentText sx={{ mb: 2 }}>
             Seçili cari hesaba ait faturalandırılmamış irsaliyelerden kalemleri faturaya ekleyebilirsiniz.
@@ -2065,7 +2065,7 @@ function YeniSatisFaturasiPageContent() {
         fullWidth
         fullScreen={isMobile}
       >
-        <DialogTitle>Siparişten Ekle</DialogTitle>
+        <DialogTitle component="div">Siparişten Ekle</DialogTitle>
         <DialogContent>
           <Box sx={{ mb: 2, mt: 1 }}>
             <TextField
@@ -2232,7 +2232,7 @@ function YeniSatisFaturasiPageContent() {
         fullWidth
         fullScreen={isMobile}
       >
-        <DialogTitle sx={{ bgcolor: 'error.main', color: 'white', display: 'flex', alignItems: 'center', gap: 1 }}>
+        <DialogTitle component="div" sx={{ bgcolor: 'error.main', color: 'white', display: 'flex', alignItems: 'center', gap: 1 }} component="div">
           <Box component="span" sx={{ fontSize: 24 }}>⚠️</Box>
           Yetersiz Stok Uyarısı
         </DialogTitle>

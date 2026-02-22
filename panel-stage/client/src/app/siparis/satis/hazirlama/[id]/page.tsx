@@ -192,7 +192,7 @@ export default function SiparisHazirlamaPage() {
   }
 
   return (
-    <Box sx={{ bgcolor: '#f5f5f5', minHeight: '100vh', p: 3 }}>
+    <Box sx={{ bgcolor: 'var(--muted)', minHeight: '100vh', p: 3 }}>
       {/* Kontrol Paneli */}
       <Paper sx={{ p: 2, mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
         <Stack direction="row" spacing={2} alignItems="center">

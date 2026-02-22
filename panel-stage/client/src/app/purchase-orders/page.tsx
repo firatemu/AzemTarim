@@ -394,7 +394,7 @@ export default function PurchaseOrdersPage() {
 
       {/* Silme Onay Dialog */}
       <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)}>
-        <DialogTitle>Siparişi Sil</DialogTitle>
+        <DialogTitle component="div">Siparişi Sil</DialogTitle>
         <DialogContent>
           <Typography>
             {selectedOrder && (

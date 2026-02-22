@@ -196,7 +196,7 @@ const PersonelDialog = memo(({
 
   return (
     <Dialog open={true} onClose={onClose} maxWidth="md" fullWidth>
-      <DialogTitle>{isEdit ? 'Personel Düzenle' : 'Yeni Personel Ekle'}</DialogTitle>
+      <DialogTitle component="div">{isEdit ? 'Personel Düzenle' : 'Yeni Personel Ekle'}</DialogTitle>
       <DialogContent>
         <Box sx={{ mt: 2 }}>
           <Grid container spacing={2}>
@@ -986,7 +986,7 @@ export default function PersonelPage() {
 
         {/* View Dialog */}
         <Dialog open={openViewDialog} onClose={() => setOpenViewDialog(false)} maxWidth="md" fullWidth>
-          <DialogTitle>
+          <DialogTitle component="div">
             Personel Detayları
           </DialogTitle>
           <DialogContent>
@@ -1187,7 +1187,7 @@ export default function PersonelPage() {
 
         {/* Delete Confirmation Dialog */}
         <Dialog open={openDeleteDialog} onClose={() => setOpenDeleteDialog(false)}>
-          <DialogTitle>Personel Silinecek</DialogTitle>
+          <DialogTitle component="div">Personel Silinecek</DialogTitle>
           <DialogContent>
             <Typography>
               {deleteTarget && `${deleteTarget.ad} ${deleteTarget.soyad} adlı personeli silmek istediğinizden emin misiniz?`}

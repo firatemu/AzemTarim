@@ -143,7 +143,7 @@ export default function POSTransferPage() {
         {/* Header */}
         <Box sx={{ mb: 3 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
-            <IconButton onClick={() => router.push(`/kasa/${kasaId}`)} sx={{ bgcolor: '#f3f4f6' }}>
+            <IconButton onClick={() => router.push(`/kasa/${kasaId}`)} sx={{ bgcolor: 'var(--muted)' }}>
               <ArrowBack />
             </IconButton>
             <Box sx={{ flex: 1 }}>
@@ -159,21 +159,21 @@ export default function POSTransferPage() {
 
         {/* Özet Kartlar */}
         <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 2, mb: 3 }}>
-          <Paper sx={{ p: 2, bgcolor: '#f0f9ff', borderLeft: '4px solid #3b82f6' }}>
+          <Paper sx={{ p: 2, bgcolor: 'color-mix(in srgb, var(--chart-1) 15%, transparent)', borderLeft: '4px solid var(--chart-1)' }}>
             <Typography variant="caption" color="text.secondary">Bekleyen İşlem</Typography>
             <Typography variant="h5" fontWeight="bold" color="#3b82f6">
               {ozet.adet}
             </Typography>
           </Paper>
 
-          <Paper sx={{ p: 2, bgcolor: '#f0fdf4', borderLeft: '4px solid #10b981' }}>
+          <Paper sx={{ p: 2, bgcolor: 'color-mix(in srgb, var(--chart-3) 15%, transparent)', borderLeft: '4px solid var(--chart-3)' }}>
             <Typography variant="caption" color="text.secondary">Toplam Brüt</Typography>
             <Typography variant="h5" fontWeight="bold" color="#10b981">
               {formatCurrency(ozet.toplamBrutTutar)}
             </Typography>
           </Paper>
 
-          <Paper sx={{ p: 2, bgcolor: '#fef2f2', borderLeft: '4px solid #ef4444' }}>
+          <Paper sx={{ p: 2, bgcolor: 'color-mix(in srgb, var(--destructive) 15%, transparent)', borderLeft: '4px solid var(--destructive)' }}>
             <Typography variant="caption" color="text.secondary">Komisyon + BSMV</Typography>
             <Typography variant="h5" fontWeight="bold" color="#ef4444">
               -{formatCurrency(ozet.toplamKomisyon + ozet.toplamBSMV)}
@@ -183,7 +183,7 @@ export default function POSTransferPage() {
             </Typography>
           </Paper>
 
-          <Paper sx={{ p: 2, bgcolor: '#f5f3ff', borderLeft: '4px solid #8b5cf6' }}>
+          <Paper sx={{ p: 2, bgcolor: 'color-mix(in srgb, var(--chart-4) 15%, transparent)', borderLeft: '4px solid var(--chart-4)' }}>
             <Typography variant="caption" color="text.secondary">Net Transfer Tutarı</Typography>
             <Typography variant="h5" fontWeight="bold" color="#8b5cf6">
               {formatCurrency(ozet.toplamNetTutar)}
@@ -194,7 +194,7 @@ export default function POSTransferPage() {
         {/* Bekleyen Hareketler */}
         {ozet.adet > 0 ? (
           <>
-            <Paper sx={{ p: 2, mb: 2, bgcolor: '#fffbeb', border: '1px solid #f59e0b' }}>
+            <Paper sx={{ p: 2, mb: 2, bgcolor: 'color-mix(in srgb, var(--chart-2) 15%, transparent)', border: '1px solid var(--chart-2)' }}>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
                 <Warning sx={{ color: '#f59e0b' }} />
                 <Typography variant="subtitle1" fontWeight="bold" color="#f59e0b">
@@ -210,7 +210,7 @@ export default function POSTransferPage() {
 
             <TableContainer component={Paper} sx={{ mb: 3 }}>
               <Table size="small">
-                <TableHead sx={{ bgcolor: '#f8f9fa' }}>
+                <TableHead sx={{ bgcolor: 'var(--muted)' }}>
                   <TableRow>
                     <TableCell sx={{ fontWeight: 600 }}>Tarih</TableCell>
                     <TableCell sx={{ fontWeight: 600 }}>Cari</TableCell>
@@ -251,7 +251,7 @@ export default function POSTransferPage() {
                       </TableCell>
                     </TableRow>
                   ))}
-                  <TableRow sx={{ bgcolor: '#f9fafb' }}>
+                  <TableRow sx={{ bgcolor: 'var(--muted)' }}>
                     <TableCell colSpan={2} sx={{ fontWeight: 700 }}>TOPLAM</TableCell>
                     <TableCell align="right" sx={{ fontWeight: 700 }}>
                       {formatCurrency(ozet.toplamBrutTutar)}
@@ -300,7 +300,7 @@ export default function POSTransferPage() {
 
         {/* Confirm Dialog */}
         <Dialog open={openConfirm} onClose={() => setOpenConfirm(false)} maxWidth="sm" fullWidth>
-          <DialogTitle sx={{ fontWeight: 'bold' }}>
+          <DialogTitle component="div" sx={{ fontWeight: 'bold' }} component="div">
             Transfer Onayı
           </DialogTitle>
           <DialogContent>
@@ -310,7 +310,7 @@ export default function POSTransferPage() {
             <Typography variant="body1" sx={{ mb: 2 }}>
               <strong>{ozet.adet} adet</strong> kredi kartı tahsilatını transfer etmek üzeresiniz:
             </Typography>
-            <Paper variant="outlined" sx={{ p: 2, bgcolor: '#f9fafb' }}>
+            <Paper variant="outlined" sx={{ p: 2, bgcolor: 'var(--muted)' }}>
               <Stack spacing={1}>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                   <Typography variant="body2">Toplam Brüt Tutar:</Typography>

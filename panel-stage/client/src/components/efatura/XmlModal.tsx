@@ -100,7 +100,7 @@ export default function XmlModal({ open, onClose, xml, document }: XmlModalProps
         },
       }}
     >
-      <DialogTitle>
+      <DialogTitle component="div">
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <Box>
             <Typography variant="h6" component="span">
@@ -137,7 +137,7 @@ export default function XmlModal({ open, onClose, xml, document }: XmlModalProps
             variant="outlined"
             sx={{
               p: 2,
-              bgcolor: '#f5f5f5',
+              bgcolor: 'var(--muted)',
               maxHeight: 'calc(90vh - 200px)',
               overflow: 'auto',
             }}

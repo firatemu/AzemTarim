@@ -140,6 +140,7 @@ export class MarkaService {
           alisFiyati: 0,
           satisFiyati: 0,
           marka: trimmedMarkaAdi,
+          sadeceMarkaTanimi: true,
           aciklama: 'Bu kayıt sadece marka tanımı için oluşturulmuştur. Gerçek bir stok kaydı değildir.',
         },
       });
@@ -163,6 +164,7 @@ export class MarkaService {
             alisFiyati: 0,
             satisFiyati: 0,
             marka: trimmedMarkaAdi,
+            sadeceMarkaTanimi: true,
             aciklama: 'Bu kayıt sadece marka tanımı için oluşturulmuştur. Gerçek bir stok kaydı değildir.',
           },
         });

@@ -460,7 +460,7 @@ export default function BankaDetayPage() {
 
                 {/* Delete Confirmation Dialog */}
                 <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)}>
-                    <DialogTitle>Hesap Silinecek</DialogTitle>
+                    <DialogTitle component="div">Hesap Silinecek</DialogTitle>
                     <DialogContent>
                         <Typography>
                             Bu hesabı silmek istediğinize emin misiniz? Hesapta hareket varsa silme işlemi başarısız olacaktır.

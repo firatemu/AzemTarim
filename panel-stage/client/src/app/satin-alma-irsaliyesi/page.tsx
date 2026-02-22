@@ -233,7 +233,7 @@ export default function SatinAlmaIrsaliyeleriPage() {
           <TableContainer component={Paper} sx={{ borderRadius: 2 }}>
             <Table>
               <TableHead>
-                <TableRow sx={{ bgcolor: '#f9fafb' }}>
+                <TableRow sx={{ bgcolor: 'var(--muted)' }}>
                   <TableCell sx={{ fontWeight: 600 }}>İrsaliye No</TableCell>
                   <TableCell sx={{ fontWeight: 600 }}>Tarih</TableCell>
                   <TableCell sx={{ fontWeight: 600 }}>Cari</TableCell>
@@ -299,7 +299,7 @@ export default function SatinAlmaIrsaliyeleriPage() {
                             onClick={() => router.push(`/satin-alma-irsaliyesi/${irsaliye.id}`)}
                             sx={{
                               color: '#3b82f6',
-                              '&:hover': { bgcolor: '#eff6ff' }
+                              '&:hover': { bgcolor: 'color-mix(in srgb, var(--chart-1) 15%, transparent)' }
                             }}
                             title="Görüntüle"
                           >
@@ -310,7 +310,7 @@ export default function SatinAlmaIrsaliyeleriPage() {
                             onClick={() => router.push(`/satin-alma-irsaliyesi/print/${irsaliye.id}`)}
                             sx={{
                               color: '#10b981',
-                              '&:hover': { bgcolor: '#ecfdf5' }
+                              '&:hover': { bgcolor: 'color-mix(in srgb, var(--chart-3) 15%, transparent)' }
                             }}
                             title="Yazdır"
                           >
@@ -390,7 +390,7 @@ export default function SatinAlmaIrsaliyeleriPage() {
         </Menu>
 
         <Dialog open={openDelete} onClose={() => setOpenDelete(false)}>
-          <DialogTitle>Satın Alma İrsaliye Sil</DialogTitle>
+          <DialogTitle component="div">Satın Alma İrsaliye Sil</DialogTitle>
           <DialogContent>
             <Typography>
               <strong>{selectedIrsaliye?.irsaliyeNo}</strong> numaralı satın alma irsaliyesini silmek istediğinizden emin misiniz?

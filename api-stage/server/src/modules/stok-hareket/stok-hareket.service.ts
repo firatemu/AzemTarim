@@ -55,6 +55,15 @@ export class StokHareketService {
               code: true,
             },
           },
+          faturaKalemi: {
+            select: {
+              id: true,
+              birimFiyat: true,
+              iskontoOrani: true,
+              iskontoTutari: true,
+              tutar: true,
+            },
+          },
         },
       }),
       this.prisma.stokHareket.count({ where }),

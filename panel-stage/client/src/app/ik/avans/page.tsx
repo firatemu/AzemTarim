@@ -79,7 +79,7 @@ const AvansVerDialog = React.memo(({ open, onClose, personelList, kasalar, onSav
 
     return (
         <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-            <DialogTitle>Avans Ver</DialogTitle>
+            <DialogTitle component="div">Avans Ver</DialogTitle>
             <DialogContent dividers>
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
                     <FormControl fullWidth>
@@ -170,7 +170,7 @@ const MahsuplastirDialog = React.memo(({ open, onClose, avans, plans, onSave }: 
 
     return (
         <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-            <DialogTitle>Avans Mahsuplaştır</DialogTitle>
+            <DialogTitle component="div">Avans Mahsuplaştır</DialogTitle>
             <DialogContent dividers>
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
                     <Typography variant="body2">

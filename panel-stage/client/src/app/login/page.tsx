@@ -66,7 +66,13 @@ export default function LoginPage() {
       setAuth(user, accessToken, refreshToken);
       router.push('/dashboard');
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Giriş başarısız');
+      const status = err.response?.status;
+      const msg = err.response?.data?.message;
+      if (status === 503) {
+        setError(msg || 'API sunucusuna bağlanılamadı. Backend çalışıyor mu?');
+      } else {
+        setError(msg || 'Giriş başarısız');
+      }
     } finally {
       setLoading(false);
     }

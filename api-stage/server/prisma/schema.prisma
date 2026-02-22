@@ -64,8 +64,12 @@ model Tenant {
   tenantPurgeAudits      TenantPurgeAudit[]
   codeTemplates          CodeTemplate[]
   tenantType             TenantType                   @default(CORPORATE)
-
-  // Service Management
+  customerVehicles       CustomerVehicle[]
+  workOrders             WorkOrder[]
+  partRequests           PartRequest[]
+  inventoryTransactions  InventoryTransaction[]
+  serviceInvoices        ServiceInvoice[]
+  journalEntries         JournalEntry[]
 
   @@index([subdomain])
   @@index([domain])
@@ -222,6 +226,7 @@ model User {
   phone                          String?
   avatarUrl                      String?
   role                           UserRole                  @default(USER)
+  department                     String?
   status                         UserStatus                @default(ACTIVE)
   isActive                       Boolean                   @default(true)
   refreshToken                   String?
@@ -293,6 +298,10 @@ model User {
   updatedWarehouseTransfers      WarehouseTransfer[]       @relation("WarehouseTransferUpdatedBy")
   createdAvanslar                Avans[]                   @relation("AvansCreatedBy")
   createdMaasOdemeler            MaasOdeme[]               @relation("MaasOdemeCreatedBy")
+  workOrdersAsTechnician          WorkOrder[]              @relation("WorkOrderTechnician")
+  workOrderActivities             WorkOrderActivity[]
+  partRequestsRequested          PartRequest[]
+  createdServiceInvoices         ServiceInvoice[]
   roleId                         String?
   roleRelation                   Role?                     @relation(fields: [roleId], references: [id])
 
@@ -350,6 +359,10 @@ model Stok {
   aracModel                    String?
   aracMotorHacmi               String?
   aracYakitTipi                String?
+  /** true ise bu kayıt sadece kategori tanımı için; malzeme listesinde gösterilmez */
+  sadeceKategoriTanimi        Boolean?                      @default(false)
+  /** true ise bu kayıt sadece marka tanımı için; malzeme listesinde gösterilmez */
+  sadeceMarkaTanimi           Boolean?                      @default(false)
   createdAt                    DateTime                     @default(now())
   updatedAt                    DateTime                     @updatedAt
   basitSiparisler              BasitSiparis[]               @relation("BasitSiparisStok")
@@ -364,7 +377,6 @@ model Stok {
   satisIrsaliyesiKalemleri     SatisIrsaliyesiKalemi[]      @relation("SatisIrsaliyesiKalemiStok")
   sayimKalemleri               SayimKalemi[]
   siparisKalemleri             SiparisKalemi[]
-  solutionPackageParts         SolutionPackagePart[]
   costHistory                  StockCostHistory[]
   stockMoves                   StockMove[]
   esdegers                     StokEsdeger[]                @relation("Stok1")
@@ -376,6 +388,9 @@ model Stok {
   urunRaflar                   UrunRaf[]
   warehouseCriticalStocks      WarehouseCriticalStock[]
   warehouseTransferItems       WarehouseTransferItem[]
+  workOrderItems               WorkOrderItem[]
+  partRequests                 PartRequest[]
+  inventoryTransactions        InventoryTransaction[]
 
   @@unique([stokKodu, tenantId])
   @@unique([barkod, tenantId])
@@ -446,20 +461,23 @@ model StokEsdeger {
 }
 
 model StokHareket {
-  id          String      @id @default(uuid())
-  stokId      String
-  hareketTipi HareketTipi
-  miktar      Int
-  birimFiyat  Decimal     @db.Decimal(10, 2)
-  aciklama    String?
-  createdAt   DateTime    @default(now())
-  warehouseId String?
-  stok        Stok        @relation(fields: [stokId], references: [id], onDelete: Cascade)
-  warehouse   Warehouse?  @relation(fields: [warehouseId], references: [id])
-  tenantId    String?
-  tenant      Tenant?     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  id            String        @id @default(uuid())
+  stokId        String
+  hareketTipi   HareketTipi
+  miktar        Int
+  birimFiyat    Decimal       @db.Decimal(10, 2)
+  aciklama      String?
+  createdAt     DateTime      @default(now())
+  warehouseId   String?
+  faturaKalemiId String?
+  stok          Stok          @relation(fields: [stokId], references: [id], onDelete: Cascade)
+  warehouse     Warehouse?    @relation(fields: [warehouseId], references: [id])
+  faturaKalemi  FaturaKalemi? @relation(fields: [faturaKalemiId], references: [id], onDelete: SetNull)
+  tenantId      String?
+  tenant        Tenant?       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@index([tenantId])
+  @@index([faturaKalemiId])
   @@map("stok_hareketleri")
 }
 
@@ -524,6 +542,9 @@ model Cari {
   yetkililer        CariYetkili[]
   ekAdresler        CariAdres[]
   tedarikciBankalar CariBanka[]
+  customerVehicles  CustomerVehicle[]
+  workOrders        WorkOrder[]
+  serviceInvoices   ServiceInvoice[]
 
   @@unique([cariKodu, tenantId])
   @@index([tenantId])
@@ -937,16 +958,18 @@ model FaturaKalemi {
   purchaseOrderItem   PurchaseOrderItem? @relation("PurchaseOrderItemFaturaKalemi", fields: [purchaseOrderItemId], references: [id])
   stok                Stok               @relation(fields: [stokId], references: [id])
   invoiceProfits      InvoiceProfit[]
+  stokHareketleri     StokHareket[]
 
   @@map("fatura_kalemleri")
 }
 
 model Tahsilat {
-  id                String           @id @default(uuid())
-  tenantId          String?
-  cariId            String
-  faturaId          String?
-  tip               TahsilatTip
+  id                 String            @id @default(uuid())
+  tenantId           String?
+  cariId             String
+  faturaId           String?
+  serviceInvoiceId   String?
+  tip                TahsilatTip
   tutar             Decimal          @db.Decimal(12, 2)
   tarih             DateTime         @default(now())
   odemeTipi         OdemeTipi
@@ -964,18 +987,17 @@ model Tahsilat {
   cari              Cari             @relation(fields: [cariId], references: [id])
   createdByUser     User?            @relation("TahsilatCreatedBy", fields: [createdBy], references: [id])
   deletedByUser     User?            @relation("TahsilatDeletedBy", fields: [deletedBy], references: [id])
-  fatura            Fatura?          @relation(fields: [faturaId], references: [id])
-  firmaKrediKarti   FirmaKrediKarti? @relation(fields: [firmaKrediKartiId], references: [id])
+  fatura            Fatura?           @relation(fields: [faturaId], references: [id])
+  serviceInvoice   ServiceInvoice?   @relation(fields: [serviceInvoiceId], references: [id], onDelete: SetNull)
+  firmaKrediKarti   FirmaKrediKarti?  @relation(fields: [firmaKrediKartiId], references: [id])
   kasa              Kasa?            @relation(fields: [kasaId], references: [id])
   tenant            Tenant?          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   satisElemaniId    String?
-  workOrderId       String?
   satisElemani      SatisElemani?    @relation(fields: [satisElemaniId], references: [id])
 
   @@index([tenantId])
   @@index([tenantId, deletedAt])
   @@index([tenantId, tarih])
-  @@index([workOrderId])
   @@map("tahsilatlar")
 }
 
@@ -1360,6 +1382,7 @@ model Warehouse {
   warehouseCriticalStocks WarehouseCriticalStock[]
   fromWarehouseTransfers  WarehouseTransfer[]      @relation("WarehouseTransferFrom")
   toWarehouseTransfers    WarehouseTransfer[]      @relation("WarehouseTransferTo")
+  inventoryTransactions  InventoryTransaction[]
   tenant                  Tenant?                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@unique([code, tenantId])
@@ -2156,128 +2179,244 @@ model EfaturaInbox {
   @@map("efatura_inbox")
 }
 
-// Teşhis Onay Yönetimi
-// İş Emri Zaman Çizelgesi (Activity Timeline)
-// Müşteri Fiyat Teklifi
-model PriceQuote {
-  id               String    @id @default(uuid())
-  tenantId         String
-  workOrderId      String
-  quotedBy         String
-  sentAt           DateTime?
-  viewedAt         DateTime?
-  approvedAt       DateTime?
-  rejectedAt       DateTime?
-  laborCost        Decimal   @db.Decimal(12, 2)
-  partsCost        Decimal   @db.Decimal(12, 2)
-  taxAmount        Decimal   @db.Decimal(12, 2)
-  totalCost        Decimal   @db.Decimal(12, 2)
-  discountAmount   Decimal   @default(0) @db.Decimal(12, 2)
-  customerResponse String? // APPROVED, REJECTED, PARTIAL, PENDING
-  customerNotes    String?
-  itemsBreakdown   Json // Detaylı fiyat kırılımı [{description, amount}]
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
+// ========== Vehicle Service Management Module ==========
 
+enum VehicleServiceStatus {
+  BEKLEMEDE              // İş emri beklemede (ilk aşama)
+  MUSTERI_ONAYI_BEKLIYOR  // Müşteri onayı bekliyor
+  YAPIM_ASAMASINDA       // Araç yapım aşamasında
+  PARCA_BEKLIYOR         // Parça bekleniyor
+  PARCALAR_TEDARIK_EDILDI // Parçalar tedarik edildi
+  ARAC_HAZIR             // Araç hazır
+  TAMAMLANDI             // Tamamlandı
+}
+
+model CustomerVehicle {
+  id              String               @id @default(uuid())
+  tenantId        String?
+  cariId          String
+  plaka           String
+  saseno          String?
+  yil             Int?
+  km              Int?
+  aracMarka       String
+  aracModel       String
+  aracMotorHacmi  String?
+  aracYakitTipi   String?
+  ruhsatNo        String?
+  tescilTarihi    DateTime?
+  ruhsatSahibi    String?
+  motorGucu       Int?
+  sanziman        String?
+  renk            String?
+  aciklama        String?
+  ruhsatPhotoUrl  String?
+  servisDurum     VehicleServiceStatus?
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+  cari            Cari                  @relation(fields: [cariId], references: [id], onDelete: Cascade)
+  tenant          Tenant?               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  workOrders      WorkOrder[]
+
+  @@unique([plaka, tenantId])
+  @@unique([saseno, tenantId])
+  @@index([tenantId])
+  @@index([tenantId, cariId])
+  @@index([servisDurum])
+  @@map("customer_vehicles")
+}
+
+model WorkOrder {
+  id                     String               @id @default(uuid())
+  workOrderNo            String
+  tenantId               String?
+  status                 WorkOrderStatus      @default(WAITING_DIAGNOSIS)
+  partWorkflowStatus     PartWorkflowStatus   @default(NOT_STARTED)
+  vehicleWorkflowStatus  VehicleWorkflowStatus @default(WAITING)
+  customerVehicleId      String
+  cariId                 String
+  technicianId           String?
+  description            String?
+  diagnosisNotes         String?
+  supplyResponseNotes    String?
+  estimatedCompletionDate DateTime?
+  actualCompletionDate   DateTime?
+  totalLaborCost         Decimal         @default(0) @db.Decimal(12, 2)
+  totalPartsCost         Decimal         @default(0) @db.Decimal(12, 2)
+  taxAmount              Decimal         @default(0) @db.Decimal(12, 2)
+  grandTotal             Decimal         @default(0) @db.Decimal(12, 2)
+  version                Int             @default(1)
+  createdAt              DateTime        @default(now())
+  updatedAt              DateTime        @updatedAt
+  deletedAt              DateTime?
+  cari                   Cari            @relation(fields: [cariId], references: [id])
+  customerVehicle        CustomerVehicle @relation(fields: [customerVehicleId], references: [id], onDelete: Cascade)
+  items                  WorkOrderItem[]
+  partRequests           PartRequest[]
+  serviceInvoice         ServiceInvoice?
+  technician             User?           @relation("WorkOrderTechnician", fields: [technicianId], references: [id])
+  tenant                 Tenant?         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  activities             WorkOrderActivity[]
+
+  @@unique([workOrderNo, tenantId])
+  @@index([tenantId])
+  @@index([tenantId, status])
+  @@index([tenantId, createdAt])
+  @@index([cariId])
+  @@index([technicianId])
+  @@map("work_orders")
+}
+
+model WorkOrderActivity {
+  id          String    @id @default(uuid())
+  workOrderId String
+  action      String
+  userId      String?
+  metadata    Json?
+  createdAt   DateTime  @default(now())
+  workOrder   WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+  user        User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([workOrderId])
+  @@index([workOrderId, createdAt])
+  @@map("work_order_activities")
+}
+
+model WorkOrderItem {
+  id          String            @id @default(uuid())
+  workOrderId String
+  type        WorkOrderItemType
+  description String
+  stokId      String?
+  quantity    Int               @default(1)
+  unitPrice   Decimal           @db.Decimal(12, 2)
+  taxRate     Int               @default(20)
+  taxAmount   Decimal           @default(0) @db.Decimal(12, 2)
+  totalPrice  Decimal           @db.Decimal(12, 2)
+  version     Int               @default(1)
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  stok        Stok?             @relation(fields: [stokId], references: [id])
+  workOrder   WorkOrder         @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+
+  @@index([workOrderId])
+  @@index([stokId])
+  @@map("work_order_items")
+}
+
+model PartRequest {
+  id           String            @id @default(uuid())
+  tenantId     String?
+  workOrderId  String
+  requestedBy  String
+  description  String
+  stokId       String?
+  requestedQty Int               @default(1)
+  suppliedQty  Int?
+  status       PartRequestStatus @default(REQUESTED)
+  version      Int               @default(1)
+  suppliedBy   String?
+  suppliedAt   DateTime?
+  usedAt      DateTime?
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+  inventoryTransactions InventoryTransaction[]
+  requestedByUser User           @relation(fields: [requestedBy], references: [id])
+  stok         Stok?            @relation(fields: [stokId], references: [id])
+  workOrder    WorkOrder         @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+  tenant       Tenant?          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@index([tenantId])
+  @@index([tenantId, workOrderId])
   @@index([workOrderId])
-  @@index([createdAt])
-  @@map("price_quotes")
+  @@index([status])
+  @@map("part_requests")
 }
 
-model TechnicalFinding {
-  id          String    @id @default(cuid())
-  tenantId    String
-  workOrderId String
-  title       String    @db.VarChar(200)
-  description String
-  createdBy   String
+model InventoryTransaction {
+  id              String                   @id @default(uuid())
+  tenantId        String?
+  partRequestId   String
+  stokId          String
+  warehouseId     String?
+  quantity        Int
+  transactionType InventoryTransactionType @default(DEDUCTION)
+  createdAt       DateTime                 @default(now())
+  partRequest     PartRequest              @relation(fields: [partRequestId], references: [id], onDelete: Cascade)
+  stok            Stok                     @relation(fields: [stokId], references: [id], onDelete: Cascade)
+  tenant          Tenant?                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  warehouse       Warehouse?               @relation(fields: [warehouseId], references: [id])
+
+  @@index([tenantId])
+  @@index([partRequestId])
+  @@index([stokId])
+  @@index([tenantId, createdAt])
+  @@map("inventory_transactions")
+}
+
+model ServiceInvoice {
+  id          String    @id @default(uuid())
+  tenantId    String?
+  invoiceNo   String
+  workOrderId String    @unique
+  cariId      String
+  issueDate   DateTime  @default(now())
+  dueDate     DateTime?
+  subtotal    Decimal   @db.Decimal(12, 2)
+  taxAmount   Decimal   @db.Decimal(12, 2)
+  grandTotal  Decimal   @db.Decimal(12, 2)
+  dovizCinsi  String    @default("TRY")
+  createdBy   String?
   createdAt   DateTime  @default(now())
-  version     Int       @default(1)
+  updatedAt   DateTime  @updatedAt
+  cari        Cari      @relation(fields: [cariId], references: [id])
+  createdByUser User?    @relation(fields: [createdBy], references: [id])
+  journalEntry  JournalEntry?
+  tenant        Tenant?     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  workOrder     WorkOrder   @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+  tahsilatlar   Tahsilat[]
 
-  @@index([tenantId, workOrderId])
-  @@index([tenantId, createdAt])
-  @@map("technical_findings")
+  @@unique([invoiceNo, tenantId])
+  @@index([tenantId])
+  @@index([tenantId, issueDate])
+  @@index([cariId])
+  @@map("service_invoices")
 }
 
-model DiagnosticNote {
-  id          String    @id @default(cuid())
-  tenantId    String
-  workOrderId String
-  note        String
-  createdBy   String
-  createdAt   DateTime  @default(now())
-  version     Int       @default(1)
+model JournalEntry {
+  id                String           @id @default(uuid())
+  tenantId          String?
+  referenceType     String
+  referenceId       String
+  serviceInvoiceId String?           @unique
+  entryDate         DateTime         @default(now())
+  description       String?
+  createdAt         DateTime         @default(now())
+  lines             JournalEntryLine[]
+  serviceInvoice    ServiceInvoice?  @relation(fields: [serviceInvoiceId], references: [id], onDelete: SetNull)
+  tenant            Tenant?          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
-  @@index([tenantId, workOrderId])
-  @@index([tenantId, createdAt])
-  @@map("diagnostic_notes")
+  @@index([tenantId])
+  @@index([tenantId, referenceType, referenceId])
+  @@index([entryDate])
+  @@map("journal_entries")
 }
 
-model SolutionPackage {
-  id                       String                @id @default(cuid())
-  tenantId                 String
-  workOrderId              String
-  name                     String                @db.VarChar(200)
-  description              String
-  estimatedDurationMinutes Int
-  createdAt                DateTime              @default(now())
-  updatedAt                DateTime              @updatedAt
-  version                  Int                   @default(1)
-  managerApprovals         ManagerApproval[]
-  managerRejections        ManagerRejection[]
-  parts                    SolutionPackagePart[]
+model JournalEntryLine {
+  id             String       @id @default(uuid())
+  journalEntryId String
+  accountCode    String
+  accountName    String
+  debit          Decimal      @default(0) @db.Decimal(12, 2)
+  credit         Decimal      @default(0) @db.Decimal(12, 2)
+  description    String?
+  journalEntry   JournalEntry  @relation(fields: [journalEntryId], references: [id], onDelete: Cascade)
 
-  @@index([tenantId, workOrderId])
-  @@index([tenantId, createdAt])
-  @@map("solution_packages")
+  @@index([journalEntryId])
+  @@map("journal_entry_lines")
 }
 
-model SolutionPackagePart {
-  id                String          @id @default(cuid())
-  solutionPackageId String
-  productId         String
-  quantity          Decimal         @db.Decimal(10, 3)
-  product           Stok            @relation(fields: [productId], references: [id])
-  solutionPackage   SolutionPackage @relation(fields: [solutionPackageId], references: [id], onDelete: Cascade)
-
-  @@unique([solutionPackageId, productId])
-  @@index([solutionPackageId])
-  @@map("solution_package_parts")
-}
-
-model ManagerApproval {
-  id                String          @id @default(cuid())
-  tenantId          String
-  workOrderId       String          @unique
-  solutionPackageId String
-  approvedBy        String
-  approvedAt        DateTime        @default(now())
-  approvalNote      String?
-  deletedAt         DateTime?
-  solutionPackage   SolutionPackage @relation(fields: [solutionPackageId], references: [id], onDelete: Cascade)
-
-  @@index([tenantId, workOrderId])
-  @@index([tenantId, approvedAt])
-  @@index([deletedAt])
-  @@map("manager_approvals")
-}
-
-model ManagerRejection {
-  id                String          @id @default(cuid())
-  tenantId          String
-  workOrderId       String
-  solutionPackageId String
-  rejectedBy        String
-  rejectedAt        DateTime        @default(now())
-  rejectionReason   String
-  solutionPackage   SolutionPackage @relation(fields: [solutionPackageId], references: [id], onDelete: Cascade)
-
-  @@index([tenantId, workOrderId])
-  @@index([tenantId, rejectedAt])
-  @@map("manager_rejections")
-}
+// ========== End Vehicle Service Management Module ==========
 
 model FirmaKrediKartiHatirlatici {
   id        String          @id @default(uuid())
@@ -2510,6 +2649,8 @@ enum UserRole {
   SERVICE_MANAGER
   PROCUREMENT
   WAREHOUSE
+  ADVISOR
+  PARTS_MANAGER
 }
 
 enum PriceCardType {
@@ -2780,6 +2921,8 @@ enum ModuleType {
   DELIVERY_NOTE_PURCHASE
   WAREHOUSE_TRANSFER
   TECHNICIAN
+  WORK_ORDER
+  SERVICE_INVOICE
 }
 
 enum IrsaliyeKaynakTip {
@@ -2837,20 +2980,50 @@ enum InvitationStatus {
   CANCELLED
 }
 
-enum ServiceWorkStatus {
-  SERVICE_ACCEPTED
-  PRE_DIAGNOSIS
-  TECHNICAL_DIAGNOSIS
-  SOLUTION_PROPOSED
-  WAITING_MANAGER_APPROVAL
-  APPROVED
-  PART_SUPPLY
-  IN_PROGRESS
-  QUALITY_CONTROL
-  READY_FOR_BILLING
-  INVOICED
-  CLOSED
+enum WorkOrderStatus {
+  WAITING_DIAGNOSIS      // (deprecated - use vehicleWorkflowStatus)
+  PENDING_APPROVAL
+  APPROVED_IN_PROGRESS
+  PART_WAITING
+  PARTS_SUPPLIED
+  VEHICLE_READY
+  INVOICED_CLOSED
+  CLOSED_WITHOUT_INVOICE
   CANCELLED
+}
+
+// Parça İş Akışı Durumları
+enum PartWorkflowStatus {
+  NOT_STARTED           // Henüz parça eklenmedi/talep açılmadı
+  PARTS_SUPPLIED_DIRECT  // Tedarik yöneticisi parçaları direkt iş emrine ekledi
+  PARTS_PENDING         // Teknisyen parça talebi açtı
+  PARTIALLY_SUPPLIED    // Talep edilen parçalardan en az 1 eksik
+  ALL_PARTS_SUPPLIED    // Tüm talep edilen parçalar tedarik edildi
+}
+
+// Araç İş Akışı Durumları
+enum VehicleWorkflowStatus {
+  WAITING               // Bekleme
+  IN_PROGRESS           // Yapım aşamasında
+  READY                 // Hazır
+  DELIVERED             // Teslim edildi (muhasebe kapatır)
+}
+
+enum PartRequestStatus {
+  REQUESTED
+  SUPPLIED
+  USED
+  CANCELLED
+}
+
+enum WorkOrderItemType {
+  LABOR
+  PART
+}
+
+enum InventoryTransactionType {
+  DEDUCTION
+  RETURN
 }
 
 enum TransferStatus {

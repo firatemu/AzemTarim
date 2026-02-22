@@ -13,8 +13,10 @@ FROM base AS builder
 WORKDIR /app/server
 COPY --from=deps /app/server/node_modules ./node_modules
 COPY server/ .
-RUN npx prisma generate --schema=./prisma/schema.prisma
-RUN npm run build
+# Provide a dummy DATABASE_URL for prisma generate during build
+ENV DATABASE_URL="postgresql://postgres:postgres@localhost:5432/postgres"
+RUN node node_modules/prisma/build/index.js generate --schema=./prisma/schema.prisma
+RUN node node_modules/@nestjs/cli/bin/nest.js build
 
 # Production image, copy all the files and run next
 FROM base AS runner

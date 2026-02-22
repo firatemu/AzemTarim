@@ -14,6 +14,7 @@ It is a **Multi-Tenant SaaS ERP system**.
 
 - **Backend:** NestJS + Prisma + PostgreSQL
 - **Frontend:** Next.js 15 (App Router) + Material UI v7
+    - **MUST READ:** `.agent/skills/ui-ux-design-standards/SKILL.md` before ANY frontend work.
 - **Cache:** Redis
 - **Queue:** BullMQ
 - **Infrastructure:** Docker Compose + Caddy
@@ -188,6 +189,33 @@ Frontend development must follow:
 - ✅ Check how similar problems were solved previously in this project
 - ✅ Warn early about decisions that may cause technical debt
 - ✅ Prefer long-term maintainability over short-term speed
+
+---
+
+## 11️⃣ GLOBAL DESIGN STANDARDS (MANDATORY)
+
+**Every UI component must adhere to these 3 Design Pillars:**
+
+### 1. Advanced Density & Spatial Hierarchy
+- **Whitespace:** Use `spacing={3}` (24px) or `spacing={4}` (32px) for layout containers.
+- **DataGrid:** Default density must be `"comfortable"`. Row borders `#F1F5F9`.
+- **Actions:** Edit/Delete actions must be **visible only on hover**.
+- **Cards:** `elevation={0}`, border `1px solid #E2E8F0`, radius `16px`.
+
+### 2. Professional Empty States
+- **Never** leave a page blank.
+- Use `<EmptyState />` with:
+  - Tech-oriented SVG.
+  - Clear description.
+  - Primary CTA button.
+- Use `MuiSkeleton` (shimmer) instead of spinners.
+
+### 3. Typography & Visual Language
+- **Font:** `Inter` (Primary).
+- **Colors:** Background `#F8FAFC`, Text `#0F172A`.
+- **Shadows:** Ambient only: `0 4px 20px 0 rgba(0,0,0,0.05)`.
+
+**For full implementation details, read:** `.agent/skills/ui-ux-design-standards/SKILL.md`
 
 ---
 

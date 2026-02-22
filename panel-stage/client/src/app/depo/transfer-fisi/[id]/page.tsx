@@ -366,7 +366,7 @@ export default function WarehouseTransferDetayPage() {
 
             {/* Cancel Dialog */}
             <Dialog open={cancelDialogOpen} onClose={() => setCancelDialogOpen(false)} fullWidth maxWidth="xs">
-                <DialogTitle>Transfer İptali</DialogTitle>
+                <DialogTitle component="div">Transfer İptali</DialogTitle>
                 <DialogContent>
                     <Typography variant="body2" sx={{ mb: 2 }}>Bu transferi iptal etmek istediğinizden emin misiniz? Bu işlem geri alınamaz.</Typography>
                     <TextField

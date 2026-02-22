@@ -137,7 +137,8 @@ const TahsilatFormDialog = memo(({
     const validateForm = () => {
         const newErrors: Record<string, string> = {};
         if (!localFormData.cariId) newErrors.cariId = 'Cari seçimi zorunludur';
-        if (!localFormData.tutar || localFormData.tutar <= 0) newErrors.tutar = 'Geçerli bir tutar giriniz';
+        const tutarNum = typeof localFormData.tutar === 'string' ? parseFloat(localFormData.tutar) : localFormData.tutar;
+        if (tutarNum === undefined || isNaN(tutarNum) || tutarNum <= 0) newErrors.tutar = 'Geçerli bir tutar giriniz';
         if (!localFormData.tarih) newErrors.tarih = 'Tarih seçimi zorunludur';
 
         if (localFormData.odemeTipi === 'NAKIT' && !localFormData.kasaId) newErrors.kasaId = 'Kasa seçimi zorunludur';
@@ -189,7 +190,8 @@ const TahsilatFormDialog = memo(({
 
     const handleLocalSubmit = () => {
         if (validateForm()) {
-            onSubmit(localFormData);
+            const tutarNum = typeof localFormData.tutar === 'string' ? parseFloat(localFormData.tutar) : localFormData.tutar;
+            onSubmit({ ...localFormData, tutar: tutarNum || 0 });
         }
     };
 
@@ -215,7 +217,7 @@ const TahsilatFormDialog = memo(({
                 }
             }}
         >
-            <DialogTitle sx={{
+            <DialogTitle component="div" sx={{
                 background: themeGradient,
                 color: 'white',
                 display: 'flex',
@@ -254,7 +256,7 @@ const TahsilatFormDialog = memo(({
                             <AttachMoney fontSize="small" color="action" />
                             FİNANSAL DETAYLAR
                         </Typography>
-                        <Paper elevation={0} sx={{ p: 2, bgcolor: '#f8f9fa', borderRadius: 2, border: '1px solid #e5e7eb' }}>
+                        <Paper elevation={0} sx={{ p: 2, bgcolor: 'var(--muted)', borderRadius: 2, border: '1px solid var(--border)' }}>
                             <Grid container spacing={2}>
                                 {/* Ödeme Tipi */}
                                 <Grid size={{ xs: 12, md: 6 }}>
@@ -279,7 +281,7 @@ const TahsilatFormDialog = memo(({
                                         label="Tutar"
                                         type="number"
                                         value={localFormData.tutar}
-                                        onChange={(e) => handleLocalChange('tutar', parseFloat(e.target.value) || 0)}
+                                        onChange={(e) => handleLocalChange('tutar', e.target.value)}
                                         error={!!errors.tutar}
                                         helperText={errors.tutar}
                                         InputProps={{
@@ -389,7 +391,7 @@ const TahsilatFormDialog = memo(({
                             <Person fontSize="small" color="action" />
                             CARİ & DİĞER BİLGİLER
                         </Typography>
-                        <Paper elevation={0} sx={{ p: 2, bgcolor: '#ffffff', borderRadius: 2, border: '1px solid #e5e7eb' }}>
+                        <Paper elevation={0} sx={{ p: 2, bgcolor: 'var(--card)', borderRadius: 2, border: '1px solid var(--border)' }}>
                             <Grid container spacing={2}>
                                 {/* Cari Seçimi */}
                                 <Grid size={12}>
@@ -509,7 +511,7 @@ const TahsilatFormDialog = memo(({
                 </Grid>
             </DialogContent>
 
-            <DialogActions sx={{ p: 3, pt: 2, borderTop: '1px solid #f3f4f6', bgcolor: '#fafafa' }}>
+            <DialogActions sx={{ p: 3, pt: 2, borderTop: '1px solid var(--border)', bgcolor: 'var(--muted)' }}>
                 <Button onClick={onClose} disabled={submitting} sx={{ color: 'text.secondary', fontWeight: 600 }}>
                     İptal
                 </Button>

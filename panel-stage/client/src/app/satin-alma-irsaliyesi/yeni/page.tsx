@@ -490,8 +490,8 @@ function YeniSatisIrsaliyesiPageContent() {
           <IconButton
             onClick={() => router.push('/satis-irsaliyesi')}
             sx={{
-              bgcolor: '#f3f4f6',
-              '&:hover': { bgcolor: '#e5e7eb' }
+              bgcolor: 'var(--muted)',
+              '&:hover': { bgcolor: 'var(--border)' }
             }}
           >
             <ArrowBack />
@@ -971,7 +971,7 @@ function YeniSatisIrsaliyesiPageContent() {
             </Box>
 
             {/* Toplam Bilgileri */}
-            <Paper variant="outlined" sx={{ p: 3, bgcolor: '#f9fafb' }}>
+            <Paper variant="outlined" sx={{ p: 3, bgcolor: 'var(--muted)' }}>
               <Typography variant="h6" fontWeight="bold" sx={{ mb: 2 }}>
                 İrsaliye Özeti
               </Typography>

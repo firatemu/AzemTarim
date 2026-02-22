@@ -17,6 +17,13 @@ import { SecurityModule } from './common/services/security.module';
 import { TenantSecurityExceptionFilter } from './common/filters/tenant-security-exception.filter';
 import { AnalyticsModule } from './modules/analytics/analytics.module';
 import { AracModule } from './modules/arac/arac.module';
+import { CustomerVehicleModule } from './modules/customer-vehicle/customer-vehicle.module';
+import { WorkOrderModule } from './modules/work-order/work-order.module';
+import { TechniciansModule } from './modules/technicians/technicians.module';
+import { WorkOrderItemModule } from './modules/work-order-item/work-order-item.module';
+import { PartRequestModule } from './modules/part-request/part-request.module';
+import { ServiceInvoiceModule } from './modules/service-invoice/service-invoice.module';
+import { JournalEntryModule } from './modules/journal-entry/journal-entry.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { BankaHavaleModule } from './modules/banka-havale/banka-havale.module';
 import { BankaHesapModule } from './modules/banka-hesap/banka-hesap.module';
@@ -142,6 +149,13 @@ import { QueueModule } from './common/modules/queue.module';
     MarkaModule,
     KategoriModule,
     AracModule,
+    CustomerVehicleModule,
+    WorkOrderModule,
+    TechniciansModule,
+    WorkOrderItemModule,
+    PartRequestModule,
+    ServiceInvoiceModule,
+    JournalEntryModule,
     PurchaseOrdersModule,
     BasitSiparisModule,
     SatinAlmaSiparisiModule,

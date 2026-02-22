@@ -20,7 +20,7 @@ const statusConfig: Record<string, { label: string; color: string; bgColor: stri
     ACIK: {
         label: 'Beklemede',
         color: '#d97706', // amber-600
-        bgColor: '#fef3c7', // amber-100
+        bgColor: 'color-mix(in srgb, var(--chart-2) 15%, transparent)',
         icon: <HourglassEmpty sx={{ fontSize: 16 }} />,
     },
     ONAYLANDI: {
@@ -50,7 +50,7 @@ const statusConfig: Record<string, { label: string; color: string; bgColor: stri
     DRAFT: {
         label: 'Taslak',
         color: '#4b5563', // gray-600
-        bgColor: '#f3f4f6', // gray-100
+        bgColor: 'var(--muted)',
         icon: <Drafts sx={{ fontSize: 16 }} />,
     },
 };

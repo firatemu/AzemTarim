@@ -28,7 +28,7 @@ import {
   CircularProgress,
   Menu,
 } from '@mui/material';
-import { Add, Edit, Delete, Search, Visibility, Close, Receipt, ToggleOn, ToggleOff, AccountBalance, MoreVert } from '@mui/icons-material';
+import { Add, Edit, Delete, Search, Visibility, Close, Receipt, ToggleOn, ToggleOff, AccountBalance, MoreVert, Refresh } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import MainLayout from '@/components/Layout/MainLayout';
 import CariForm from '@/components/CariForm';
@@ -444,6 +444,17 @@ export default function CariPage() {
           >
             Ara
           </Button>
+          <Button
+            variant="outlined"
+            startIcon={<Refresh />}
+            onClick={fetchCariler}
+            sx={{
+              textTransform: 'none',
+              fontWeight: 600,
+            }}
+          >
+            Yenile
+          </Button>
         </Box>
       </Paper>
 
@@ -685,7 +696,7 @@ export default function CariPage() {
           },
         }}
       >
-        <DialogTitle sx={{
+        <DialogTitle component="div" sx={{
           bgcolor: 'var(--secondary)',
           color: 'var(--secondary-foreground)',
           display: 'flex',
@@ -755,7 +766,7 @@ export default function CariPage() {
           },
         }}
       >
-        <DialogTitle sx={{
+        <DialogTitle component="div" sx={{
           bgcolor: 'var(--chart-1)',
           color: 'white',
           display: 'flex',
@@ -858,7 +869,7 @@ export default function CariPage() {
           },
         }}
       >
-        <DialogTitle sx={{
+        <DialogTitle component="div" sx={{
           bgcolor: 'var(--destructive)',
           color: 'var(--destructive-foreground)',
           fontWeight: 700,

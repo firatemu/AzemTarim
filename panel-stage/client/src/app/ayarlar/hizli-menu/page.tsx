@@ -10,8 +10,6 @@ import {
   Alert,
   Snackbar,
   Stack,
-  Breadcrumbs,
-  Link,
   Chip,
 } from '@mui/material';
 import {
@@ -147,28 +145,6 @@ export default function HizliMenuPage() {
       <Box sx={{ maxWidth: 1200, mx: 'auto' }}>
         {/* Header */}
         <Box sx={{ mb: 4 }}>
-          <Breadcrumbs sx={{ mb: 2 }}>
-            <Link
-              component="button"
-              variant="body1"
-              onClick={() => router.push('/dashboard')}
-              underline="hover"
-              sx={{ display: 'flex', alignItems: 'center' }}
-            >
-              Dashboard
-            </Link>
-            <Link
-              component="button"
-              variant="body1"
-              onClick={() => router.push('/ayarlar')}
-              underline="hover"
-            >
-              Ayarlar
-            </Link>
-            <Typography variant="body1" color="text.primary">
-              Hızlı Menü
-            </Typography>
-          </Breadcrumbs>
 
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>

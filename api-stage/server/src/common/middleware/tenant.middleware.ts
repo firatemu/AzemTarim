@@ -42,7 +42,7 @@ export class TenantMiddleware implements NestMiddleware {
       const parameter = await this.prisma.systemParameter.findFirst({
         where: {
           key: 'STAGING_DEFAULT_TENANT_ID',
-          tenantId: null, // Global parametre
+          tenantId: null, // Explicitly query global parameter
         },
       });
 

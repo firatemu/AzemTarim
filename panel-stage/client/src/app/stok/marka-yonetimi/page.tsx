@@ -144,8 +144,6 @@ export default function MarkaYonetimiPage() {
         markaAdi: yeniMarkaInput.trim(),
       });
 
-      alert(`✅ Marka "${yeniMarkaInput.trim()}" başarıyla eklendi.`);
-      
       // Listeyi yenile
       await fetchMarkalar();
       setAddDialogOpen(false);
@@ -227,7 +225,7 @@ export default function MarkaYonetimiPage() {
         </Button>
       </Box>
 
-      <Paper sx={{ mb: 2, p: 2, bgcolor: '#f0f4ff' }}>
+      <Paper sx={{ mb: 2, p: 2, bgcolor: 'color-mix(in srgb, var(--secondary) 15%, transparent)' }}>
         <Grid container spacing={2}>
           <Grid size={{ xs: 12, md: 6 }}>
             <Box sx={{ textAlign: 'center' }}>
@@ -260,7 +258,7 @@ export default function MarkaYonetimiPage() {
 
       <TableContainer component={Paper}>
         <Table>
-          <TableHead sx={{ bgcolor: '#f5f5f5' }}>
+          <TableHead sx={{ bgcolor: 'var(--muted)' }}>
             <TableRow>
               <TableCell width="60"></TableCell>
               <TableCell><strong>Marka Adı</strong></TableCell>
@@ -288,7 +286,7 @@ export default function MarkaYonetimiPage() {
               </TableRow>
             ) : (
               markalar.map((marka) => (
-                <TableRow key={marka.markaAdi} hover sx={{ '&:hover': { bgcolor: '#f9f9f9' } }}>
+                <TableRow key={marka.markaAdi} hover sx={{ '&:hover': { bgcolor: 'var(--muted)' } }}>
                   <TableCell>
                     <Avatar
                       sx={{
@@ -320,7 +318,6 @@ export default function MarkaYonetimiPage() {
                           size="small"
                           color="primary"
                           onClick={() => handleOpenEditDialog(marka)}
-                          title="Düzenle"
                         >
                           <Edit fontSize="small" />
                         </IconButton>
@@ -337,7 +334,6 @@ export default function MarkaYonetimiPage() {
                             size="small"
                             color="error"
                             onClick={() => handleDelete(marka.markaAdi)}
-                            title={marka.urunSayisi > 0 ? 'Ürünü olan markalar silinemez' : 'Sil'}
                             disabled={deleting === marka.markaAdi || marka.urunSayisi > 0}
                           >
                             {deleting === marka.markaAdi ? (
@@ -364,7 +360,7 @@ export default function MarkaYonetimiPage() {
         maxWidth="sm"
         fullWidth
       >
-        <DialogTitle>
+        <DialogTitle component="div">
           Marka Düzenle
         </DialogTitle>
         <DialogContent>
@@ -422,7 +418,7 @@ export default function MarkaYonetimiPage() {
         maxWidth="sm"
         fullWidth
       >
-        <DialogTitle>
+        <DialogTitle component="div">
           Yeni Marka Ekle
         </DialogTitle>
         <DialogContent>

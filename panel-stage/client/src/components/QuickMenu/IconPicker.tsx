@@ -76,7 +76,7 @@ export default function IconPicker({ open, onClose, onSelect, selectedIcon }: Ic
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
-      <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <DialogTitle component="div" sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }} component="div">
         <Typography variant="h6" fontWeight={600}>
           İkon Seçin
         </Typography>
@@ -109,7 +109,7 @@ export default function IconPicker({ open, onClose, onSelect, selectedIcon }: Ic
                 {commonIcons.map((iconName) => {
                   const isSelected = selectedIcon === iconName;
                   return (
-                    <Grid item xs={4} sm={3} md={2} key={iconName}>
+                    <Grid xs={4} sm={3} md={2} key={iconName}>
                       <Box
                         onClick={() => handleIconClick(iconName)}
                         sx={{
@@ -150,7 +150,7 @@ export default function IconPicker({ open, onClose, onSelect, selectedIcon }: Ic
               {filteredIcons.slice(0, 50).map((iconName) => {
                 const isSelected = selectedIcon === iconName;
                 return (
-                  <Grid item xs={4} sm={3} md={2} key={iconName}>
+                  <Grid xs={4} sm={3} md={2} key={iconName}>
                     <Box
                       onClick={() => handleIconClick(iconName)}
                       sx={{

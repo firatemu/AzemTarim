@@ -221,7 +221,7 @@ export default function FaturaKapatmaPage() {
           {/* Özet Kartlar */}
           <Grid container spacing={2} sx={{ mb: 3 }}>
             <Grid size={{ xs: 12, md: 3 }}>
-              <Card sx={{ bgcolor: '#eff6ff', border: '1px solid #dbeafe' }}>
+              <Card sx={{ bgcolor: 'color-mix(in srgb, var(--chart-1) 15%, transparent)', border: '1px solid var(--chart-1)' }}>
                 <CardContent>
                   <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
                     <Receipt sx={{ color: '#3b82f6' }} />
@@ -240,7 +240,7 @@ export default function FaturaKapatmaPage() {
             </Grid>
 
             <Grid size={{ xs: 12, md: 3 }}>
-              <Card sx={{ bgcolor: '#f0fdf4', border: '1px solid #bbf7d0' }}>
+              <Card sx={{ bgcolor: 'color-mix(in srgb, var(--chart-3) 15%, transparent)', border: '1px solid var(--chart-3)' }}>
                 <CardContent>
                   <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
                     <CheckCircle sx={{ color: '#10b981' }} />
@@ -259,7 +259,7 @@ export default function FaturaKapatmaPage() {
             </Grid>
 
             <Grid size={{ xs: 12, md: 3 }}>
-              <Card sx={{ bgcolor: '#fef2f2', border: '1px solid #fecaca' }}>
+              <Card sx={{ bgcolor: 'color-mix(in srgb, var(--destructive) 15%, transparent)', border: '1px solid var(--destructive)' }}>
                 <CardContent>
                   <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
                     <Warning sx={{ color: '#ef4444' }} />
@@ -278,7 +278,7 @@ export default function FaturaKapatmaPage() {
             </Grid>
 
             <Grid size={{ xs: 12, md: 3 }}>
-              <Card sx={{ bgcolor: '#fef9c3', border: '1px solid #fde68a' }}>
+              <Card sx={{ bgcolor: 'color-mix(in srgb, var(--chart-2) 15%, transparent)', border: '1px solid var(--chart-2)' }}>
                 <CardContent>
                   <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
                     <AccountBalance sx={{ color: '#f59e0b' }} />
@@ -305,7 +305,7 @@ export default function FaturaKapatmaPage() {
           ) : (
             <TableContainer component={Paper} sx={{ borderRadius: 2 }}>
               <Table>
-                <TableHead sx={{ bgcolor: '#f9fafb' }}>
+                <TableHead sx={{ bgcolor: 'var(--muted)' }}>
                   <TableRow>
                     <TableCell sx={{ fontWeight: 600 }}>Fatura No</TableCell>
                     <TableCell sx={{ fontWeight: 600 }}>Tip</TableCell>
@@ -398,7 +398,7 @@ export default function FaturaKapatmaPage() {
                                   sx={{
                                     height: 8,
                                     borderRadius: 1,
-                                    bgcolor: '#e5e7eb',
+                                    bgcolor: 'var(--border)',
                                     '& .MuiLinearProgress-bar': {
                                       bgcolor: odemOrani >= 100 ? '#10b981' : odemOrani > 0 ? '#3b82f6' : '#9ca3af',
                                     }
@@ -459,7 +459,7 @@ export default function FaturaKapatmaPage() {
 
           {/* Özet Çubuk */}
           {faturalar.length > 0 && (
-            <Paper sx={{ p: 3, mt: 3, borderRadius: 2, bgcolor: '#f9fafb' }}>
+            <Paper sx={{ p: 3, mt: 3, borderRadius: 2, bgcolor: 'var(--muted)' }}>
               <Grid container spacing={3}>
                 <Grid size={{ xs: 12, md: 4 }}>
                   <Box>
@@ -485,9 +485,9 @@ export default function FaturaKapatmaPage() {
                         sx={{
                           height: 30,
                           borderRadius: 2,
-                          bgcolor: '#e5e7eb',
+                          bgcolor: 'var(--border)',
                           '& .MuiLinearProgress-bar': {
-                            bgcolor: '#10b981',
+                            bgcolor: 'var(--chart-3)',
                             borderRadius: 2,
                           }
                         }}

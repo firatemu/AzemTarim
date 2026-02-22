@@ -828,7 +828,7 @@ export default function DuzenleSatinAlmaTeklifiPage() {
 
       {/* Siparişe Dönüştürme Dialog */}
       <Dialog open={convertDialogOpen && !isReadOnly} onClose={() => setConvertDialogOpen(false)}>
-        <DialogTitle>Siparişe Dönüştür</DialogTitle>
+        <DialogTitle component="div">Siparişe Dönüştür</DialogTitle>
         <DialogContent>
           <DialogContentText>
             Bu teklifi siparişe dönüştürmek istediğinizden emin misiniz? Teklif durumu "Siparişe Dönüştü" olarak işaretlenecek ve yeni bir sipariş oluşturulacaktır.

@@ -29,8 +29,9 @@ import {
   InputAdornment,
   FormHelperText,
   CircularProgress,
+  Tooltip,
 } from '@mui/material';
-import { Add, Edit, Delete, Search, FileDownload, History, CompareArrows } from '@mui/icons-material';
+import { Add, Edit, Delete, Search, FileDownload, History, CompareArrows, Refresh } from '@mui/icons-material';
 import * as XLSX from 'xlsx';
 import MainLayout from '@/components/Layout/MainLayout';
 import axios from '@/lib/axios';
@@ -1216,8 +1217,8 @@ export default function MalzemeListesiPage() {
     const labels: Record<string, string> = {
       GIRIS: 'Giriş',
       CIKIS: 'Çıkış',
-      SATIS: 'Satış',
-      IADE: 'İade',
+      SATIS: 'Çıkış',
+      IADE: 'Giriş',
       SAYIM: 'Sayım',
     };
     return labels[tip] || tip;
@@ -1402,6 +1403,20 @@ export default function MalzemeListesiPage() {
           >
             Ara
           </Button>
+          <Tooltip title="Listeyi yenile">
+            <Button
+              variant="outlined"
+              onClick={() => fetchStoklar()}
+              startIcon={<Refresh />}
+              sx={{
+                fontWeight: 600,
+                borderRadius: '999px',
+                px: 2.6,
+              }}
+            >
+              Yenile
+            </Button>
+          </Tooltip>
         </Box>
 
         <Grid container spacing={2}>

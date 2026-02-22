@@ -17,12 +17,6 @@ services:
       retries: 12
       start_period: 30s
     restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          memory: 2G
-        reservations:
-          memory: 512M
 
   user-panel-staging:
     build:
@@ -37,6 +31,8 @@ services:
       HOSTNAME: "0.0.0.0"
       NEXT_PUBLIC_API_BASE_URL: https://staging-api.otomuhasebe.com
       NODE_ENV: production
+      # Panel /api/* isteklerini backend container'a yönlendirir (Docker ağı)
+      API_PROXY_TARGET: "http://backend-staging:3000"
     networks: [ app_net ]
     healthcheck:
       test: [ "CMD", "wget", "-qO-", "http://0.0.0.0:3000/" ]
@@ -45,12 +41,6 @@ services:
       retries: 5
       start_period: 60s
     restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          memory: 4G
-        reservations:
-          memory: 1G
 
 networks:
   app_net:

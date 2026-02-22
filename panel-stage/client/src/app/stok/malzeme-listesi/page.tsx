@@ -43,7 +43,7 @@ import {
   GridToolbarExport,
 } from '@mui/x-data-grid';
 import { trTR } from '@mui/x-data-grid/locales';
-import { Add, Edit, Delete, Search, FileDownload, History, CompareArrows, Warehouse } from '@mui/icons-material';
+import { Add, Edit, Delete, Search, FileDownload, History, CompareArrows, Warehouse, Refresh } from '@mui/icons-material';
 import axios from '@/lib/axios';
 import { useDebounce } from '@/hooks/useDebounce';
 import { useStokHareketler } from '@/hooks/useApi';
@@ -52,7 +52,7 @@ import MainLayout from '@/components/Layout/MainLayout';
 import * as XLSX from 'xlsx';
 
 // Custom Search Bar Component (External to DataGrid to avoid slot issues)
-const MaterialSearchBar = ({ search, setSearch, onSearch }: any) => {
+const MaterialSearchBar = ({ search, setSearch, onSearch, onRefresh }: any) => {
   return (
     <Box
       sx={{
@@ -108,6 +108,20 @@ const MaterialSearchBar = ({ search, setSearch, onSearch }: any) => {
       >
         Ara
       </Button>
+      <Tooltip title="Listeyi yenile">
+        <Button
+          variant="outlined"
+          size="medium"
+          onClick={() => onRefresh?.()}
+          startIcon={<Refresh />}
+          sx={{
+            textTransform: 'none',
+            fontWeight: 600,
+          }}
+        >
+          Yenile
+        </Button>
+      </Tooltip>
     </Box>
   );
 };
@@ -274,7 +288,7 @@ const MalzemeFormDialog = memo(({
         }
       }}
     >
-      <DialogTitle
+      <DialogTitle component="div"
         sx={{
           background: 'linear-gradient(135deg, var(--primary), var(--secondary))',
           color: 'var(--primary-foreground)',
@@ -1295,8 +1309,8 @@ export default function MalzemeListesiPage() {
     const labels: Record<string, string> = {
       GIRIS: 'Giriş',
       CIKIS: 'Çıkış',
-      SATIS: 'Satış',
-      IADE: 'İade',
+      SATIS: 'Çıkış',
+      IADE: 'Giriş',
       SAYIM: 'Sayım',
     };
     return labels[tip] || tip;
@@ -1528,6 +1542,7 @@ export default function MalzemeListesiPage() {
           search={search}
           setSearch={setSearch}
           onSearch={fetchStoklar}
+          onRefresh={fetchStoklar}
         />
         <Box sx={{ height: 600, width: '100%' }}>
           <DataGrid
@@ -1795,7 +1810,7 @@ export default function MalzemeListesiPage() {
         fullWidth
         maxWidth="lg"
       >
-        <DialogTitle>
+        <DialogTitle component="div">
           {hareketMalzeme
             ? `${hareketMalzeme.stokKodu} - ${hareketMalzeme.stokAdi}`
             : 'Malzeme Hareketleri'}
@@ -1838,7 +1853,7 @@ export default function MalzemeListesiPage() {
 
               <TableContainer component={Paper} sx={{ maxHeight: 420 }}>
                 <Table stickyHeader size="small">
-                  <TableHead sx={{ bgcolor: '#f5f5f5' }}>
+                  <TableHead sx={{ bgcolor: 'var(--muted)' }}>
                     <TableRow>
                       <TableCell><strong>Tarih</strong></TableCell>
                       <TableCell><strong>Hareket Tipi</strong></TableCell>
@@ -1956,7 +1971,7 @@ export default function MalzemeListesiPage() {
           },
         }}
       >
-        <DialogTitle sx={{
+        <DialogTitle component="div" sx={{
           bgcolor: 'var(--secondary)',
           color: 'var(--secondary-foreground)',
           py: 2,

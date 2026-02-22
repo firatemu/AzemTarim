@@ -407,10 +407,10 @@ export default function CreditPlanDialog({ open, onClose, onUpdate, kredi }: Cre
             maxWidth="md"
             fullWidth
             PaperProps={{
-                sx: { borderRadius: 3, bgcolor: '#f8fafc' }
+                sx: { borderRadius: 3, bgcolor: 'var(--muted)' }
             }}
         >
-            <DialogTitle sx={{
+            <DialogTitle component="div" sx={{
                 p: 3,
                 pb: 2,
                 display: 'flex',

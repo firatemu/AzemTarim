@@ -370,7 +370,7 @@ export default function BankaPage() {
 
                 {/* Add/Edit Dialog */}
                 <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="sm" fullWidth>
-                    <DialogTitle>
+                    <DialogTitle component="div">
                         {selectedBanka ? 'Banka Düzenle' : 'Yeni Banka Ekle'}
                     </DialogTitle>
                     <form onSubmit={handleSubmit(onSubmit)}>
@@ -465,7 +465,7 @@ export default function BankaPage() {
 
                 {/* Delete Confirmation */}
                 <Dialog open={deleteConfirmOpen} onClose={() => setDeleteConfirmOpen(false)}>
-                    <DialogTitle>Banka Silinecek</DialogTitle>
+                    <DialogTitle component="div">Banka Silinecek</DialogTitle>
                     <DialogContent>
                         <Typography>
                             "{selectedBanka?.ad}" bankasını silmek istediğinize emin misiniz? Bu işlem bankaya bağlı hesapları da silecektir.

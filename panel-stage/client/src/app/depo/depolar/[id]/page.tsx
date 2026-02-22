@@ -537,7 +537,7 @@ export default function DepoDetayPage() {
 
         {/* Dialog - Kat Seçimi */}
         <Dialog open={dialogState.open && dialogState.type === 'layer'} onClose={handleCloseDialog} maxWidth="xs">
-          <DialogTitle>Yeni Kat Ekle</DialogTitle>
+          <DialogTitle component="div">Yeni Kat Ekle</DialogTitle>
           <DialogContent>
             <Box sx={{ pt: 2 }}>
               <FormControl fullWidth>
@@ -564,7 +564,7 @@ export default function DepoDetayPage() {
 
         {/* Dialog - Koridor Seçimi */}
         <Dialog open={dialogState.open && dialogState.type === 'corridor'} onClose={handleCloseDialog} maxWidth="xs">
-          <DialogTitle>Kat {dialogState.parentData?.layer} - Yeni Koridor Ekle</DialogTitle>
+          <DialogTitle component="div">Kat {dialogState.parentData?.layer} - Yeni Koridor Ekle</DialogTitle>
           <DialogContent>
             <Box sx={{ pt: 2 }}>
               <FormControl fullWidth>
@@ -603,7 +603,7 @@ export default function DepoDetayPage() {
           maxWidth="md"
           fullWidth
         >
-          <DialogTitle>
+          <DialogTitle component="div">
             Kat {dialogState.parentData?.layer} / Koridor {dialogState.parentData?.corridor}
             {dialogState.parentData?.side === 1 ? '1 (Sol)' : '2 (Sağ)'} - Grid Oluştur
           </DialogTitle>
@@ -677,7 +677,7 @@ export default function DepoDetayPage() {
           maxWidth="sm"
           fullWidth
         >
-          <DialogTitle>📦 Serbest Raf Ekle (Koridorsuz)</DialogTitle>
+          <DialogTitle component="div">📦 Serbest Raf Ekle (Koridorsuz)</DialogTitle>
           <DialogContent>
             <Box sx={{ pt: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
               <Alert severity="info">

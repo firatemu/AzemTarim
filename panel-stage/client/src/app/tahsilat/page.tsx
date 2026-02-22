@@ -476,6 +476,7 @@ const DataGridNoRowsOverlay = () => (
 export default function TahsilatPage() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const isLargeDesktop = useMediaQuery(theme.breakpoints.up('xl'));
 
   const queryClient = useQueryClient();
   const [openDialog, setOpenDialog] = useState(false);
@@ -758,7 +759,7 @@ export default function TahsilatPage() {
     cariId: '',
     satisElemaniId: '',
     tip: 'TAHSILAT' as 'TAHSILAT' | 'ODEME',
-    tutar: 0,
+    tutar: '' as string | number,
     tarih: new Date().toISOString().split('T')[0],
     odemeTipi: 'NAKIT' as 'NAKIT' | 'KREDI_KARTI',
     kasaId: '',
@@ -1168,8 +1169,9 @@ export default function TahsilatPage() {
     {
       field: 'cariKodu',
       headerName: 'Cari Kodu',
-      minWidth: 120,
+      width: isLargeDesktop ? 120 : 100,
       sortable: true,
+      hideable: true,
       renderCell: (params: GridRenderCellParams) => {
         const row = params.row as Tahsilat;
         return (
@@ -1182,8 +1184,8 @@ export default function TahsilatPage() {
     {
       field: 'cariUnvan',
       headerName: 'Cari Ünvan',
-      flex: 1.2,
-      minWidth: 200,
+      flex: 1.5,
+      minWidth: 120,
       sortable: false,
       renderCell: (params: GridRenderCellParams) => {
         const row = params.row as Tahsilat;
@@ -1197,7 +1199,7 @@ export default function TahsilatPage() {
     {
       field: 'odemeTipi',
       headerName: 'Ödeme Tipi',
-      minWidth: 150,
+      width: isLargeDesktop ? 150 : 120,
       sortable: true,
       renderCell: (params: GridRenderCellParams) => {
         const row = params.row as Tahsilat;
@@ -1276,7 +1278,7 @@ export default function TahsilatPage() {
     {
       field: 'kasaTipi',
       headerName: 'Kasa Tipi',
-      minWidth: 140,
+      width: isLargeDesktop ? 140 : 110,
       sortable: false,
       renderCell: (params: GridRenderCellParams) => {
         const row = params.row as Tahsilat;
@@ -1360,7 +1362,7 @@ export default function TahsilatPage() {
     {
       field: 'tutar',
       headerName: 'Tutar',
-      minWidth: 160,
+      width: isLargeDesktop ? 160 : 130,
       align: 'right',
       headerAlign: 'right',
       sortable: true,
@@ -1379,8 +1381,8 @@ export default function TahsilatPage() {
     {
       field: 'aciklama',
       headerName: 'Açıklama',
-      flex: 3.5,
-      minWidth: 350,
+      flex: 3,
+      minWidth: 150,
       sortable: false,
       renderCell: (params: GridRenderCellParams) => {
         const row = params.row as Tahsilat;
@@ -2026,7 +2028,7 @@ export default function TahsilatPage() {
 
         {/* Aktif Filtreler */}
         {(searchQuery || dateRange.start || dateRange.end || quickFilter !== 'TÜMÜ') && (
-          <Paper sx={{ p: 2, mb: 3, bgcolor: '#f8f9fa', boxShadow: '0 2px 8px rgba(0, 0, 0, 0.08)' }}>
+          <Paper sx={{ p: 2, mb: 3, bgcolor: 'var(--muted)', boxShadow: 'var(--shadow-md)' }}>
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 2 }}>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
                 <Typography variant="subtitle2" fontWeight={600} color="text.secondary">
@@ -2299,6 +2301,13 @@ export default function TahsilatPage() {
                 pagination: {
                   paginationModel: { page: 0, pageSize: 25 },
                 },
+                columns: {
+                  columnVisibilityModel: {
+                    cariKodu: isLargeDesktop,
+                    kasaTipi: isLargeDesktop,
+                    kartAdi: isLargeDesktop,
+                  },
+                },
               }}
               sx={{
                 border: 'none',
@@ -2369,7 +2378,7 @@ export default function TahsilatPage() {
 
       {/* Silme Onay Dialog */}
       <Dialog open={openDeleteDialog} onClose={() => setOpenDeleteDialog(false)}>
-        <DialogTitle>Silme Onayı</DialogTitle>
+        <DialogTitle component="div">Silme Onayı</DialogTitle>
         <DialogContent>
           <Alert severity="warning">
             Bu kaydı silmek istediğinizden emin misiniz? Bu işlem geri alınamaz ve
@@ -2434,7 +2443,7 @@ export default function TahsilatPage() {
         maxWidth="lg"
         fullWidth
       >
-        <DialogTitle>
+        <DialogTitle component="div">
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <Typography variant="h6" fontWeight={600}>
               Kasa Detayları: {selectedKasa?.kasaAdi || ''}

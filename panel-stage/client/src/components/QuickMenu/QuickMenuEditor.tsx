@@ -112,7 +112,7 @@ export default function QuickMenuEditor({
   return (
     <>
       <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
-        <DialogTitle>
+        <DialogTitle component="div">
           <Typography variant="h6" fontWeight={600}>
             {editItem ? 'Hızlı Menü Öğesini Düzenle' : 'Yeni Hızlı Menü Öğesi'}
           </Typography>
@@ -205,7 +205,7 @@ export default function QuickMenuEditor({
               </Typography>
               <Grid container spacing={1}>
                 {colorOptions.map((c) => (
-                  <Grid item key={c}>
+                  <Grid key={c}>
                     <Box
                       onClick={() => setColor(c)}
                       sx={{
@@ -224,7 +224,7 @@ export default function QuickMenuEditor({
                     />
                   </Grid>
                 ))}
-                <Grid item>
+                <Grid>
                   <Box
                     onClick={() => {
                       const input = document.createElement('input');

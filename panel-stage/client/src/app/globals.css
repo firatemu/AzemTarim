@@ -125,6 +125,25 @@
     border-color: var(--border) !important;
   }
   
+  /* DataGrid overrides for both light and dark mode */
+  .MuiDataGrid-root {
+    background-color: var(--card);
+    color: var(--foreground);
+  }
+  
+  .MuiDataGrid-columnHeaders {
+    background-color: var(--muted);
+    color: var(--foreground);
+  }
+  
+  .MuiDataGrid-cell {
+    color: var(--foreground);
+  }
+  
+  .MuiDataGrid-row:hover {
+    background-color: var(--muted);
+  }
+  
   /* Table overrides for both light and dark mode */
   .MuiTableContainer-root {
     background-color: var(--card);
@@ -350,6 +369,35 @@
   
   .dark .MuiLinearProgress-bar {
     background-color: var(--primary);
+  }
+  
+  /* DataGrid dark mode overrides */
+  .dark .MuiDataGrid-root {
+    background-color: var(--card) !important;
+    color: var(--foreground) !important;
+  }
+  
+  .dark .MuiDataGrid-columnHeaders {
+    background-color: var(--muted) !important;
+    border-bottom-color: var(--border) !important;
+    color: var(--foreground) !important;
+  }
+  
+  .dark .MuiDataGrid-columnHeader {
+    color: var(--foreground) !important;
+  }
+  
+  .dark .MuiDataGrid-cell {
+    color: var(--foreground) !important;
+    border-bottom-color: var(--border) !important;
+  }
+  
+  .dark .MuiDataGrid-row {
+    background-color: var(--card) !important;
+  }
+  
+  .dark .MuiDataGrid-row:hover {
+    background-color: var(--muted) !important;
   }
   
   /* General InputBase overrides for both light and dark mode */

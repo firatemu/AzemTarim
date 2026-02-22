@@ -484,7 +484,7 @@ export default function FaturaKarlilikPage() {
                     {profitList.length > 0 && (
                       <TableRow
                         sx={{
-                          backgroundColor: '#f5f5f5',
+                          backgroundColor: 'var(--muted)',
                           '& td': {
                             fontWeight: 'bold',
                             borderTop: '2px solid #ddd',
@@ -706,7 +706,7 @@ export default function FaturaKarlilikPage() {
                     {filteredProductProfits.length > 0 && (
                       <TableRow
                         sx={{
-                          backgroundColor: '#f5f5f5',
+                          backgroundColor: 'var(--muted)',
                           '& td': {
                             fontWeight: 'bold',
                             borderTop: '2px solid #ddd',

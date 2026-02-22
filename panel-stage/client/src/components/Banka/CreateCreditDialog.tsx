@@ -127,7 +127,7 @@ export default function CreateCreditDialog({ open, onClose, onSubmit, loading }:
 
     return (
         <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
-            <DialogTitle>
+            <DialogTitle component="div">
                 <Box display="flex" justifyContent="space-between" alignItems="center">
                     <Typography variant="h6">Yeni Kredi Kullanımı (Manuel Plan)</Typography>
                     <IconButton onClick={onClose} size="small"><CloseIcon /></IconButton>

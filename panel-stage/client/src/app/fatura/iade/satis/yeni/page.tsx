@@ -26,6 +26,7 @@ import {
   CircularProgress,
   useTheme,
   useMediaQuery,
+  Chip,
 } from '@mui/material';
 import { Delete, Save, ArrowBack, ToggleOn, ToggleOff, Add as AddIcon } from '@mui/icons-material';
 import MainLayout from '@/components/Layout/MainLayout';
@@ -46,6 +47,7 @@ interface Stok {
   satisFiyati: number;
   kdvOrani: number;
   barkod?: string;
+  miktar?: number;
 }
 
 interface FaturaKalemi {
@@ -60,24 +62,35 @@ interface FaturaKalemi {
   iskontoFormula?: string;
 }
 
+interface SatisElemani {
+  id: string;
+  adSoyad: string;
+}
+
 function YeniSatisIadeFaturasiContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const originalId = searchParams.get('originalId');
   const [cariler, setCariler] = useState<Cari[]>([]);
   const [stoklar, setStoklar] = useState<Stok[]>([]);
+  const [satisElemanlari, setSatisElemanlari] = useState<SatisElemani[]>([]);
+  const [warehouses, setWarehouses] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
 
   const [formData, setFormData] = useState({
     faturaNo: '',
     faturaTipi: 'SATIS_IADE' as const,
     cariId: '',
+    warehouseId: '',
     tarih: new Date().toISOString().split('T')[0],
     vade: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
     durum: 'ONAYLANDI' as 'ACIK' | 'ONAYLANDI',
     genelIskontoOran: 0,
     genelIskontoTutar: 0,
     aciklama: '',
+    satisElemaniId: '',
+    dovizCinsi: 'TRY' as 'TRY' | 'USD' | 'EUR' | 'GBP',
+    dovizKuru: 1,
     kalemler: [] as FaturaKalemi[],
   });
 
@@ -114,6 +127,60 @@ function YeniSatisIadeFaturasiContent() {
             }}
             options={stoklar}
             getOptionLabel={(option) => `${option.stokKodu} - ${option.stokAdi}`}
+            filterOptions={(options, params) => {
+              const { inputValue } = params;
+              if (!inputValue) return options;
+
+              const lowerInput = inputValue.toLowerCase();
+              return options.filter(option =>
+                option.stokKodu.toLowerCase().includes(lowerInput) ||
+                option.stokAdi.toLowerCase().includes(lowerInput) ||
+                (option.barkod && option.barkod.toLowerCase().includes(lowerInput))
+              );
+            }}
+            renderOption={(props, option) => {
+              const { key, ...otherProps } = props;
+              let stockColor = 'var(--success)';
+              if (option.miktar !== undefined) {
+                if (option.miktar <= 0) stockColor = 'var(--destructive)';
+                else if (option.miktar < 10) stockColor = 'var(--warning)';
+              }
+
+              return (
+                <Box component="li" key={key} {...otherProps}>
+                  <Box sx={{ width: '100%' }}>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <Typography variant="body2" fontWeight="600">
+                        {option.stokAdi}
+                      </Typography>
+                      {option.miktar !== undefined && (
+                        <Chip
+                          label={`Stok: ${option.miktar}`}
+                          size="small"
+                          sx={{
+                            height: 20,
+                            fontSize: '0.7rem',
+                            bgcolor: `color-mix(in srgb, ${stockColor} 10%, transparent)`,
+                            color: stockColor,
+                            border: `1px solid ${stockColor}`,
+                          }}
+                        />
+                      )}
+                    </Box>
+                    <Box sx={{ display: 'flex', gap: 1, mt: 0.5 }}>
+                      <Typography variant="caption" color="text.secondary">
+                        Kod: {option.stokKodu}
+                      </Typography>
+                      {option.barkod && (
+                        <Typography variant="caption" color="text.secondary">
+                          | Barkod: {option.barkod}
+                        </Typography>
+                      )}
+                    </Box>
+                  </Box>
+                </Box>
+              );
+            }}
             renderInput={(params) => (
               <TextField
                 {...params}
@@ -220,6 +287,8 @@ function YeniSatisIadeFaturasiContent() {
   useEffect(() => {
     fetchCariler();
     fetchStoklar();
+    fetchSatisElemanlari();
+    fetchWarehouses();
     generateFaturaNo();
 
     // Orijinal faturadan iade oluşturma
@@ -247,6 +316,38 @@ function YeniSatisIadeFaturasiContent() {
       setStoklar(response.data.data || []);
     } catch (error) {
       console.error('Stoklar yüklenirken hata:', error);
+    }
+  };
+
+  const fetchSatisElemanlari = async () => {
+    try {
+      const response = await axios.get('/satis-elemani');
+      setSatisElemanlari(response.data || []);
+    } catch (error) {
+      console.error('Satış elemanları yüklenirken hata:', error);
+    }
+  };
+
+  const fetchWarehouses = async () => {
+    try {
+      const response = await axios.get('/warehouse?active=true');
+      const warehouseList = response.data || [];
+      setWarehouses(warehouseList);
+
+      if (warehouseList.length === 0) {
+        showSnackbar('Sistemde tanımlı ambar bulunamadı! Lütfen önce bir ambar tanımlayın.', 'error');
+        return;
+      }
+
+      const defaultWarehouse = warehouseList.find((w: any) => w.isDefault);
+      if (defaultWarehouse && !formData.warehouseId) {
+        setFormData(prev => ({ ...prev, warehouseId: defaultWarehouse.id }));
+      } else if (warehouseList.length === 1 && !formData.warehouseId) {
+        setFormData(prev => ({ ...prev, warehouseId: warehouseList[0].id }));
+      }
+    } catch (error) {
+      console.error('Ambar listesi alınamadı:', error);
+      showSnackbar('Ambar listesi alınamadı', 'error');
     }
   };
 
@@ -468,10 +569,37 @@ function YeniSatisIadeFaturasiContent() {
     setFormData(prev => ({ ...prev, genelIskontoOran: oran, genelIskontoTutar: tutar }));
   };
 
+  const handleCurrencyChange = async (currency: 'TRY' | 'USD' | 'EUR' | 'GBP') => {
+    if (currency === 'TRY') {
+      setFormData(prev => ({ ...prev, dovizCinsi: currency, dovizKuru: 1 }));
+      return;
+    }
+
+    try {
+      setFormData(prev => ({ ...prev, dovizCinsi: currency }));
+      const response = await axios.get('/fatura/exchange-rate', {
+        params: { currency }
+      });
+
+      if (response.data.rate) {
+        setFormData(prev => ({ ...prev, dovizKuru: response.data.rate }));
+      }
+    } catch (error) {
+      console.error('Kur alınamadı:', error);
+      showSnackbar('Döviz kuru alınamadı, lütfen manuel giriniz.', 'info');
+      setFormData(prev => ({ ...prev, dovizKuru: 0 }));
+    }
+  };
+
   const handleSave = async () => {
     try {
       if (!formData.cariId) {
         showSnackbar('Cari seçimi zorunludur', 'error');
+        return;
+      }
+
+      if (!formData.warehouseId) {
+        showSnackbar('Ambar seçimi zorunludur. Lütfen bir ambar seçiniz.', 'error');
         return;
       }
 
@@ -498,12 +626,18 @@ function YeniSatisIadeFaturasiContent() {
         vade: formData.vade ? new Date(formData.vade).toISOString() : null,
         iskonto: Number(formData.genelIskontoTutar) || 0,
         aciklama: formData.aciklama || null,
+        satisElemaniId: formData.satisElemaniId || null,
         durum: formData.durum,
+        dovizCinsi: formData.dovizCinsi,
+        dovizKuru: formData.dovizKuru,
+        warehouseId: formData.warehouseId || null,
         kalemler: validKalemler.map(k => ({
           stokId: k.stokId,
           miktar: Number(k.miktar),
           birimFiyat: Number(k.birimFiyat),
           kdvOrani: Number(k.kdvOrani),
+          iskontoOrani: Number(k.iskontoOran) || 0,
+          iskontoTutari: Number(k.iskontoTutar) || 0,
         })),
       });
 
@@ -571,6 +705,11 @@ function YeniSatisIadeFaturasiContent() {
               Fatura Bilgileri
             </Typography>
             <Divider sx={{ mb: 2 }} />
+            {warehouses.length === 0 && (
+              <Alert severity="error" sx={{ mb: 2 }}>
+                Sistemde tanımlı ambar bulunmamaktadır. İşlem yapabilmek için lütfen önce ambar tanımlayınız.
+              </Alert>
+            )}
           </Box>
 
           <Box sx={{
@@ -603,6 +742,20 @@ function YeniSatisIadeFaturasiContent() {
               InputLabelProps={{ shrink: true }}
             />
             <FormControl fullWidth required>
+              <InputLabel>Ambar</InputLabel>
+              <Select
+                value={formData.warehouseId}
+                onChange={(e) => setFormData(prev => ({ ...prev, warehouseId: e.target.value }))}
+                label="Ambar"
+              >
+                {warehouses.map((warehouse) => (
+                  <MenuItem key={warehouse.id} value={warehouse.id}>
+                    {warehouse.name} {warehouse.isDefault && '(Varsayılan)'}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <FormControl fullWidth required>
               <InputLabel>Durum</InputLabel>
               <Select
                 value={formData.durum}
@@ -613,14 +766,49 @@ function YeniSatisIadeFaturasiContent() {
                 <MenuItem value="ONAYLANDI">Onaylandı</MenuItem>
               </Select>
             </FormControl>
+            <FormControl fullWidth required>
+              <InputLabel>Döviz</InputLabel>
+              <Select
+                value={formData.dovizCinsi}
+                onChange={(e) => handleCurrencyChange(e.target.value as any)}
+                label="Döviz"
+              >
+                <MenuItem value="TRY">Türk Lirası (₺)</MenuItem>
+                <MenuItem value="USD">Amerikan Doları ($)</MenuItem>
+                <MenuItem value="EUR">Euro (€)</MenuItem>
+                <MenuItem value="GBP">İngiliz Sterlini (£)</MenuItem>
+              </Select>
+            </FormControl>
+            {formData.dovizCinsi !== 'TRY' && (
+              <TextField
+                fullWidth
+                type="number"
+                label="Döviz Kuru"
+                value={formData.dovizKuru}
+                onChange={(e) => setFormData(prev => ({ ...prev, dovizKuru: parseFloat(e.target.value) || 1 }))}
+                inputProps={{ min: 0, step: 0.01 }}
+              />
+            )}
           </Box>
 
           <Box>
             <Autocomplete
               fullWidth
               value={cariler.find(c => c.id === formData.cariId) || null}
-              onChange={(_, newValue) => {
-                setFormData(prev => ({ ...prev, cariId: newValue?.id || '' }));
+              onChange={async (_, newValue) => {
+                const cariId = newValue?.id || '';
+                setFormData(prev => ({ ...prev, cariId }));
+                // Cari seçildiğinde varsayılan satış elemanını getir
+                if (cariId) {
+                  try {
+                    const response = await axios.get(`/cari/${cariId}`);
+                    if (response.data?.satisElemaniId) {
+                      setFormData(prev => ({ ...prev, satisElemaniId: response.data.satisElemaniId }));
+                    }
+                  } catch (error) {
+                    console.error('Cari detayları yüklenirken hata:', error);
+                  }
+                }
               }}
               options={cariler}
               getOptionLabel={(option) => `${option.cariKodu} - ${option.unvan}`}
@@ -650,6 +838,24 @@ function YeniSatisIadeFaturasiContent() {
               noOptionsText="Cari bulunamadı"
               isOptionEqualToValue={(option, value) => option.id === value.id}
             />
+          </Box>
+
+          <Box>
+            <FormControl fullWidth>
+              <InputLabel>Satış Elemanı</InputLabel>
+              <Select
+                value={formData.satisElemaniId || ''}
+                onChange={(e) => setFormData(prev => ({ ...prev, satisElemaniId: e.target.value }))}
+                label="Satış Elemanı"
+              >
+                <MenuItem value=""><em>Seçiniz</em></MenuItem>
+                {satisElemanlari.map((se) => (
+                  <MenuItem key={se.id} value={se.id}>
+                    {se.adSoyad}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
           </Box>
 
           {/* Kalemler */}
@@ -753,12 +959,33 @@ function YeniSatisIadeFaturasiContent() {
                               }}
                               renderOption={(props, option) => {
                                 const { key, ...otherProps } = props;
+                                let stockColor = 'var(--success)';
+                                if (option.miktar !== undefined) {
+                                  if (option.miktar <= 0) stockColor = 'var(--destructive)';
+                                  else if (option.miktar < 10) stockColor = 'var(--warning)';
+                                }
+
                                 return (
                                   <Box component="li" key={key} {...otherProps}>
-                                    <Box>
-                                      <Typography variant="body2" fontWeight="600">
-                                        {option.stokAdi}
-                                      </Typography>
+                                    <Box sx={{ width: '100%' }}>
+                                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <Typography variant="body2" fontWeight="600">
+                                          {option.stokAdi}
+                                        </Typography>
+                                        {option.miktar !== undefined && (
+                                          <Chip
+                                            label={`Stok: ${option.miktar}`}
+                                            size="small"
+                                            sx={{
+                                              height: 20,
+                                              fontSize: '0.7rem',
+                                              bgcolor: `color-mix(in srgb, ${stockColor} 10%, transparent)`,
+                                              color: stockColor,
+                                              border: `1px solid ${stockColor}`,
+                                            }}
+                                          />
+                                        )}
+                                      </Box>
                                       <Box sx={{ display: 'flex', gap: 1, mt: 0.5 }}>
                                         <Typography variant="caption" color="text.secondary">
                                           Kod: {option.stokKodu}
@@ -846,7 +1073,7 @@ function YeniSatisIadeFaturasiContent() {
                               sx={{
                                 color: kalem.cokluIskonto ? '#10b981' : '#9ca3af',
                                 '&:hover': {
-                                  bgcolor: kalem.cokluIskonto ? '#ecfdf5' : '#f3f4f6',
+                                  bgcolor: kalem.cokluIskonto ? 'color-mix(in srgb, var(--chart-3) 15%, transparent)' : 'var(--muted)',
                                 }
                               }}
                             >

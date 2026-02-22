@@ -520,7 +520,7 @@ function TransferPageContent() {
 
         {/* Özet Card */}
         <Grid size={{ xs: 12, md: 4 }}>
-          <Card sx={{ bgcolor: '#f5f5f5' }}>
+          <Card sx={{ bgcolor: 'var(--muted)' }}>
             <CardContent>
               <Typography variant="h6" gutterBottom>
                 📋 Transfer Özeti

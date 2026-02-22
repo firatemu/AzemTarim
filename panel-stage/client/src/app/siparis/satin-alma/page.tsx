@@ -573,7 +573,7 @@ export default function SatinAlmaSiparisleriPage() {
 
         {/* Sevk Dialog */}
         <Dialog open={openSevkDialog} onClose={() => { setOpenSevkDialog(false); setFullSiparis(null); setSevkKalemler([]); }} maxWidth="md" fullWidth>
-          <DialogTitle>
+          <DialogTitle component="div">
             Sipariş Sevk Et - {fullSiparis?.siparisNo}
           </DialogTitle>
           <DialogContent>

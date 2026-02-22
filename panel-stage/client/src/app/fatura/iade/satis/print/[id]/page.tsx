@@ -65,6 +65,7 @@ export default function SatisIadeFaturaPrintPage() {
   const id = params.id as string;
   
   const [fatura, setFatura] = useState<Fatura | null>(null);
+  const [companyInfo, setCompanyInfo] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [paperSize, setPaperSize] = useState<'A4' | 'A5' | 'A5-landscape'>('A4');
   const [template, setTemplate] = useState<'classic' | 'modern'>('classic');
@@ -81,6 +82,14 @@ export default function SatisIadeFaturaPrintPage() {
       setLoading(true);
       const response = await axios.get(`/fatura/${id}`);
       setFatura(response.data);
+
+      // Fetch company settings
+      try {
+        const settingsRes = await axios.get('/tenants/settings');
+        setCompanyInfo(settingsRes.data);
+      } catch (err) {
+        console.error('Firma bilgileri yüklenemedi:', err);
+      }
     } catch (error) {
       console.error('Fatura yüklenemedi:', error);
     } finally {
@@ -146,20 +155,20 @@ export default function SatisIadeFaturaPrintPage() {
   }
 
   return (
-    <Box sx={{ 
-      bgcolor: '#f5f5f5', 
-      minHeight: '100vh', 
-      p: { xs: 1, sm: 2, md: 3 },
+    <Box sx={{
+      bgcolor: '#f5f5f5',
+      minHeight: '100vh',
+      p: { xs: 1, sm: 2, md: 2 },
       overflowX: 'auto',
       width: '100%',
       maxWidth: '100vw',
     }}>
       {/* Kontrol Paneli */}
-      <Paper sx={{ 
-        p: { xs: 1, sm: 2 }, 
-        mb: 3, 
-        position: 'sticky', 
-        top: 0, 
+      <Paper sx={{
+        p: { xs: 1, sm: 2 },
+        mb: 2,
+        position: 'sticky',
+        top: 0,
         zIndex: 1000,
         overflowX: 'auto',
         '&::-webkit-scrollbar': {
@@ -170,21 +179,21 @@ export default function SatisIadeFaturaPrintPage() {
           borderRadius: '2px',
         },
       }}>
-        <Stack 
-          direction={{ xs: 'column', sm: 'row' }} 
-          spacing={{ xs: 2, sm: 2 }} 
-          alignItems={{ xs: 'stretch', sm: 'center' }} 
+        <Stack
+          direction={{ xs: 'column', sm: 'row' }}
+          spacing={{ xs: 2, sm: 2 }}
+          alignItems={{ xs: 'stretch', sm: 'center' }}
           justifyContent="space-between"
         >
           {/* Sol Taraf - Başlık ve Format Seçimleri */}
-          <Stack 
-            direction={{ xs: 'column', sm: 'row' }} 
-            spacing={{ xs: 1.5, sm: 2 }} 
+          <Stack
+            direction={{ xs: 'column', sm: 'row' }}
+            spacing={{ xs: 1.5, sm: 2 }}
             alignItems={{ xs: 'stretch', sm: 'center' }}
             sx={{ flex: { xs: '1 1 auto', sm: '0 1 auto' }, minWidth: 0 }}
           >
             <Typography variant="h6" sx={{ fontSize: { xs: '1rem', sm: '1.25rem' }, whiteSpace: 'nowrap' }}>
-              İade Fatura Önizleme
+              İade Fatura Önizleme - {companyInfo?.companyName || 'Firma'}
             </Typography>
             
             <Stack 
@@ -300,7 +309,7 @@ export default function SatisIadeFaturaPrintPage() {
               variant="contained"
               startIcon={<Print />}
               onClick={handlePrint}
-              sx={{ bgcolor: '#ef4444', '&:hover': { bgcolor: '#dc2626' } }}
+              sx={{ bgcolor: '#191970', '&:hover': { bgcolor: '#0f0f40' } }}
             >
               Yazdır
             </Button>
@@ -346,9 +355,9 @@ export default function SatisIadeFaturaPrintPage() {
       }}>
         <div ref={printRef} style={{ minWidth: 'fit-content' }}>
           {template === 'classic' ? (
-            <ClassicTemplate fatura={fatura} paperSize={paperSize} formatDate={formatDate} formatMoney={formatMoney} />
+            <ClassicTemplate fatura={fatura} companyInfo={companyInfo} paperSize={paperSize} formatDate={formatDate} formatMoney={formatMoney} />
           ) : (
-            <ModernTemplate fatura={fatura} paperSize={paperSize} formatDate={formatDate} formatMoney={formatMoney} />
+            <ModernTemplate fatura={fatura} companyInfo={companyInfo} paperSize={paperSize} formatDate={formatDate} formatMoney={formatMoney} />
           )}
         </div>
       </Box>
@@ -371,13 +380,15 @@ export default function SatisIadeFaturaPrintPage() {
 }
 
 // Klasik Şablon
-function ClassicTemplate({ 
-  fatura, 
-  paperSize, 
-  formatDate, 
-  formatMoney 
-}: { 
-  fatura: Fatura; 
+function ClassicTemplate({
+  fatura,
+  companyInfo,
+  paperSize,
+  formatDate,
+  formatMoney
+}: {
+  fatura: Fatura;
+  companyInfo: any;
   paperSize: 'A4' | 'A5' | 'A5-landscape';
   formatDate: (date: string) => string;
   formatMoney: (amount: number) => string;
@@ -407,18 +418,34 @@ function ClassicTemplate({
       }}
     >
       {/* Header */}
-      <Box sx={{ borderBottom: '3px solid #ef4444', pb: 2, mb: 3 }}>
+      <Box sx={{ borderBottom: '3px solid #191970', pb: 2, mb: 3 }}>
         <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
-          <Box>
-            <Typography variant="h4" sx={{ color: '#ef4444', fontWeight: 'bold', fontSize: paperSize === 'A4' ? '24pt' : '18pt' }}>
-              YEDEK PARÇA
-            </Typography>
-            <Typography variant="body2" sx={{ color: '#666', mt: 0.5 }}>
-              Otomasyon Sistemi
-            </Typography>
-          </Box>
+          <Stack direction="row" spacing={2} alignItems="center">
+            {companyInfo?.logoUrl && (
+              <img
+                src={companyInfo.logoUrl}
+                alt="Logo"
+                style={{
+                  height: paperSize === 'A4' ? '80px' : '60px',
+                  maxWidth: '150px',
+                  objectFit: 'contain'
+                }}
+              />
+            )}
+            <Box>
+              <Typography variant="h4" sx={{ color: '#191970', fontWeight: 'bold', fontSize: paperSize === 'A4' ? '18pt' : '14pt', lineHeight: 1.2 }}>
+                {companyInfo?.companyName || 'Firma Adı'}
+              </Typography>
+              <Typography variant="body2" sx={{ color: '#666', mt: 0.5, maxWidth: '300px' }}>
+                {companyInfo?.address}
+              </Typography>
+              <Typography variant="body2" sx={{ color: '#666' }}>
+                {companyInfo?.phone && `Tel: ${companyInfo.phone}`} {companyInfo?.email && `| E-posta: ${companyInfo.email}`}
+              </Typography>
+            </Box>
+          </Stack>
           <Box sx={{ textAlign: 'right' }}>
-            <Typography variant="h5" sx={{ color: '#ef4444', fontWeight: 'bold', fontSize: paperSize === 'A4' ? '18pt' : '14pt' }}>
+            <Typography variant="h5" sx={{ color: '#191970', fontWeight: 'bold', fontSize: paperSize === 'A4' ? '18pt' : '14pt' }}>
               SATIŞ İADE FATURASI
             </Typography>
             <Typography variant="body2" sx={{ mt: 1 }}>
@@ -427,18 +454,16 @@ function ClassicTemplate({
             <Typography variant="body2">
               <strong>Tarih:</strong> {formatDate(fatura.tarih)}
             </Typography>
-            {fatura.vadeTarihi && (
-              <Typography variant="body2">
-                <strong>Vade:</strong> {formatDate(fatura.vadeTarihi)}
-              </Typography>
-            )}
+            <Typography variant="body2">
+              <strong>Vade:</strong> {formatDate(fatura.vadeTarihi)}
+            </Typography>
           </Box>
         </Stack>
       </Box>
 
       {/* Müşteri Bilgileri */}
-      <Box sx={{ mb: 3, p: 2, bgcolor: '#fef2f2', borderRadius: 1, border: '1px solid #fecaca' }}>
-        <Typography variant="subtitle2" sx={{ fontWeight: 'bold', mb: 1, color: '#ef4444' }}>
+      <Box sx={{ mb: 3, p: 2, bgcolor: '#f8f9fa', borderRadius: 1 }}>
+        <Typography variant="subtitle2" sx={{ fontWeight: 'bold', mb: 1, color: '#191970' }}>
           MÜŞTERİ BİLGİLERİ
         </Typography>
         <Stack direction="row" spacing={3}>
@@ -478,18 +503,18 @@ function ClassicTemplate({
           minWidth: { xs: '600px', sm: 'auto' },
         }}>
           <TableHead>
-            <TableRow sx={{ bgcolor: '#ef4444' }}>
-              <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Ürün Kodu</TableCell>
-              <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Ürün Adı</TableCell>
-              <TableCell align="center" sx={{ color: 'white', fontWeight: 'bold' }}>Miktar</TableCell>
-              <TableCell align="right" sx={{ color: 'white', fontWeight: 'bold' }}>Birim Fiyat</TableCell>
-              <TableCell align="center" sx={{ color: 'white', fontWeight: 'bold' }}>KDV %</TableCell>
-              <TableCell align="right" sx={{ color: 'white', fontWeight: 'bold' }}>Toplam</TableCell>
+            <TableRow sx={{ bgcolor: '#191970' }}>
+              <TableCell sx={{ color: 'white', fontWeight: 'bold', width: '15%' }}>Ürün Kodu</TableCell>
+              <TableCell sx={{ color: 'white', fontWeight: 'bold', width: '45%' }}>Ürün Adı</TableCell>
+              <TableCell align="center" sx={{ color: 'white', fontWeight: 'bold', width: '10%' }}>Miktar</TableCell>
+              <TableCell align="right" sx={{ color: 'white', fontWeight: 'bold', width: '10%' }}>Birim Fiyat</TableCell>
+              <TableCell align="center" sx={{ color: 'white', fontWeight: 'bold', width: '5%' }}>KDV %</TableCell>
+              <TableCell align="right" sx={{ color: 'white', fontWeight: 'bold', width: '15%' }}>Toplam</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {fatura.kalemler.map((kalem, index) => (
-              <TableRow key={kalem.id} sx={{ '&:nth-of-type(even)': { bgcolor: '#fef2f2' } }}>
+              <TableRow key={kalem.id} sx={{ '&:nth-of-type(even)': { bgcolor: '#f8f9fa' } }}>
                 <TableCell>{kalem.stok.stokKodu}</TableCell>
                 <TableCell>{kalem.stok.stokAdi}</TableCell>
                 <TableCell align="center">{kalem.miktar} {kalem.stok.birim}</TableCell>
@@ -505,7 +530,7 @@ function ClassicTemplate({
       {/* Toplamlar */}
       <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
         <Box sx={{ width: paperSize === 'A4' ? '250px' : '180px' }}>
-          <Stack spacing={0.5} sx={{ p: 2, bgcolor: '#fef2f2', borderRadius: 1, border: '1px solid #fecaca' }}>
+          <Stack spacing={0.5} sx={{ p: 2, bgcolor: '#f8f9fa', borderRadius: 1 }}>
             <Stack direction="row" justifyContent="space-between">
               <Typography sx={{ fontSize: '9pt' }}>Ara Toplam:</Typography>
               <Typography sx={{ fontSize: '9pt' }}>{formatMoney(fatura.toplamTutar)}</Typography>
@@ -523,9 +548,9 @@ function ClassicTemplate({
             <Divider />
             <Stack direction="row" justifyContent="space-between">
               <Typography sx={{ fontWeight: 'bold', fontSize: '10pt' }}>
-                İADE TOPLAMI:
+                GENEL TOPLAM:
               </Typography>
-              <Typography sx={{ fontWeight: 'bold', fontSize: '10pt', color: '#ef4444' }}>
+              <Typography sx={{ fontWeight: 'bold', fontSize: '10pt', color: '#191970' }}>
                 {formatMoney(fatura.genelToplam)}
               </Typography>
             </Stack>
@@ -535,7 +560,7 @@ function ClassicTemplate({
 
       {/* Açıklama */}
       {fatura.aciklama && (
-        <Box sx={{ mt: 2, p: 1.5, bgcolor: '#fef2f2', borderRadius: 1, border: '1px solid #fecaca' }}>
+        <Box sx={{ mt: 2, p: 1.5, bgcolor: '#f8f9fa', borderRadius: 1 }}>
           <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 0.5 }}>Açıklama:</Typography>
           <Typography variant="body2">{fatura.aciklama}</Typography>
         </Box>
@@ -545,7 +570,7 @@ function ClassicTemplate({
       <Box sx={{ position: 'absolute', bottom: paperSize === 'A4' ? 30 : 15, left: paperSize === 'A4' ? 30 : 15, right: paperSize === 'A4' ? 30 : 15 }}>
         <Divider sx={{ mb: 1 }} />
         <Typography variant="caption" align="center" display="block" sx={{ color: '#666' }}>
-          Bu belge iade faturası bilgi amaçlı hazırlanmıştır.
+          Bu belge bilgi amaçlı hazırlanmıştır herhangi bir mali değeri yoktur.
         </Typography>
       </Box>
     </Paper>
@@ -553,13 +578,15 @@ function ClassicTemplate({
 }
 
 // Modern Şablon
-function ModernTemplate({ 
-  fatura, 
-  paperSize, 
-  formatDate, 
-  formatMoney 
-}: { 
-  fatura: Fatura; 
+function ModernTemplate({
+  fatura,
+  companyInfo,
+  paperSize,
+  formatDate,
+  formatMoney
+}: {
+  fatura: Fatura;
+  companyInfo: any;
   paperSize: 'A4' | 'A5' | 'A5-landscape';
   formatDate: (date: string) => string;
   formatMoney: (amount: number) => string;
@@ -590,22 +617,37 @@ function ModernTemplate({
       }}
     >
       {/* Modern Header with Gradient */}
-      <Box sx={{ 
-        background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
+      <Box sx={{
+        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
         color: 'white',
         p: paperSize === 'A4' ? 4 : 2,
         pb: paperSize === 'A4' ? 3 : 2,
       }}>
         <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
-          <Box>
-            <Typography variant="h3" sx={{ fontWeight: 300, mb: 0.5, fontSize: paperSize === 'A4' ? '28pt' : '20pt' }}>
-              RETURN INVOICE
-            </Typography>
-            <Typography variant="subtitle2" sx={{ opacity: 0.9 }}>
-              Satış İade Faturası
-            </Typography>
-          </Box>
-          <Box sx={{ 
+          <Stack direction="row" spacing={2} alignItems="center">
+            {companyInfo?.logoUrl && (
+              <Box
+                component="img"
+                src={companyInfo.logoUrl}
+                alt="Logo"
+                sx={{
+                  height: paperSize === 'A4' ? '70px' : '50px',
+                  maxWidth: '120px',
+                  filter: 'brightness(0) invert(1)',
+                  objectFit: 'contain'
+                }}
+              />
+            )}
+            <Box>
+              <Typography variant="h3" sx={{ fontWeight: 300, mb: 0.5, fontSize: paperSize === 'A4' ? '24pt' : '18pt' }}>
+                {companyInfo?.companyName || 'INVOICE'}
+              </Typography>
+              <Typography variant="subtitle2" sx={{ opacity: 0.9 }}>
+                {companyInfo?.address}
+              </Typography>
+            </Box>
+          </Stack>
+          <Box sx={{
             textAlign: 'right',
             bgcolor: 'rgba(255,255,255,0.15)',
             backdropFilter: 'blur(10px)',
@@ -623,16 +665,16 @@ function ModernTemplate({
       </Box>
 
       <Box sx={{ p: paperSize === 'A4' ? 4 : 2 }}>
-        {/* Müşteri Bilgileri */}
-        <Box sx={{ 
-          mb: 3, 
+        {/* Müşteri Bilgileri - Modern Card */}
+        <Box sx={{
+          mb: 3,
           p: 2,
-          border: '1px solid #fecaca',
+          border: '1px solid #e0e0e0',
           borderRadius: 2,
-          bgcolor: '#fef2f2',
+          boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
         }}>
-          <Typography variant="caption" sx={{ color: '#ef4444', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: 1 }}>
-            İade Edilen
+          <Typography variant="caption" sx={{ color: '#667eea', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: 1 }}>
+            Fatura Edilen
           </Typography>
           <Typography variant="subtitle1" sx={{ fontWeight: 'bold', mt: 1, mb: 0.5 }}>
             {fatura.cari.unvan}
@@ -679,11 +721,11 @@ function ModernTemplate({
             minWidth: { xs: '600px', sm: 'auto' },
           }}>
             <TableHead>
-              <TableRow sx={{ borderBottom: '2px solid #ef4444' }}>
-                <TableCell sx={{ fontWeight: 'bold', color: '#ef4444' }}>ÜRÜN</TableCell>
-                <TableCell align="center" sx={{ fontWeight: 'bold', color: '#ef4444' }}>ADET</TableCell>
-                <TableCell align="right" sx={{ fontWeight: 'bold', color: '#ef4444' }}>FİYAT</TableCell>
-                <TableCell align="right" sx={{ fontWeight: 'bold', color: '#ef4444' }}>TOPLAM</TableCell>
+              <TableRow sx={{ borderBottom: '2px solid #667eea' }}>
+                <TableCell sx={{ fontWeight: 'bold', color: '#667eea', width: '60%' }}>ÜRÜN</TableCell>
+                <TableCell align="center" sx={{ fontWeight: 'bold', color: '#667eea', width: '10%' }}>ADET</TableCell>
+                <TableCell align="right" sx={{ fontWeight: 'bold', color: '#667eea', width: '15%' }}>FİYAT</TableCell>
+                <TableCell align="right" sx={{ fontWeight: 'bold', color: '#667eea', width: '15%' }}>TOPLAM</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -710,11 +752,11 @@ function ModernTemplate({
           </Table>
         </TableContainer>
 
-        {/* Toplamlar */}
+        {/* Toplamlar - Modern Card */}
         <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 3 }}>
-          <Box sx={{ 
+          <Box sx={{
             width: paperSize === 'A4' ? '280px' : '200px',
-            background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
+            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
             color: 'white',
             p: 2,
             borderRadius: 2,
@@ -737,7 +779,7 @@ function ModernTemplate({
               <Divider sx={{ bgcolor: 'rgba(255,255,255,0.3)', my: 1 }} />
               <Stack direction="row" justifyContent="space-between" alignItems="center">
                 <Typography sx={{ fontWeight: 'bold', fontSize: '10pt', textTransform: 'uppercase', letterSpacing: 1 }}>
-                  İade Toplamı
+                  Toplam
                 </Typography>
                 <Typography sx={{ fontWeight: 'bold', fontSize: '10pt' }}>
                   {formatMoney(fatura.genelToplam)}
@@ -747,10 +789,17 @@ function ModernTemplate({
           </Box>
         </Box>
 
+        {/* Vade Bilgisi */}
+        <Box sx={{ mt: 2, p: 1.5, bgcolor: '#f8f9fa', borderRadius: 1, borderLeft: '4px solid #667eea' }}>
+          <Typography variant="body2" sx={{ color: '#666' }}>
+            <strong>Vade Tarihi:</strong> {formatDate(fatura.vadeTarihi)}
+          </Typography>
+        </Box>
+
         {/* Açıklama */}
         {fatura.aciklama && (
           <Box sx={{ mt: 2 }}>
-            <Typography variant="caption" sx={{ color: '#ef4444', fontWeight: 'bold', textTransform: 'uppercase' }}>
+            <Typography variant="caption" sx={{ color: '#667eea', fontWeight: 'bold', textTransform: 'uppercase' }}>
               Notlar
             </Typography>
             <Typography variant="body2" sx={{ mt: 0.5, color: '#666' }}>
@@ -760,18 +809,18 @@ function ModernTemplate({
         )}
       </Box>
 
-      {/* Footer */}
-      <Box sx={{ 
-        position: 'absolute', 
-        bottom: 0, 
-        left: 0, 
+      {/* Modern Footer */}
+      <Box sx={{
+        position: 'absolute',
+        bottom: 0,
+        left: 0,
         right: 0,
         p: 2,
-        bgcolor: '#fef2f2',
-        borderTop: '1px solid #fecaca',
+        bgcolor: '#f8f9fa',
+        borderTop: '1px solid #e0e0e0',
       }}>
         <Typography variant="caption" align="center" display="block" sx={{ color: '#999' }}>
-          Bu belge satış iade faturası bilgi amaçlı hazırlanmıştır.
+          Bu belge bilgi amaçlı hazırlanmıştır herhangi bir mali değeri yoktur.
         </Typography>
       </Box>
     </Paper>

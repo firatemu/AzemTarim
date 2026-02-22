@@ -17,7 +17,11 @@ export class StokExportService {
     async generateEslesmeExcel(tenantId: string): Promise<Buffer> {
         // Fetch all stocks for the tenant
         const stoks = await this.prisma.stok.findMany({
-            where: { tenantId },
+            where: {
+                tenantId,
+                sadeceKategoriTanimi: { not: true },
+                sadeceMarkaTanimi: { not: true },
+            },
             orderBy: { createdAt: 'desc' },
             include: {
                 esdegerGrup: {

@@ -9,6 +9,9 @@ COMPOSE ?= docker compose
 # Prod image tag (örn: 1.0.0) – terminalde export IMAGE_TAG yap
 IMAGE_TAG ?= latest
 
+# Staging env: proje kökündeki .env.staging kullanılır
+ENV_STAGING ?= .env.staging
+
 # --- STAGING (local build) ---
 up-staging:
 	@echo "Starting staging environment..."
@@ -16,7 +19,7 @@ up-staging:
 
 up-staging-dev:
 	@echo "Starting staging DEV (hot-reload) environment..."
-	$(COMPOSE) --env-file docker/compose/.env.staging -f $(BASE) -f $(STAGING_DEV) up -d
+	$(COMPOSE) --env-file $(ENV_STAGING) -f $(BASE) -f $(STAGING_DEV) up -d
 
 migrate-staging:
 	@echo "Running database migrations (staging)..."
@@ -28,7 +31,7 @@ logs-staging:
 
 logs-staging-dev:
 	@echo "Following logs from staging DEV services..."
-	$(COMPOSE) --env-file docker/compose/.env.staging -f $(BASE) -f $(STAGING_DEV) logs -f
+	$(COMPOSE) --env-file $(ENV_STAGING) -f $(BASE) -f $(STAGING_DEV) logs -f
 
 down-staging:
 	@echo "Stopping staging environment..."
@@ -36,7 +39,7 @@ down-staging:
 
 down-staging-dev:
 	@echo "Stopping staging DEV environment..."
-	$(COMPOSE) --env-file docker/compose/.env.staging -f $(BASE) -f $(STAGING_DEV) down
+	$(COMPOSE) --env-file $(ENV_STAGING) -f $(BASE) -f $(STAGING_DEV) down
 
 # --- PRODUCTION (image pull) ---
 build-prod:

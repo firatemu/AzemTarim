@@ -544,7 +544,7 @@ function KrediIslemleriContent() {
 
                 {/* Kredi Hesap Selection Dialog */}
                 <Dialog open={krediHesapSelectOpen} onClose={() => setKrediHesapSelectOpen(false)} maxWidth="sm" fullWidth>
-                    <DialogTitle>Kredi Hesabı Seçin</DialogTitle>
+                    <DialogTitle component="div">Kredi Hesabı Seçin</DialogTitle>
                     <DialogContent>
                         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
                             Hangi kredi hesabına kredi eklemek istiyorsunuz?

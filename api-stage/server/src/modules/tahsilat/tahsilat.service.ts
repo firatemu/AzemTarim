@@ -41,6 +41,20 @@ export class TahsilatService {
       }
     }
 
+    // Servis faturası kontrolü (varsa)
+    if (createDto.serviceInvoiceId) {
+      const serviceInvoice = await this.prisma.serviceInvoice.findUnique({
+        where: { id: createDto.serviceInvoiceId },
+        include: { workOrder: true },
+      });
+      if (!serviceInvoice) {
+        throw new NotFoundException('Servis faturası bulunamadı');
+      }
+      if (serviceInvoice.cariId !== createDto.cariId) {
+        throw new BadRequestException('Servis faturası bu cariye ait değil');
+      }
+    }
+
     // Kasa kontrolü (nakit veya kredi kartı ise)
     if (kasaId) {
       const kasa = await this.prisma.kasa.findUnique({
@@ -62,6 +76,7 @@ export class TahsilatService {
         data: {
           cariId: createDto.cariId,
           faturaId: createDto.faturaId,
+          serviceInvoiceId: createDto.serviceInvoiceId,
           tip: createDto.tip,
           tutar: createDto.tutar,
           tarih: createDto.tarih ? new Date(createDto.tarih) : new Date(),
@@ -82,14 +97,16 @@ export class TahsilatService {
         },
       });
 
-      // ✅ FIFO MANTIĞI: Tahsilat tutarını açık faturalara dağıt
-      await this.applyFIFO(
-        tx,
-        tahsilat.id,
-        createDto.cariId,
-        createDto.tip,
-        createDto.tutar,
-      );
+      // ✅ FIFO MANTIĞI: Tahsilat tutarını açık faturalara dağıt (servis faturası tahsilatında FIFO atlanır)
+      if (!createDto.serviceInvoiceId) {
+        await this.applyFIFO(
+          tx,
+          tahsilat.id,
+          createDto.cariId,
+          createDto.tip,
+          createDto.tutar,
+        );
+      }
 
       // Cari hareket kaydı oluştur
       // Mevcut cari bakiyesini al

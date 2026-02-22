@@ -328,7 +328,7 @@ export default function SatinAlmaIrsaliyesiDetayPage() {
               <TableContainer component={Paper} variant="outlined">
                 <Table>
                   <TableHead>
-                    <TableRow sx={{ bgcolor: '#f9fafb' }}>
+                    <TableRow sx={{ bgcolor: 'var(--muted)' }}>
                       <TableCell sx={{ fontWeight: 600 }}>Stok</TableCell>
                       <TableCell align="right" sx={{ fontWeight: 600 }}>Miktar</TableCell>
                       <TableCell align="right" sx={{ fontWeight: 600 }}>Birim Fiyat</TableCell>
@@ -401,7 +401,7 @@ export default function SatinAlmaIrsaliyesiDetayPage() {
           </Paper>
 
           {/* Audit Bilgileri */}
-          <Paper variant="outlined" sx={{ p: 2, bgcolor: '#f0f9ff', mt: 3 }}>
+          <Paper variant="outlined" sx={{ p: 2, bgcolor: 'color-mix(in srgb, var(--chart-1) 10%, transparent)', mt: 3 }}>
             <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600, color: '#0369a1' }}>
               📋 Denetim Bilgileri
             </Typography>

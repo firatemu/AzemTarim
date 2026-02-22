@@ -247,7 +247,7 @@ export default function CekSenetPage() {
 
                 {/* Tahsilat Dialog */}
                 <Dialog open={openTahsilat} onClose={() => setOpenTahsilat(false)} maxWidth="sm" fullWidth>
-                    <DialogTitle>Tahsilat İşlemi - {selectedCek?.evrakNo}</DialogTitle>
+                    <DialogTitle component="div">Tahsilat İşlemi - {selectedCek?.evrakNo}</DialogTitle>
                     <DialogContent dividers>
                         <Box display="flex" flexDirection="column" gap={2} pt={1}>
                             <Typography variant="body2" color="text.secondary">

@@ -192,10 +192,10 @@ export default function PayInstallmentDialog({ open, onClose, onSuccess, plan }:
             maxWidth="sm"
             fullWidth
             PaperProps={{
-                sx: { borderRadius: 3, bgcolor: '#f8fafc' }
+                sx: { borderRadius: 3, bgcolor: 'var(--muted)' }
             }}
         >
-            <DialogTitle sx={{
+            <DialogTitle component="div" sx={{
                 p: 3,
                 pb: 2,
                 display: 'flex',
@@ -216,7 +216,7 @@ export default function PayInstallmentDialog({ open, onClose, onSuccess, plan }:
                 </Button>
             </DialogTitle>
 
-            <DialogContent sx={{ p: 3, bgcolor: '#f8fafc' }}>
+            <DialogContent sx={{ p: 3, bgcolor: 'var(--muted)' }}>
                 <Stack spacing={3}>
                     {/* Taksit Bilgileri */}
                     <Paper sx={{ p: 2, borderRadius: 2, border: '1px solid', borderColor: 'divider' }}>

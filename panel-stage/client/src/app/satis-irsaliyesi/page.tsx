@@ -500,7 +500,7 @@ export default function SatisIrsaliyeleriPage() {
         </Menu>
 
         <Dialog open={openDelete} onClose={() => setOpenDelete(false)}>
-          <DialogTitle>İrsaliye Sil</DialogTitle>
+          <DialogTitle component="div">İrsaliye Sil</DialogTitle>
           <DialogContent>
             <Typography>
               <strong>{selectedIrsaliye?.irsaliyeNo}</strong> numaralı irsaliyeyi silmek istediğinize emin misiniz?

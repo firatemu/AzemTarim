@@ -161,7 +161,7 @@ const HavaleDialog = memo(({
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
-      <DialogTitle>
+      <DialogTitle component="div">
         {editMode ? 'Giden Havale Düzenle' : 'Yeni Giden Havale'}
       </DialogTitle>
       <DialogContent>
@@ -1037,7 +1037,7 @@ export default function GidenHavalePage() {
           setOpenDelete(false);
           setDeleteReason('');
         }}>
-          <DialogTitle>Silme Onayı</DialogTitle>
+          <DialogTitle component="div">Silme Onayı</DialogTitle>
           <DialogContent>
             <Typography sx={{ mb: 2 }}>
               Bu giden havale kaydını silmek istediğinizden emin misiniz?
@@ -1078,7 +1078,7 @@ export default function GidenHavalePage() {
 
         {/* Detay Dialog */}
         <Dialog open={openDetail} onClose={() => setOpenDetail(false)} maxWidth="sm" fullWidth>
-          <DialogTitle>Giden Havale Detayı</DialogTitle>
+          <DialogTitle component="div">Giden Havale Detayı</DialogTitle>
           <DialogContent>
             {selectedHavale && (
               <Box sx={{ mt: 2 }}>

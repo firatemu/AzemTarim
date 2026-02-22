@@ -5,7 +5,7 @@ import { PrismaService } from '../../common/prisma.service';
 export class UsersService {
   constructor(private prisma: PrismaService) { }
 
-  async findAll(search?: string, limit: number = 100, page: number = 1) {
+  async findAll(search?: string, limit: number = 100, page: number = 1, role?: string) {
     const skip = (page - 1) * limit;
 
     const where: any = {};
@@ -16,6 +16,10 @@ export class UsersService {
         { fullName: { contains: search, mode: 'insensitive' } },
         { username: { contains: search, mode: 'insensitive' } },
       ];
+    }
+
+    if (role) {
+      where.role = role;
     }
 
     const [users, total] = await Promise.all([

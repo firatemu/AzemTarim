@@ -76,6 +76,9 @@ export class StokService {
     const skip = (page - 1) * limit;
     const where: any = {
       ...buildTenantWhereClause(tenantId ?? undefined),
+      // Kategori/marka tanımı placeholder'ları malzeme listesinde gösterme
+      sadeceKategoriTanimi: { not: true },
+      sadeceMarkaTanimi: { not: true },
     };
     if (search) {
       where.OR = [
@@ -118,6 +121,8 @@ export class StokService {
         const esdegerUrunler = await this.prisma.stok.findMany({
           where: {
             esdegerGrupId: { in: esdegerGrupIds },
+            sadeceKategoriTanimi: { not: true },
+            sadeceMarkaTanimi: { not: true },
           },
           select: {
             id: true,
@@ -154,7 +159,8 @@ export class StokService {
           stokHareketler.forEach((hareket) => {
             if (
               hareket.hareketTipi === 'GIRIS' ||
-              hareket.hareketTipi === 'SAYIM_FAZLA'
+              hareket.hareketTipi === 'SAYIM_FAZLA' ||
+              hareket.hareketTipi === 'IADE'
             ) {
               miktar += hareket.miktar;
             } else if (
@@ -258,6 +264,11 @@ export class StokService {
 
     if (!stok) {
       throw new NotFoundException('Stok bulunamadı');
+    }
+
+    // Kategori/marka tanımı placeholder'ları malzeme kartı olarak açılmasın
+    if (stok.sadeceKategoriTanimi === true || stok.sadeceMarkaTanimi === true) {
+      throw new NotFoundException('Bu kayıt sadece kategori veya marka tanımı içindir; malzeme kartı olarak açılamaz.');
     }
 
     const [productLocationStocks, girisAggregate, cikisAggregate] =

@@ -48,7 +48,7 @@ export interface TahsilatFormData {
     kasaId: string;
     bankaHesapId?: string; // POS için
     firmaKrediKartiId?: string; // Ödeme kredi kartı için
-    tutar: number;
+    tutar: number | string;
     tarih: string;
     odemeTipi: 'NAKIT' | 'KREDI_KARTI' | 'HAVALE_EFT' | 'CEK' | 'SENET'; // Genişletilebilir
     aciklama: string;
@@ -61,7 +61,7 @@ export interface TahsilatFormData {
 export interface CaprazOdemeFormData {
     tahsilatCariId: string;
     odemeCariId: string;
-    tutar: number;
+    tutar: number | string;
     tarih: string;
     aciklama: string;
 }

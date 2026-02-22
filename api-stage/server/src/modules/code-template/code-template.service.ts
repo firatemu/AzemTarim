@@ -26,6 +26,8 @@ const DEFAULT_TEMPLATES: Partial<Record<ModuleType, { name: string; prefix: stri
   [ModuleType.DELIVERY_NOTE_SALES]: { name: 'Satış İrsaliyesi No', prefix: 'Sİ', digitCount: 5 },
   [ModuleType.DELIVERY_NOTE_PURCHASE]: { name: 'Alış İrsaliyesi No', prefix: 'Aİ', digitCount: 5 },
   [ModuleType.TECHNICIAN]: { name: 'Teknisyen Kodu', prefix: 'T', digitCount: 3 },
+  [ModuleType.WORK_ORDER]: { name: 'İş Emri No', prefix: 'IE', digitCount: 5 },
+  [ModuleType.SERVICE_INVOICE]: { name: 'Servis Faturası No', prefix: 'SF', digitCount: 5 },
 };
 
 @Injectable()

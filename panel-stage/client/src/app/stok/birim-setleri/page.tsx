@@ -362,7 +362,7 @@ export default function BirimSetleriPage() {
 
       {/* Ana Birim Ekleme/Düzenleme Dialog */}
       <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
-        <DialogTitle sx={{ bgcolor: '#191970', color: 'white' }}>
+        <DialogTitle component="div" sx={{ bgcolor: '#191970', color: 'white' }} component="div">
           {editingBirimSeti ? 'Ana Birim Düzenle' : 'Yeni Birim Seti Ekle'}
         </DialogTitle>
         <DialogContent>
@@ -417,7 +417,7 @@ export default function BirimSetleriPage() {
 
       {/* Alt Birim Ekleme/Düzenleme Dialog */}
       <Dialog open={openAltBirimDialog} onClose={handleCloseAltBirimDialog} maxWidth="sm" fullWidth>
-        <DialogTitle sx={{ bgcolor: '#191970', color: 'white' }}>
+        <DialogTitle component="div" sx={{ bgcolor: '#191970', color: 'white' }} component="div">
           {selectedBirimSeti && (
             <Box>
               {editingAltBirim ? 'Alt Birim Düzenle' : 'Yeni Alt Birim Ekle'}

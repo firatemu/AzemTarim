@@ -153,7 +153,7 @@ export class KategoriService {
       const timestamp = Date.now().toString().slice(-6);
       const stokKodu = `KAT-${decodedAnaKategori.substring(0, 3).toUpperCase()}-${decodedAltKategori.substring(0, 3).toUpperCase()}-${timestamp}`;
 
-      // Placeholder stok kaydı oluştur
+      // Placeholder stok kaydı oluştur (malzeme listesinde gösterilmez)
       await this.prisma.stok.create({
         data: {
           stokKodu,
@@ -163,6 +163,7 @@ export class KategoriService {
           satisFiyati: 0,
           anaKategori: decodedAnaKategori,
           altKategori: decodedAltKategori,
+          sadeceKategoriTanimi: true,
           aciklama:
             'Bu kayıt sadece kategori tanımı için oluşturulmuştur. Gerçek bir stok kaydı değildir.',
         },
@@ -190,6 +191,7 @@ export class KategoriService {
             satisFiyati: 0,
             anaKategori: decodedAnaKategori,
             altKategori: decodedAltKategori,
+            sadeceKategoriTanimi: true,
             aciklama:
               'Bu kayıt sadece kategori tanımı için oluşturulmuştur. Gerçek bir stok kaydı değildir.',
           },
@@ -240,7 +242,7 @@ export class KategoriService {
       const timestamp = Date.now().toString().slice(-6);
       const stokKodu = `KAT-${decodedAnaKategori.substring(0, 3).toUpperCase()}-${timestamp}`;
 
-      // Placeholder stok kaydı oluştur (alt kategori olmadan)
+      // Placeholder stok kaydı oluştur (malzeme listesinde gösterilmez)
       await this.prisma.stok.create({
         data: {
           stokKodu,
@@ -250,6 +252,7 @@ export class KategoriService {
           satisFiyati: 0,
           anaKategori: decodedAnaKategori,
           altKategori: null,
+          sadeceKategoriTanimi: true,
           aciklama:
             'Bu kayıt sadece ana kategori tanımı için oluşturulmuştur. Gerçek bir stok kaydı değildir.',
         },
@@ -276,6 +279,7 @@ export class KategoriService {
             satisFiyati: 0,
             anaKategori: decodedAnaKategori,
             altKategori: null,
+            sadeceKategoriTanimi: true,
             aciklama:
               'Bu kayıt sadece ana kategori tanımı için oluşturulmuştur. Gerçek bir stok kaydı değildir.',
           },

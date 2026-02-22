@@ -20,7 +20,7 @@ export class TenantResolverService {
   constructor(
     private readonly tenantContext: TenantContextService,
     private readonly prisma: PrismaService,
-  ) {}
+  ) { }
 
   /**
    * Create / FK kullanımı için tenant ID çözümle (kasa, cari, fatura, vb.)
@@ -53,7 +53,7 @@ export class TenantResolverService {
       const parameter = await this.prisma.systemParameter.findFirst({
         where: {
           key: 'STAGING_DEFAULT_TENANT_ID',
-          tenantId: null, // Global parametre
+          tenantId: null, // Explicitly query global parameter
         },
       });
 

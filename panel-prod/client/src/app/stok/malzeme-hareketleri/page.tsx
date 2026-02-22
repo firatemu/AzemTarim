@@ -122,9 +122,9 @@ export default function MalzemeHareketleriPage() {
   const getHareketLabel = (tip: string) => {
     switch (tip) {
       case 'GIRIS': return 'Giriş';
-      case 'CIKIS': return 'Çıkış';
-      case 'SATIS': return 'Satış';
-      case 'IADE': return 'İade';
+      case 'CIKIS': return 'Çıkış';   // Satınalma iade dahil
+      case 'SATIS': return 'Çıkış';   // Satış faturası
+      case 'IADE': return 'Giriş';   // Satış iade faturası
       case 'SAYIM': return 'Sayım';
       default: return tip;
     }
