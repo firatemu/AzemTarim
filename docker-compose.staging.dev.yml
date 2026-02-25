@@ -42,16 +42,18 @@ services:
       HOSTNAME: "0.0.0.0"
       PORT: "3000"
       NEXT_TELEMETRY_DISABLED: "1"
-      # Docker/Linux'ta hot reload için polling (dosya değişiklikleri algılansın)
-      CHOKIDAR_USEPOLLING: "true"
-      WATCHPACK_POLLING: "true"
+      # Daha hızlı derleme: daha fazla bellek (Turbopack)
+      NODE_OPTIONS: "--max-old-space-size=8192"
+      # Docker/Linux'ta hot reload için polling (local PC'de false yaparak daha hızlı olabilir)
+      CHOKIDAR_USEPOLLING: "${CHOKIDAR_USEPOLLING:-true}"
+      WATCHPACK_POLLING: "${WATCHPACK_POLLING:-true}"
       # Panel /api/* isteklerini backend container'a yönlendirir (Compose servis adı)
       API_PROXY_TARGET: "http://backend-staging:3000"
     volumes:
       - ./panel-stage/client:/app
       - panel_stage_node_modules:/app/node_modules
       - panel_stage_next_cache:/app/.next
-    command: sh -c "corepack enable && pnpm install && pnpm dev:fast"
+    command: sh -c "corepack enable && (pnpm install --prefer-offline 2>/dev/null || pnpm install) && pnpm run dev:fastest"
     networks: [ app_net ]
     depends_on:
       - backend-staging

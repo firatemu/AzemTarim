@@ -1,11 +1,14 @@
 # Staging ortamı: https://staging.otomuhasebe.com/ (sunucu IP: 76.13.14.43)
 # Build GitHub'da, image'lar GHCR'a push edilir; sunucuda pull + up.
-# Tetikleyici: sadece workflow_dispatch (manuel)
+# Tetikleyici: push → main (otomatik) veya workflow_dispatch (manuel)
 # Gerekli secret: STAGING_OTOMUHASEBE_SSH_KEY (76.13.14.43 için SSH private key)
 
 name: Staging Deploy (staging.otomuhasebe.com)
 
 on:
+  push:
+    branches:
+      - main
   workflow_dispatch:
     inputs:
       skip_deploy:
@@ -90,7 +93,7 @@ jobs:
       - build-backend
       - build-panel
     runs-on: ubuntu-latest
-    if: ${{ github.event_name == 'workflow_dispatch' && !inputs.skip_deploy }}
+    if: ${{ github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && !inputs.skip_deploy) }}
     continue-on-error: true
 
     steps:
