@@ -168,7 +168,7 @@ export default function SatisFaturalariPage() {
     pageSize: 25,
   });
   const [sortModel, setSortModel] = useState<GridSortModel>([
-    { field: 'tarih', sort: 'desc' },
+    { field: 'createdAt', sort: 'desc' },
   ]);
   const [filterModel, setFilterModel] = useState<GridFilterModel>({
     items: [],
@@ -254,7 +254,7 @@ export default function SatisFaturalariPage() {
         search: searchTerm,
         page: paginationModel.page + 1, // API uses 1-based indexing
         limit: paginationModel.pageSize,
-        sortBy: sortModel[0]?.field || 'tarih',
+        sortBy: sortModel[0]?.field || 'createdAt',
         sortOrder: sortModel[0]?.sort || 'desc',
       };
 
@@ -1106,7 +1106,14 @@ export default function SatisFaturalariPage() {
   };
 
   const handleEdit = (row: Fatura) => {
-    openEditDialog(row);
+    const tabId = `fatura-satis-duzenle-${row.id}`;
+    addTab({
+      id: tabId,
+      label: `Düzenle: ${row.faturaNo}`,
+      path: `/fatura/satis/duzenle/${row.id}`,
+    });
+    setActiveTab(tabId);
+    router.push(`/fatura/satis/duzenle/${row.id}`);
   };
 
   const handleView = (row: Fatura) => {

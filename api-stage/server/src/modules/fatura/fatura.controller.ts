@@ -161,6 +161,17 @@ export class FaturaController {
   }
 
   @UseGuards(JwtAuthGuard)
+  @Put(':id/durum')
+  async changeDurum(
+    @Param('id') id: string,
+    @Body() body: { durum: FaturaDurum },
+    @Request() req,
+  ) {
+    const userId = req.user?.id;
+    return this.faturaService.changeDurum(id, body.durum, userId);
+  }
+
+  @UseGuards(JwtAuthGuard)
   @Put(':id/iptal')
   async iptalEt(
     @Param('id') id: string,

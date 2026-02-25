@@ -36,6 +36,7 @@ import {
 import { Delete, Save, ArrowBack, ToggleOn, ToggleOff } from '@mui/icons-material';
 import MainLayout from '@/components/Layout/MainLayout';
 import axios from '@/lib/axios';
+import { useTabStore } from '@/stores/tabStore';
 import { useRouter, useParams } from 'next/navigation';
 
 interface Cari {
@@ -77,7 +78,13 @@ interface FaturaKalemi {
 export default function DuzenleSatisFaturasiPage() {
   const router = useRouter();
   const params = useParams();
+  const { removeTab } = useTabStore();
   const faturaId = params.id as string;
+
+  const goBackToList = () => {
+    removeTab(`fatura-satis-duzenle-${faturaId}`);
+    router.push('/fatura/satis');
+  };
 
   const [cariler, setCariler] = useState<Cari[]>([]);
   const [stoklar, setStoklar] = useState<Stok[]>([]);
@@ -138,6 +145,14 @@ export default function DuzenleSatisFaturasiPage() {
     }
   };
 
+  const toNum = (v: any): number => {
+    if (v == null || v === '') return 0;
+    if (typeof v === 'number' && !Number.isNaN(v)) return v;
+    if (typeof v === 'object' && v != null && typeof (v as any).toNumber === 'function') return (v as any).toNumber();
+    const n = Number(v);
+    return Number.isNaN(n) ? 0 : n;
+  };
+
   const fetchFatura = async () => {
     try {
       setLoading(true);
@@ -145,41 +160,45 @@ export default function DuzenleSatisFaturasiPage() {
       const fatura = response.data;
 
       const durumValue = fatura.durum || 'ACIK';
+      // Ambar: backend warehouseId, irsaliye.depoId veya ilk kalemin stok hareketinden
+      const warehouseId = fatura.warehouseId ?? fatura.irsaliye?.depoId ?? '';
       setOriginalDurum(durumValue);
       setFormData({
         faturaNo: fatura.faturaNo,
         faturaTipi: fatura.faturaTipi,
         cariId: fatura.cariId,
-        warehouseId: fatura.warehouseId || '',
+        warehouseId: String(warehouseId || ''),
         tarih: new Date(fatura.tarih).toISOString().split('T')[0],
         vade: fatura.vade ? new Date(fatura.vade).toISOString().split('T')[0] : '',
         durum: durumValue,
         genelIskontoOran: 0,
-        genelIskontoTutar: fatura.iskonto || 0,
+        genelIskontoTutar: toNum(fatura.iskonto),
         aciklama: fatura.aciklama || '',
         irsaliyeNo: fatura.irsaliye?.irsaliyeNo || '',
         siparisNo: fatura.irsaliye?.kaynakSiparis?.siparisNo || fatura.siparisNo || '',
         satisElemaniId: fatura.satisElemaniId || '',
         dovizCinsi: fatura.dovizCinsi || 'TRY',
-        dovizKuru: fatura.dovizKuru || 1,
-        kalemler: fatura.kalemler.map((k: any) => {
-          const baseAmount = k.miktar * k.birimFiyat;
-          const iskOran = k.iskontoOrani || 0;
+        dovizKuru: toNum(fatura.dovizKuru),
+        kalemler: (fatura.kalemler || []).map((k: any) => {
+          const miktar = toNum(k.miktar) || 1;
+          const birimFiyat = toNum(k.birimFiyat);
+          const baseAmount = miktar * birimFiyat;
+          const iskOran = toNum(k.iskontoOrani);
           return {
             stokId: k.stokId,
             stok: k.stok ? {
               id: k.stok.id,
               stokKodu: k.stok.stokKodu,
               stokAdi: k.stok.stokAdi,
-              satisFiyati: k.stok.satisFiyati,
-              kdvOrani: k.stok.kdvOrani,
+              satisFiyati: toNum(k.stok.satisFiyati),
+              kdvOrani: toNum(k.stok.kdvOrani),
               miktar: 0,
             } : undefined,
-            miktar: k.miktar,
-            birimFiyat: k.birimFiyat,
-            kdvOrani: k.kdvOrani,
+            miktar,
+            birimFiyat,
+            kdvOrani: toNum(k.kdvOrani) || 20,
             iskontoOran: iskOran,
-            iskontoTutar: k.iskontoTutari || (baseAmount * iskOran) / 100,
+            iskontoTutar: toNum(k.iskontoTutari) || (baseAmount * iskOran) / 100,
             cokluIskonto: false,
             iskontoFormula: '',
           };
@@ -187,7 +206,7 @@ export default function DuzenleSatisFaturasiPage() {
       });
     } catch (error: any) {
       showSnackbar(error.response?.data?.message || 'Fatura yüklenirken hata oluştu', 'error');
-      router.push('/fatura/satis');
+      goBackToList();
     } finally {
       setLoading(false);
     }
@@ -396,6 +415,7 @@ export default function DuzenleSatisFaturasiPage() {
 
       setSaving(true);
       await axios.put(`/fatura/${faturaId}`, {
+        faturaNo: formData.faturaNo?.trim() || undefined,
         tarih: new Date(formData.tarih).toISOString(),
         vade: formData.vade ? new Date(formData.vade).toISOString() : null,
         iskonto: Number(formData.genelIskontoTutar) || 0,
@@ -419,7 +439,7 @@ export default function DuzenleSatisFaturasiPage() {
       }
 
       showSnackbar('Fatura başarıyla güncellendi', 'success');
-      setTimeout(() => router.push('/fatura/satis'), 1500);
+      setTimeout(goBackToList, 1500);
     } catch (error: any) {
       const msg = error.response?.data?.message || 'İşlem sırasında hata oluştu';
       if (msg.includes('Yetersiz stok!') && msg.includes('•')) {
@@ -521,7 +541,7 @@ export default function DuzenleSatisFaturasiPage() {
       <Box sx={{ mb: isMobile ? 2 : 3 }}>
         <Box sx={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: isMobile ? 'flex-start' : 'center', gap: 2, mb: 2 }}>
           <IconButton
-            onClick={() => router.push('/fatura/satis')}
+            onClick={goBackToList}
             sx={{ bgcolor: 'var(--secondary)', color: 'var(--secondary-foreground)', '&:hover': { bgcolor: 'var(--secondary-hover)' }, width: isMobile ? 40 : 48, height: isMobile ? 40 : 48 }}
           >
             <ArrowBack />
@@ -543,7 +563,7 @@ export default function DuzenleSatisFaturasiPage() {
           </Box>
 
           <Box sx={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fit, minmax(200px, 1fr))', gap: 2 }}>
-            <TextField label="Fatura No" value={formData.faturaNo} disabled fullWidth />
+            <TextField label="Fatura No" value={formData.faturaNo} onChange={(e) => setFormData(p => ({ ...p, faturaNo: e.target.value }))} required fullWidth />
             <TextField type="date" label="Tarih" value={formData.tarih} onChange={(e) => setFormData(p => ({ ...p, tarih: e.target.value }))} InputLabelProps={{ shrink: true }} required fullWidth />
             <TextField type="date" label="Vade" value={formData.vade} onChange={(e) => setFormData(p => ({ ...p, vade: e.target.value }))} InputLabelProps={{ shrink: true }} fullWidth />
 
@@ -688,7 +708,7 @@ export default function DuzenleSatisFaturasiPage() {
           </Box>
 
           <Box sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end', pt: 2 }}>
-            <Button variant="outlined" size="large" onClick={() => router.push('/fatura/satis')} sx={{ borderRadius: 'var(--radius)', px: 4, textTransform: 'none' }}>İptal</Button>
+            <Button variant="outlined" size="large" onClick={goBackToList} sx={{ borderRadius: 'var(--radius)', px: 4, textTransform: 'none' }}>İptal</Button>
             <Button variant="contained" size="large" startIcon={<Save />} onClick={handleSave} disabled={saving} sx={{ bgcolor: 'var(--primary)', borderRadius: 'var(--radius)', px: 4, textTransform: 'none', '&:hover': { bgcolor: 'var(--primary-hover)' } }}>
               {saving ? 'Kaydediliyor...' : 'Değişiklikleri Kaydet'}
             </Button>

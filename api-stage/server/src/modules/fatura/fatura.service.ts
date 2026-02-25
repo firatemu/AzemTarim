@@ -433,6 +433,7 @@ export class FaturaService {
           select: {
             id: true,
             irsaliyeNo: true,
+            depoId: true,
             kaynakSiparis: {
               select: {
                 id: true,
@@ -441,8 +442,13 @@ export class FaturaService {
             },
           },
         },
+        satinAlmaIrsaliye: {
+          select: { id: true, irsaliyeNo: true, depoId: true },
+        },
         kalemler: {
-          include: { stok: true },
+          include: {
+            stok: true,
+          },
         },
         createdByUser: {
           select: {
@@ -486,7 +492,11 @@ export class FaturaService {
       throw new NotFoundException(`Fatura bulunamadı: ${id}`);
     }
 
-    return fatura;
+    // Ambar: fatura tablosundaki warehouseId (eski kayıtlar için irsaliye.depoId fallback)
+    const fallbackWarehouseId =
+      (fatura.irsaliye as any)?.depoId ?? (fatura.satinAlmaIrsaliye as any)?.depoId ?? null;
+    const warehouseId = (fatura as any).warehouseId ?? (fallbackWarehouseId != null ? String(fallbackWarehouseId) : undefined);
+    return { ...fatura, warehouseId };
   }
 
   async create(
@@ -935,6 +945,7 @@ export class FaturaService {
           siparisNo: siparis?.siparisNo || null,
           deliveryNoteId: deliveryNoteId || null, // İrsaliye ID'sini bağla
           satinAlmaIrsaliyeId: satinAlmaIrsaliyeId || null,
+          warehouseId: transactionWarehouseId || null, // Ambar bilgisi faturada da saklanır
           toplamTutar,
           kdvTutar,
           genelToplam,
@@ -1047,12 +1058,31 @@ export class FaturaService {
       const { cariId, faturaNo, faturaTipi, kalemler, warehouseId, siparisId, irsaliyeId, satisElemaniId, ...updateData } =
         updateFaturaDto;
 
+      // Fatura no değiştiriliyorsa benzersizlik kontrolü (mevcut kayıt hariç)
+      if (faturaNo !== undefined && faturaNo.trim() !== '' && faturaNo !== fatura.faturaNo) {
+        const tenantId = fatura.tenantId ?? undefined;
+        const existing = await this.prisma.fatura.findFirst({
+          where: {
+            faturaNo: faturaNo.trim(),
+            ...(tenantId && { tenantId }),
+            id: { not: id },
+          },
+        });
+        if (existing) {
+          throw new BadRequestException(
+            `Bu fatura numarası zaten mevcut: ${faturaNo}`,
+          );
+        }
+      }
+
       const updated = await this.prisma.fatura.update({
         where: { id },
         data: {
           ...updateData,
           updatedBy: userId,
           satisElemaniId,
+          ...(updateFaturaDto.warehouseId !== undefined && { warehouseId: updateFaturaDto.warehouseId || null }),
+          ...(faturaNo !== undefined && faturaNo.trim() !== '' && { faturaNo: faturaNo.trim() }),
         },
         include: {
           cari: true,
@@ -1092,6 +1122,24 @@ export class FaturaService {
 
     // Kalemler güncelleniyorsa yeniden hesaplama yap
     const { kalemler, warehouseId, siparisId, irsaliyeId, ...faturaData } = updateFaturaDto;
+
+    // Fatura no değiştiriliyorsa benzersizlik kontrolü (kalemli güncelleme dalı)
+    const newFaturaNo = faturaData.faturaNo != null && String(faturaData.faturaNo).trim() !== '' ? String(faturaData.faturaNo).trim() : null;
+    if (newFaturaNo && newFaturaNo !== fatura.faturaNo) {
+      const tenantId = fatura.tenantId ?? undefined;
+      const existing = await this.prisma.fatura.findFirst({
+        where: {
+          faturaNo: newFaturaNo,
+          ...(tenantId && { tenantId }),
+          id: { not: id },
+        },
+      });
+      if (existing) {
+        throw new BadRequestException(
+          `Bu fatura numarası zaten mevcut: ${newFaturaNo}`,
+        );
+      }
+    }
 
     let toplamTutar = 0;
     let kdvTutar = 0;
@@ -1175,6 +1223,7 @@ export class FaturaService {
           kdvTutar,
           genelToplam,
           updatedBy: userId,
+          ...(warehouseId !== undefined && { warehouseId: warehouseId || null }),
           kalemler: {
             create: kalemlerWithCalculations,
           },
@@ -2746,8 +2795,8 @@ export class FaturaService {
       ];
     }
 
-    // Sıralama (varsayılan: tarih azalan = en yakın tarih önce)
-    let orderBy: any = { tarih: 'desc' };
+    // Sıralama (varsayılan: en son eklenen kayıt en üstte = createdAt azalan)
+    let orderBy: any = { createdAt: 'desc' };
     if (sortBy) {
       if (sortBy === 'cari') {
         orderBy = { cari: { unvan: sortOrder || 'asc' } };

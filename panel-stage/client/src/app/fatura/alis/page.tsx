@@ -126,7 +126,7 @@ export default function AlisFaturalariPage() {
     pageSize: 25,
   });
   const [sortModel, setSortModel] = useState<GridSortModel>([
-    { field: 'tarih', sort: 'desc' },
+    { field: 'createdAt', sort: 'desc' },
   ]);
   const [filterModel, setFilterModel] = useState<GridFilterModel>({ items: [] });
   const [rowCount, setRowCount] = useState(0);
@@ -137,7 +137,6 @@ export default function AlisFaturalariPage() {
 
   // Dialog states
   const [openAdd, setOpenAdd] = useState(false);
-  const [openEdit, setOpenEdit] = useState(false);
   const [openView, setOpenView] = useState(false);
   const [openDelete, setOpenDelete] = useState(false);
   const [openIptal, setOpenIptal] = useState(false);
@@ -182,7 +181,7 @@ export default function AlisFaturalariPage() {
         search: searchTerm,
         page: paginationModel.page + 1,
         limit: paginationModel.pageSize,
-        sortBy: sortModel[0]?.field || 'tarih',
+        sortBy: sortModel[0]?.field || 'createdAt',
         sortOrder: sortModel[0]?.sort || 'desc',
       };
       if (filterStartDate) params.startDate = filterStartDate;
@@ -409,36 +408,6 @@ export default function AlisFaturalariPage() {
     setOpenAdd(true);
   };
 
-  const openEditDialog = async (fatura: Fatura) => {
-    try {
-      const response = await axios.get(`/fatura/${fatura.id}`);
-      const fullFatura = response.data;
-
-      setFormData({
-        faturaNo: fullFatura.faturaNo,
-        faturaTipi: fullFatura.faturaTipi,
-        cariId: fullFatura.cariId,
-        tarih: new Date(fullFatura.tarih).toISOString().split('T')[0],
-        vade: fullFatura.vade ? new Date(fullFatura.vade).toISOString().split('T')[0] : '',
-        iskonto: fullFatura.iskonto || 0,
-        aciklama: fullFatura.aciklama || '',
-        kalemler: fullFatura.kalemler.map((k: any) => ({
-          stokId: k.stokId,
-          miktar: k.miktar,
-          birimFiyat: k.birimFiyat,
-          kdvOrani: k.kdvOrani,
-          iskontoOrani: k.iskontoOrani ?? 0,
-          iskontoTutari: k.iskontoTutari ?? 0,
-        })),
-      });
-
-      setSelectedFatura(fatura);
-      setOpenEdit(true);
-    } catch (error: any) {
-      showSnackbar(error.response?.data?.message || 'Fatura yüklenirken hata oluştu', 'error');
-    }
-  };
-
   const openViewDialog = async (fatura: Fatura) => {
     try {
       const response = await axios.get(`/fatura/${fatura.id}`);
@@ -588,7 +557,10 @@ export default function AlisFaturalariPage() {
   };
 
   const handleEdit = (row: Fatura) => {
-    openEditDialog(row);
+    const tabId = `fatura-alis-duzenle-${row.id}`;
+    addTab({ id: tabId, label: `Düzenle: ${row.faturaNo}`, path: `/fatura/alis/duzenle/${row.id}` });
+    setActiveTab(tabId);
+    router.push(`/fatura/alis/duzenle/${row.id}`);
   };
 
   const handleView = (row: Fatura) => {
@@ -691,8 +663,8 @@ export default function AlisFaturalariPage() {
 
     return (
       <Dialog
-        open={openAdd || openEdit}
-        onClose={() => { setOpenAdd(false); setOpenEdit(false); }}
+        open={openAdd}
+        onClose={() => setOpenAdd(false)}
         maxWidth="lg"
         fullWidth
       >

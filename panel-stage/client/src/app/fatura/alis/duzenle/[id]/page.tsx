@@ -28,6 +28,7 @@ import {
 import { Delete, Save, ArrowBack } from '@mui/icons-material';
 import MainLayout from '@/components/Layout/MainLayout';
 import axios from '@/lib/axios';
+import { useTabStore } from '@/stores/tabStore';
 import { useRouter, useParams } from 'next/navigation';
 
 interface Cari {
@@ -58,7 +59,13 @@ interface FaturaKalemi {
 export default function DuzenleAlisFaturasiPage() {
   const router = useRouter();
   const params = useParams();
+  const { removeTab } = useTabStore();
   const faturaId = params.id as string;
+
+  const goBackToList = () => {
+    removeTab(`fatura-alis-duzenle-${faturaId}`);
+    router.push('/fatura/alis');
+  };
 
   const [cariler, setCariler] = useState<Cari[]>([]);
   const [stoklar, setStoklar] = useState<Stok[]>([]);
@@ -90,6 +97,14 @@ export default function DuzenleAlisFaturasiPage() {
     fetchFatura();
   }, [faturaId]);
 
+  const toNum = (v: any): number => {
+    if (v == null || v === '') return 0;
+    if (typeof v === 'number' && !Number.isNaN(v)) return v;
+    if (typeof v === 'object' && v != null && typeof (v as any).toNumber === 'function') return (v as any).toNumber();
+    const n = Number(v);
+    return Number.isNaN(n) ? 0 : n;
+  };
+
   const fetchWarehouses = async () => {
     try {
       const response = await axios.get('/warehouse?active=true');
@@ -111,6 +126,7 @@ export default function DuzenleAlisFaturasiPage() {
       const fatura = response.data;
 
       const durumValue = fatura.durum || 'ACIK';
+      const warehouseId = fatura.warehouseId ?? fatura.satinAlmaIrsaliye?.depoId ?? '';
       setOriginalDurum(durumValue);
       setFormData({
         faturaNo: fatura.faturaNo,
@@ -120,21 +136,34 @@ export default function DuzenleAlisFaturasiPage() {
         vade: fatura.vade ? new Date(fatura.vade).toISOString().split('T')[0] : '',
         durum: durumValue,
         genelIskontoOran: 0,
-        genelIskontoTutar: fatura.iskonto || 0,
+        genelIskontoTutar: toNum(fatura.iskonto),
         aciklama: fatura.aciklama || '',
-        warehouseId: fatura.warehouseId || '',
-        kalemler: fatura.kalemler.map((k: any) => ({
-          stokId: k.stokId,
-          miktar: k.miktar,
-          birimFiyat: k.birimFiyat,
-          kdvOrani: k.kdvOrani,
-          iskontoOran: 0,
-          iskontoTutar: 0,
-        })),
+        warehouseId: String(warehouseId || ''),
+        kalemler: (fatura.kalemler || []).map((k: any) => {
+          const miktar = toNum(k.miktar) || 1;
+          const birimFiyat = toNum(k.birimFiyat);
+          const baseAmount = miktar * birimFiyat;
+          const iskOran = toNum(k.iskontoOrani);
+          return {
+            stokId: k.stokId,
+            stok: k.stok ? {
+              id: k.stok.id,
+              stokKodu: k.stok.stokKodu,
+              stokAdi: k.stok.stokAdi,
+              satisFiyati: toNum(k.stok.satisFiyati),
+              kdvOrani: toNum(k.stok.kdvOrani),
+            } : undefined,
+            miktar,
+            birimFiyat,
+            kdvOrani: toNum(k.kdvOrani) || 20,
+            iskontoOran: iskOran,
+            iskontoTutar: toNum(k.iskontoTutari) || (baseAmount * iskOran) / 100,
+          };
+        }),
       });
     } catch (error: any) {
       showSnackbar(error.response?.data?.message || 'Fatura yüklenirken hata oluştu', 'error');
-      router.push('/fatura/alis');
+      goBackToList();
     } finally {
       setLoading(false);
     }
@@ -278,6 +307,7 @@ export default function DuzenleAlisFaturasiPage() {
 
       // Önce faturayı güncelle
       await axios.put(`/fatura/${faturaId}`, {
+        faturaNo: formData.faturaNo?.trim() || undefined,
         tarih: new Date(formData.tarih).toISOString(),
         vade: formData.vade ? new Date(formData.vade).toISOString() : null,
         iskonto: Number(formData.genelIskontoTutar) || 0,
@@ -299,9 +329,7 @@ export default function DuzenleAlisFaturasiPage() {
       }
 
       showSnackbar('Fatura başarıyla güncellendi', 'success');
-      setTimeout(() => {
-        router.push('/fatura/alis');
-      }, 1500);
+      setTimeout(goBackToList, 1500);
     } catch (error: any) {
       showSnackbar(error.response?.data?.message || 'İşlem sırasında hata oluştu', 'error');
     } finally {
@@ -333,7 +361,7 @@ export default function DuzenleAlisFaturasiPage() {
       <Box sx={{ mb: 3 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
           <IconButton
-            onClick={() => router.push('/fatura/alis')}
+            onClick={goBackToList}
             sx={{
               bgcolor: '#f3f4f6',
               '&:hover': { bgcolor: '#e5e7eb' }
@@ -378,7 +406,6 @@ export default function DuzenleAlisFaturasiPage() {
               value={formData.faturaNo}
               onChange={(e) => setFormData(prev => ({ ...prev, faturaNo: e.target.value }))}
               required
-              disabled
             />
             <TextField
               sx={{ flex: '1 1 200px' }}
@@ -759,7 +786,7 @@ export default function DuzenleAlisFaturasiPage() {
               <Button
                 variant="outlined"
                 size="large"
-                onClick={() => router.push('/fatura/alis')}
+                onClick={goBackToList}
               >
                 İptal
               </Button>
