@@ -6,6 +6,8 @@ Bu rehber, OtoMuhasebe staging ortamını **stnoto.com** domain'inde yeni bir Ub
 
 **Not:** Sunucuda RAM yetersiz olduğu için build işlemi **GitHub Actions** üzerinde yapılır. Sunucu sadece hazır image'ları çeker (`docker pull`) ve çalıştırır; sunucuda `next build` veya `nest build` yapılmaz.
 
+**Başka sunuculardan pull:** Build image'ları GHCR'da; istediğiniz sunucuda sadece pull + compose up ile çalıştırabilirsiniz. Adımlar: [docs/STAGING_GHCR_PULL.md](docs/STAGING_GHCR_PULL.md).
+
 ---
 
 ## 0. GitHub Actions ile Deploy (Özet)
