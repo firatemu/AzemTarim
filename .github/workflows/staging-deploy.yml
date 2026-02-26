@@ -1,10 +1,13 @@
 # Staging ortamı: Build GitHub'da, image'lar GHCR'a push edilir.
 # Sunucuda RAM yetersiz olduğu için build CI'da yapılır; tüm sunucular sadece pull + up yapar.
-# Tetikleyici: sadece workflow_dispatch (manuel); push ile tetiklenmez
+# Tetikleyici: push → main (otomatik) veya workflow_dispatch (manuel)
 
 name: Staging Deploy (stnoto.com)
 
 on:
+  push:
+    branches:
+      - main
   workflow_dispatch:
     inputs:
       skip_deploy:
@@ -90,7 +93,7 @@ jobs:
       - build-backend
       - build-panel
     runs-on: ubuntu-latest
-    if: ${{ github.event_name == 'workflow_dispatch' && !inputs.skip_deploy }}
+    if: ${{ github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && !inputs.skip_deploy) }}
     # SSH/ sunucu hatası olsa bile workflow başarılı kalsın; image'lar GHCR'da, sunucuda manuel pull yapılabilir
     continue-on-error: true
 
