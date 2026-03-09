@@ -2,6 +2,7 @@ version: "3.9"
 
 services:
   backend-staging:
+    container_name: otomuhasebe_saas_backend
     build:
       context: ../../api-stage
       dockerfile: server/Dockerfile.staging.prod
@@ -19,6 +20,7 @@ services:
     restart: unless-stopped
 
   user-panel-staging:
+    container_name: otomuhasebe_saas_panel
     build:
       context: ../../panel-stage/client
       dockerfile: Dockerfile.staging.prod
@@ -32,7 +34,7 @@ services:
       NEXT_PUBLIC_API_BASE_URL: https://staging-api.otomuhasebe.com
       NODE_ENV: production
       # Panel /api/* isteklerini backend container'a yönlendirir (Docker ağı)
-      API_PROXY_TARGET: "http://backend-staging:3000"
+      API_PROXY_TARGET: "http://otomuhasebe_saas_backend:3000"
     networks: [ app_net ]
     healthcheck:
       test: [ "CMD", "wget", "-qO-", "http://0.0.0.0:3000/" ]
@@ -44,5 +46,5 @@ services:
 
 networks:
   app_net:
-    name: otomuhasebe_app_net
+    name: otomuhasebe_saas_net
     external: true

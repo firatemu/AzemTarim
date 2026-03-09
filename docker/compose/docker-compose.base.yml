@@ -2,7 +2,8 @@ version: "3.9"
 
 networks:
   app_net:
-    driver: bridge
+    name: otomuhasebe_saas_net
+    external: true
 
 volumes:
   postgres_data:
@@ -17,7 +18,7 @@ volumes:
 services:
   caddy:
     image: caddy:2
-    container_name: otomuhasebe-caddy
+    container_name: otomuhasebe_saas_caddy
     restart: unless-stopped
     ports:
       - "80:80"
@@ -41,14 +42,14 @@ services:
 
   postgres:
     image: postgres:16-alpine
-    container_name: otomuhasebe-postgres
+    container_name: otomuhasebe_saas_postgres
     restart: unless-stopped
     ports:
       - "5432:5432"
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: IKYYJ1R8fUZ3PItqxf6qel12VNbLYiOe
-      POSTGRES_DB: otomuhasebe_stage
+      POSTGRES_DB: otomuhasebe_saas_db
       TZ: Europe/Istanbul
     volumes:
       - postgres_data:/var/lib/postgresql/data
@@ -62,7 +63,7 @@ services:
 
   redis:
     image: redis:7-alpine
-    container_name: otomuhasebe-redis
+    container_name: otomuhasebe_saas_redis
     restart: unless-stopped
     ports:
       - "127.0.0.1:6379:6379"
@@ -79,7 +80,7 @@ services:
 
   minio:
     image: minio/minio:latest
-    container_name: otomuhasebe-minio
+    container_name: otomuhasebe_saas_minio
     restart: unless-stopped
     command: server /data --console-address ":9001"
     environment:
@@ -89,7 +90,7 @@ services:
     volumes:
       - /opt/minio-data:/data  # Host bind mount (persists even if container is removed)
     ports:
-      - "127.0.0.1:9000:9000"  # API (localhost only, not exposed to internet)
+      - "9000:9000"  # API (Docker network + localhost)
       - "127.0.0.1:9001:9001"  # Console (localhost only, for admin access)
     networks:
       - app_net

@@ -16,11 +16,17 @@ export class MinIOStorageProvider implements IStorageService, OnModuleInit {
             useSSL: process.env.MINIO_USE_SSL === 'true',
             accessKey: process.env.MINIO_ACCESS_KEY,
             secretKey: process.env.MINIO_SECRET_KEY,
+            pathStyle: true, // MinIO için path-style bucket access
         });
     }
 
     async onModuleInit() {
         try {
+            // GEÇİCİ ÇÖZÜM: MinIO bağlantı sorunu nedeniyle devre dışı
+            // MinIO bağlantısı düzeltildikten sonra enable edilecek
+            this.logger.warn(`⚠️ MinIO storage provider geçici olarak devre dışı bırakıldı`);
+            return;
+
             // Ensure bucket exists
             const exists = await this.client.bucketExists(this.bucketName);
 
