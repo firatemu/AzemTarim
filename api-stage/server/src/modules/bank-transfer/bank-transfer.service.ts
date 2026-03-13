@@ -1,3 +1,4 @@
+import { TenantResolverService } from '../../common/services/tenant-resolver.service';
 import {
   BadRequestException,
   Injectable,
@@ -23,10 +24,8 @@ import { SystemParameterService } from '../system-parameter/system-parameter.ser
 
 @Injectable()
 export class BankTransferService {
-  constructor(
-    private prisma: PrismaService,
-    private systemParameterService: SystemParameterService,
-  ) { }
+  constructor(private prisma: PrismaService,
+    private systemParameterService: SystemParameterService, private readonly tenantResolver: TenantResolverService) { }
 
   async create(createDto: CreateBankTransferDto, userId: string) {
     console.log('[BankTransferService] createDto received:', JSON.stringify(createDto, null, 2));
@@ -35,7 +34,7 @@ export class BankTransferService {
 
     // 1. Durum: Eski sistem (Kasa ID ile)
     if (createDto.cashboxId) {
-      bankaHesabiKasa = await this.prisma.extended.cashbox.findUnique({
+      bankaHesabiKasa = await this.prisma.cashbox.findUnique({
         where: { id: createDto.cashboxId },
       });
 
@@ -54,7 +53,7 @@ export class BankTransferService {
 
     // 2. Durum: Yeni sistem (BankAccount ID ile)
     if (createDto.bankAccountId) {
-      bankaHesabiYeni = await this.prisma.extended.bankAccount.findUnique({
+      bankaHesabiYeni = await this.prisma.bankAccount.findUnique({
         where: { id: createDto.bankAccountId },
       });
 
@@ -73,7 +72,7 @@ export class BankTransferService {
     }
 
     // Transaction ile işlemleri gerçekleştir
-    return this.prisma.extended.$transaction(async (prisma) => {
+    return this.prisma.$transaction(async (prisma) => {
       // Account kontrolü
       const account = await prisma.account.findUnique({
         where: { id: createDto.accountId },
@@ -89,12 +88,14 @@ export class BankTransferService {
 
       const date = createDto.date ? new Date(createDto.date) : new Date();
 
-      // Banka havale kaydını oluştur
+      const tenantId = account.tenantId;
+
       const bankTransfer = await prisma.bankTransfer.create({
         data: {
+          tenantId,
           transferType: createDto.transferType as any,
-          cashboxId: createDto.cashboxId, // Optional olabilir
-          bankAccountId: createDto.bankAccountId,   // Optional olabilir
+          cashboxId: createDto.cashboxId,
+          bankAccountId: createDto.bankAccountId,
           accountId: createDto.accountId,
           amount: createDto.amount,
           date: date,
@@ -152,6 +153,7 @@ export class BankTransferService {
         // Kasa hareket kaydı oluştur
         await prisma.cashboxMovement.create({
           data: {
+            tenantId: bankTransfer.tenantId,
             cashboxId: bankaHesabiKasa.id,
             movementType: isGelen
               ? CashboxMovementType.INCOMING_TRANSFER
@@ -166,7 +168,7 @@ export class BankTransferService {
               `${isGelen ? 'Gelen' : 'Giden'} Havale - ${account.title}`,
             date: date,
             createdBy: userId,
-          },
+          } as any,
         });
       }
 
@@ -191,6 +193,7 @@ export class BankTransferService {
         // BankaHesapHareket kaydı oluştur
         await prisma.bankAccountMovement.create({
           data: {
+            tenantId: bankTransfer.tenantId,
             bankAccountId: bankaHesabiYeni.id,
             movementType: isGelen ? BankMovementType.INCOMING : BankMovementType.OUTGOING,
             movementSubType: isGelen ? BankMovementSubType.INCOMING_TRANSFER : BankMovementSubType.OUTGOING_TRANSFER,
@@ -200,7 +203,7 @@ export class BankTransferService {
             referenceNo: createDto.referenceNo,
             accountId: createDto.accountId,
             date: date,
-          },
+          } as any,
         });
       }
 
@@ -217,6 +220,7 @@ export class BankTransferService {
       // Account hareket kaydı oluştur
       await prisma.accountMovement.create({
         data: {
+          tenantId: bankTransfer.tenantId,
           accountId: createDto.accountId,
           type: isGelen ? DebitCredit.DEBIT : DebitCredit.CREDIT,
           amount: createDto.amount,
@@ -233,6 +237,7 @@ export class BankTransferService {
       // Log kaydı oluştur
       await prisma.bankTransferLog.create({
         data: {
+          tenantId: bankTransfer.tenantId,
           bankTransferId: bankTransfer.id,
           userId: userId,
           actionType: 'CREATE',
@@ -240,7 +245,7 @@ export class BankTransferService {
             action: 'create',
             data: createDto,
           }),
-        },
+        } as any,
       });
 
       return bankTransfer;
@@ -281,7 +286,7 @@ export class BankTransferService {
       }
     }
 
-    return this.prisma.extended.bankTransfer.findMany({
+    return this.prisma.bankTransfer.findMany({
       where,
       include: {
         cashbox: {
@@ -332,7 +337,7 @@ export class BankTransferService {
   }
 
   async findOne(id: string) {
-    const bankTransfer = await this.prisma.extended.bankTransfer.findUnique({
+    const bankTransfer = await this.prisma.bankTransfer.findUnique({
       where: { id },
       include: {
         cashbox: {
@@ -404,7 +409,7 @@ export class BankTransferService {
   }
 
   async update(id: string, updateDto: UpdateBankTransferDto, userId: string) {
-    const existingHavale = await this.prisma.extended.bankTransfer.findUnique({
+    const existingHavale = await this.prisma.bankTransfer.findUnique({
       where: { id },
       include: {
         cashbox: true,
@@ -429,14 +434,14 @@ export class BankTransferService {
     const targetBankaHesapId = (updateDto as any).bankAccountId !== undefined ? (updateDto as any).bankAccountId : existingHavale.bankAccountId;
 
     if (targetKasaId) {
-      yeniKasa = await this.prisma.extended.cashbox.findUnique({ where: { id: targetKasaId } });
+      yeniKasa = await this.prisma.cashbox.findUnique({ where: { id: targetKasaId } });
       if (!yeniKasa || !yeniKasa.isActive || yeniKasa.type !== CashboxType.BANK) {
         if ((updateDto as any).cashboxId) throw new BadRequestException('Geçersiz veya pasif kasa');
       }
     }
 
     if (targetBankaHesapId) {
-      yeniBankaHesap = await this.prisma.extended.bankAccount.findUnique({ where: { id: targetBankaHesapId } });
+      yeniBankaHesap = await this.prisma.bankAccount.findUnique({ where: { id: targetBankaHesapId } });
       if (!yeniBankaHesap || !yeniBankaHesap.isActive) {
         if ((updateDto as any).bankAccountId) throw new BadRequestException('Geçersiz veya pasif banka hesabı');
       }
@@ -444,12 +449,12 @@ export class BankTransferService {
 
     // 2. Yeni Account Kontrolü
     const targetAccountId = (updateDto as any).accountId || existingHavale.accountId;
-    const yeniAccount = await this.prisma.extended.account.findUnique({ where: { id: targetAccountId as string } });
+    const yeniAccount = await this.prisma.account.findUnique({ where: { id: targetAccountId as string } });
     if (!yeniAccount || !yeniAccount.isActive) {
       throw new BadRequestException('Geçersiz veya pasif account');
     }
 
-    return this.prisma.extended.$transaction(async (prisma) => {
+    return this.prisma.$transaction(async (prisma) => {
       // A. ESKİ BAKİYELERİ GERİ AL
       const eskiTutar = Number(existingHavale.amount);
       const eskiHareketTipi = existingHavale.transferType;
@@ -592,6 +597,7 @@ export class BankTransferService {
       // Log
       await prisma.bankTransferLog.create({
         data: {
+          tenantId: updatedHavale.tenantId,
           bankTransferId: id,
           userId: userId,
           actionType: 'UPDATE',
@@ -600,7 +606,7 @@ export class BankTransferService {
             before: existingHavale,
             after: updateDto,
           }),
-        },
+        } as any,
       });
 
       return updatedHavale;
@@ -608,7 +614,7 @@ export class BankTransferService {
   }
 
   async remove(id: string, userId: string, deleteReason?: string) {
-    const havale = await this.prisma.extended.bankTransfer.findUnique({
+    const havale = await this.prisma.bankTransfer.findUnique({
       where: { id },
       include: {
         cashbox: true,
@@ -621,10 +627,11 @@ export class BankTransferService {
       throw new NotFoundException('Bank transfer record not found');
     }
 
-    return this.prisma.extended.$transaction(async (prisma) => {
+    return this.prisma.$transaction(async (prisma) => {
       // Silinen kayıt tablosuna ekle
       await prisma.deletedBankTransfer.create({
         data: {
+          tenantId: havale.tenantId,
           originalId: havale.id,
           transferType: havale.transferType,
           cashboxId: havale.cashboxId ?? havale.bankAccountId ?? '',
@@ -643,7 +650,7 @@ export class BankTransferService {
           originalUpdatedAt: havale.updatedAt,
           deletedBy: userId,
           deleteReason: deleteReason,
-        },
+        } as any,
       });
 
       // Soft delete
@@ -700,6 +707,7 @@ export class BankTransferService {
       // Log kaydı oluştur
       await prisma.bankTransferLog.create({
         data: {
+          tenantId: havale.tenantId,
           bankTransferId: id,
           userId: userId,
           actionType: 'DELETE',
@@ -708,7 +716,7 @@ export class BankTransferService {
             reason: deleteReason,
             data: havale,
           }),
-        },
+        } as any,
       });
 
       return { message: 'Banka havale kaydı başarıyla silindi' };
@@ -717,7 +725,7 @@ export class BankTransferService {
 
   // Silinen kayıtları listele
   async findDeleted() {
-    return this.prisma.extended.deletedBankTransfer.findMany({
+    return this.prisma.deletedBankTransfer.findMany({
       include: {
         deletedByUser: {
           select: {
@@ -764,17 +772,17 @@ export class BankTransferService {
     }
 
     const [gelirHavaleler, giderHavaleler, toplamKayit] = await Promise.all([
-      this.prisma.extended.bankTransfer.aggregate({
+      this.prisma.bankTransfer.aggregate({
         where: { ...where, transferType: TransferType.INCOMING },
         _sum: { amount: true },
         _count: true,
       }),
-      this.prisma.extended.bankTransfer.aggregate({
+      this.prisma.bankTransfer.aggregate({
         where: { ...where, transferType: TransferType.OUTGOING },
         _sum: { amount: true },
         _count: true,
       }),
-      this.prisma.extended.bankTransfer.count({ where }),
+      this.prisma.bankTransfer.count({ where }),
     ]);
 
     return {

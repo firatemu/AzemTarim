@@ -24,7 +24,7 @@ export class CustomerVehicleService {
 
     const existingWhere: any = { plate: dto.plaka };
     if (finalTenantId) existingWhere.tenantId = finalTenantId;
-    const existingPlaka = await this.prisma.extended.customerVehicle.findFirst({
+    const existingPlaka = await this.prisma.customerVehicle.findFirst({
       where: existingWhere,
     });
     if (existingPlaka) {
@@ -34,7 +34,7 @@ export class CustomerVehicleService {
     if (dto.saseno) {
       const existingSasenoWhere: any = { chassisno: dto.saseno };
       if (finalTenantId) existingSasenoWhere.tenantId = finalTenantId;
-      const existingSaseno = await this.prisma.extended.customerVehicle.findFirst({
+      const existingSaseno = await this.prisma.customerVehicle.findFirst({
         where: existingSasenoWhere,
       });
       if (existingSaseno) {
@@ -42,7 +42,7 @@ export class CustomerVehicleService {
       }
     }
 
-    const cari = await this.prisma.extended.account.findFirst({
+    const cari = await this.prisma.account.findFirst({
       where: { id: dto.accountId, ...buildTenantWhereClause(finalTenantId) },
     });
     if (!cari) {
@@ -68,7 +68,7 @@ export class CustomerVehicleService {
       notes: dto.notes,
       ...(dto.tescilTarihi && { registrationDate: new Date(dto.tescilTarihi) }),
     };
-    return this.prisma.extended.customerVehicle.create({
+    return this.prisma.customerVehicle.create({
       data,
       include: {
         account: { select: { id: true, code: true, title: true } },
@@ -100,7 +100,7 @@ export class CustomerVehicleService {
     }
 
     const [data, total] = await Promise.all([
-      this.prisma.extended.customerVehicle.findMany({
+      this.prisma.customerVehicle.findMany({
         where,
         skip,
         take: limit,
@@ -109,7 +109,7 @@ export class CustomerVehicleService {
           account: { select: { id: true, code: true, title: true } },
         },
       }),
-      this.prisma.extended.customerVehicle.count({ where }),
+      this.prisma.customerVehicle.count({ where }),
     ]);
 
     return {
@@ -123,7 +123,7 @@ export class CustomerVehicleService {
 
   async findOne(id: string) {
     const tenantId = await this.tenantResolver.resolveForQuery();
-    const vehicle = await this.prisma.extended.customerVehicle.findFirst({
+    const vehicle = await this.prisma.customerVehicle.findFirst({
       where: { id, ...buildTenantWhereClause(tenantId ?? undefined) },
       include: {
         account: { select: { id: true, code: true, title: true } },
@@ -142,7 +142,7 @@ export class CustomerVehicleService {
     const tenantId = await this.tenantResolver.resolveForQuery();
 
     if (dto.plaka) {
-      const existingPlaka = await this.prisma.extended.customerVehicle.findFirst({
+      const existingPlaka = await this.prisma.customerVehicle.findFirst({
         where: {
           plate: dto.plaka,
           id: { not: id },
@@ -155,7 +155,7 @@ export class CustomerVehicleService {
     }
 
     if (dto.saseno) {
-      const existingSaseno = await this.prisma.extended.customerVehicle.findFirst({
+      const existingSaseno = await this.prisma.customerVehicle.findFirst({
         where: {
           chassisno: dto.saseno,
           id: { not: id },
@@ -187,7 +187,7 @@ export class CustomerVehicleService {
     if (dto.tescilTarihi !== undefined) {
       updateData.registrationDate = dto.tescilTarihi ? new Date(dto.tescilTarihi) : null;
     }
-    return this.prisma.extended.customerVehicle.update({
+    return this.prisma.customerVehicle.update({
       where: { id },
       data: updateData,
       include: {
@@ -198,7 +198,7 @@ export class CustomerVehicleService {
 
   async remove(id: string) {
     await this.findOne(id);
-    return this.prisma.extended.customerVehicle.delete({
+    return this.prisma.customerVehicle.delete({
       where: { id },
     });
   }

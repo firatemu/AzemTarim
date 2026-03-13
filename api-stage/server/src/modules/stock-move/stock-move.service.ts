@@ -1,3 +1,5 @@
+import { buildTenantWhereClause } from '../../common/utils/staging.util';
+import { TenantResolverService } from '../../common/services/tenant-resolver.service';
 import {
   Injectable,
   NotFoundException,
@@ -12,7 +14,7 @@ import { StockMoveType } from './dto/create-stock-move.dto';
 
 @Injectable()
 export class StockMoveService {
-  constructor(private prisma: PrismaService) { }
+  constructor(private prisma: PrismaService, private readonly tenantResolver: TenantResolverService) { }
 
   /**
    * ProductLocationStock bakiyesini günceller (veya oluşturur)
@@ -24,14 +26,14 @@ export class StockMoveService {
     qtyChange: number,
     prisma: any,
   ) {
+    const tenantId = await this.tenantResolver.resolveForQuery();
     // Mevcut bakiye kaydını bul veya oluştur
-    let stock = await prisma.productLocationStock.findUnique({
+    let stock = await prisma.productLocationStock.findFirst({
       where: {
-        warehouseId_locationId_productId: {
-          warehouseId,
-          locationId,
-          productId,
-        },
+        warehouseId,
+        locationId,
+        productId,
+        ...buildTenantWhereClause(tenantId ?? undefined),
       },
     });
 
@@ -45,13 +47,7 @@ export class StockMoveService {
       }
 
       stock = await prisma.productLocationStock.update({
-        where: {
-          warehouseId_locationId_productId: {
-            warehouseId,
-            locationId,
-            productId,
-          },
-        },
+        where: { id: stock.id },
         data: {
           qtyOnHand: newQty,
         },
@@ -68,6 +64,7 @@ export class StockMoveService {
           locationId,
           productId,
           qtyOnHand: qtyChange,
+          tenantId: tenantId!,
         },
       });
     }
@@ -79,9 +76,13 @@ export class StockMoveService {
    * Assign Location: Sadece raf adresi tanımlama (product hareketi yok)
    */
   async assignLocation(assignLocationDto: any, userId?: string) {
+    const tenantId = await this.tenantResolver.resolveForQuery();
     // Ürün kontrolü
-    const product = await this.prisma.extended.product.findUnique({
-      where: { id: assignLocationDto.productId },
+    const product = await this.prisma.product.findFirst({
+      where: {
+        id: assignLocationDto.productId,
+        ...buildTenantWhereClause(tenantId ?? undefined),
+      },
     });
 
     if (!product) {
@@ -89,8 +90,11 @@ export class StockMoveService {
     }
 
     // Hedef depo kontrolü
-    const toWarehouse = await this.prisma.extended.warehouse.findUnique({
-      where: { id: assignLocationDto.toWarehouseId },
+    const toWarehouse = await this.prisma.warehouse.findFirst({
+      where: {
+        id: assignLocationDto.toWarehouseId,
+        ...buildTenantWhereClause(tenantId ?? undefined),
+      },
     });
 
     if (!toWarehouse) {
@@ -102,8 +106,11 @@ export class StockMoveService {
     }
 
     // Hedef raf kontrolü
-    const toLocation = await this.prisma.extended.location.findUnique({
-      where: { id: assignLocationDto.toLocationId },
+    const toLocation = await this.prisma.location.findFirst({
+      where: {
+        id: assignLocationDto.toLocationId,
+        ...buildTenantWhereClause(tenantId ?? undefined),
+      },
     });
 
     if (!toLocation) {
@@ -119,14 +126,13 @@ export class StockMoveService {
     }
 
     // ProductLocationStock kaydı oluştur veya güncelle
-    return this.prisma.extended.$transaction(async (prisma) => {
-      let stock = await prisma.productLocationStock.findUnique({
+    return this.prisma.$transaction(async (prisma) => {
+      let stock = await prisma.productLocationStock.findFirst({
         where: {
-          warehouseId_locationId_productId: {
-            warehouseId: assignLocationDto.toWarehouseId,
-            locationId: assignLocationDto.toLocationId,
-            productId: assignLocationDto.productId,
-          },
+          warehouseId: assignLocationDto.toWarehouseId,
+          locationId: assignLocationDto.toLocationId,
+          productId: assignLocationDto.productId,
+          ...buildTenantWhereClause(tenantId ?? undefined),
         },
       });
 
@@ -135,13 +141,7 @@ export class StockMoveService {
       if (stock) {
         // Mevcut kayıt varsa güncelle
         stock = await prisma.productLocationStock.update({
-          where: {
-            warehouseId_locationId_productId: {
-              warehouseId: assignLocationDto.toWarehouseId,
-              locationId: assignLocationDto.toLocationId,
-              productId: assignLocationDto.productId,
-            },
-          },
+          where: { id: stock.id },
           data: {
             qtyOnHand: stock.qtyOnHand + qty, // Mevcut stoka ekle
           },
@@ -154,6 +154,7 @@ export class StockMoveService {
             locationId: assignLocationDto.toLocationId,
             productId: assignLocationDto.productId,
             qtyOnHand: qty,
+            tenantId: tenantId!,
           },
         });
       }
@@ -172,9 +173,13 @@ export class StockMoveService {
    * Put-Away: Ürünü rafa yerleştirme (Gerçek product hareketi ile)
    */
   async putAway(putAwayDto: PutAwayDto, userId?: string) {
+    const tenantId = await this.tenantResolver.resolveForQuery();
     // Ürün kontrolü
-    const product = await this.prisma.extended.product.findUnique({
-      where: { id: putAwayDto.productId },
+    const product = await this.prisma.product.findFirst({
+      where: {
+        id: putAwayDto.productId,
+        ...buildTenantWhereClause(tenantId ?? undefined),
+      },
     });
 
     if (!product) {
@@ -182,8 +187,11 @@ export class StockMoveService {
     }
 
     // Ürünün toplam product quantityını hesapla (ProductMovement tablosundan, iptal faturalar hariç)
-    const stokHareketler = await this.prisma.extended.productMovement.findMany({
-      where: { productId: putAwayDto.productId },
+    const stokHareketler = await this.prisma.productMovement.findMany({
+      where: {
+        productId: putAwayDto.productId,
+        ...buildTenantWhereClause(tenantId ?? undefined),
+      },
       include: { invoiceItem: { include: { invoice: { select: { status: true } } } } },
     });
 
@@ -208,8 +216,11 @@ export class StockMoveService {
     });
 
     // Raflardaki toplam product
-    const rafToplamStok = await this.prisma.extended.productLocationStock.aggregate({
-      where: { productId: putAwayDto.productId },
+    const rafToplamStok = await this.prisma.productLocationStock.aggregate({
+      where: {
+        productId: putAwayDto.productId,
+        ...buildTenantWhereClause(tenantId ?? undefined),
+      },
       _sum: { qtyOnHand: true },
     });
 
@@ -224,8 +235,11 @@ export class StockMoveService {
     }
 
     // Hedef depo kontrolü
-    const toWarehouse = await this.prisma.extended.warehouse.findUnique({
-      where: { id: putAwayDto.toWarehouseId },
+    const toWarehouse = await this.prisma.warehouse.findFirst({
+      where: {
+        id: putAwayDto.toWarehouseId,
+        ...buildTenantWhereClause(tenantId ?? undefined),
+      },
     });
 
     if (!toWarehouse) {
@@ -237,8 +251,11 @@ export class StockMoveService {
     }
 
     // Hedef raf kontrolü
-    const toLocation = await this.prisma.extended.location.findUnique({
-      where: { id: putAwayDto.toLocationId },
+    const toLocation = await this.prisma.location.findFirst({
+      where: {
+        id: putAwayDto.toLocationId,
+        ...buildTenantWhereClause(tenantId ?? undefined),
+      },
     });
 
     if (!toLocation) {
@@ -254,7 +271,7 @@ export class StockMoveService {
     }
 
     // Transaction içinde işlem yap
-    return this.prisma.extended.$transaction(async (prisma) => {
+    return this.prisma.$transaction(async (prisma) => {
       // Stok bakiye güncelle (hedef rafa ekle)
       await this.updateProductLocationStock(
         putAwayDto.toWarehouseId,
@@ -277,6 +294,7 @@ export class StockMoveService {
           refType: 'PutAway',
           notes: putAwayDto.note,
           createdBy: userId,
+          tenantId: tenantId!,
         },
         include: {
           product: {
@@ -346,9 +364,13 @@ export class StockMoveService {
    * Transfer: Raflar arası transfer
    */
   async transfer(transferDto: TransferDto, userId?: string) {
+    const tenantId = await this.tenantResolver.resolveForQuery();
     // Ürün kontrolü
-    const product = await this.prisma.extended.product.findUnique({
-      where: { id: transferDto.productId },
+    const product = await this.prisma.product.findFirst({
+      where: {
+        id: transferDto.productId,
+        ...buildTenantWhereClause(tenantId ?? undefined),
+      },
     });
 
     if (!product) {
@@ -356,8 +378,11 @@ export class StockMoveService {
     }
 
     // Kaynak depo kontrolü
-    const fromWarehouse = await this.prisma.extended.warehouse.findUnique({
-      where: { id: transferDto.fromWarehouseId },
+    const fromWarehouse = await this.prisma.warehouse.findFirst({
+      where: {
+        id: transferDto.fromWarehouseId,
+        ...buildTenantWhereClause(tenantId ?? undefined),
+      },
     });
 
     if (!fromWarehouse) {
@@ -369,8 +394,11 @@ export class StockMoveService {
     }
 
     // Kaynak raf kontrolü
-    const fromLocation = await this.prisma.extended.location.findUnique({
-      where: { id: transferDto.fromLocationId },
+    const fromLocation = await this.prisma.location.findFirst({
+      where: {
+        id: transferDto.fromLocationId,
+        ...buildTenantWhereClause(tenantId ?? undefined),
+      },
     });
 
     if (!fromLocation) {
@@ -386,8 +414,11 @@ export class StockMoveService {
     }
 
     // Hedef depo kontrolü
-    const toWarehouse = await this.prisma.extended.warehouse.findUnique({
-      where: { id: transferDto.toWarehouseId },
+    const toWarehouse = await this.prisma.warehouse.findFirst({
+      where: {
+        id: transferDto.toWarehouseId,
+        ...buildTenantWhereClause(tenantId ?? undefined),
+      },
     });
 
     if (!toWarehouse) {
@@ -399,8 +430,11 @@ export class StockMoveService {
     }
 
     // Hedef raf kontrolü
-    const toLocation = await this.prisma.extended.location.findUnique({
-      where: { id: transferDto.toLocationId },
+    const toLocation = await this.prisma.location.findFirst({
+      where: {
+        id: transferDto.toLocationId,
+        ...buildTenantWhereClause(tenantId ?? undefined),
+      },
     });
 
     if (!toLocation) {
@@ -424,15 +458,14 @@ export class StockMoveService {
     }
 
     // Transaction içinde işlem yap
-    return this.prisma.extended.$transaction(async (prisma) => {
+    return this.prisma.$transaction(async (prisma) => {
       // Kaynak rafta yeterli product var mı kontrol et
-      const sourceStock = await prisma.productLocationStock.findUnique({
+      const sourceStock = await prisma.productLocationStock.findFirst({
         where: {
-          warehouseId_locationId_productId: {
-            warehouseId: transferDto.fromWarehouseId,
-            locationId: transferDto.fromLocationId,
-            productId: transferDto.productId,
-          },
+          warehouseId: transferDto.fromWarehouseId,
+          locationId: transferDto.fromLocationId,
+          productId: transferDto.productId,
+          ...buildTenantWhereClause(tenantId ?? undefined),
         },
       });
 
@@ -471,6 +504,7 @@ export class StockMoveService {
           refType: 'Transfer',
           notes: transferDto.note,
           createdBy: userId,
+          tenantId: tenantId!,
         },
         include: {
           product: {
@@ -522,7 +556,10 @@ export class StockMoveService {
     moveType?: StockMoveType,
     limit?: number,
   ) {
-    const where: any = {};
+    const tenantId = await this.tenantResolver.resolveForQuery();
+    const where: any = {
+      ...buildTenantWhereClause(tenantId ?? undefined),
+    };
 
     if (productId) {
       where.productId = productId;
@@ -543,7 +580,7 @@ export class StockMoveService {
       where.moveType = moveType;
     }
 
-    return this.prisma.extended.stockMove.findMany({
+    return this.prisma.stockMove.findMany({
       where,
       include: {
         product: {
@@ -594,10 +631,13 @@ export class StockMoveService {
       take: limit || 100,
     });
   }
-
   async findOne(id: string) {
-    const stockMove = await this.prisma.extended.stockMove.findUnique({
-      where: { id },
+    const tenantId = await this.tenantResolver.resolveForQuery();
+    const stockMove = await this.prisma.stockMove.findFirst({
+      where: {
+        id,
+        ...buildTenantWhereClause(tenantId ?? undefined),
+      },
       include: {
         product: true,
         fromWarehouse: true,

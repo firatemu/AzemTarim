@@ -5,6 +5,7 @@ import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard, Roles } from '../../common/guards/roles.guard';
 import { PermissionsGuard } from '../../common/guards/permissions.guard';
 import { RequirePermissions } from '../../common/decorators/require-permissions.decorator';
+import { UserRole } from '@prisma/client';
 
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 @Controller('users')
@@ -47,7 +48,7 @@ export class UsersController {
 
   @Put(':id/role')
   @UseGuards(RolesGuard)
-  @Roles('SUPER_ADMIN', 'TENANT_ADMIN')
+  @Roles(UserRole.SUPER_ADMIN as any, UserRole.TENANT_ADMIN as any)
   @RequirePermissions({ module: 'roles', action: 'update' }) // Specific permission for role management
   async updateRole(
     @Param('id') id: string,

@@ -18,7 +18,7 @@ import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { ModuleType } from './code-template.enums';
 
 @ApiTags('code-template')
-@Controller('code-template')
+@Controller('code-templates')
 @UseGuards(JwtAuthGuard)
 export class CodeTemplateController {
   constructor(private readonly codeTemplateService: CodeTemplateService) { }

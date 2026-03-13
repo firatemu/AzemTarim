@@ -1,3 +1,4 @@
+import { TenantResolverService } from '../../common/services/tenant-resolver.service';
 import { Injectable, Inject, ForbiddenException, Logger } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma.service';
 import type { IStorageService } from '../storage/interfaces/storage-service.interface';
@@ -8,7 +9,8 @@ export class TenantPurgeService {
 
     constructor(
         private prisma: PrismaService,
-        @Inject('STORAGE_SERVICE') private storage: IStorageService,
+        @Inject('STORAGE_SERVICE') private readonly storage: IStorageService,
+        private readonly tenantResolver: TenantResolverService
     ) { }
 
     async purgeTenantData(params: {
@@ -17,7 +19,7 @@ export class TenantPurgeService {
         adminEmail: string;
         ipAddress: string;
     }): Promise<void> {
-        const tenant = await this.prisma.extended.tenant.findUnique({
+        const tenant = await this.prisma.tenant.findUnique({
             where: { id: params.tenantId },
         });
 
@@ -43,7 +45,7 @@ export class TenantPurgeService {
         const result = await this.storage.purgeTenantData(params.tenantId);
 
         // 2. Update tenant status
-        await this.prisma.extended.tenant.update({
+        await this.prisma.tenant.update({
             where: { id: params.tenantId },
             data: {
                 status: 'PURGED',
@@ -52,7 +54,7 @@ export class TenantPurgeService {
         });
 
         // 3. Create audit log
-        await this.prisma.extended.tenantPurgeAudit.create({
+        await this.prisma.tenantPurgeAudit.create({
             data: {
                 tenantId: params.tenantId,
                 adminId: params.adminId,
@@ -75,7 +77,7 @@ export class TenantPurgeService {
     }
 
     async listPurgeableTenants() {
-        return this.prisma.extended.tenant.findMany({
+        return this.prisma.tenant.findMany({
             where: {
                 status: {
                     in: ['CANCELLED', 'SUSPENDED', 'EXPIRED'],
@@ -98,7 +100,7 @@ export class TenantPurgeService {
     }
 
     async getPurgeAuditLog(tenantId?: string) {
-        return this.prisma.extended.tenantPurgeAudit.findMany({
+        return this.prisma.tenantPurgeAudit.findMany({
             where: tenantId ? { tenantId } : undefined,
             include: {
                 tenant: {

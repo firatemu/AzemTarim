@@ -12,12 +12,12 @@ import {
 import { BankService } from './bank.service';
 import { CreateBankDto, UpdateBankDto } from './dto/create-bank.dto';
 import { BankAccountCreateDto, BankAccountUpdateDto } from './dto/create-account.dto';
-import { CreateBankHareketDto, CreatePosHareketDto } from './dto/create-movement.dto';
-import { CreateLoanKullanimDto } from './dto/create-loan.dto';
+import { CreateBankMovementDto, CreatePosMovementDto } from './dto/create-movement.dto';
+import { CreateLoanUsageDto } from './dto/create-loan.dto';
 import { PayCreditInstallmentDto } from './dto/pay-credit-installment.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 
-@Controller('bank')
+@Controller('banks')
 @UseGuards(JwtAuthGuard)
 export class BankController {
     constructor(private readonly bankService: BankService) {
@@ -41,66 +41,66 @@ export class BankController {
         return this.bankService.findAll();
     }
 
-    @Get('ozet')
-    getBanklarOzet() {
-        return this.bankService.getBanklarOzet();
+    @Get('summary')
+    getBanksSummary() {
+        return this.bankService.getBanksSummary();
     }
 
     // ============ HAREKET ENDPOINTS ============
 
-    @Get('account/:accountId/movements')
-    getHareketler(
+    @Get('accounts/:accountId/movements')
+    getMovements(
         @Param('accountId') accountId: string,
         @Query('start') start?: string,
         @Query('end') end?: string,
         @Query('limit') limit?: string,
     ) {
-        return this.bankService.getHareketler(accountId, {
-            baslangic: start ? new Date(start) : undefined,
-            bitis: end ? new Date(end) : undefined,
+        return this.bankService.getMovements(accountId, {
+            startDate: start ? new Date(start) : undefined,
+            endDate: end ? new Date(end) : undefined,
             limit: limit ? parseInt(limit) : undefined,
         });
     }
 
-    @Post('account/:accountId/movement')
-    createHareket(
+    @Post('accounts/:accountId/movements')
+    createMovement(
         @Param('accountId') accountId: string,
-        @Body() dto: CreateBankHareketDto,
+        @Body() dto: CreateBankMovementDto,
     ) {
-        return this.bankService.createHareket(accountId, dto);
+        return this.bankService.createMovement(accountId, dto);
     }
 
-    @Post('account/:accountId/pos-payment')
-    createPosHareket(
+    @Post('accounts/:accountId/pos-payments')
+    createPosMovement(
         @Param('accountId') accountId: string,
-        @Body() dto: CreatePosHareketDto,
+        @Body() dto: CreatePosMovementDto,
     ) {
-        return this.bankService.createPosHareket(accountId, dto);
+        return this.bankService.createPosMovement(accountId, dto);
     }
 
     // ============ KREDİ İŞLEMLERİ ============
 
-    @Get('loans/all')
-    getAllLoanler() {
-        return this.bankService.getAllLoanler();
+    @Get('loans')
+    getAllLoans() {
+        return this.bankService.getAllLoans();
     }
 
-    @Post('account/:accountId/loan-kullan')
-    loanKullan(
+    @Post('accounts/:accountId/loans/use')
+    useLoan(
         @Param('accountId') accountId: string,
-        @Body() dto: CreateLoanKullanimDto,
+        @Body() dto: CreateLoanUsageDto,
     ) {
-        return this.bankService.loanKullan(accountId, dto);
+        return this.bankService.useLoan(accountId, dto);
     }
 
-    @Get('account/:accountId/loans')
-    getLoanler(@Param('accountId') accountId: string) {
-        return this.bankService.getLoanler(accountId);
+    @Get('accounts/:accountId/loans')
+    getLoans(@Param('accountId') accountId: string) {
+        return this.bankService.getLoans(accountId);
     }
 
-    @Get('loan/:loanId')
-    getLoanDetay(@Param('loanId') loanId: string) {
-        return this.bankService.getLoanDetay(loanId);
+    @Get('loans/:loanId')
+    getLoanDetail(@Param('loanId') loanId: string) {
+        return this.bankService.getLoanDetail(loanId);
     }
 
     @Get('credit-cards/upcoming')
@@ -119,13 +119,13 @@ export class BankController {
         @Query('start') start?: string,
         @Query('end') end?: string,
     ) {
-        return this.bankService.getYaklasanInstallmentler(
+        return this.bankService.getUpcomingInstallments(
             start ? new Date(start) : new Date(),
             end ? new Date(end) : new Date(),
         );
     }
 
-    @Post('loan/:loanId/plan')
+    @Post('loans/:loanId/plans')
     addLoanPlan(
         @Param('loanId') loanId: string,
         @Body() dto: { amount: number; dueDate: Date | string },
@@ -136,7 +136,7 @@ export class BankController {
         });
     }
 
-    @Put('loan-plan/:id')
+    @Put('loan-plans/:id')
     updateLoanPlan(
         @Param('id') id: string,
         @Body() dto: { amount?: number; dueDate?: Date | string },
@@ -147,12 +147,12 @@ export class BankController {
         });
     }
 
-    @Delete('loan-plan/:id')
+    @Delete('loan-plans/:id')
     deleteLoanPlan(@Param('id') id: string) {
         return this.bankService.deleteLoanPlan(id);
     }
 
-    @Post('loan-plan/:id/payment')
+    @Post('loan-plans/:id/payments')
     payInstallment(
         @Param('id') id: string,
         @Body() dto: PayCreditInstallmentDto,
@@ -162,12 +162,12 @@ export class BankController {
 
     // ============ HESAP İŞLEMLERİ ============
 
-    @Get('account')
+    @Get('accounts')
     findAllAccounts() {
         return this.bankService.findAllAccounts();
     }
 
-    @Post(':id/account')
+    @Post(':id/accounts')
     createAccount(
         @Param('id') id: string,
         @Body() dto: BankAccountCreateDto,
@@ -175,12 +175,12 @@ export class BankController {
         return this.bankService.createAccount(id, dto);
     }
 
-    @Get('account/:id')
+    @Get('accounts/:id')
     findAccount(@Param('id') id: string) {
         return this.bankService.findAccount(id);
     }
 
-    @Put('account/:id')
+    @Put('accounts/:id')
     updateAccount(
         @Param('id') id: string,
         @Body() dto: BankAccountUpdateDto,
@@ -188,7 +188,7 @@ export class BankController {
         return this.bankService.updateAccount(id, dto);
     }
 
-    @Delete('account/:id')
+    @Delete('accounts/:id')
     removeAccount(@Param('id') id: string) {
         return this.bankService.removeAccount(id);
     }

@@ -22,7 +22,7 @@ export class SalaryPlanService {
      * Employeein işe başlama tarihinden itibaren planlar doldurulur
      */
     async createPlanForEmployee(createDto: CreateSalaryPlanDto) {
-        const employee = await this.prisma.extended.employee.findUnique({
+        const employee = await this.prisma.employee.findUnique({
             where: { id: createDto.employeeId },
         });
 
@@ -42,7 +42,7 @@ export class SalaryPlanService {
         const baslamaAy = startDate.getMonth() + 1; // 1-12
 
         // Mevcut planları kontrol et
-        const mevcutPlanlar = await this.prisma.extended.salaryPlan.findMany({
+        const mevcutPlanlar = await this.prisma.salaryPlan.findMany({
             where: {
                 employeeId: createDto.employeeId,
                 year: createDto.year,
@@ -98,7 +98,7 @@ export class SalaryPlanService {
         }
 
         // Toplu oluştur
-        const result = await this.prisma.extended.salaryPlan.createMany({
+        const result = await this.prisma.salaryPlan.createMany({
             data: planlar,
         });
 
@@ -116,7 +116,7 @@ export class SalaryPlanService {
     async getPlanByEmployee(employeeId: string, year: number) {
         const tenantId = await this.tenantResolver.resolveForQuery();
 
-        const employee = await this.prisma.extended.employee.findFirst({
+        const employee = await this.prisma.employee.findFirst({
             where: {
                 id: employeeId,
                 ...buildTenantWhereClause(tenantId ?? undefined),
@@ -127,7 +127,7 @@ export class SalaryPlanService {
             throw new NotFoundException('Employee not found');
         }
 
-        const planlar = await this.prisma.extended.salaryPlan.findMany({
+        const planlar = await this.prisma.salaryPlan.findMany({
             where: {
                 employeeId,
                 year,
@@ -176,7 +176,7 @@ export class SalaryPlanService {
      * Tek plan detmonthı
      */
     async getPlanById(id: string) {
-        const plan = await this.prisma.extended.salaryPlan.findUnique({
+        const plan = await this.prisma.salaryPlan.findUnique({
             where: { id },
             include: {
                 employee: {
@@ -220,7 +220,7 @@ export class SalaryPlanService {
      * Plan güncelle
      */
     async updatePlan(id: string, updateDto: UpdateSalaryPlanDto) {
-        const existing = await this.prisma.extended.salaryPlan.findUnique({
+        const existing = await this.prisma.salaryPlan.findUnique({
             where: { id },
         });
 
@@ -239,7 +239,7 @@ export class SalaryPlanService {
                 Number(updateData.total) - Number(existing.paidAmount);
         }
 
-        return this.prisma.extended.salaryPlan.update({
+        return this.prisma.salaryPlan.update({
             where: { id },
             data: updateData,
         });
@@ -255,7 +255,7 @@ export class SalaryPlanService {
             console.log('Tenant resolved:', tenantId);
 
 
-            const planlar = await this.prisma.extended.salaryPlan.findMany({
+            const planlar = await this.prisma.salaryPlan.findMany({
                 where: {
                     year,
                     month,
@@ -318,7 +318,7 @@ export class SalaryPlanService {
      * Planı sil
      */
     async deletePlan(id: string) {
-        const plan = await this.prisma.extended.salaryPlan.findUnique({
+        const plan = await this.prisma.salaryPlan.findUnique({
             where: { id },
             include: {
                 _count: {
@@ -337,7 +337,7 @@ export class SalaryPlanService {
             );
         }
 
-        return this.prisma.extended.salaryPlan.delete({
+        return this.prisma.salaryPlan.delete({
             where: { id },
         });
     }
@@ -346,7 +346,7 @@ export class SalaryPlanService {
      * Yıllık planı sil (tüm monthlar)
      */
     async deleteYillikPlan(employeeId: string, year: number) {
-        const planlar = await this.prisma.extended.salaryPlan.findMany({
+        const planlar = await this.prisma.salaryPlan.findMany({
             where: { employeeId, year },
             include: {
                 _count: { select: { payments: true } },
@@ -360,7 +360,7 @@ export class SalaryPlanService {
             );
         }
 
-        const result = await this.prisma.extended.salaryPlan.deleteMany({
+        const result = await this.prisma.salaryPlan.deleteMany({
             where: { employeeId, year },
         });
 

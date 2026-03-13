@@ -599,7 +599,7 @@ export default function KritikStokYonetimiPage() {
                     sx: { borderRadius: 'var(--radius)' }
                 }}
             >
-                <DialogTitle component="div" sx={{ display: 'flex', alignItems: 'center', gap: 1, pb: 1 }} component="div">
+                <DialogTitle component="div" sx={{ display: 'flex', alignItems: 'center', gap: 1, pb: 1 }}>
                     <Info color="primary" />
                     <Typography variant="h6" component="span" fontWeight="bold">Güncelleme Sonucu</Typography>
                 </DialogTitle>

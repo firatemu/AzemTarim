@@ -87,7 +87,7 @@ function YeniAlisFaturasiPageContent() {
     cariId: '',
     tarih: new Date().toISOString().split('T')[0],
     vade: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-    durum: 'ONAYLANDI' as 'ACIK' | 'ONAYLANDI',
+    durum: 'APPROVED' as 'OPEN' | 'APPROVED',
     genelIskontoOran: 0,
     genelIskontoTutar: 0,
     aciklama: '',
@@ -116,7 +116,7 @@ function YeniAlisFaturasiPageContent() {
 
   const fetchCariler = async () => {
     try {
-      const response = await axios.get('/account', {
+      const response = await axios.get('/accounts', {
         params: { limit: 1000 },
       });
       setCariler(response.data.data || []);
@@ -127,7 +127,7 @@ function YeniAlisFaturasiPageContent() {
 
   const fetchStoklar = async () => {
     try {
-      const response = await axios.get('/product', {
+      const response = await axios.get('/products', {
         params: { limit: 1000 },
       });
       setStoklar(response.data.data || []);
@@ -138,7 +138,7 @@ function YeniAlisFaturasiPageContent() {
 
   const fetchWarehouses = async () => {
     try {
-      const response = await axios.get('/warehouse', {
+      const response = await axios.get('/warehouses', {
         params: { active: true },
       });
       const data = response.data.data || response.data || [];
@@ -165,7 +165,7 @@ function YeniAlisFaturasiPageContent() {
 
   const generateFaturaNo = async () => {
     try {
-      const response = await axios.get('/invoice', {
+      const response = await axios.get('/invoices', {
         params: { faturaTipi: 'ALIS', page: 1, limit: 1 },
       });
       const faturalar = response.data?.data || [];
@@ -191,7 +191,7 @@ function YeniAlisFaturasiPageContent() {
   const fetchIrsaliyeBilgileri = async (id: string) => {
     try {
       setLoadingIrsaliye(true);
-      const response = await axios.get(`/satin-alma-irsaliyesi/${id}`);
+      const response = await axios.get(`/purchase-waybills/${id}`);
       const irsaliye = response.data;
 
       console.log('Satın alma irsaliyesi bilgileri yüklendi:', irsaliye);
@@ -455,23 +455,23 @@ function YeniAlisFaturasiPageContent() {
       }
 
       setLoading(true);
-      await axios.post('/invoice', {
-        faturaNo: formData.faturaNo,
-        faturaTipi: formData.faturaTipi,
-        cariId: formData.cariId,
-        tarih: new Date(formData.tarih).toISOString(),
-        vade: formData.vade ? new Date(formData.vade).toISOString() : null,
-        iskonto: Number(formData.genelIskontoTutar) || 0,
-        aciklama: formData.aciklama || null,
-        durum: formData.durum,
+      await axios.post('/invoices', {
+        invoiceNo: formData.faturaNo,
+        type: formData.faturaTipi,
+        accountId: formData.cariId,
+        date: new Date(formData.tarih).toISOString(),
+        dueDate: formData.vade ? new Date(formData.vade).toISOString() : null,
+        discount: Number(formData.genelIskontoTutar) || 0,
+        notes: formData.aciklama || null,
+        status: formData.durum,
         warehouseId: formData.warehouseId || null,
-        kalemler: validKalemler.map(k => ({
-          stokId: k.stokId,
-          miktar: Number(k.miktar),
-          birimFiyat: Number(k.birimFiyat),
-          kdvOrani: Number(k.kdvOrani),
-          iskontoOrani: Number(k.iskontoOran) || 0,
-          iskontoTutari: Number(k.iskontoTutar) || 0,
+        items: validKalemler.map(k => ({
+          productId: k.stokId,
+          quantity: Number(k.miktar),
+          unitPrice: Number(k.birimFiyat),
+          vatRate: Number(k.kdvOrani),
+          discountRate: Number(k.iskontoOran) || 0,
+          discountAmount: Number(k.iskontoTutar) || 0,
         })),
       });
 
@@ -494,7 +494,7 @@ function YeniAlisFaturasiPageContent() {
 
     try {
       setLoadingIrsaliyeler(true);
-      const response = await axios.get('/satin-alma-irsaliyesi', {
+      const response = await axios.get('/purchase-waybills', {
         params: {
           cariId,
           durum: 'FATURALANMADI',
@@ -523,7 +523,7 @@ function YeniAlisFaturasiPageContent() {
 
       // Seçilen her irsaliye için kalemleri topla
       for (const irsaliyeId of selectedIrsaliyeler) {
-        const response = await axios.get(`/satin-alma-irsaliyesi/${irsaliyeId}`);
+        const response = await axios.get(`/purchase-waybills/${irsaliyeId}`);
         const irsaliye = response.data;
 
         if (irsaliye.kalemler && irsaliye.kalemler.length > 0) {

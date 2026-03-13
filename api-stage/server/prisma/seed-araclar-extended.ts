@@ -17,7 +17,7 @@ async function seedAraclarExtended() {
 
     // Önce tüm eski araç verilerini sil
     console.log('🗑️  Eski araç verileri siliniyor...');
-    const deletedCount = await prisma.arac.deleteMany({});
+    const deletedCount = await prisma.customerVehicle.deleteMany({});
     console.log(`   ✅ ${deletedCount.count} eski araç kaydı silindi.\n`);
 
     // JSON dosyasını oku
@@ -42,7 +42,7 @@ async function seedAraclarExtended() {
 
     // Toplu olarak ekle (createMany kullanarak daha hızlı)
     try {
-      const result = await prisma.arac.createMany({
+      const result = await prisma.customerVehicle.createMany({
         data: aracData,
         skipDuplicates: true, // Aynı kayıtları atla (unique constraint)
       });
@@ -54,10 +54,10 @@ async function seedAraclarExtended() {
     }
 
     // İstatistikler
-    const toplamArac = await prisma.arac.count();
+    const toplamArac = await prisma.customerVehicle.count();
     console.log(`📈 Veritabanındaki toplam araç sayısı: ${toplamArac}\n`);
 
-    const markalar = await prisma.arac.groupBy({
+    const markalar = await prisma.customerVehicle.groupBy({
       by: ['brand'],
       _count: {
         brand: true,
@@ -75,7 +75,7 @@ async function seedAraclarExtended() {
       console.log(`   ... ve ${markalar.length - 20} brand daha`);
     }
 
-    const yakitTipleri = await prisma.arac.groupBy({
+    const yakitTipleri = await prisma.customerVehicle.groupBy({
       by: ['yakitTipi'],
       _count: {
         yakitTipi: true,

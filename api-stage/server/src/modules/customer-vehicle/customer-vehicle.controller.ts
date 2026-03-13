@@ -21,9 +21,9 @@ import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { editFileName, imageFileFilter } from '../../common/utils/file-upload.utils';
 
 @UseGuards(JwtAuthGuard)
-@Controller('customer-vehicle')
+@Controller('customer-vehicles')
 export class CustomerVehicleController {
-  constructor(private readonly customerVehicleService: CustomerVehicleService) {}
+  constructor(private readonly customerVehicleService: CustomerVehicleService) { }
 
   @Post('upload-ruhsat')
   @UseInterceptors(

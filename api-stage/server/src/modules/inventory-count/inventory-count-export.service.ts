@@ -1,3 +1,4 @@
+import { TenantResolverService } from '../../common/services/tenant-resolver.service';
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma.service';
 import * as ExcelJS from 'exceljs';
@@ -6,10 +7,10 @@ import type { TDocumentDefinitions, Content } from 'pdfmake/interfaces';
 
 @Injectable()
 export class InventoryCountExportService {
-    constructor(private readonly prisma: PrismaService) { }
+    constructor(private readonly prisma: PrismaService, private readonly tenantResolver: TenantResolverService) { }
 
     async generateExcel(inventoryCountId: string): Promise<Buffer> {
-        const inventoryCount = await this.prisma.extended.stocktake.findUnique({
+        const inventoryCount = await this.prisma.stocktake.findUnique({
             where: { id: inventoryCountId },
             include: {
                 items: {
@@ -164,7 +165,7 @@ export class InventoryCountExportService {
     }
 
     async generatePdf(inventoryCountId: string): Promise<Buffer> {
-        const inventoryCount = await this.prisma.extended.stocktake.findUnique({
+        const inventoryCount = await this.prisma.stocktake.findUnique({
             where: { id: inventoryCountId },
             include: {
                 items: {

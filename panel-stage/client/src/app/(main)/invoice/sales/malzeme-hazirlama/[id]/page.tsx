@@ -104,7 +104,7 @@ export default function MalzemeHazirlamaFisiPage() {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const response = await axios.get(`/fatura/${faturaId}/malzeme-hazirlama`);
+      const response = await axios.get(`/invoices/${faturaId}/material-preparation`);
       setData(response.data);
       setError(null);
     } catch (err: any) {
@@ -182,39 +182,34 @@ export default function MalzemeHazirlamaFisiPage() {
         <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
           <Box sx={{ flex: '1 1 300px', minWidth: '300px' }}>
             <Typography variant="body1">
-              <strong>Fatura No:</strong> {data.fatura.faturaNo}
+              <strong>Fatura No:</strong> {data.invoice.invoiceNo}
             </Typography>
             <Typography variant="body1">
-              <strong>Tarih:</strong> {new Date(data.fatura.tarih).toLocaleDateString('tr-TR')}
+              <strong>Tarih:</strong> {new Date(data.invoice.date).toLocaleDateString('tr-TR')}
             </Typography>
-            {data.fatura.vade && (
+            {data.invoice.dueDate && (
               <Typography variant="body1">
-                <strong>Vade:</strong> {new Date(data.fatura.vade).toLocaleDateString('tr-TR')}
+                <strong>Vade:</strong> {new Date(data.invoice.dueDate).toLocaleDateString('tr-TR')}
               </Typography>
             )}
             <Typography variant="body1" component="div">
               <strong>Durum:</strong>{' '}
-              <Chip
-                label={data.fatura.durum}
-                size="small"
-                color={data.fatura.durum === 'ONAYLANDI' ? 'success' : 'default'}
-                sx={{ '@media print': { border: '1px solid #000' } }}
-              />
+              <StatusBadge status={data.invoice.status} />
             </Typography>
           </Box>
 
           <Box sx={{ flex: '1 1 300px', minWidth: '300px' }}>
             <Typography variant="body1">
-              <strong>Müşteri:</strong> {data.cari.cariKodu} - {data.cari.unvan}
+              <strong>Müşteri:</strong> {data.account.code} - {data.account.title}
             </Typography>
-            {data.cari.telefon && (
+            {data.account.phone && (
               <Typography variant="body1">
-                <strong>Telefon:</strong> {data.cari.telefon}
+                <strong>Telefon:</strong> {data.account.phone}
               </Typography>
             )}
-            {data.cari.adres && (
+            {data.account.address && (
               <Typography variant="body1">
-                <strong>Adres:</strong> {data.cari.adres}
+                <strong>Adres:</strong> {data.account.address}
               </Typography>
             )}
           </Box>
@@ -227,7 +222,7 @@ export default function MalzemeHazirlamaFisiPage() {
         sx={{
           p: 2,
           mb: 3,
-          bgcolor: data.hazirlamaBilgisi.eksikUrunler.length > 0 ? '#fff3e0' : '#e8f5e9',
+          bgcolor: (data as any).preparationInfo.incompleteItems?.length > 0 ? '#fff3e0' : '#e8f5e9',
           border: '1px solid #000',
           '@media print': { boxShadow: 'none' },
         }}
@@ -237,31 +232,13 @@ export default function MalzemeHazirlamaFisiPage() {
             <Typography variant="body2" color="text.secondary">
               Toplam Kalem
             </Typography>
-            <Typography variant="h6">{data.hazirlamaBilgisi.toplamKalemSayisi}</Typography>
+            <Typography variant="h6">{(data as any).preparationInfo.totalItemCount}</Typography>
           </Box>
           <Box sx={{ flex: '1 1 150px', minWidth: '150px' }}>
             <Typography variant="body2" color="text.secondary">
               Toplam Adet
             </Typography>
-            <Typography variant="h6">{data.hazirlamaBilgisi.toplamUrunAdedi}</Typography>
-          </Box>
-          <Box sx={{ flex: '1 1 150px', minWidth: '150px' }}>
-            <Typography variant="body2" color="text.secondary">
-              Hazır Ürün
-            </Typography>
-            <Typography variant="h6" color="success.main">
-              <CheckCircle sx={{ fontSize: 16, mr: 0.5, verticalAlign: 'middle' }} />
-              {data.hazirlamaBilgisi.tamUrunler.length}
-            </Typography>
-          </Box>
-          <Box sx={{ flex: '1 1 150px', minWidth: '150px' }}>
-            <Typography variant="body2" color="text.secondary">
-              Eksik Ürün
-            </Typography>
-            <Typography variant="h6" color="error.main">
-              <Warning sx={{ fontSize: 16, mr: 0.5, verticalAlign: 'middle' }} />
-              {data.hazirlamaBilgisi.eksikUrunler.length}
-            </Typography>
+            <Typography variant="h6">{(data as any).preparationInfo.totalUnitCount}</Typography>
           </Box>
         </Box>
       </Paper>
@@ -306,12 +283,12 @@ export default function MalzemeHazirlamaFisiPage() {
             </TableRow>
           </TableHead>
           <TableBody>
-            {data.kalemler.map((kalem, index) => (
+            {data.items.map((kalem: any, index: number) => (
               <TableRow
-                key={kalem.stokId}
+                key={kalem.productId}
                 sx={{
                   bgcolor:
-                    kalem.toplamMevcutMiktar < kalem.istenenMiktar ? '#ffebee' : '#f1f8e9',
+                    kalem.totalOnHandQuantity < kalem.requestedQuantity ? '#ffebee' : '#f1f8e9',
                   '@media print': {
                     pageBreakInside: 'avoid',
                   },
@@ -320,68 +297,68 @@ export default function MalzemeHazirlamaFisiPage() {
                 <TableCell sx={{ border: '1px solid #000' }}>{index + 1}</TableCell>
                 <TableCell sx={{ border: '1px solid #000' }}>
                   <Typography variant="body2" fontWeight="bold">
-                    {kalem.stokKodu}
+                    {kalem.productCode}
                   </Typography>
-                  {kalem.barkod && (
+                  {kalem.barcode && (
                     <Typography variant="caption" color="text.secondary">
-                      {kalem.barkod}
+                      {kalem.barcode}
                     </Typography>
                   )}
                 </TableCell>
                 <TableCell sx={{ border: '1px solid #000' }}>
-                  <Typography variant="body2">{kalem.stokAdi}</Typography>
-                  {(kalem.marka || kalem.model) && (
+                  <Typography variant="body2">{kalem.productName}</Typography>
+                  {(kalem.brand || kalem.model) && (
                     <Typography variant="caption" color="text.secondary">
-                      {[kalem.marka, kalem.model].filter(Boolean).join(' - ')}
+                      {[kalem.brand, kalem.model].filter(Boolean).join(' - ')}
                     </Typography>
                   )}
                 </TableCell>
                 <TableCell sx={{ border: '1px solid #000' }} align="center">
                   <Typography variant="h6" fontWeight="bold">
-                    {kalem.istenenMiktar}
+                    {kalem.requestedQuantity}
                   </Typography>
-                  <Typography variant="caption">{kalem.birim}</Typography>
+                  <Typography variant="caption">{kalem.unit}</Typography>
                 </TableCell>
                 <TableCell sx={{ border: '1px solid #000' }} align="center">
                   <Typography
                     variant="h6"
                     fontWeight="bold"
                     color={
-                      kalem.toplamMevcutMiktar >= kalem.istenenMiktar
+                      kalem.totalOnHandQuantity >= kalem.requestedQuantity
                         ? 'success.main'
                         : 'error.main'
                     }
                   >
-                    {kalem.toplamMevcutMiktar}
+                    {kalem.totalOnHandQuantity}
                   </Typography>
-                  <Typography variant="caption">{kalem.birim}</Typography>
+                  <Typography variant="caption">{kalem.unit}</Typography>
                 </TableCell>
                 <TableCell sx={{ border: '1px solid #000' }}>
-                  {kalem.raflar.length > 0 ? (
-                    kalem.raflar.map((raf, rafIndex) => (
+                  {kalem.shelves.length > 0 ? (
+                    kalem.shelves.map((raf: any, rafIndex: number) => (
                       <Box
                         key={rafIndex}
                         sx={{
-                          mb: rafIndex < kalem.raflar.length - 1 ? 1 : 0,
-                          pb: rafIndex < kalem.raflar.length - 1 ? 1 : 0,
+                          mb: rafIndex < kalem.shelves.length - 1 ? 1 : 0,
+                          pb: rafIndex < kalem.shelves.length - 1 ? 1 : 0,
                           borderBottom:
-                            rafIndex < kalem.raflar.length - 1 ? '1px dashed #ccc' : 'none',
+                            rafIndex < kalem.shelves.length - 1 ? '1px dashed #ccc' : 'none',
                         }}
                       >
                         <Typography variant="body2" fontWeight="bold">
-                          📍 {raf.rafKodu}
+                          📍 {raf.shelfCode}
                         </Typography>
                         <Typography variant="caption" display="block" color="text.secondary">
-                          {raf.depoAdi} - Stok: {raf.mevcutMiktar} {kalem.birim}
+                          {raf.warehouseName} - Stok: {raf.onHandQuantity} {kalem.unit}
                         </Typography>
                         <Typography variant="caption" display="block" color="text.secondary">
-                          Kat:{raf.kat} | Koridor:{raf.koridor} | Taraf:{raf.taraf} | Bölüm:
-                          {raf.bolum} | Seviye:{raf.seviye}
+                          Kat:{raf.layer} | Koridor:{raf.corridor} | Taraf:{raf.side} | Bölüm:
+                          {raf.section} | Seviye:{raf.level}
                         </Typography>
                       </Box>
                     ))
-                  ) : kalem.eskiRaf ? (
-                    <Typography variant="body2">📍 {kalem.eskiRaf}</Typography>
+                  ) : kalem.legacyShelf ? (
+                    <Typography variant="body2">📍 {kalem.legacyShelf}</Typography>
                   ) : (
                     <Typography variant="body2" color="error">
                       ⚠️ Raf bilgisi yok
@@ -389,7 +366,7 @@ export default function MalzemeHazirlamaFisiPage() {
                   )}
                 </TableCell>
                 <TableCell sx={{ border: '1px solid #000' }} align="center" className="no-print">
-                  {kalem.toplamMevcutMiktar >= kalem.istenenMiktar ? (
+                  {kalem.totalOnHandQuantity >= kalem.requestedQuantity ? (
                     <Chip
                       icon={<CheckCircle />}
                       label="Tamam"
@@ -457,7 +434,7 @@ export default function MalzemeHazirlamaFisiPage() {
 
         <Box sx={{ mt: 3, textAlign: 'center' }}>
           <Typography variant="caption" color="text.secondary">
-            Fiş Oluşturma Tarihi: {new Date(data.olusturmaTarihi).toLocaleString('tr-TR')}
+            Fiş Oluşturma Tarihi: {new Date((data as any).olusturmaTarihi || new Date()).toLocaleString('tr-TR')}
           </Typography>
         </Box>
       </Box>

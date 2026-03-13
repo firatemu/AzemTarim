@@ -15,7 +15,7 @@ import { CreateBankAccountDto } from './dto/create-bank-account.dto';
 import { UpdateBankAccountDto } from './dto/update-bank-account.dto';
 
 @UseGuards(JwtAuthGuard)
-@Controller('bank-account')
+@Controller('bank-accounts')
 export class BankAccountController {
   constructor(private readonly bankAccountService: BankAccountService) { }
 

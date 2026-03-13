@@ -3,7 +3,7 @@ import { ApiProperty } from '@nestjs/swagger';
 
 import { BankMovementType, BankMovementSubType } from '@prisma/client';
 
-export class CreateBankHareketDto {
+export class CreateBankMovementDto {
     @IsEnum(BankMovementType)
     @ApiProperty({ enum: BankMovementType })
     movementType: BankMovementType;
@@ -39,7 +39,7 @@ export class CreateBankHareketDto {
     date?: string;
 }
 
-export class CreatePosHareketDto {
+export class CreatePosMovementDto {
     @IsNumber()
     @IsNotEmpty()
     @ApiProperty()

@@ -11,10 +11,10 @@ import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { InvoiceProfitService } from './invoice-profit.service';
 import { GetProfitQueryDto } from './dto/get-profit-query.dto';
 
-@Controller('invoice-profit')
+@Controller('invoice-profits')
 @UseGuards(JwtAuthGuard)
 export class InvoiceProfitController {
-  constructor(private readonly invoiceProfitService: InvoiceProfitService) {}
+  constructor(private readonly invoiceProfitService: InvoiceProfitService) { }
 
   @Get('by-invoice/:invoiceId')
   async getProfitByInvoice(@Param('invoiceId') invoiceId: string) {

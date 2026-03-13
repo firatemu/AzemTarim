@@ -1,3 +1,4 @@
+import { TenantResolverService } from '../../common/services/tenant-resolver.service';
 
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma.service';
@@ -6,17 +7,16 @@ import { ProductService } from './product.service';
 
 @Injectable()
 export class ProductExportService {
-    constructor(
-        private readonly prisma: PrismaService,
+    constructor(private readonly prisma: PrismaService,
         // Circular dependency might be an issue here if ProductService injects ProductExportService.
         // For now, let's assume we can query data directly or use PrismaService to avoid circular dep.
-        // Or we can inject ProductService with @Inject(forwardRef(() => ProductService)) if needed.
+        // Or we can inject ProductService with @Inject(forwardRef((, private readonly tenantResolver: TenantResolverService) => ProductService)) if needed.
         // But direct Prisma query is safer for a simple export to avoid complexity.
     ) { }
 
     async generateEslesmeExcel(tenantId: string): Promise<Buffer> {
         // Fetch all products for the tenant
-        const products = await this.prisma.extended.product.findMany({
+        const products = await this.prisma.product.findMany({
             where: {
                 tenantId,
                 isCategoryOnly: { not: true },

@@ -27,82 +27,72 @@ import MainLayout from '@/components/Layout/MainLayout';
 import axios from '@/lib/axios';
 import { useRouter } from 'next/navigation';
 
-interface Cari {
+interface Account {
   id: string;
-  cariKodu: string;
-  unvan: string;
-  tip: string;
+  code: string;
+  name: string;
+  type: string;
 }
 
-interface Teklif {
+interface Quote {
   id: string;
-  teklifNo: string;
-  teklifTipi: 'SATIS' | 'SATIN_ALMA';
-  tarih: string;
-  gecerlilikTarihi: string | null;
-  cari: Cari;
-  toplamTutar: number;
-  kdvTutar: number;
-  genelToplam: number;
-  durum: 'TEKLIF' | 'ONAYLANDI' | 'REDDEDILDI' | 'SIPARISE_DONUSTU';
-  iskonto?: number;
-  aciklama?: string;
-  siparisId?: string | null;
+  quoteNo: string;
+  quoteType: 'SALE' | 'PURCHASE';
+  date: string;
+  validUntil: string | null;
+  account: Account;
+  totalAmount: number;
+  vatAmount: number;
+  grandTotal: number;
+  status: 'OFFERED' | 'APPROVED' | 'REJECTED' | 'CONVERTED_TO_ORDER';
+  discount?: number;
+  notes?: string;
+  orderId?: string | null;
 }
 
-const durumRenkleri: Record<string, 'default' | 'warning' | 'info' | 'success' | 'error'> = {
-  TEKLIF: 'default',
-  ONAYLANDI: 'info',
-  REDDEDILDI: 'error',
-  SIPARISE_DONUSTU: 'success',
+const statusColors: Record<string, 'default' | 'warning' | 'info' | 'success' | 'error'> = {
+  OFFERED: 'default',
+  APPROVED: 'info',
+  REJECTED: 'error',
+  CONVERTED_TO_ORDER: 'success',
 };
 
-const durumMetinleri: Record<string, string> = {
-  TEKLIF: 'Teklif',
-  ONAYLANDI: 'Onaylandı',
-  REDDEDILDI: 'Reddedildi',
-  SIPARISE_DONUSTU: 'Siparişe Dönüştü',
+const statusTexts: Record<string, string> = {
+  OFFERED: 'Teklif',
+  APPROVED: 'Onaylandı',
+  REJECTED: 'Reddedildi',
+  CONVERTED_TO_ORDER: 'Siparişe Dönüştü',
 };
 
 export default function SatisTeklifleriPage() {
   const router = useRouter();
   const [searchTerm, setSearchTerm] = useState('');
-  const [teklifler, setTeklifler] = useState<Teklif[]>([]);
+  const [quotes, setQuotes] = useState<Quote[]>([]);
   const [loading, setLoading] = useState(false);
-  const [durumFilter, setDurumFilter] = useState<'ALL' | 'TEKLIF' | 'ONAYLANDI' | 'REDDEDILDI' | 'SIPARISE_DONUSTU'>('ALL');
+  const [statusFilter, setStatusFilter] = useState<'ALL' | 'OFFERED' | 'APPROVED' | 'REJECTED' | 'CONVERTED_TO_ORDER'>('ALL');
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' | 'info' });
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
-  const [selectedTeklif, setSelectedTeklif] = useState<Teklif | null>(null);
+  const [selectedQuote, setSelectedQuote] = useState<Quote | null>(null);
 
   useEffect(() => {
-    fetchTeklifler();
+    fetchQuotes();
   }, [searchTerm]);
 
-  const fetchTeklifler = async () => {
+  const fetchQuotes = async () => {
     try {
       setLoading(true);
       const params: any = {
-        teklifTipi: 'SATIS',
+        quoteType: 'SALE',
       };
       if (searchTerm && searchTerm.trim()) {
         params.search = searchTerm.trim();
       }
-      console.log('Fetching teklifler with params:', params);
-      const response = await axios.get('/quote', { params });
-      console.log('Teklifler response:', response.data);
-      setTeklifler(response.data.data || []);
+      const response = await axios.get('/quotes', { params });
+      setQuotes(response.data.data || []);
     } catch (error: any) {
       console.error('Teklif yükleme hatası:', error);
-      console.error('Error response:', error.response);
-      console.error('Error details:', {
-        status: error.response?.status,
-        statusText: error.response?.statusText,
-        data: error.response?.data,
-        message: error.message
-      });
-      // API yoksa boş liste göster
       if (error.response?.status === 404) {
-        setTeklifler([]);
+        setQuotes([]);
       } else {
         const errorMessage = error.response?.data?.message || error.response?.data?.error || 'Teklifler yüklenirken hata oluştu';
         showSnackbar(errorMessage, 'error');
@@ -116,9 +106,9 @@ export default function SatisTeklifleriPage() {
     setSnackbar({ open: true, message, severity });
   };
 
-  const handleMenuOpen = (event: React.MouseEvent<HTMLElement>, teklif: Teklif) => {
+  const handleMenuOpen = (event: React.MouseEvent<HTMLElement>, quote: Quote) => {
     setAnchorEl(event.currentTarget);
-    setSelectedTeklif(teklif);
+    setSelectedQuote(quote);
   };
 
   const handleMenuClose = (event?: {}, reason?: string) => {
@@ -128,13 +118,13 @@ export default function SatisTeklifleriPage() {
     setAnchorEl(null);
   };
 
-  const handleDurumChange = async (yeniDurum: string) => {
-    if (!selectedTeklif) return;
-    
+  const handleStatusChange = async (newStatus: string) => {
+    if (!selectedQuote) return;
+
     try {
-      await axios.put(`/teklif/${selectedTeklif.id}/durum`, { durum: yeniDurum });
-      showSnackbar(`Teklif durumu "${durumMetinleri[yeniDurum]}" olarak güncellendi`, 'success');
-      fetchTeklifler();
+      await axios.put(`/quotes/${selectedQuote.id}/status`, { status: newStatus });
+      showSnackbar(`Teklif durumu "${statusTexts[newStatus]}" olarak güncellendi`, 'success');
+      fetchQuotes();
     } catch (error: any) {
       showSnackbar(error.response?.data?.message || 'Durum değiştirilirken hata oluştu', 'error');
     } finally {
@@ -143,18 +133,18 @@ export default function SatisTeklifleriPage() {
   };
 
   const handleConvertToSiparis = async () => {
-    if (!selectedTeklif) return;
-    
+    if (!selectedQuote) return;
+
     if (!confirm('Bu teklifi siparişe dönüştürmek istediğinizden emin misiniz?')) {
       handleMenuClose();
       return;
     }
-    
+
     try {
-      const response = await axios.post(`/teklif/${selectedTeklif.id}/siparise-donustur`);
+      const response = await axios.post(`/quotes/${selectedQuote.id}/convert-to-order`);
       showSnackbar('Teklif başarıyla siparişe dönüştürüldü', 'success');
       setTimeout(() => {
-        router.push(`/siparis/satis/duzenle/${response.data.siparisId}`);
+        router.push(`/order/sales/edit/${response.data.orderId}`);
       }, 1500);
     } catch (error: any) {
       showSnackbar(error.response?.data?.message || 'Teklif siparişe dönüştürülürken hata oluştu', 'error');
@@ -163,24 +153,24 @@ export default function SatisTeklifleriPage() {
     }
   };
 
-  
 
-  const handlePrint = (teklif: Teklif) => {
-    router.push(`/teklif/satis/print/${teklif.id}`);
+
+  const handlePrint = (quote: Quote) => {
+    router.push(`/quotes/satis/print/${quote.id}`);
   };
 
   const handleDelete = async () => {
-    if (!selectedTeklif) return;
-    
+    if (!selectedQuote) return;
+
     if (!confirm('Bu teklifi silmek istediğinizden emin misiniz?')) {
       handleMenuClose();
       return;
     }
-    
+
     try {
-      await axios.delete(`/teklif/${selectedTeklif.id}`);
+      await axios.delete(`/quotes/${selectedQuote.id}`);
       showSnackbar('Teklif başarıyla silindi', 'success');
-      fetchTeklifler();
+      fetchQuotes();
     } catch (error: any) {
       showSnackbar(error.response?.data?.message || 'Teklif silinirken hata oluştu', 'error');
     } finally {
@@ -202,11 +192,11 @@ export default function SatisTeklifleriPage() {
   return (
     <MainLayout>
       <Box sx={{ p: { xs: 1, sm: 2, md: 3 }, overflowX: 'auto', width: '100%', maxWidth: '100vw' }}>
-        <Box sx={{ 
-          display: 'flex', 
+        <Box sx={{
+          display: 'flex',
           flexDirection: { xs: 'column', sm: 'row' },
-          justifyContent: 'space-between', 
-          alignItems: { xs: 'flex-start', sm: 'center' }, 
+          justifyContent: 'space-between',
+          alignItems: { xs: 'flex-start', sm: 'center' },
           mb: 3,
           gap: { xs: 2, sm: 0 },
         }}>
@@ -226,7 +216,7 @@ export default function SatisTeklifleriPage() {
           <Button
             variant="contained"
             startIcon={<Add />}
-            onClick={() => router.push('/teklif/satis/yeni')}
+            onClick={() => router.push('/quotes/satis/yeni')}
             sx={{
               background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
               width: { xs: '100%', sm: 'auto' },
@@ -254,17 +244,17 @@ export default function SatisTeklifleriPage() {
           <Box sx={{ display: 'flex', gap: 1, mt: 2, flexWrap: 'wrap' }}>
             <Chip
               label="Tümü"
-              color={durumFilter === 'ALL' ? 'primary' : 'default'}
-              onClick={() => setDurumFilter('ALL')}
+              color={statusFilter === 'ALL' ? 'primary' : 'default'}
+              onClick={() => setStatusFilter('ALL')}
               size="small"
             />
-            <Chip label="Teklif" color={durumFilter === 'TEKLIF' ? 'primary' : 'default'} onClick={() => setDurumFilter('TEKLIF')} size="small" />
-            <Chip label="Onaylandı" color={durumFilter === 'ONAYLANDI' ? 'primary' : 'default'} onClick={() => setDurumFilter('ONAYLANDI')} size="small" />
-            <Chip label="Reddedildi" color={durumFilter === 'REDDEDILDI' ? 'primary' : 'default'} onClick={() => setDurumFilter('REDDEDILDI')} size="small" />
-            <Chip 
-              label="Siparişe Dönüştü" 
-              color={durumFilter === 'SIPARISE_DONUSTU' ? 'primary' : 'default'} 
-              onClick={() => setDurumFilter('SIPARISE_DONUSTU')} 
+            <Chip label="Teklif" color={statusFilter === 'OFFERED' ? 'primary' : 'default'} onClick={() => setStatusFilter('OFFERED')} size="small" />
+            <Chip label="Onaylandı" color={statusFilter === 'APPROVED' ? 'primary' : 'default'} onClick={() => setStatusFilter('APPROVED')} size="small" />
+            <Chip label="Reddedildi" color={statusFilter === 'REJECTED' ? 'primary' : 'default'} onClick={() => setStatusFilter('REJECTED')} size="small" />
+            <Chip
+              label="Siparişe Dönüştü"
+              color={statusFilter === 'CONVERTED_TO_ORDER' ? 'primary' : 'default'}
+              onClick={() => setStatusFilter('CONVERTED_TO_ORDER')}
               size="small"
               sx={{ fontSize: { xs: '0.7rem', sm: '0.75rem' } }}
             />
@@ -276,7 +266,7 @@ export default function SatisTeklifleriPage() {
             <CircularProgress />
           </Box>
         ) : (
-          <TableContainer 
+          <TableContainer
             component={Paper}
             sx={{
               overflowX: 'auto',
@@ -296,131 +286,131 @@ export default function SatisTeklifleriPage() {
             <Table sx={{ minWidth: { xs: '800px', sm: 'auto' } }}>
               <TableHead>
                 <TableRow>
-                  <TableCell sx={{ 
+                  <TableCell sx={{
                     fontSize: { xs: '0.75rem', sm: '0.875rem' },
                     fontWeight: 'bold',
                     whiteSpace: 'nowrap',
                   }}>Teklif No</TableCell>
-                  <TableCell sx={{ 
+                  <TableCell sx={{
                     fontSize: { xs: '0.75rem', sm: '0.875rem' },
                     whiteSpace: 'nowrap',
                   }}>Tarih</TableCell>
-                  <TableCell sx={{ 
+                  <TableCell sx={{
                     fontSize: { xs: '0.75rem', sm: '0.875rem' },
                     whiteSpace: 'nowrap',
                     display: { xs: 'none', md: 'table-cell' },
                   }}>Geçerlilik Tarihi</TableCell>
-                  <TableCell sx={{ 
+                  <TableCell sx={{
                     fontSize: { xs: '0.75rem', sm: '0.875rem' },
                     whiteSpace: 'nowrap',
                   }}>Cari</TableCell>
-                  <TableCell align="right" sx={{ 
+                  <TableCell align="right" sx={{
                     fontSize: { xs: '0.75rem', sm: '0.875rem' },
                     whiteSpace: 'nowrap',
                   }}>Tutar</TableCell>
-                  <TableCell align="right" sx={{ 
+                  <TableCell align="right" sx={{
                     fontSize: { xs: '0.75rem', sm: '0.875rem' },
                     whiteSpace: 'nowrap',
                     display: { xs: 'none', lg: 'table-cell' },
                   }}>KDV</TableCell>
-                  <TableCell align="right" sx={{ 
+                  <TableCell align="right" sx={{
                     fontSize: { xs: '0.75rem', sm: '0.875rem' },
                     fontWeight: 'bold',
                     whiteSpace: 'nowrap',
                   }}>Genel Toplam</TableCell>
-                  <TableCell sx={{ 
+                  <TableCell sx={{
                     fontSize: { xs: '0.75rem', sm: '0.875rem' },
                     whiteSpace: 'nowrap',
                   }}>Durum</TableCell>
-                  <TableCell align="center" sx={{ 
+                  <TableCell align="center" sx={{
                     fontSize: { xs: '0.75rem', sm: '0.875rem' },
                     whiteSpace: 'nowrap',
                   }}>İşlemler</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
-                {teklifler.filter(t => durumFilter === 'ALL' ? true : t.durum === durumFilter).length === 0 ? (
+                {quotes.filter(t => statusFilter === 'ALL' ? true : t.status === statusFilter).length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={9} align="center" sx={{ py: 4 }}>
                       <Typography color="text.secondary">Teklif bulunamadı</Typography>
                     </TableCell>
                   </TableRow>
                 ) : (
-                  teklifler
-                    .filter(t => durumFilter === 'ALL' ? true : t.durum === durumFilter)
-                    .map((teklif) => (
-                    <TableRow key={teklif.id} hover>
-                      <TableCell sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
-                        <Typography variant="body2" fontWeight="600">
-                          {teklif.teklifNo}
-                        </Typography>
-                      </TableCell>
-                      <TableCell sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
-                        {formatDate(teklif.tarih)}
-                      </TableCell>
-                      <TableCell sx={{ 
-                        fontSize: { xs: '0.75rem', sm: '0.875rem' },
-                        display: { xs: 'none', md: 'table-cell' },
-                      }}>
-                        {teklif.gecerlilikTarihi ? formatDate(teklif.gecerlilikTarihi) : '-'}
-                      </TableCell>
-                      <TableCell sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
-                        <Typography variant="body2" sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
-                          {teklif.cari.unvan}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary" sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' } }}>
-                          {teklif.cari.cariKodu}
-                        </Typography>
-                      </TableCell>
-                      <TableCell align="right" sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
-                        {formatCurrency(teklif.toplamTutar)}
-                      </TableCell>
-                      <TableCell align="right" sx={{ 
-                        fontSize: { xs: '0.75rem', sm: '0.875rem' },
-                        display: { xs: 'none', lg: 'table-cell' },
-                      }}>
-                        {formatCurrency(teklif.kdvTutar)}
-                      </TableCell>
-                      <TableCell align="right" sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
-                        <Typography variant="body2" fontWeight="bold" sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
-                          {formatCurrency(teklif.genelToplam)}
-                        </Typography>
-                      </TableCell>
-                      <TableCell sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
-                        <Chip
-                          label={durumMetinleri[teklif.durum]}
-                          color={durumRenkleri[teklif.durum]}
-                          size="small"
-                          sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' } }}
-                        />
-                      </TableCell>
-                      <TableCell align="center">
-                        <IconButton
-                          size="small"
-                          onClick={() => router.push(`/teklif/satis/duzenle/${teklif.id}`)}
-                          disabled={teklif.durum === 'SIPARISE_DONUSTU' || teklif.durum === 'REDDEDILDI'}
-                          sx={{ p: { xs: 0.5, sm: 1 } }}
-                        >
-                          <Edit fontSize="small" />
-                        </IconButton>
-                        <IconButton
-                          size="small"
-                          onClick={() => handlePrint(teklif)}
-                          color="primary"
-                          sx={{ p: { xs: 0.5, sm: 1 } }}
-                        >
-                          <PrintIcon fontSize="small" />
-                        </IconButton>
-                        <IconButton
-                          size="small"
-                          onClick={(e) => handleMenuOpen(e, teklif)}
-                          sx={{ p: { xs: 0.5, sm: 1 } }}
-                        >
-                          <MoreVert fontSize="small" />
-                        </IconButton>
-                      </TableCell>
-                    </TableRow>
-                  ))
+                  quotes
+                    .filter(t => statusFilter === 'ALL' ? true : t.status === statusFilter)
+                    .map((quote) => (
+                      <TableRow key={quote.id} hover>
+                        <TableCell sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
+                          <Typography variant="body2" fontWeight="600">
+                            {quote.quoteNo}
+                          </Typography>
+                        </TableCell>
+                        <TableCell sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
+                          {formatDate(quote.date)}
+                        </TableCell>
+                        <TableCell sx={{
+                          fontSize: { xs: '0.75rem', sm: '0.875rem' },
+                          display: { xs: 'none', md: 'table-cell' },
+                        }}>
+                          {quote.validUntil ? formatDate(quote.validUntil) : '-'}
+                        </TableCell>
+                        <TableCell sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
+                          <Typography variant="body2" sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
+                            {quote.account.name}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary" sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' } }}>
+                            {quote.account.code}
+                          </Typography>
+                        </TableCell>
+                        <TableCell align="right" sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
+                          {formatCurrency(quote.totalAmount)}
+                        </TableCell>
+                        <TableCell align="right" sx={{
+                          fontSize: { xs: '0.75rem', sm: '0.875rem' },
+                          display: { xs: 'none', lg: 'table-cell' },
+                        }}>
+                          {formatCurrency(quote.vatAmount)}
+                        </TableCell>
+                        <TableCell align="right" sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
+                          <Typography variant="body2" fontWeight="bold" sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
+                            {formatCurrency(quote.grandTotal)}
+                          </Typography>
+                        </TableCell>
+                        <TableCell sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
+                          <Chip
+                            label={statusTexts[quote.status]}
+                            color={statusColors[quote.status]}
+                            size="small"
+                            sx={{ fontSize: { xs: '0.65rem', sm: '0.75rem' } }}
+                          />
+                        </TableCell>
+                        <TableCell align="center">
+                          <IconButton
+                            size="small"
+                            onClick={() => router.push(`/quotes/satis/duzenle/${quote.id}`)}
+                            disabled={quote.status === 'CONVERTED_TO_ORDER' || quote.status === 'REJECTED'}
+                            sx={{ p: { xs: 0.5, sm: 1 } }}
+                          >
+                            <Edit fontSize="small" />
+                          </IconButton>
+                          <IconButton
+                            size="small"
+                            onClick={() => handlePrint(quote)}
+                            color="primary"
+                            sx={{ p: { xs: 0.5, sm: 1 } }}
+                          >
+                            <PrintIcon fontSize="small" />
+                          </IconButton>
+                          <IconButton
+                            size="small"
+                            onClick={(e) => handleMenuOpen(e, quote)}
+                            sx={{ p: { xs: 0.5, sm: 1 } }}
+                          >
+                            <MoreVert fontSize="small" />
+                          </IconButton>
+                        </TableCell>
+                      </TableRow>
+                    ))
                 )}
               </TableBody>
             </Table>
@@ -436,33 +426,33 @@ export default function SatisTeklifleriPage() {
             'aria-labelledby': 'basic-button',
           }}
         >
-          {selectedTeklif && selectedTeklif.durum !== 'SIPARISE_DONUSTU' && (
+          {selectedQuote && selectedQuote.status !== 'CONVERTED_TO_ORDER' && (
             [
-              selectedTeklif.durum === 'TEKLIF' && (
-                <MenuItem 
-                  key="onaylandi" 
+              selectedQuote.status === 'OFFERED' && (
+                <MenuItem
+                  key="onaylandi"
                   onClick={(e) => {
                     e.stopPropagation();
-                    handleDurumChange('ONAYLANDI');
+                    handleStatusChange('APPROVED');
                   }}
                 >
                   Onaylandı Olarak İşaretle
                 </MenuItem>
               ),
-              selectedTeklif.durum === 'TEKLIF' && (
-                <MenuItem 
-                  key="reddedildi" 
+              selectedQuote.status === 'OFFERED' && (
+                <MenuItem
+                  key="reddedildi"
                   onClick={(e) => {
                     e.stopPropagation();
-                    handleDurumChange('REDDEDILDI');
+                    handleStatusChange('REJECTED');
                   }}
                 >
                   Reddedildi Olarak İşaretle
                 </MenuItem>
               ),
-              selectedTeklif.durum === 'TEKLIF' && (
-                <MenuItem 
-                  key="siparise-donustur-teklif" 
+              selectedQuote.status === 'OFFERED' && (
+                <MenuItem
+                  key="siparise-donustur-teklif"
                   onClick={(e) => {
                     e.stopPropagation();
                     handleConvertToSiparis();
@@ -472,9 +462,9 @@ export default function SatisTeklifleriPage() {
                   Siparişe Dönüştür
                 </MenuItem>
               ),
-              selectedTeklif.durum === 'ONAYLANDI' && (
-                <MenuItem 
-                  key="siparise-donustur-onaylandi" 
+              selectedQuote.status === 'APPROVED' && (
+                <MenuItem
+                  key="siparise-donustur-onaylandi"
                   onClick={(e) => {
                     e.stopPropagation();
                     handleConvertToSiparis();
@@ -486,19 +476,19 @@ export default function SatisTeklifleriPage() {
               ),
             ].filter(Boolean)
           )}
-          {selectedTeklif && selectedTeklif.siparisId && (
-            <MenuItem 
+          {selectedQuote && selectedQuote.orderId && (
+            <MenuItem
               onClick={(e) => {
                 e.stopPropagation();
                 handleMenuClose();
-                router.push(`/siparis/satis/duzenle/${selectedTeklif.siparisId}`);
+                router.push(`/order/sales/edit/${selectedQuote.orderId}`);
               }}
             >
               <Visibility sx={{ mr: 1 }} fontSize="small" />
               İlgili Siparişi Görüntüle
             </MenuItem>
           )}
-          <MenuItem 
+          <MenuItem
             onClick={(e) => {
               e.stopPropagation();
               handleDelete();

@@ -38,6 +38,7 @@ export class PurchaseOrdersService {
     tx?: Prisma.TransactionClient,
   ) {
     const prisma = tx || this.prisma;
+    const tenantId = await this.tenantResolver.resolveForQuery();
     await prisma.purchaseOrderLocalLog.create({
       data: {
         orderId: orderId,
@@ -46,6 +47,7 @@ export class PurchaseOrdersService {
         changes: changes ? JSON.stringify(changes) : null,
         ipAddress,
         userAgent,
+        tenantId,
       },
     });
   }
@@ -78,7 +80,7 @@ export class PurchaseOrdersService {
     }
 
     const [data, total] = await Promise.all([
-      this.prisma.extended.procurementOrder.findMany({
+      this.prisma.procurementOrder.findMany({
         where,
         skip,
         take: limit,
@@ -106,7 +108,7 @@ export class PurchaseOrdersService {
         },
         orderBy: { createdAt: 'desc' },
       }),
-      this.prisma.extended.procurementOrder.count({ where }),
+      this.prisma.procurementOrder.count({ where }),
     ]);
 
     return {
@@ -117,7 +119,7 @@ export class PurchaseOrdersService {
 
   async findOne(id: string) {
     const tenantId = await this.tenantResolver.resolveForQuery();
-    const order = await this.prisma.extended.procurementOrder.findFirst({
+    const order = await this.prisma.procurementOrder.findFirst({
       where: {
         id,
         ...buildTenantWhereClause(tenantId ?? undefined),
@@ -172,7 +174,7 @@ export class PurchaseOrdersService {
     const { items, ...orderData } = dto;
     const tenantId = await this.tenantResolver.resolveForCreate({ userId });
 
-    const existingOrder = await this.prisma.extended.procurementOrder.findFirst({
+    const existingOrder = await this.prisma.procurementOrder.findFirst({
       where: {
         orderNo: orderData.orderNo,
         ...buildTenantWhereClause(tenantId ?? undefined),
@@ -184,8 +186,11 @@ export class PurchaseOrdersService {
     }
 
     // Account check
-    const account = await this.prisma.extended.account.findUnique({
-      where: { id: orderData.accountId },
+    const account = await this.prisma.account.findFirst({
+      where: {
+        id: orderData.accountId,
+        ...buildTenantWhereClause(tenantId ?? undefined),
+      },
     });
 
     if (!account) {
@@ -224,7 +229,7 @@ export class PurchaseOrdersService {
     const totalAmount = subTotal.sub(finalTotalDiscount);
     const grandTotal = totalAmount.add(totalTax);
 
-    return this.prisma.extended.$transaction(async (tx) => {
+    return this.prisma.$transaction(async (tx) => {
       const order = await tx.procurementOrder.create({
         data: {
           orderNo: orderData.orderNo,
@@ -286,13 +291,16 @@ export class PurchaseOrdersService {
 
     const { items, ...orderData } = dto;
 
-    return this.prisma.extended.$transaction(async (tx) => {
+    return this.prisma.$transaction(async (tx) => {
       let updatedData = { ...orderData } as any;
 
       if (items && items.length > 0) {
         // Delete old items
         await tx.procurementOrderItem.deleteMany({
-          where: { orderId: id },
+          where: {
+            orderId: id,
+            ...buildTenantWhereClause(existingOrder.tenantId ?? undefined),
+          },
         });
 
         // Calculations
@@ -335,11 +343,21 @@ export class PurchaseOrdersService {
         };
       }
 
-      const updatedOrder = await tx.procurementOrder.update({
-        where: { id },
+      await tx.procurementOrder.updateMany({
+        where: {
+          id,
+          ...buildTenantWhereClause(existingOrder.tenantId ?? undefined),
+        },
         data: {
           ...updatedData,
           updatedBy: userId,
+        },
+      });
+
+      const updatedOrder = await tx.procurementOrder.findFirst({
+        where: {
+          id,
+          ...buildTenantWhereClause(existingOrder.tenantId ?? undefined),
         },
         include: {
           account: true,
@@ -377,9 +395,12 @@ export class PurchaseOrdersService {
       throw new BadRequestException('Faturalandırılmış sipariş silinemez');
     }
 
-    return this.prisma.extended.$transaction(async (tx) => {
-      const deletedOrder = await tx.procurementOrder.update({
-        where: { id },
+    return this.prisma.$transaction(async (tx) => {
+      await tx.procurementOrder.updateMany({
+        where: {
+          id,
+          ...buildTenantWhereClause(order.tenantId ?? undefined),
+        },
         data: {
           deletedAt: new Date(),
           deletedBy: userId,
@@ -390,13 +411,13 @@ export class PurchaseOrdersService {
         id,
         'DELETE',
         userId,
-        { order: deletedOrder },
+        { order },
         ipAddress,
         userAgent,
         tx,
       );
 
-      return deletedOrder;
+      return { success: true };
     });
   }
 
@@ -416,9 +437,12 @@ export class PurchaseOrdersService {
       throw new BadRequestException('Sipariş zaten iptal edilmiş');
     }
 
-    return this.prisma.extended.$transaction(async (tx) => {
-      const updatedOrder = await tx.procurementOrder.update({
-        where: { id },
+    return this.prisma.$transaction(async (tx) => {
+      await tx.procurementOrder.updateMany({
+        where: {
+          id,
+          ...buildTenantWhereClause(order.tenantId ?? undefined),
+        },
         data: {
           status: PurchaseOrderLocalStatus.CANCELLED,
           updatedBy: userId,
@@ -435,7 +459,7 @@ export class PurchaseOrdersService {
         tx,
       );
 
-      return updatedOrder;
+      return { success: true };
     });
   }
 
@@ -455,9 +479,12 @@ export class PurchaseOrdersService {
       throw new BadRequestException('Faturalandırılmış siparişin durumu değiştirilemez');
     }
 
-    return this.prisma.extended.$transaction(async (tx) => {
-      const updatedOrder = await tx.procurementOrder.update({
-        where: { id },
+    return this.prisma.$transaction(async (tx) => {
+      await tx.procurementOrder.updateMany({
+        where: {
+          id,
+          ...buildTenantWhereClause(order.tenantId ?? undefined),
+        },
         data: {
           status,
           updatedBy: userId,
@@ -474,7 +501,7 @@ export class PurchaseOrdersService {
         tx,
       );
 
-      return updatedOrder;
+      return { success: true };
     });
   }
 
@@ -491,9 +518,12 @@ export class PurchaseOrdersService {
       throw new BadRequestException('Order already invoiced');
     }
 
-    return this.prisma.extended.$transaction(async (tx) => {
-      const updatedOrder = await tx.procurementOrder.update({
-        where: { id },
+    return this.prisma.$transaction(async (tx) => {
+      await tx.procurementOrder.updateMany({
+        where: {
+          id,
+          ...buildTenantWhereClause(order.tenantId ?? undefined),
+        },
         data: {
           status: PurchaseOrderLocalStatus.INVOICED,
           invoiceNo,
@@ -511,7 +541,7 @@ export class PurchaseOrdersService {
         tx,
       );
 
-      return updatedOrder;
+      return { success: true };
     });
   }
 
@@ -535,7 +565,7 @@ export class PurchaseOrdersService {
     }
 
     const [data, total] = await Promise.all([
-      this.prisma.extended.procurementOrder.findMany({
+      this.prisma.procurementOrder.findMany({
         where,
         skip,
         take: limit,
@@ -547,7 +577,7 @@ export class PurchaseOrdersService {
         },
         orderBy: { deletedAt: 'desc' },
       }),
-      this.prisma.extended.procurementOrder.count({ where }),
+      this.prisma.procurementOrder.count({ where }),
     ]);
 
     return {
@@ -557,16 +587,23 @@ export class PurchaseOrdersService {
   }
 
   async restore(id: string, userId?: string, ipAddress?: string, userAgent?: string) {
-    const order = await this.prisma.extended.procurementOrder.findUnique({
-      where: { id },
+    const tenantId = await this.tenantResolver.resolveForQuery();
+    const order = await this.prisma.procurementOrder.findFirst({
+      where: {
+        id,
+        ...buildTenantWhereClause(tenantId ?? undefined),
+      },
     });
 
-    if (!order) throw new NotFoundException(`Order not found: id`);
+    if (!order) throw new NotFoundException(`Order not found: ${id}`);
     if (!order.deletedAt) throw new BadRequestException('Sipariş zaten aktif');
 
-    return this.prisma.extended.$transaction(async (tx) => {
-      const restoredOrder = await tx.procurementOrder.update({
-        where: { id },
+    return this.prisma.$transaction(async (tx) => {
+      await tx.procurementOrder.updateMany({
+        where: {
+          id,
+          ...buildTenantWhereClause(order.tenantId ?? undefined),
+        },
         data: {
           deletedAt: null,
           deletedBy: null,
@@ -575,9 +612,10 @@ export class PurchaseOrdersService {
       });
 
       await this.createLog(id, 'RESTORE', userId, {}, ipAddress, userAgent, tx);
-      return restoredOrder;
+      return { success: true };
     });
   }
+
 
   async createWaybill(
     id: string,

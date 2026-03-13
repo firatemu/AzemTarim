@@ -29,7 +29,7 @@ export class WarehouseTransferService {
     };
     if (status) where.status = status;
 
-    return this.prisma.extended.warehouseTransfer.findMany({
+    return this.prisma.warehouseTransfer.findMany({
       where,
       include: {
         fromWarehouse: true,
@@ -63,7 +63,7 @@ export class WarehouseTransferService {
 
   async findOne(id: string) {
     const tenantId = await this.tenantResolver.resolveForQuery();
-    const transfer = await this.prisma.extended.warehouseTransfer.findFirst({
+    const transfer = await this.prisma.warehouseTransfer.findFirst({
       where: {
         id,
         ...buildTenantWhereClause(tenantId ?? undefined),
@@ -122,11 +122,11 @@ export class WarehouseTransferService {
     let transferNo: string;
     try {
       transferNo = await this.codeTemplateService.getNextCode(
-        'WAREHOUSE_TRANSFER',
+        'WAREHOUSE_TRANSFER' as any,
       );
     } catch (error) {
       // Fallback to manual numbering
-      const count = await this.prisma.extended.warehouseTransfer.count({
+      const count = await this.prisma.warehouseTransfer.count({
         where: buildTenantWhereClause(tenantId ?? undefined),
       });
       transferNo = `TRF-${String(count + 1).padStart(6, '0')}`;
@@ -139,7 +139,7 @@ export class WarehouseTransferService {
         kalem.productId,
       );
       if (stock < kalem.quantity) {
-        const product = await this.prisma.extended.product.findUnique({
+        const product = await this.prisma.product.findUnique({
           where: { id: kalem.productId },
           select: { code: true, name: true },
         });
@@ -150,7 +150,7 @@ export class WarehouseTransferService {
     }
 
     // Transfer fişi oluştur
-    const transfer = await this.prisma.extended.warehouseTransfer.create({
+    const transfer = await this.prisma.warehouseTransfer.create({
       data: {
         transferNo,
         ...(tenantId && { tenantId }),
@@ -189,7 +189,7 @@ export class WarehouseTransferService {
 
   async update(id: string, updateDto: UpdateWarehouseTransferDto) {
     const tenantId = await this.tenantResolver.resolveForQuery();
-    const transfer = await this.prisma.extended.warehouseTransfer.findFirst({
+    const transfer = await this.prisma.warehouseTransfer.findFirst({
       where: {
         id,
         ...buildTenantWhereClause(tenantId ?? undefined),
@@ -208,7 +208,7 @@ export class WarehouseTransferService {
     }
 
     const { userId, items, ...dataToUpdate } = updateDto;
-    return this.prisma.extended.warehouseTransfer.update({
+    return this.prisma.warehouseTransfer.update({
       where: { id },
       data: {
         ...dataToUpdate,
@@ -218,7 +218,7 @@ export class WarehouseTransferService {
   }
 
   async approve(id: string, userId: string) {
-    const transfer = await this.prisma.extended.warehouseTransfer.findUnique({
+    const transfer = await this.prisma.warehouseTransfer.findUnique({
       where: { id },
       include: { items: true },
     });
@@ -237,7 +237,7 @@ export class WarehouseTransferService {
         kalem.productId,
       );
       if (stock < kalem.quantity) {
-        const product = await this.prisma.extended.product.findUnique({
+        const product = await this.prisma.product.findUnique({
           where: { id: kalem.productId },
           select: { code: true, name: true },
         });
@@ -257,14 +257,14 @@ export class WarehouseTransferService {
 
     // Stok hareketlerini oluştur
     for (const kalem of (transfer as any).items) {
-      await this.prisma.extended.stockMove.create({
+      await this.prisma.stockMove.create({
         data: {
           productId: kalem.productId,
           fromWarehouseId: transfer.fromWarehouseId,
           fromLocationId: kalem.fromLocationId || fromDefaultLocation.id,
           toWarehouseId: transfer.toWarehouseId,
           toLocationId: kalem.toLocationId || toDefaultLocation.id,
-          qty: kalem.quantity,
+          quantity: kalem.quantity,
           moveType: 'TRANSFER',
           refType: 'WarehouseTransfer',
           refId: transfer.id,
@@ -290,7 +290,7 @@ export class WarehouseTransferService {
     }
 
     // Transfer statusunu güncelle
-    const updated = await this.prisma.extended.warehouseTransfer.update({
+    const updated = await this.prisma.warehouseTransfer.update({
       where: { id },
       data: {
         status: 'IN_TRANSIT',
@@ -308,7 +308,7 @@ export class WarehouseTransferService {
   }
 
   async complete(id: string, userId: string) {
-    const transfer = await this.prisma.extended.warehouseTransfer.findUnique({
+    const transfer = await this.prisma.warehouseTransfer.findUnique({
       where: { id },
     });
 
@@ -319,7 +319,7 @@ export class WarehouseTransferService {
       );
     }
 
-    const updated = await this.prisma.extended.warehouseTransfer.update({
+    const updated = await this.prisma.warehouseTransfer.update({
       where: { id },
       data: {
         status: 'COMPLETED',
@@ -337,7 +337,7 @@ export class WarehouseTransferService {
   }
 
   async cancel(id: string, userId: string, reason?: string) {
-    const transfer = await this.prisma.extended.warehouseTransfer.findUnique({
+    const transfer = await this.prisma.warehouseTransfer.findUnique({
       where: { id },
       include: { items: true },
     });
@@ -371,7 +371,7 @@ export class WarehouseTransferService {
       }
     }
 
-    const updated = await this.prisma.extended.warehouseTransfer.update({
+    const updated = await this.prisma.warehouseTransfer.update({
       where: { id },
       data: {
         status: 'CANCELLED',
@@ -388,7 +388,7 @@ export class WarehouseTransferService {
   }
 
   async remove(id: string) {
-    const transfer = await this.prisma.extended.warehouseTransfer.findUnique({
+    const transfer = await this.prisma.warehouseTransfer.findUnique({
       where: { id },
     });
 
@@ -399,7 +399,7 @@ export class WarehouseTransferService {
       );
     }
 
-    return this.prisma.extended.warehouseTransfer.update({
+    return this.prisma.warehouseTransfer.update({
       where: { id },
       data: {
         deletedAt: new Date(),
@@ -411,7 +411,7 @@ export class WarehouseTransferService {
     warehouseId: string,
     productId: string,
   ): Promise<number> {
-    const result = await this.prisma.extended.productLocationStock.aggregate({
+    const result = await this.prisma.productLocationStock.aggregate({
       where: { warehouseId, productId },
       _sum: { qtyOnHand: true },
     });
@@ -431,7 +431,7 @@ export class WarehouseTransferService {
       finalLocationId = defaultLocation.id;
     }
 
-    const existing = await this.prisma.extended.productLocationStock.findUnique({
+    const existing = await this.prisma.productLocationStock.findUnique({
       where: {
         warehouseId_locationId_productId: {
           warehouseId,
@@ -448,12 +448,12 @@ export class WarehouseTransferService {
           'Stok quantityı negatif olamaz',
         );
       }
-      await this.prisma.extended.productLocationStock.update({
+      await this.prisma.productLocationStock.update({
         where: { id: existing.id },
         data: { qtyOnHand: newQty },
       });
     } else if (qtyChange > 0) {
-      await this.prisma.extended.productLocationStock.create({
+      await this.prisma.productLocationStock.create({
         data: {
           warehouseId,
           locationId: finalLocationId,
@@ -465,7 +465,7 @@ export class WarehouseTransferService {
   }
 
   private async getDefaultLocation(warehouseId: string) {
-    const location = await this.prisma.extended.location.findFirst({
+    const location = await this.prisma.location.findFirst({
       where: { warehouseId, active: true },
       orderBy: { code: 'asc' },
     });
@@ -485,7 +485,7 @@ export class WarehouseTransferService {
     actionType: string,
     changes: any,
   ) {
-    await this.prisma.extended.warehouseTransferLog.create({
+    await this.prisma.warehouseTransferLog.create({
       data: {
         transferId,
         userId,

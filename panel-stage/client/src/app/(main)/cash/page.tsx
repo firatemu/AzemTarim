@@ -415,7 +415,7 @@ export default function KasaPage() {
 
         {/* Add/Edit Dialog */}
         <Dialog open={openDialog} onClose={() => setOpenDialog(false)} maxWidth="sm" fullWidth>
-          <DialogTitle component="div" sx={{ fontWeight: 'bold', borderBottom: '1px solid #e0e0e0' }} component="div">
+          <DialogTitle component="div" sx={{ fontWeight: 'bold', borderBottom: '1px solid #e0e0e0' }}>
             {editMode ? 'Kasa Düzenle' : 'Yeni Kasa Ekle'}
           </DialogTitle>
           <DialogContent>
@@ -480,7 +480,7 @@ export default function KasaPage() {
 
         {/* Delete Dialog */}
         <Dialog open={openDelete} onClose={() => setOpenDelete(false)}>
-          <DialogTitle component="div" sx={{ fontWeight: 'bold' }} component="div">Kasa Sil</DialogTitle>
+          <DialogTitle component="div" sx={{ fontWeight: 'bold' }}>Kasa Sil</DialogTitle>
           <DialogContent>
             <Typography>
               <strong>{selectedKasa?.kasaAdi}</strong> kasasını silmek istediğinizden emin misiniz?

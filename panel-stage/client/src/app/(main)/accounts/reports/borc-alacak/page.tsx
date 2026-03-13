@@ -49,10 +49,7 @@ import axios from '@/lib/axios';
 import { useDebounce } from '@/hooks/useDebounce';
 import TableSkeleton from '@/components/Loading/TableSkeleton';
 import { useTabStore } from '@/stores/tabStore';
-import { DatePicker } from '@mui/x-date-pickers';
-import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
-import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
-import trLocale from 'date-fns/locale/tr';
+
 
 // Types matching backend DTO
 interface DebtCreditReportItem {
@@ -132,7 +129,7 @@ export default function DebtCreditReportPage() {
                 }
             });
 
-            const response = await axios.get('/account/rapor/borc-alacak', { params });
+            const response = await axios.get('/account/report/debt-credit', { params });
             setData(response.data);
         } catch (error) {
             console.error('Rapor verisi alınamadı:', error);
@@ -178,7 +175,7 @@ export default function DebtCreditReportPage() {
                 }
             });
 
-            const response = await axios.get(`/cari/rapor/borc-alacak/export/${type}`, {
+            const response = await axios.get(`/account/report/debt-credit/export/${type}`, {
                 params,
                 responseType: 'blob'
             });

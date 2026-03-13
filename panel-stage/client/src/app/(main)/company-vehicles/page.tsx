@@ -349,7 +349,7 @@ export default function SirketAraclariPage() {
     } = useQuery<Personel[]>({
         queryKey: ['personeller-list'],
         queryFn: async () => {
-            const response = await axios.get('/employee?limit=1000');
+            const response = await axios.get('/employees?limit=1000');
             return response.data?.data || [];
         },
     });

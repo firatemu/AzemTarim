@@ -835,7 +835,7 @@ export default function KasaDetayPage() {
           kasaId: kasaId,
           hesapKodu: bankaHesapForm.hesapKodu.trim() || undefined,
         };
-        await axios.post('/bank-hesap', dataToSend);
+        await axios.post('/bank-accounts', dataToSend);
         showSnackbar('Banka hesabı eklendi', 'success');
       }
       setOpenDialog(false);
@@ -1248,7 +1248,7 @@ export default function KasaDetayPage() {
 
         {/* BANKA HESAP DIALOG */}
         <Dialog open={openDialog && kasa.kasaTipi === 'BANKA'} onClose={() => setOpenDialog(false)} maxWidth="md" fullWidth>
-          <DialogTitle component="div" sx={{ bgcolor: '#3b82f6', color: 'white' }} component="div">
+          <DialogTitle component="div" sx={{ bgcolor: '#3b82f6', color: 'white' }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               <AccountBalance />
               {editingItem ? 'Banka Hesabı Düzenle' : 'Yeni Banka Hesabı Ekle'}
@@ -1370,7 +1370,7 @@ export default function KasaDetayPage() {
 
         {/* FİRMA KREDİ KARTI DIALOG */}
         <Dialog open={openDialog && kasa.kasaTipi === 'FIRMA_KREDI_KARTI'} onClose={() => setOpenDialog(false)} maxWidth="md" fullWidth>
-          <DialogTitle component="div" sx={{ bgcolor: '#ef4444', color: 'white' }} component="div">
+          <DialogTitle component="div" sx={{ bgcolor: '#ef4444', color: 'white' }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               <CreditCard />
               {editingItem ? 'Firma Kredi Kartı Düzenle' : 'Yeni Firma Kredi Kartı Ekle'}

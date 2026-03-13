@@ -11,9 +11,9 @@ import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { GetCurrentUser } from '../../common/decorators/get-current-user.decorator';
 
 @UseGuards(JwtAuthGuard)
-@Controller('service-invoice')
+@Controller('service-invoices')
 export class ServiceInvoiceController {
-  constructor(private readonly serviceInvoiceService: ServiceInvoiceService) {}
+  constructor(private readonly serviceInvoiceService: ServiceInvoiceService) { }
 
   @Post('from-work-order/:workOrderId')
   createFromWorkOrder(

@@ -31,8 +31,8 @@ export default async function DashboardPage() {
     // Parallel fetch for initial payload
     const [settingsRes, stokRes, cariRes] = await Promise.all([
       serverFetch('/tenants/settings').catch(() => null),
-      serverFetch('/product?page=1&limit=5').catch(() => ({ data: [], meta: { total: 0 } })),
-      serverFetch('/account?page=1&limit=1').catch(() => ({ data: [], meta: { total: 0 } })),
+      serverFetch('/products?page=1&limit=5').catch(() => ({ data: [], meta: { total: 0 } })),
+      serverFetch('/accounts?page=1&limit=1').catch(() => ({ data: [], meta: { total: 0 } })),
     ]);
 
     initialTenantSettings = settingsRes;

@@ -1,3 +1,4 @@
+import { TenantResolverService } from '../../common/services/tenant-resolver.service';
 import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma.service';
 import { CreateRoleDto } from './dto/create-role.dto';
@@ -8,14 +9,12 @@ import { PermissionsService } from '../permissions/permissions.service';
 export class RolesService {
     private readonly logger = new Logger(RolesService.name);
 
-    constructor(
-        private readonly prisma: PrismaService,
-        private readonly permissionsService: PermissionsService,
-    ) { }
+    constructor(private readonly prisma: PrismaService,
+        private readonly permissionsService: PermissionsService, private readonly tenantResolver: TenantResolverService) { }
 
     async create(tenantId: string, dto: CreateRoleDto) {
         // Check if role name exists in tenant
-        const existing = await this.prisma.extended.role.findUnique({
+        const existing = await this.prisma.role.findUnique({
             where: {
                 tenantId_name: {
                     tenantId,
@@ -33,7 +32,7 @@ export class RolesService {
             permissionId: permId,
         })) || [];
 
-        return this.prisma.extended.role.create({
+        return this.prisma.role.create({
             data: {
                 name: dto.name,
                 description: dto.description,
@@ -56,7 +55,7 @@ export class RolesService {
     }
 
     async findAll(tenantId: string) {
-        return this.prisma.extended.role.findMany({
+        return this.prisma.role.findMany({
             where: { tenantId },
             include: {
                 _count: {
@@ -73,7 +72,7 @@ export class RolesService {
     }
 
     async findOne(tenantId: string, id: string) {
-        const role = await this.prisma.extended.role.findUnique({
+        const role = await this.prisma.role.findUnique({
             where: { id },
             include: {
                 permissions: {
@@ -102,7 +101,7 @@ export class RolesService {
         }
 
         // Transaction to update role and permissions
-        const updatedRole = await this.prisma.extended.$transaction(async (tx) => {
+        const updatedRole = await this.prisma.$transaction(async (tx) => {
             // 1. Update basic fields
             const updated = await tx.role.update({
                 where: { id },
@@ -146,7 +145,7 @@ export class RolesService {
             throw new BadRequestException('Cannot delete system roles');
         }
 
-        const userCount = await this.prisma.extended.user.count({
+        const userCount = await this.prisma.user.count({
             where: { roleId: id },
         });
 
@@ -154,7 +153,7 @@ export class RolesService {
             throw new BadRequestException(`Cannot delete role assigned to ${userCount} users`);
         }
 
-        await this.prisma.extended.role.delete({
+        await this.prisma.role.delete({
             where: { id },
         });
 
@@ -162,7 +161,7 @@ export class RolesService {
     }
 
     async getAllPermissions() {
-        return this.prisma.extended.permission.findMany({
+        return this.prisma.permission.findMany({
             orderBy: [
                 { module: 'asc' },
                 { action: 'asc' },

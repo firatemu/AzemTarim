@@ -141,12 +141,12 @@ interface Malzeme {
   altKategori: string;
   birim: string;
   birimId?: string;
-  miktar?: number; // Hareketlerden hesaplanacak
+  miktar?: number;
   olcu: string;
   oem: string;
+  tedarikciKodu?: string;
   raf?: string;
   alisFiyati: number;
-  sonAlisFiyati?: number;
   satisFiyati: number;
   // Araç bilgileri
   aracMarka?: string;
@@ -161,6 +161,18 @@ interface Malzeme {
   internalNote?: string;
   minOrderQty?: number;
   leadTimeDays?: number;
+  // Backend alanları (Mapping için)
+  code?: string;
+  name?: string;
+  mainCategory?: string;
+  subCategory?: string;
+  size?: string;
+  supplierCode?: string;
+  vehicleBrand?: string;
+  vehicleModel?: string;
+  vehicleEngineSize?: string;
+  vehicleFuelType?: string;
+  quantity?: number;
 }
 
 interface Location {
@@ -174,6 +186,21 @@ const formatDateOnly = (date: Date) => {
   const pad = (value: number) => value.toString().padStart(2, '0');
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 };
+
+const mapProductToMalzeme = (p: any): Malzeme => ({
+  ...p,
+  stokKodu: p.code,
+  stokAdi: p.name,
+  anaKategori: p.mainCategory || '',
+  altKategori: p.subCategory || '',
+  olcu: p.size || '',
+  tedarikciKodu: p.supplierCode || '',
+  aracMarka: p.vehicleBrand || '',
+  aracModel: p.vehicleModel || '',
+  aracMotorHacmi: p.vehicleEngineSize || '',
+  aracYakitTipi: p.vehicleFuelType || '',
+  miktar: p.quantity ?? 0,
+});
 
 // Malzeme Form Data Interface
 interface MalzemeFormData {
@@ -886,15 +913,13 @@ export default function MalzemeListesiPage() {
     }
   }, []);
 
-  // Fetch kategoriler - useCallback ile optimize edilmiş
   const fetchKategoriler = useCallback(async () => {
     try {
       const response = await axios.get('/category');
       const kategoriData = response.data || [];
-      // Kategorileri Record<string, string[]> formatına çevir
       const kategoriMap: Record<string, string[]> = {};
-      kategoriData.forEach((kategori: { anaKategori: string; altKategoriler: string[] }) => {
-        kategoriMap[kategori.anaKategori] = kategori.altKategoriler || [];
+      kategoriData.forEach((k: { mainCategory: string; subCategories: string[] }) => {
+        kategoriMap[k.mainCategory] = k.subCategories || [];
       });
       setKategoriler(kategoriMap);
     } catch (error) {
@@ -903,13 +928,11 @@ export default function MalzemeListesiPage() {
     }
   }, []);
 
-  // Fetch markalar - useCallback ile optimize edilmiş
   const fetchMarkalar = useCallback(async () => {
     try {
       const response = await axios.get('/brand');
       const markaData = response.data || [];
-      // Markaları string array'e çevir
-      const markaList = markaData.map((marka: { markaAdi: string }) => marka.markaAdi);
+      const markaList = markaData.map((m: { brandName: string }) => m.brandName);
       setMarkalar(markaList);
     } catch (error) {
       console.error('Marka listesi alınamadı:', error);
@@ -972,15 +995,15 @@ export default function MalzemeListesiPage() {
     fetchAracModeller(marka);
   }, [fetchAracModeller]);
 
-  // Fetch stoklar - useCallback ile optimize edilmiş (tüm sayfalar için veri çek)
   const fetchStoklar = useCallback(async () => {
     try {
       setLoading(true);
       const response = await axios.get('/product', {
-        params: { search: debouncedSearch, limit: 5000, page: 1 },
+        params: { search: debouncedSearch, limit: 100, page: 1 },
       });
-      const stokData = response.data.data || [];
-      setStoklar(stokData);
+      const rawData = response.data.data || [];
+      const mappedData = rawData.map(mapProductToMalzeme);
+      setStoklar(mappedData);
     } catch (error) {
       console.error('Stok verisi alınamadı:', error);
       setStoklar([]);
@@ -1109,26 +1132,24 @@ export default function MalzemeListesiPage() {
     try {
       // Backend'e gönderilecek veri - stokKodu boşsa undefined gönder (backend otomatik üretsin)
       const payload = {
-        stokKodu: submitFormData.stokKodu && submitFormData.stokKodu.trim().length > 0 ? submitFormData.stokKodu : undefined,
-        stokAdi: submitFormData.stokAdi,
-        barkod: submitFormData.barkod && submitFormData.barkod.trim().length > 0 ? submitFormData.barkod : undefined,
-        birim: submitFormData.birim,
-        birimId: submitFormData.birimId || undefined,
-        alisFiyati: Number(submitFormData.alisFiyati),
-        satisFiyati: Number(submitFormData.satisFiyati),
-        kategori: submitFormData.anaKategori || undefined,
-        anaKategori: submitFormData.anaKategori || undefined,
-        altKategori: submitFormData.altKategori || undefined,
-        marka: submitFormData.marka || undefined,
+        code: submitFormData.stokKodu && submitFormData.stokKodu.trim().length > 0 ? submitFormData.stokKodu : undefined,
+        name: submitFormData.stokAdi,
+        barcode: submitFormData.barkod && submitFormData.barkod.trim().length > 0 ? submitFormData.barkod : undefined,
+        unit: submitFormData.birim,
+        unitId: submitFormData.birimId || undefined,
+        purchasePrice: Number(submitFormData.alisFiyati),
+        salePrice: Number(submitFormData.satisFiyati),
+        mainCategory: submitFormData.anaKategori || undefined,
+        subCategory: submitFormData.altKategori || undefined,
+        brand: submitFormData.marka || undefined,
         oem: submitFormData.oem || undefined,
-        olcu: submitFormData.olcu || undefined,
-        raf: submitFormData.raf || undefined,
-        tedarikciKodu: submitFormData.tedarikciKodu && submitFormData.tedarikciKodu.trim().length > 0 ? submitFormData.tedarikciKodu : undefined,
-        // Araç bilgileri
-        aracMarka: submitFormData.aracMarka || undefined,
-        aracModel: submitFormData.aracModel || undefined,
-        aracMotorHacmi: submitFormData.aracMotorHacmi || undefined,
-        aracYakitTipi: submitFormData.aracYakitTipi || undefined,
+        size: submitFormData.olcu || undefined,
+        shelf: submitFormData.raf || undefined,
+        supplierCode: submitFormData.tedarikciKodu && submitFormData.tedarikciKodu.trim().length > 0 ? submitFormData.tedarikciKodu : undefined,
+        vehicleBrand: submitFormData.aracMarka || undefined,
+        vehicleModel: submitFormData.aracModel || undefined,
+        vehicleEngineSize: submitFormData.aracMotorHacmi || undefined,
+        vehicleFuelType: submitFormData.aracYakitTipi || undefined,
         weight: submitFormData.weight != null ? submitFormData.weight : undefined,
         weightUnit: submitFormData.weightUnit || undefined,
         dimensions: submitFormData.dimensions || undefined,
@@ -1171,7 +1192,7 @@ export default function MalzemeListesiPage() {
           await Promise.all(
             priceCardPayloads.map((item) =>
               axios.post('/price-cards', {
-                stokId,
+                productId: stokId,
                 type: item.type,
                 price: item.price,
                 effectiveFrom,
@@ -1185,20 +1206,7 @@ export default function MalzemeListesiPage() {
       }
 
       handleCloseDialog();
-      // Listeyi yenile - fetchStoklar'ı dependency'den çıkar, doğrudan çağır
-      try {
-        setLoading(true);
-        const response = await axios.get('/product', {
-          params: { search: debouncedSearch, limit: 5000, page: 1 },
-        });
-        const stokData = response.data.data || [];
-        setStoklar(stokData);
-      } catch (error) {
-        console.error('Stok verisi alınamadı:', error);
-        setStoklar([]);
-      } finally {
-        setLoading(false);
-      }
+      fetchStoklar();
     } catch (error: any) {
       console.error('Malzeme kaydedilemedi:', error);
       console.error('Backend hatası:', error.response?.data);
@@ -1220,7 +1228,7 @@ export default function MalzemeListesiPage() {
           `• Hareket: ${canDelete.hareketSayisi}\n` +
           `• Fatura: ${canDelete.faturaKalemSayisi}\n` +
           `• Sipariş: ${canDelete.siparisKalemSayisi}\n` +
-          `• Teklif: ${canDelete.teklifKalemSayisi}\n` +
+          `• Teklif: ${canDelete.quoteKalemSayisi}\n` +
           `• Sayım: ${canDelete.sayimKalemSayisi}\n` +
           `• Depo Hareketi: ${canDelete.stockMoveSayisi}\n\n` +
           `Hareket gören malzemeler silinemez.`
@@ -1230,20 +1238,7 @@ export default function MalzemeListesiPage() {
 
       if (confirm('Bu malzemeyi silmek istediğinizden emin misiniz?')) {
         await axios.delete(`/product/${id}`);
-        // Listeyi yenile
-        try {
-          setLoading(true);
-          const response = await axios.get('/product', {
-            params: { search: debouncedSearch, limit: 5000, page: 1 },
-          });
-          const stokData = response.data.data || [];
-          setStoklar(stokData);
-        } catch (error) {
-          console.error('Stok verisi alınamadı:', error);
-          setStoklar([]);
-        } finally {
-          setLoading(false);
-        }
+        fetchStoklar();
       }
     } catch (error: any) {
       console.error('Malzeme silinemedi:', error);
@@ -1253,7 +1248,7 @@ export default function MalzemeListesiPage() {
         alert('Malzeme silinirken bir hata oluştu');
       }
     }
-  }, [debouncedSearch]);
+  }, [debouncedSearch, fetchStoklar]);
 
   const handleOpenEslestirme = async (malzeme: Malzeme) => {
     setSelectedMalzeme(malzeme);
@@ -1263,7 +1258,7 @@ export default function MalzemeListesiPage() {
     try {
       const response = await axios.get(`/product/${malzeme.id}/esdegerler`);
       if (response.data.esdegerler && response.data.esdegerler.length > 0) {
-        setSelectedEquivalents(response.data.esdegerler);
+        setSelectedEquivalents(response.data.esdegerler.map(mapProductToMalzeme));
       }
     } catch (error) {
       console.error('Eşdeğer ürünler yüklenemedi:', error);
@@ -1330,20 +1325,7 @@ export default function MalzemeListesiPage() {
       );
 
       handleCloseEslestirme();
-      // Listeyi yenile
-      try {
-        setLoading(true);
-        const response = await axios.get('/product', {
-          params: { search: debouncedSearch, limit: 5000, page: 1 },
-        });
-        const stokData = response.data.data || [];
-        setStoklar(stokData);
-      } catch (error) {
-        console.error('Stok verisi alınamadı:', error);
-        setStoklar([]);
-      } finally {
-        setLoading(false);
-      }
+      fetchStoklar();
     } catch (error: any) {
       console.error('Eşleştirme kaydedilemedi:', error);
       const errorMsg = error.response?.data?.message || 'Eşleştirme kaydedilemedi. Lütfen tekrar deneyin.';
@@ -1362,20 +1344,7 @@ export default function MalzemeListesiPage() {
     try {
       await axios.delete(`/product/${stok.id}/match`);
       alert(`✅ ${stok.stokKodu} ürününün eşleştirmesi başarıyla kaldırıldı.`);
-      // Listeyi yenile
-      try {
-        setLoading(true);
-        const response = await axios.get('/product', {
-          params: { search: debouncedSearch, limit: 5000, page: 1 },
-        });
-        const stokData = response.data.data || [];
-        setStoklar(stokData);
-      } catch (error) {
-        console.error('Stok verisi alınamadı:', error);
-        setStoklar([]);
-      } finally {
-        setLoading(false);
-      }
+      fetchStoklar();
     } catch (error: any) {
       console.error('Eşleştirme kaldırılamadı:', error);
       alert(`❌ Hata: ${error.response?.data?.message || 'Eşleştirme kaldırılamadı.'}`);
@@ -1482,7 +1451,7 @@ export default function MalzemeListesiPage() {
     try {
       const response = await axios.get(`/product/${malzeme.id}/esdegerler`);
       if (response.data?.esdegerler && Array.isArray(response.data.esdegerler)) {
-        setEsdegerUrunler(response.data.esdegerler);
+        setEsdegerUrunler(response.data.esdegerler.map(mapProductToMalzeme));
       } else {
         setEsdegerUrunler([]);
       }
@@ -1548,7 +1517,7 @@ export default function MalzemeListesiPage() {
       'Yakıt Tipi': stok.aracYakitTipi || '-',
       Miktar: stok.miktar ?? 0,
       Birim: stok.birim,
-      'Son Alış Fiyatı': Number(stok.sonAlisFiyati ?? stok.alisFiyati ?? 0),
+      'Son Alış Fiyatı': Number(stok.alisFiyati ?? 0),
       'Satış Fiyatı': Number(stok.satisFiyati ?? 0),
     }));
 
@@ -1849,19 +1818,6 @@ export default function MalzemeListesiPage() {
                 field: 'birim',
                 headerName: 'Birim',
                 width: 80,
-              },
-              {
-                field: 'sonAlisFiyati',
-                headerName: 'Son Alış Fiyatı',
-                type: 'number',
-                width: 140,
-                align: 'right',
-                headerAlign: 'right',
-                valueGetter: (value, row) => value ?? row.alisFiyati,
-                valueFormatter: (value) => {
-                  if (value == null) return '';
-                  return `₺${Number(value).toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-                },
               },
               {
                 field: 'satisFiyati',

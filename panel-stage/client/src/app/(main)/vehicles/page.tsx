@@ -93,7 +93,7 @@ const AracFormDialog = React.memo(({
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle component="div" sx={{ bgcolor: '#191970', color: 'white', fontSize: '1.25rem', py: 2 }} component="div">
+      <DialogTitle component="div" sx={{ bgcolor: '#191970', color: 'white', fontSize: '1.25rem', py: 2 }}>
         {editingArac ? '✏️ Araç Düzenle' : '➕ Yeni Araç Ekle'}
       </DialogTitle>
       <DialogContent sx={{ mt: 3 }}>
@@ -222,7 +222,7 @@ export default function AracPage() {
   // Markaları yükle
   const fetchMarkalar = useCallback(async () => {
     try {
-      const response = await axios.get('/vehicles/brands');
+      const response = await axios.get('/vehicle-brand/brands');
       setMarkalar(response.data || []);
     } catch (error) {
       console.error('Markalar yüklenemedi:', error);
@@ -233,7 +233,7 @@ export default function AracPage() {
   // Yakıt tiplerini yükle
   const fetchYakitTipleri = useCallback(async () => {
     try {
-      const response = await axios.get('/vehicles/fuel-types');
+      const response = await axios.get('/vehicle-brand/fuel-types');
       setYakitTipleri(response.data || []);
     } catch (error) {
       console.error('Yakıt tipleri yüklenemedi:', error);
@@ -246,7 +246,7 @@ export default function AracPage() {
     try {
       setLoading(true);
       setError(null);
-      const response = await axios.get('/vehicles', {
+      const response = await axios.get('/vehicle-brand', {
         params: {
           page,
           limit: 20,
@@ -255,7 +255,15 @@ export default function AracPage() {
           fuelType: selectedYakitTipi || undefined,
         },
       });
-      const data = response.data.data || [];
+      const data = (response.data.data || []).map((item: any) => ({
+        id: item.id,
+        marka: item.brand || item.marka || '',
+        model: item.model || '',
+        motorHacmi: item.engineVolume || item.motorHacmi || '',
+        yakitTipi: item.fuelType || item.yakitTipi || '',
+        createdAt: item.createdAt || '',
+        updatedAt: item.updatedAt || '',
+      }));
       setAraclar(data);
       setTotal(response.data.total || 0);
       setTotalPages(response.data.totalPages || 1);
@@ -310,11 +318,19 @@ export default function AracPage() {
   // Form gönderme
   const handleSubmit = useCallback(async (formData: AracFormData) => {
     try {
+      // Form datasını backend formatına dönüştür
+      const backendData = {
+        brand: formData.marka,
+        model: formData.model,
+        engineVolume: formData.motorHacmi,
+        fuelType: formData.yakitTipi,
+      };
+
       if (editingArac) {
-        await axios.patch(`/vehicles/${editingArac.id}`, formData);
+        await axios.patch(`/vehicle-brand/${editingArac.id}`, backendData);
         alert('✅ Araç başarıyla güncellendi');
       } else {
-        await axios.post('/vehicles', formData);
+        await axios.post('/vehicle-brand', backendData);
         alert('✅ Araç başarıyla eklendi');
       }
       await fetchAraclar();
@@ -333,7 +349,7 @@ export default function AracPage() {
 
     try {
       setDeleting(id);
-      await axios.delete(`/vehicles/${id}`);
+      await axios.delete(`/vehicle-brand/${id}`);
       alert('✅ Araç başarıyla silindi');
       await fetchAraclar();
     } catch (error: any) {

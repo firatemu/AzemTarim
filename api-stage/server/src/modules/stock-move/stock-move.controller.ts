@@ -19,7 +19,7 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator';
 
 @ApiTags('stock-move')
 @UseGuards(JwtAuthGuard)
-@Controller('stock-move')
+@Controller('stock-movements')
 export class StockMoveController {
   constructor(private readonly stockMoveService: StockMoveService) { }
 

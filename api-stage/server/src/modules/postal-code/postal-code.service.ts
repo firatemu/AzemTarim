@@ -1,9 +1,10 @@
+import { TenantResolverService } from '../../common/services/tenant-resolver.service';
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma.service';
 
 @Injectable()
 export class PostalCodeService {
-  constructor(private prisma: PrismaService) { }
+  constructor(private prisma: PrismaService, private readonly tenantResolver: TenantResolverService) { }
 
   /**
    * İl, ilçe ve mahalle bilgisine göre posta kodunu bulur
@@ -22,7 +23,7 @@ export class PostalCodeService {
     }
 
     // Normalize: Büyük/küçük harf duyarsız arama
-    const postalCode = await this.prisma.extended.postalCode.findFirst({
+    const postalCode = await this.prisma.postalCode.findFirst({
       where: {
         city: {
           equals: city.trim(),
@@ -59,7 +60,7 @@ export class PostalCodeService {
       return [];
     }
 
-    const postalCodes = await this.prisma.extended.postalCode.findMany({
+    const postalCodes = await this.prisma.postalCode.findMany({
       where: {
         city: {
           equals: city.trim(),
@@ -92,7 +93,7 @@ export class PostalCodeService {
     neighborhood: string,
     postalCode: string,
   ): Promise<void> {
-    await this.prisma.extended.postalCode.upsert({
+    await this.prisma.postalCode.upsert({
       where: {
         city_district_neighborhood: {
           city: city.trim(),
@@ -129,7 +130,7 @@ export class PostalCodeService {
 
     for (const pc of postalCodes) {
       try {
-        const existing = await this.prisma.extended.postalCode.findUnique({
+        const existing = await this.prisma.postalCode.findUnique({
           where: {
             city_district_neighborhood: {
               city: pc.city.trim(),
@@ -140,13 +141,13 @@ export class PostalCodeService {
         });
 
         if (existing) {
-          await this.prisma.extended.postalCode.update({
+          await this.prisma.postalCode.update({
             where: { id: existing.id },
             data: { postalCode: pc.postalCode.trim() },
           });
           updated++;
         } else {
-          await this.prisma.extended.postalCode.create({
+          await this.prisma.postalCode.create({
             data: {
               city: pc.city.trim(),
               district: pc.district.trim(),
@@ -178,7 +179,7 @@ export class PostalCodeService {
       return [];
     }
 
-    const neighborhoods = await this.prisma.extended.postalCode.findMany({
+    const neighborhoods = await this.prisma.postalCode.findMany({
       where: {
         city: {
           equals: city.trim(),

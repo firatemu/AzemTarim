@@ -1,10 +1,13 @@
 import { Injectable, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { createClient, RedisClientType } from 'redis';
+import { TenantResolverService } from './tenant-resolver.service';
 
 @Injectable()
 export class RedisService implements OnModuleInit, OnModuleDestroy {
   private client: RedisClientType;
   private isConnected = false;
+
+  constructor(private readonly tenantResolver: TenantResolverService) { }
 
   async onModuleInit() {
     try {
@@ -65,6 +68,41 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
       this.isConnected = false;
       return false;
     }
+  }
+
+  /**
+   * Generates a tenant-scoped key
+   */
+  private async getTenantKey(key: string, tenantId?: string): Promise<string> {
+    const resolvedTenantId = tenantId || await this.tenantResolver.resolveForQuery();
+    if (!resolvedTenantId) {
+      return `global:${key}`;
+    }
+    return `${resolvedTenantId}:${key}`;
+  }
+
+  /**
+   * Set a tenant-scoped key-value pair in Redis
+   */
+  async setForTenant(key: string, value: string, ttlSeconds?: number, tenantId?: string): Promise<boolean> {
+    const tenantKey = await this.getTenantKey(key, tenantId);
+    return this.set(tenantKey, value, ttlSeconds);
+  }
+
+  /**
+   * Get a tenant-scoped value from Redis
+   */
+  async getForTenant(key: string, tenantId?: string): Promise<string | null> {
+    const tenantKey = await this.getTenantKey(key, tenantId);
+    return this.get(tenantKey);
+  }
+
+  /**
+   * Delete a tenant-scoped key from Redis
+   */
+  async delForTenant(key: string, tenantId?: string): Promise<boolean> {
+    const tenantKey = await this.getTenantKey(key, tenantId);
+    return this.del(tenantKey);
   }
 
   /**

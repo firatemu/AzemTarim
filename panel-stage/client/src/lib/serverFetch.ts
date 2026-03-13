@@ -22,7 +22,7 @@ export async function serverFetch<T>(endpoint: string, options: FetchOptions = {
         headers.set('x-tenant-id', tenantId);
     }
 
-    const baseURL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api';
+    const baseURL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3010/api';
     const url = `${baseURL}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
 
     // Merge custom Next.js caching controls

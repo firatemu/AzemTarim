@@ -1,10 +1,11 @@
+import { TenantResolverService } from '../../common/services/tenant-resolver.service';
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma.service';
 import { Plan } from '@prisma/client';
 
 @Injectable()
 export class PlansService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService, private readonly tenantResolver: TenantResolverService) {}
 
   async getAvailablePlans() {
     // Return hardcoded plans for now
@@ -47,7 +48,7 @@ export class PlansService {
 
   async getPlanLimits(planSlug: string) {
     // Database'den plan bilgisini al
-    const plan = await this.prisma.extended.plan.findUnique({
+    const plan = await this.prisma.plan.findUnique({
       where: { slug: planSlug },
     });
 

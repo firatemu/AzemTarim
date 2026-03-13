@@ -1,9 +1,9 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { 
-  Box, 
-  Typography, 
+import {
+  Box,
+  Typography,
   Paper,
   Table,
   TableBody,
@@ -25,115 +25,105 @@ import MainLayout from '@/components/Layout/MainLayout';
 import axios from '@/lib/axios';
 import { useRouter } from 'next/navigation';
 
-interface Cari {
+interface Account {
   id: string;
-  cariKodu: string;
-  unvan: string;
-  tip: string;
-  vadeSuresi?: number;
+  code: string;
+  name: string;
+  type: string;
+  paymentTerm?: number;
 }
 
-interface Stok {
+interface Product {
   id: string;
-  stokKodu: string;
-  stokAdi: string;
-  satisFiyati: number;
-  kdvOrani: number;
-  barkod?: string;
+  code: string;
+  name: string;
+  salePrice: number;
+  vatRate: number;
+  barcode?: string;
 }
 
-interface TeklifKalemi {
-  stokId: string;
-  stok?: Stok;
-  miktar: number;
-  birimFiyat: number;
-  kdvOrani: number;
-  iskontoOran: number;
-  iskontoTutar: number;
-  cokluIskonto?: boolean;
-  iskontoFormula?: string;
+interface QuoteItem {
+  productId: string;
+  product?: Product;
+  quantity: number;
+  unitPrice: number;
+  vatRate: number;
+  discountRate: number;
+  discountAmount: number;
+  isMultiDiscount?: boolean;
+  discountFormula?: string;
 }
 
 export default function YeniSatisTeklifiPage() {
   const router = useRouter();
-  const [cariler, setCariler] = useState<Cari[]>([]);
-  const [stoklar, setStoklar] = useState<Stok[]>([]);
+  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(false);
-  
+
   const [formData, setFormData] = useState({
-    teklifNo: '',
-    teklifTipi: 'SATIS' as 'SATIS' | 'SATIN_ALMA',
-    cariId: '',
-    tarih: new Date().toISOString().split('T')[0],
-    gecerlilikTarihi: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-    durum: 'TEKLIF' as 'TEKLIF',
-    genelIskontoOran: 0,
-    genelIskontoTutar: 0,
-    aciklama: '',
-    kalemler: [] as TeklifKalemi[],
+    quoteNo: '',
+    quoteType: 'SALE' as 'SALE' | 'PURCHASE',
+    accountId: '',
+    date: new Date().toISOString().split('T')[0],
+    validUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+    status: 'OFFERED' as 'OFFERED',
+    overallDiscountRate: 0,
+    overallDiscountAmount: 0,
+    notes: '',
+    items: [] as QuoteItem[],
   });
-  
+
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' | 'info' });
   const [autocompleteOpenStates, setAutocompleteOpenStates] = useState<Record<number, boolean>>({});
 
   useEffect(() => {
-    fetchCariler();
-    fetchStoklar();
-    generateTeklifNo();
+    fetchAccounts();
+    fetchProducts();
+    generateQuoteNo();
   }, []);
 
-  const fetchCariler = async () => {
+  const fetchAccounts = async () => {
     try {
       const response = await axios.get('/account', {
         params: { limit: 1000 },
       });
-      setCariler(response.data.data || []);
+      setAccounts(response.data.data || []);
     } catch (error) {
       console.error('Cariler yüklenirken hata:', error);
     }
   };
 
-  const fetchStoklar = async () => {
+  const fetchProducts = async () => {
     try {
       const response = await axios.get('/product', {
         params: { limit: 1000 },
       });
-      setStoklar(response.data.data || []);
+      setProducts(response.data.data || []);
     } catch (error) {
       console.error('Stoklar yüklenirken hata:', error);
     }
   };
 
-  const generateTeklifNo = async () => {
+  const generateQuoteNo = async () => {
     try {
       const params: any = {
-        teklifTipi: 'SATIS',
+        quoteType: 'SALE',
         limit: '1',
       };
-      const response = await axios.get('/quote', { params });
-      const teklifler = response.data?.data || [];
-      const lastTeklif = teklifler[0];
-      const lastNo = lastTeklif ? parseInt(lastTeklif.teklifNo.split('-')[2] || '0') : 0;
+      const response = await axios.get('/quotes', { params });
+      const quotes = response.data?.data || [];
+      const lastQuote = quotes[0];
+      const lastNo = lastQuote ? parseInt(lastQuote.quoteNo.split('-')[2] || '0') : 0;
       const newNo = (lastNo + 1).toString().padStart(3, '0');
       setFormData(prev => ({
         ...prev,
-        teklifNo: `ST-${new Date().getFullYear()}-${newNo}`,
+        quoteNo: `ST-${new Date().getFullYear()}-${newNo}`,
       }));
     } catch (error: any) {
-      // API yoksa veya hata varsa varsayılan numara
-      if (error.response?.status === 404) {
-        // API henüz hazır değilse varsayılan numara
-        setFormData(prev => ({
-          ...prev,
-          teklifNo: `ST-${new Date().getFullYear()}-001`,
-        }));
-      } else {
-        // Diğer hatalarda da varsayılan numara
-        setFormData(prev => ({
-          ...prev,
-          teklifNo: `ST-${new Date().getFullYear()}-001`,
-        }));
-      }
+      setFormData(prev => ({
+        ...prev,
+        quoteNo: `ST-${new Date().getFullYear()}-001`,
+      }));
     }
   };
 
@@ -143,232 +133,214 @@ export default function YeniSatisTeklifiPage() {
 
   const calculateMultiDiscount = (baseAmount: number, formula: string): { finalAmount: number; totalDiscount: number; effectiveRate: number } => {
     const discounts = formula.split('+').map(d => parseFloat(d.trim())).filter(d => !isNaN(d) && d > 0);
-    
+
     if (discounts.length === 0) {
       return { finalAmount: baseAmount, totalDiscount: 0, effectiveRate: 0 };
     }
-    
+
     let currentAmount = baseAmount;
     let totalDiscount = 0;
-    
+
     for (const discount of discounts) {
       const discountAmount = (currentAmount * discount) / 100;
       currentAmount -= discountAmount;
       totalDiscount += discountAmount;
     }
-    
+
     const effectiveRate = baseAmount > 0 ? (totalDiscount / baseAmount) * 100 : 0;
-    
+
     return { finalAmount: currentAmount, totalDiscount, effectiveRate };
   };
 
-  const handleAddKalem = () => {
+  const handleAddItem = () => {
     setFormData(prev => ({
       ...prev,
-      kalemler: [...prev.kalemler, { 
-        stokId: '', 
-        miktar: 1, 
-        birimFiyat: 0, 
-        kdvOrani: 20, 
-        iskontoOran: 0, 
-        iskontoTutar: 0,
-        cokluIskonto: false,
-        iskontoFormula: '',
+      items: [...prev.items, {
+        productId: '',
+        quantity: 1,
+        unitPrice: 0,
+        vatRate: 20,
+        discountRate: 0,
+        discountAmount: 0,
+        isMultiDiscount: false,
+        discountFormula: '',
       }],
     }));
   };
 
-  const handleRemoveKalem = (index: number) => {
+  const handleRemoveItem = (index: number) => {
     setFormData(prev => ({
       ...prev,
-      kalemler: prev.kalemler.filter((_, i) => i !== index),
+      items: prev.items.filter((_, i) => i !== index),
     }));
   };
 
-  const handleKalemChange = (index: number, field: keyof TeklifKalemi, value: any) => {
+  const handleItemChange = (index: number, field: keyof QuoteItem, value: any) => {
     setFormData(prev => {
-      const newKalemler = [...prev.kalemler];
-      const kalem = { ...newKalemler[index] };
-      
-      if (field === 'stokId') {
-        const stok = stoklar.find(s => s.id === value);
-        if (stok) {
-          kalem.stokId = value;
-          kalem.birimFiyat = stok.satisFiyati;
-          kalem.kdvOrani = stok.kdvOrani;
+      const newItems = [...prev.items];
+      const item = { ...newItems[index] };
+
+      if (field === 'productId') {
+        const product = products.find(s => s.id === value);
+        if (product) {
+          item.productId = value;
+          item.unitPrice = product.salePrice;
+          item.vatRate = product.vatRate;
         }
-      } else if (field === 'cokluIskonto') {
-        kalem.cokluIskonto = value;
+      } else if (field === 'isMultiDiscount') {
+        item.isMultiDiscount = value;
         if (!value) {
-          kalem.iskontoFormula = '';
-          const araToplam = kalem.miktar * kalem.birimFiyat;
-          kalem.iskontoTutar = (araToplam * kalem.iskontoOran) / 100;
+          item.discountFormula = '';
+          const subTotal = item.quantity * item.unitPrice;
+          item.discountAmount = (subTotal * item.discountRate) / 100;
         } else {
-          if (kalem.iskontoOran > 0) {
-            kalem.iskontoFormula = kalem.iskontoOran.toString();
+          if (item.discountRate > 0) {
+            item.discountFormula = item.discountRate.toString();
           }
         }
-      } else if (field === 'iskontoFormula') {
-        kalem.iskontoFormula = value;
-        const araToplam = kalem.miktar * kalem.birimFiyat;
-        const result = calculateMultiDiscount(araToplam, value);
-        kalem.iskontoTutar = result.totalDiscount;
-        kalem.iskontoOran = result.effectiveRate;
-      } else if (field === 'iskontoOran') {
-        if (kalem.cokluIskonto) {
-          kalem.iskontoFormula = value;
-          const araToplam = kalem.miktar * kalem.birimFiyat;
-          const result = calculateMultiDiscount(araToplam, value);
-          kalem.iskontoTutar = result.totalDiscount;
-          kalem.iskontoOran = result.effectiveRate;
+      } else if (field === 'discountFormula') {
+        item.discountFormula = value;
+        const subTotal = item.quantity * item.unitPrice;
+        const result = calculateMultiDiscount(subTotal, value);
+        item.discountAmount = result.totalDiscount;
+        item.discountRate = result.effectiveRate;
+      } else if (field === 'discountRate') {
+        if (item.isMultiDiscount) {
+          item.discountFormula = value;
+          const subTotal = item.quantity * item.unitPrice;
+          const result = calculateMultiDiscount(subTotal, value);
+          item.discountAmount = result.totalDiscount;
+          item.discountRate = result.effectiveRate;
         } else {
-          kalem.iskontoOran = parseFloat(value) || 0;
-          const araToplam = kalem.miktar * kalem.birimFiyat;
-          kalem.iskontoTutar = (araToplam * kalem.iskontoOran) / 100;
+          item.discountRate = parseFloat(value) || 0;
+          const subTotal = item.quantity * item.unitPrice;
+          item.discountAmount = (subTotal * item.discountRate) / 100;
         }
-      } else if (field === 'iskontoTutar') {
-        if (!kalem.cokluIskonto) {
-          kalem.iskontoTutar = parseFloat(value) || 0;
-          const araToplam = kalem.miktar * kalem.birimFiyat;
-          kalem.iskontoOran = araToplam > 0 ? (kalem.iskontoTutar / araToplam) * 100 : 0;
+      } else if (field === 'discountAmount') {
+        if (!item.isMultiDiscount) {
+          item.discountAmount = parseFloat(value) || 0;
+          const subTotal = item.quantity * item.unitPrice;
+          item.discountRate = subTotal > 0 ? (item.discountAmount / subTotal) * 100 : 0;
         }
-      } else if (field === 'miktar' || field === 'birimFiyat') {
-        kalem[field] = parseFloat(value) || 0;
-        const araToplam = kalem.miktar * kalem.birimFiyat;
-        if (kalem.cokluIskonto && kalem.iskontoFormula) {
-          const result = calculateMultiDiscount(araToplam, kalem.iskontoFormula);
-          kalem.iskontoTutar = result.totalDiscount;
-          kalem.iskontoOran = result.effectiveRate;
+      } else if (field === 'quantity' || field === 'unitPrice') {
+        item[field] = parseFloat(value) || 0;
+        const subTotal = item.quantity * item.unitPrice;
+        if (item.isMultiDiscount && item.discountFormula) {
+          const result = calculateMultiDiscount(subTotal, item.discountFormula);
+          item.discountAmount = result.totalDiscount;
+          item.discountRate = result.effectiveRate;
         } else {
-          kalem.iskontoTutar = (araToplam * kalem.iskontoOran) / 100;
+          item.discountAmount = (subTotal * item.discountRate) / 100;
         }
       } else {
-        kalem[field] = value;
+        item[field] = value;
       }
-      
-      newKalemler[index] = kalem;
-      return { ...prev, kalemler: newKalemler };
-    });
 
+      newItems[index] = item;
+      return { ...prev, items: newItems };
+    });
   };
 
-  const calculateKalemTutar = (kalem: TeklifKalemi) => {
-    const araToplam = kalem.miktar * kalem.birimFiyat;
-    const netTutar = araToplam - kalem.iskontoTutar;
-    const kdv = (netTutar * kalem.kdvOrani) / 100;
-    return netTutar + kdv;
+  const calculateItemAmount = (item: QuoteItem) => {
+    const subTotal = item.quantity * item.unitPrice;
+    const netAmount = subTotal - item.discountAmount;
+    const vatAmount = (netAmount * item.vatRate) / 100;
+    return netAmount + vatAmount;
   };
 
   const calculateTotals = () => {
-    let araToplam = 0;
-    let toplamKalemIskontosu = 0;
-    let toplamKdv = 0;
-    
-    formData.kalemler.forEach(kalem => {
-      const kalemAraToplam = kalem.miktar * kalem.birimFiyat;
-      araToplam += kalemAraToplam;
-      toplamKalemIskontosu += kalem.iskontoTutar;
-      
-      const netTutar = kalemAraToplam - kalem.iskontoTutar;
-      const kdv = (netTutar * kalem.kdvOrani) / 100;
-      toplamKdv += kdv;
+    let subTotal = 0;
+    let totalItemDiscount = 0;
+    let totalVat = 0;
+
+    formData.items.forEach(item => {
+      const itemSubTotal = item.quantity * item.unitPrice;
+      subTotal += itemSubTotal;
+      totalItemDiscount += item.discountAmount;
+
+      const netAmount = itemSubTotal - item.discountAmount;
+      const vatAmount = (netAmount * item.vatRate) / 100;
+      totalVat += vatAmount;
     });
-    
-    const genelIskonto = formData.genelIskontoTutar || 0;
-    const toplamIskonto = toplamKalemIskontosu + genelIskonto;
-    const netToplam = araToplam - toplamKalemIskontosu - genelIskonto;
-    const genelToplam = netToplam + toplamKdv;
-    
-    return { araToplam, toplamKalemIskontosu, genelIskonto, toplamIskonto, toplamKdv, netToplam, genelToplam };
+
+    const overallDiscount = formData.overallDiscountAmount || 0;
+    const totalDiscount = totalItemDiscount + overallDiscount;
+    const netTotal = subTotal - totalItemDiscount - overallDiscount;
+    const grandTotal = netTotal + totalVat;
+
+    return { subTotal, totalItemDiscount, overallDiscount, totalDiscount, totalVat, netTotal, grandTotal };
   };
-  
-  const handleGenelIskontoOranChange = (value: string) => {
-    const oran = parseFloat(value) || 0;
-    const araToplam = formData.kalemler.reduce((sum, k) => sum + (k.miktar * k.birimFiyat - k.iskontoTutar), 0);
-    const tutar = (araToplam * oran) / 100;
-    setFormData(prev => ({ ...prev, genelIskontoOran: oran, genelIskontoTutar: tutar }));
+
+  const handleOverallDiscountRateChange = (value: string) => {
+    const rate = parseFloat(value) || 0;
+    const subTotal = formData.items.reduce((sum, k) => sum + (k.quantity * k.unitPrice - k.discountAmount), 0);
+    const amount = (subTotal * rate) / 100;
+    setFormData(prev => ({ ...prev, overallDiscountRate: rate, overallDiscountAmount: amount }));
   };
-  
-  const handleGenelIskontoTutarChange = (value: string) => {
-    const tutar = parseFloat(value) || 0;
-    const araToplam = formData.kalemler.reduce((sum, k) => sum + (k.miktar * k.birimFiyat - k.iskontoTutar), 0);
-    const oran = araToplam > 0 ? (tutar / araToplam) * 100 : 0;
-    setFormData(prev => ({ ...prev, genelIskontoOran: oran, genelIskontoTutar: tutar }));
+
+  const handleOverallDiscountAmountChange = (value: string) => {
+    const amount = parseFloat(value) || 0;
+    const subTotal = formData.items.reduce((sum, k) => sum + (k.quantity * k.unitPrice - k.discountAmount), 0);
+    const rate = subTotal > 0 ? (amount / subTotal) * 100 : 0;
+    setFormData(prev => ({ ...prev, overallDiscountRate: rate, overallDiscountAmount: amount }));
   };
 
   const handleSave = async () => {
     try {
-      if (!formData.cariId) {
+      if (!formData.accountId) {
         showSnackbar('Cari seçimi zorunludur', 'error');
         return;
       }
-      
-      // Boş stok satırlarını filtrele (stokId boş olanları sil)
-      const validKalemler = formData.kalemler.filter(k => k.stokId && k.stokId.trim() !== '');
-      
-      if (validKalemler.length === 0) {
+
+      const validItems = formData.items.filter(k => k.productId && k.productId.trim() !== '');
+
+      if (validItems.length === 0) {
         showSnackbar('En az bir kalem eklemelisiniz', 'error');
         return;
       }
 
-      // Boş satır sayısı varsa kullanıcıyı bilgilendir
-      const removedCount = formData.kalemler.length - validKalemler.length;
+      const removedCount = formData.items.length - validItems.length;
       if (removedCount > 0) {
         showSnackbar(`${removedCount} adet boş satır otomatik olarak kaldırıldı`, 'info');
       }
 
       setLoading(true);
-      
-      // Payload'ı try bloğunun dışında tanımla
+
       const payload: any = {
-        teklifNo: formData.teklifNo,
-        teklifTipi: formData.teklifTipi,
-        cariId: formData.cariId,
-        tarih: new Date(formData.tarih).toISOString(),
-        iskonto: Number(formData.genelIskontoTutar) || 0,
-        kalemler: validKalemler.map(k => ({
-          stokId: k.stokId,
-          miktar: Number(k.miktar),
-          birimFiyat: Number(k.birimFiyat),
-          kdvOrani: Number(k.kdvOrani),
-          iskontoOran: Number(k.iskontoOran) || 0,
-          iskontoTutar: Number(k.iskontoTutar) || 0,
+        quoteNo: formData.quoteNo,
+        quoteType: formData.quoteType,
+        accountId: formData.accountId,
+        date: new Date(formData.date).toISOString(),
+        discount: Number(formData.overallDiscountAmount) || 0,
+        items: validItems.map(k => ({
+          productId: k.productId,
+          quantity: Number(k.quantity),
+          unitPrice: Number(k.unitPrice),
+          vatRate: Number(k.vatRate),
+          discountRate: Number(k.discountRate) || 0,
+          discountAmount: Number(k.discountAmount) || 0,
         })),
       };
-      
-      // Optional alanları sadece değer varsa ekle
-      if (formData.gecerlilikTarihi) {
-        payload.gecerlilikTarihi = new Date(formData.gecerlilikTarihi).toISOString();
+
+      if (formData.validUntil) {
+        payload.validUntil = new Date(formData.validUntil).toISOString();
       }
-      if (formData.aciklama && formData.aciklama.trim()) {
-        payload.aciklama = formData.aciklama.trim();
+      if (formData.notes && formData.notes.trim()) {
+        payload.notes = formData.notes.trim();
       }
-      if (formData.durum) {
-        payload.durum = formData.durum;
+      if (formData.status) {
+        payload.status = formData.status;
       }
-      
-      await axios.post('/quote', payload);
-      
+
+      await axios.post('/quotes', payload);
+
       showSnackbar('Teklif başarıyla oluşturuldu', 'success');
       setTimeout(() => {
-        router.push('/teklif/satis');
+        router.push('/quotes/satis');
       }, 1500);
     } catch (error: any) {
       console.error('Teklif kaydetme hatası:', error);
-      console.error('Hata detayı:', error.response?.data);
-      
-      // Validation hatalarını daha detaylı göster
-      let errorMessage = 'İşlem sırasında hata oluştu';
-      if (error.response?.data?.message) {
-        errorMessage = error.response.data.message;
-      } else if (error.response?.data?.error) {
-        errorMessage = Array.isArray(error.response.data.error) 
-          ? error.response.data.error.join(', ')
-          : error.response.data.error;
-      } else if (error.message) {
-        errorMessage = error.message;
-      }
-      
+      const errorMessage = error.response?.data?.message || error.message || 'İşlem sırasında hata oluştu';
       showSnackbar(errorMessage, 'error');
     } finally {
       setLoading(false);
@@ -376,9 +348,9 @@ export default function YeniSatisTeklifiPage() {
   };
 
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('tr-TR', { 
-      style: 'currency', 
-      currency: 'TRY' 
+    return new Intl.NumberFormat('tr-TR', {
+      style: 'currency',
+      currency: 'TRY'
     }).format(amount);
   };
 
@@ -388,8 +360,8 @@ export default function YeniSatisTeklifiPage() {
     <MainLayout>
       <Box sx={{ mb: 3 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
-          <IconButton 
-            onClick={() => router.push('/teklif/satis')}
+          <IconButton
+            onClick={() => router.push('/quotes/satis')}
             sx={{
               bgcolor: '#f3f4f6',
               '&:hover': { bgcolor: '#e5e7eb' }
@@ -426,16 +398,16 @@ export default function YeniSatisTeklifiPage() {
             <TextField
               sx={{ flex: '1 1 200px' }}
               label="Teklif No"
-              value={formData.teklifNo}
-              onChange={(e) => setFormData(prev => ({ ...prev, teklifNo: e.target.value }))}
+              value={formData.quoteNo}
+              onChange={(e) => setFormData(prev => ({ ...prev, quoteNo: e.target.value }))}
               required
             />
             <TextField
               sx={{ flex: '1 1 200px' }}
               type="date"
               label="Tarih"
-              value={formData.tarih}
-              onChange={(e) => setFormData(prev => ({ ...prev, tarih: e.target.value }))}
+              value={formData.date}
+              onChange={(e) => setFormData(prev => ({ ...prev, date: e.target.value }))}
               InputLabelProps={{ shrink: true }}
               required
             />
@@ -443,31 +415,31 @@ export default function YeniSatisTeklifiPage() {
               sx={{ flex: '1 1 200px' }}
               type="date"
               label="Geçerlilik Tarihi"
-              value={formData.gecerlilikTarihi}
-              onChange={(e) => setFormData(prev => ({ ...prev, gecerlilikTarihi: e.target.value }))}
+              value={formData.validUntil}
+              onChange={(e) => setFormData(prev => ({ ...prev, validUntil: e.target.value }))}
               InputLabelProps={{ shrink: true }}
             />
           </Box>
-          
+
           <Box>
             <Autocomplete
               fullWidth
-              value={cariler.find(c => c.id === formData.cariId) || null}
+              value={accounts.find(c => c.id === formData.accountId) || null}
               onChange={(_, newValue) => {
-                setFormData(prev => ({ ...prev, cariId: newValue?.id || '' }));
+                setFormData(prev => ({ ...prev, accountId: newValue?.id || '' }));
               }}
-              options={cariler}
-              getOptionLabel={(option) => `${option.cariKodu} - ${option.unvan}`}
+              options={accounts}
+              getOptionLabel={(option) => `${option.code} - ${option.name}`}
               renderOption={(props, option) => {
                 const { key, ...otherProps } = props;
                 return (
                   <Box component="li" key={key} {...otherProps}>
                     <Box>
                       <Typography variant="body1" fontWeight="600">
-                        {option.unvan}
+                        {option.name}
                       </Typography>
                       <Typography variant="caption" color="text.secondary">
-                        {option.cariKodu} - {option.tip === 'MUSTERI' ? 'Müşteri' : 'Tedarikçi'}
+                        {option.code} - {option.type === 'MUSTERI' ? 'Müşteri' : 'Tedarikçi'}
                       </Typography>
                     </Box>
                   </Box>
@@ -490,10 +462,10 @@ export default function YeniSatisTeklifiPage() {
           <Box>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
               <Typography variant="h6" fontWeight="bold">Teklif Kalemleri</Typography>
-              <Button 
-                variant="contained" 
-                onClick={handleAddKalem}
-                sx={{ 
+              <Button
+                variant="contained"
+                onClick={handleAddItem}
+                sx={{
                   background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
                 }}
               >
@@ -501,7 +473,7 @@ export default function YeniSatisTeklifiPage() {
               </Button>
             </Box>
             <Divider sx={{ mb: 2 }} />
-            
+
             <TableContainer component={Paper} variant="outlined" sx={{ maxHeight: 400 }}>
               <Table stickyHeader size="small">
                 <TableHead>
@@ -518,7 +490,7 @@ export default function YeniSatisTeklifiPage() {
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {formData.kalemler.length === 0 ? (
+                  {formData.items.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={9} align="center" sx={{ py: 4 }}>
                         <Typography variant="body2" color="text.secondary">
@@ -527,7 +499,7 @@ export default function YeniSatisTeklifiPage() {
                       </TableCell>
                     </TableRow>
                   ) : (
-                    formData.kalemler.map((kalem, index) => (
+                    formData.items.map((item, index) => (
                       <TableRow key={index}>
                         <TableCell>
                           <Autocomplete
@@ -535,22 +507,22 @@ export default function YeniSatisTeklifiPage() {
                             open={autocompleteOpenStates[index] || false}
                             onOpen={() => setAutocompleteOpenStates(prev => ({ ...prev, [index]: true }))}
                             onClose={() => setAutocompleteOpenStates(prev => ({ ...prev, [index]: false }))}
-                            value={stoklar.find(s => s.id === kalem.stokId) || null}
+                            value={products.find(s => s.id === item.productId) || null}
                             onChange={(_, newValue) => {
-                              handleKalemChange(index, 'stokId', newValue?.id || '');
+                              handleItemChange(index, 'productId', newValue?.id || '');
                               setAutocompleteOpenStates(prev => ({ ...prev, [index]: false }));
                             }}
-                            options={stoklar}
-                            getOptionLabel={(option) => `${option.stokKodu} - ${option.stokAdi}`}
+                            options={products}
+                            getOptionLabel={(option) => `${option.code} - ${option.name}`}
                             filterOptions={(options, params) => {
                               const { inputValue } = params;
                               if (!inputValue) return options;
-                              
+
                               const lowerInput = inputValue.toLowerCase();
                               return options.filter(option =>
-                                option.stokKodu.toLowerCase().includes(lowerInput) ||
-                                option.stokAdi.toLowerCase().includes(lowerInput) ||
-                                (option.barkod && option.barkod.toLowerCase().includes(lowerInput))
+                                option.code.toLowerCase().includes(lowerInput) ||
+                                option.name.toLowerCase().includes(lowerInput) ||
+                                (option.barcode && option.barcode.toLowerCase().includes(lowerInput))
                               );
                             }}
                             renderOption={(props, option) => {
@@ -559,15 +531,15 @@ export default function YeniSatisTeklifiPage() {
                                 <Box component="li" key={key} {...otherProps}>
                                   <Box>
                                     <Typography variant="body2" fontWeight="600">
-                                      {option.stokAdi}
+                                      {option.name}
                                     </Typography>
                                     <Box sx={{ display: 'flex', gap: 1, mt: 0.5 }}>
                                       <Typography variant="caption" color="text.secondary">
-                                        Kod: {option.stokKodu}
+                                        Kod: {option.code}
                                       </Typography>
-                                      {option.barkod && (
+                                      {option.barcode && (
                                         <Typography variant="caption" color="text.secondary">
-                                          | Barkod: {option.barkod}
+                                          | Barkod: {option.barcode}
                                         </Typography>
                                       )}
                                     </Box>
@@ -580,10 +552,9 @@ export default function YeniSatisTeklifiPage() {
                                 {...params}
                                 placeholder="Stok kodu, adı veya barkod ile ara..."
                                 onKeyDown={(e) => {
-                                  // Dropdown açık değilse ve Enter tuşuna basıldıysa yeni kalem ekle
                                   if (e.key === 'Enter' && !(autocompleteOpenStates[index])) {
                                     e.preventDefault();
-                                    handleAddKalem();
+                                    handleAddItem();
                                   }
                                 }}
                               />
@@ -597,12 +568,12 @@ export default function YeniSatisTeklifiPage() {
                             fullWidth
                             type="number"
                             size="small"
-                            value={kalem.miktar}
-                            onChange={(e) => handleKalemChange(index, 'miktar', e.target.value)}
+                            value={item.quantity}
+                            onChange={(e) => handleItemChange(index, 'quantity', e.target.value)}
                             onKeyDown={(e) => {
                               if (e.key === 'Enter') {
                                 e.preventDefault();
-                                handleAddKalem();
+                                handleAddItem();
                               }
                             }}
                             inputProps={{ min: 1, step: 1 }}
@@ -613,12 +584,12 @@ export default function YeniSatisTeklifiPage() {
                             fullWidth
                             type="number"
                             size="small"
-                            value={kalem.birimFiyat}
-                            onChange={(e) => handleKalemChange(index, 'birimFiyat', e.target.value)}
+                            value={item.unitPrice}
+                            onChange={(e) => handleItemChange(index, 'unitPrice', e.target.value)}
                             onKeyDown={(e) => {
                               if (e.key === 'Enter') {
                                 e.preventDefault();
-                                handleAddKalem();
+                                handleAddItem();
                               }
                             }}
                             inputProps={{ min: 0, step: 0.01 }}
@@ -629,12 +600,12 @@ export default function YeniSatisTeklifiPage() {
                             fullWidth
                             type="number"
                             size="small"
-                            value={kalem.kdvOrani}
-                            onChange={(e) => handleKalemChange(index, 'kdvOrani', e.target.value)}
+                            value={item.vatRate}
+                            onChange={(e) => handleItemChange(index, 'vatRate', e.target.value)}
                             onKeyDown={(e) => {
                               if (e.key === 'Enter') {
                                 e.preventDefault();
-                                handleAddKalem();
+                                handleAddItem();
                               }
                             }}
                             inputProps={{ min: 0, max: 100 }}
@@ -643,32 +614,32 @@ export default function YeniSatisTeklifiPage() {
                         <TableCell align="center">
                           <IconButton
                             size="small"
-                            onClick={() => handleKalemChange(index, 'cokluIskonto', !kalem.cokluIskonto)}
-                            title={kalem.cokluIskonto ? 'Çoklu İskonto: Açık (10+5 formatı)' : 'Çoklu İskonto: Kapalı (Tek oran)'}
+                            onClick={() => handleItemChange(index, 'isMultiDiscount', !item.isMultiDiscount)}
+                            title={item.isMultiDiscount ? 'Çoklu İskonto: Açık (10+5 formatı)' : 'Çoklu İskonto: Kapalı (Tek oran)'}
                             sx={{
-                              color: kalem.cokluIskonto ? '#10b981' : '#9ca3af',
+                              color: item.isMultiDiscount ? '#10b981' : '#9ca3af',
                               '&:hover': {
-                                bgcolor: kalem.cokluIskonto ? '#ecfdf5' : '#f3f4f6',
+                                bgcolor: item.isMultiDiscount ? '#ecfdf5' : '#f3f4f6',
                               }
                             }}
                           >
-                            {kalem.cokluIskonto ? <ToggleOn fontSize="small" /> : <ToggleOff fontSize="small" />}
+                            {item.isMultiDiscount ? <ToggleOn fontSize="small" /> : <ToggleOff fontSize="small" />}
                           </IconButton>
                         </TableCell>
                         <TableCell>
-                          {kalem.cokluIskonto ? (
+                          {item.isMultiDiscount ? (
                             <TextField
                               fullWidth
                               size="small"
-                              value={kalem.iskontoFormula || ''}
+                              value={item.discountFormula || ''}
                               onChange={(e) => {
                                 const value = e.target.value;
                                 if (/^[\d+]*$/.test(value)) {
-                                  handleKalemChange(index, 'iskontoFormula', value);
+                                  handleItemChange(index, 'discountFormula', value);
                                 }
                               }}
                               placeholder="10+5"
-                              helperText={kalem.iskontoOran > 0 ? `Efektif: %${kalem.iskontoOran.toFixed(2)}` : ''}
+                              helperText={item.discountRate > 0 ? `Efektif: %${item.discountRate.toFixed(2)}` : ''}
                               sx={{
                                 '& .MuiInputBase-input': {
                                   fontFamily: 'monospace',
@@ -686,11 +657,11 @@ export default function YeniSatisTeklifiPage() {
                               fullWidth
                               type="number"
                               size="small"
-                              value={kalem.iskontoOran || ''}
-                              onChange={(e) => handleKalemChange(index, 'iskontoOran', e.target.value)}
-                              inputProps={{ 
-                                min: 0, 
-                                max: 100, 
+                              value={item.discountRate || ''}
+                              onChange={(e) => handleItemChange(index, 'discountRate', e.target.value)}
+                              inputProps={{
+                                min: 0,
+                                max: 100,
                                 step: 0.01,
                               }}
                             />
@@ -701,25 +672,25 @@ export default function YeniSatisTeklifiPage() {
                             fullWidth
                             type="number"
                             size="small"
-                            value={kalem.iskontoTutar || ''}
-                            onChange={(e) => handleKalemChange(index, 'iskontoTutar', e.target.value)}
-                            disabled={kalem.cokluIskonto}
-                            inputProps={{ 
-                              min: 0, 
+                            value={item.discountAmount || ''}
+                            onChange={(e) => handleItemChange(index, 'discountAmount', e.target.value)}
+                            disabled={item.isMultiDiscount}
+                            inputProps={{
+                              min: 0,
                               step: 0.01,
                             }}
                           />
                         </TableCell>
                         <TableCell align="right">
                           <Typography variant="body2" fontWeight="bold" color="primary">
-                            {formatCurrency(calculateKalemTutar(kalem))}
+                            {formatCurrency(calculateItemAmount(item))}
                           </Typography>
                         </TableCell>
                         <TableCell align="center">
-                          <IconButton 
-                            size="small" 
+                          <IconButton
+                            size="small"
                             color="error"
-                            onClick={() => handleRemoveKalem(index)}
+                            onClick={() => handleRemoveItem(index)}
                           >
                             <Delete fontSize="small" />
                           </IconButton>
@@ -737,8 +708,8 @@ export default function YeniSatisTeklifiPage() {
             <TextField
               type="number"
               label="Genel İskonto %"
-              value={formData.genelIskontoOran || ''}
-              onChange={(e) => handleGenelIskontoOranChange(e.target.value)}
+              value={formData.overallDiscountRate || ''}
+              onChange={(e) => handleOverallDiscountRateChange(e.target.value)}
               inputProps={{ min: 0, max: 100, step: 0.01 }}
               helperText="İskonto oranı"
               sx={{ width: { xs: '100%', sm: '200px' } }}
@@ -746,8 +717,8 @@ export default function YeniSatisTeklifiPage() {
             <TextField
               type="number"
               label="Genel İskonto (₺)"
-              value={formData.genelIskontoTutar || ''}
-              onChange={(e) => handleGenelIskontoTutarChange(e.target.value)}
+              value={formData.overallDiscountAmount || ''}
+              onChange={(e) => handleOverallDiscountAmountChange(e.target.value)}
               inputProps={{ min: 0, step: 0.01 }}
               helperText="İskonto tutarı"
               sx={{ width: { xs: '100%', sm: '200px' } }}
@@ -761,8 +732,8 @@ export default function YeniSatisTeklifiPage() {
               multiline
               rows={2}
               label="Açıklama / Notlar"
-              value={formData.aciklama}
-              onChange={(e) => setFormData(prev => ({ ...prev, aciklama: e.target.value }))}
+              value={formData.notes}
+              onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
             />
           </Box>
 
@@ -773,68 +744,68 @@ export default function YeniSatisTeklifiPage() {
             </Typography>
             <Box sx={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
               <Box sx={{ flex: '1 1 300px' }}>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                    <Typography variant="body1">Ara Toplam:</Typography>
-                    <Typography variant="body1" fontWeight="600">{formatCurrency(totals.araToplam)}</Typography>
-                  </Box>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                    <Typography variant="body1">Kalem İndirimleri:</Typography>
-                    <Typography variant="body1" fontWeight="600" color={totals.toplamKalemIskontosu > 0 ? "error" : "inherit"}>
-                      {totals.toplamKalemIskontosu > 0 ? '- ' : ''}{formatCurrency(totals.toplamKalemIskontosu)}
-                    </Typography>
-                  </Box>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                    <Typography variant="body1">Genel İskonto:</Typography>
-                    <Typography variant="body1" fontWeight="600" color={totals.genelIskonto > 0 ? "error" : "inherit"}>
-                      {totals.genelIskonto > 0 ? '- ' : ''}{formatCurrency(totals.genelIskonto)}
-                    </Typography>
-                  </Box>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                  <Typography variant="body1">Ara Toplam:</Typography>
+                  <Typography variant="body1" fontWeight="600">{formatCurrency(totals.subTotal)}</Typography>
                 </Box>
-                <Box sx={{ flex: '1 1 300px' }}>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                    <Typography variant="body1" fontWeight="bold">Toplam İndirim:</Typography>
-                    <Typography variant="body1" fontWeight="bold" color={totals.toplamIskonto > 0 ? "error" : "inherit"}>
-                      {totals.toplamIskonto > 0 ? '- ' : ''}{formatCurrency(totals.toplamIskonto)}
-                    </Typography>
-                  </Box>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                    <Typography variant="body1">KDV Toplamı:</Typography>
-                    <Typography variant="body1" fontWeight="600">{formatCurrency(totals.toplamKdv)}</Typography>
-                  </Box>
-                  <Divider sx={{ my: 1 }} />
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <Typography variant="h6" fontWeight="bold">Genel Toplam:</Typography>
-                    <Typography 
-                      variant="h6" 
-                      fontWeight="bold"
-                      sx={{ 
-                        color: '#f59e0b',
-                      }}
-                    >
-                      {formatCurrency(totals.genelToplam)}
-                    </Typography>
-                  </Box>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                  <Typography variant="body1">Kalem İndirimleri:</Typography>
+                  <Typography variant="body1" fontWeight="600" color={totals.totalItemDiscount > 0 ? "error" : "inherit"}>
+                    {totals.totalItemDiscount > 0 ? '- ' : ''}{formatCurrency(totals.totalItemDiscount)}
+                  </Typography>
                 </Box>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                  <Typography variant="body1">Genel İskonto:</Typography>
+                  <Typography variant="body1" fontWeight="600" color={totals.overallDiscount > 0 ? "error" : "inherit"}>
+                    {totals.overallDiscount > 0 ? '- ' : ''}{formatCurrency(totals.overallDiscount)}
+                  </Typography>
+                </Box>
+              </Box>
+              <Box sx={{ flex: '1 1 300px' }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                  <Typography variant="body1" fontWeight="bold">Toplam İndirim:</Typography>
+                  <Typography variant="body1" fontWeight="bold" color={totals.totalDiscount > 0 ? "error" : "inherit"}>
+                    {totals.totalDiscount > 0 ? '- ' : ''}{formatCurrency(totals.totalDiscount)}
+                  </Typography>
+                </Box>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                  <Typography variant="body1">KDV Toplamı:</Typography>
+                  <Typography variant="body1" fontWeight="600">{formatCurrency(totals.totalVat)}</Typography>
+                </Box>
+                <Divider sx={{ my: 1 }} />
+                <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <Typography variant="h6" fontWeight="bold">Genel Toplam:</Typography>
+                  <Typography
+                    variant="h6"
+                    fontWeight="bold"
+                    sx={{
+                      color: '#10b981',
+                    }}
+                  >
+                    {formatCurrency(totals.grandTotal)}
+                  </Typography>
+                </Box>
+              </Box>
             </Box>
           </Paper>
 
           {/* Action Buttons */}
           <Box>
             <Box sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end' }}>
-              <Button 
-                variant="outlined" 
+              <Button
+                variant="outlined"
                 size="large"
-                onClick={() => router.push('/teklif/satis')}
+                onClick={() => router.push('/quotes/satis')}
               >
                 İptal
               </Button>
-              <Button 
-                variant="contained" 
+              <Button
+                variant="contained"
                 size="large"
                 startIcon={<Save />}
                 onClick={handleSave}
                 disabled={loading}
-                sx={{ 
+                sx={{
                   background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
                   minWidth: 150,
                 }}
@@ -853,8 +824,8 @@ export default function YeniSatisTeklifiPage() {
         onClose={() => setSnackbar(prev => ({ ...prev, open: false }))}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
       >
-        <Alert 
-          onClose={() => setSnackbar(prev => ({ ...prev, open: false }))} 
+        <Alert
+          onClose={() => setSnackbar(prev => ({ ...prev, open: false }))}
           severity={snackbar.severity}
           sx={{ width: '100%' }}
         >

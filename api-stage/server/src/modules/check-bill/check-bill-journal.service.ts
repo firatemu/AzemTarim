@@ -1,3 +1,4 @@
+import { TenantResolverService } from '../../common/services/tenant-resolver.service';
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma.service';
 import { CreateCheckBillJournalDto } from './dto/create-check-bill-journal.dto';
@@ -7,13 +8,11 @@ import { CheckBillService } from './check-bill.service';
 
 @Injectable()
 export class CheckBillJournalService {
-    constructor(
-        private prisma: PrismaService,
-        private checkBillService: CheckBillService
-    ) { }
+    constructor(private prisma: PrismaService,
+        private checkBillService: CheckBillService, private readonly tenantResolver: TenantResolverService) { }
 
     async findAll() {
-        const items = await this.prisma.extended.extended.checkBillJournal.findMany({
+        const items = await this.prisma.checkBillJournal.findMany({
             orderBy: { date: 'desc' },
             include: {
                 account: { select: { title: true } },
@@ -38,7 +37,7 @@ export class CheckBillJournalService {
     }
 
     async findOne(id: string) {
-        const item = await this.prisma.extended.extended.checkBillJournal.findUnique({
+        const item = await this.prisma.checkBillJournal.findUnique({
             where: { id },
             include: {
                 account: true,
@@ -62,7 +61,7 @@ export class CheckBillJournalService {
     }
 
     async create(dto: CreateCheckBillJournalDto, userId: string) {
-        return this.prisma.extended.extended.$transaction(async (tx) => {
+        return this.prisma.$transaction(async (tx) => {
             // 1. Create CheckBillJournal
             const checkBillJournal = await tx.checkBillJournal.create({
                 data: {

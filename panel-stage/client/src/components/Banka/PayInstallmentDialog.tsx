@@ -31,82 +31,82 @@ import {
 import { useSnackbar } from 'notistack';
 import axios from '@/lib/axios';
 
-interface Plan {
+interface LoanPlan {
     id: string;
-    taksitNo: number;
-    vadeTarihi: string;
-    tutar: number;
-    odenen: number;
-    durum: string;
+    installmentNo: number;
+    dueDate: string;
+    amount: number;
+    paidAmount: number;
+    status: string;
 }
 
-interface BankaHesap {
+interface BankAccount {
     id: string;
-    hesapAdi: string;
-    hesapKodu: string;
-    bakiye: number;
-    hesapTipi: string;
+    name: string;
+    code: string;
+    balance: number;
+    type: string;
 }
 
-interface Kasa {
+interface Cashbox {
     id: string;
-    kasaAdi: string;
-    kasaKodu: string;
-    bakiye: number;
+    name: string;
+    code: string;
+    balance: number;
 }
 
 interface PayInstallmentDialogProps {
     open: boolean;
     onClose: () => void;
     onSuccess: () => void;
-    plan: Plan;
+    plan: LoanPlan;
 }
 
-type OdemeTipi = 'BANKA_HAVALESI' | 'NAKIT' | 'ELDEN';
+type PaymentType = 'BANKA_HAVALESI' | 'NAKIT' | 'ELDEN';
 
 export default function PayInstallmentDialog({ open, onClose, onSuccess, plan }: PayInstallmentDialogProps) {
     const { enqueueSnackbar } = useSnackbar();
-    const [odemeTipi, setOdemeTipi] = useState<OdemeTipi>('BANKA_HAVALESI');
-    const [tutar, setTutar] = useState<string>('');
-    const [aciklama, setAciklama] = useState('');
-    const [odemeTarihi, setOdemeTarihi] = useState(new Date().toISOString().split('T')[0]);
-    const [bankaHesapId, setBankaHesapId] = useState<string | null>(null);
-    const [kasaId, setKasaId] = useState<string | null>(null);
-    const [bankaHesaplar, setBankaHesaplar] = useState<BankaHesap[]>([]);
-    const [kasalar, setKasalar] = useState<Kasa[]>([]);
+    const [paymentType, setPaymentType] = useState<PaymentType>('BANKA_HAVALESI');
+    const [amount, setAmount] = useState<string>('');
+    const [notes, setNotes] = useState('');
+    const [paymentDate, setPaymentDate] = useState(new Date().toISOString().split('T')[0]);
+    const [bankAccountId, setBankAccountId] = useState<string | null>(null);
+    const [cashboxId, setCashboxId] = useState<string | null>(null);
+    const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
+    const [cashboxes, setCashboxes] = useState<Cashbox[]>([]);
     const [loading, setLoading] = useState(false);
 
-    const kalanTutar = plan.tutar - plan.odenen;
+    const remainingAmount = plan.amount - plan.paidAmount;
 
     useEffect(() => {
         if (open) {
-            setTutar(kalanTutar.toString());
-            fetchBankaHesaplar();
-            fetchKasalar();
+            setAmount(remainingAmount.toString());
+            fetchBankAccounts();
+            fetchCashboxes();
         }
-    }, [open, kalanTutar]);
+    }, [open, remainingAmount]);
 
-    const fetchBankaHesaplar = async () => {
+    const fetchBankAccounts = async () => {
         try {
-            const response = await axios.get('/bank/ozet');
-            const vadesizHesaplar: BankaHesap[] = [];
+            const response = await axios.get('/banks/summary');
+            const vadesizHesaplar: BankAccount[] = [];
             response.data.bankalar?.forEach((banka: any) => {
-                banka.hesaplar?.forEach((hesap: any) => {
-                    if (hesap.hesapTipi === 'VADESIZ') {
+                banka.accounts?.forEach((hesap: any) => {
+                    if (hesap.type === 'VADESIZ') {
                         vadesizHesaplar.push(hesap);
                     }
                 });
             });
-            setBankaHesaplar(vadesizHesaplar);
+            setBankAccounts(vadesizHesaplar);
         } catch (error) {
             console.error('Banka hesapları yüklenemedi:', error);
         }
     };
 
-    const fetchKasalar = async () => {
+    const fetchCashboxes = async () => {
         try {
-            const response = await axios.get('/cashbox');
-            setKasalar(response.data.filter((k: Kasa) => k.kasaAdi !== 'Silinen Kayıtlar'));
+            const response = await axios.get('/cashboxes');
+            setCashboxes(response.data.filter((k: Cashbox) => k.name !== 'Silinen Kayıtlar'));
         } catch (error) {
             console.error('Kasalar yüklenemedi:', error);
         }
@@ -125,38 +125,38 @@ export default function PayInstallmentDialog({ open, onClose, onSuccess, plan }:
     };
 
     const handleSubmit = async () => {
-        if (!tutar || parseFloat(tutar) <= 0) {
+        if (!amount || parseFloat(amount) <= 0) {
             enqueueSnackbar('Geçerli bir tutar giriniz', { variant: 'error' });
             return;
         }
 
-        if (parseFloat(tutar) > kalanTutar) {
+        if (parseFloat(amount) > remainingAmount) {
             enqueueSnackbar('Ödeme tutarı kalan tutardan fazla olamaz', { variant: 'error' });
             return;
         }
 
-        if (odemeTipi === 'BANKA_HAVALESI' && !bankaHesapId) {
+        if (paymentType === 'BANKA_HAVALESI' && !bankAccountId) {
             enqueueSnackbar('Banka hesabı seçiniz', { variant: 'error' });
             return;
         }
 
-        if (odemeTipi === 'NAKIT' && !kasaId) {
+        if (paymentType === 'NAKIT' && !cashboxId) {
             enqueueSnackbar('Kasa seçiniz', { variant: 'error' });
             return;
         }
 
         // Bakiye kontrolü
-        if (odemeTipi === 'BANKA_HAVALESI') {
-            const hesap = bankaHesaplar.find(h => h.id === bankaHesapId);
-            if (hesap && hesap.bakiye < parseFloat(tutar)) {
+        if (paymentType === 'BANKA_HAVALESI') {
+            const hesap = bankAccounts.find(h => h.id === bankAccountId);
+            if (hesap && hesap.balance < parseFloat(amount)) {
                 enqueueSnackbar('Banka hesabında yeterli bakiye yok', { variant: 'error' });
                 return;
             }
         }
 
-        if (odemeTipi === 'NAKIT') {
-            const kasa = kasalar.find(k => k.id === kasaId);
-            if (kasa && kasa.bakiye < parseFloat(tutar)) {
+        if (paymentType === 'NAKIT') {
+            const kasa = cashboxes.find(k => k.id === cashboxId);
+            if (kasa && kasa.balance < parseFloat(amount)) {
                 enqueueSnackbar('Kasada yeterli bakiye yok', { variant: 'error' });
                 return;
             }
@@ -164,13 +164,13 @@ export default function PayInstallmentDialog({ open, onClose, onSuccess, plan }:
 
         setLoading(true);
         try {
-            await axios.post(`/banka/kredi-plan/${plan.id}/odeme`, {
-                odemeTipi,
-                tutar: parseFloat(tutar),
-                bankaHesapId: odemeTipi === 'BANKA_HAVALESI' ? bankaHesapId : undefined,
-                kasaId: odemeTipi === 'NAKIT' ? kasaId : undefined,
-                aciklama: aciklama || undefined,
-                odemeTarihi
+            await axios.post(`/banks/loan-plans/${plan.id}/payments`, {
+                paymentType,
+                amount: parseFloat(amount),
+                bankAccountId: paymentType === 'BANKA_HAVALESI' ? bankAccountId : undefined,
+                cashboxId: paymentType === 'NAKIT' ? cashboxId : undefined,
+                notes: notes || undefined,
+                paymentDate
             });
             enqueueSnackbar('Ödeme başarıyla kaydedildi', { variant: 'success' });
             onSuccess();
@@ -182,8 +182,8 @@ export default function PayInstallmentDialog({ open, onClose, onSuccess, plan }:
         }
     };
 
-    const selectedHesap = bankaHesaplar.find(h => h.id === bankaHesapId);
-    const selectedKasa = kasalar.find(k => k.id === kasaId);
+    const selectedHesap = bankAccounts.find(h => h.id === bankAccountId);
+    const selectedKasa = cashboxes.find(k => k.id === cashboxId);
 
     return (
         <Dialog
@@ -224,19 +224,19 @@ export default function PayInstallmentDialog({ open, onClose, onSuccess, plan }:
                         <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2, mt: 1 }}>
                             <Box>
                                 <Typography variant="caption" color="text.secondary">Taksit No</Typography>
-                                <Typography variant="body1" fontWeight="600">#{plan.taksitNo}</Typography>
+                                <Typography variant="body1" fontWeight="600">#{plan.installmentNo}</Typography>
                             </Box>
                             <Box>
                                 <Typography variant="caption" color="text.secondary">Vade Tarihi</Typography>
-                                <Typography variant="body1" fontWeight="600">{formatDate(plan.vadeTarihi)}</Typography>
+                                <Typography variant="body1" fontWeight="600">{formatDate(plan.dueDate)}</Typography>
                             </Box>
                             <Box>
                                 <Typography variant="caption" color="text.secondary">Taksit Tutarı</Typography>
-                                <Typography variant="body1" fontWeight="700" color="primary">{formatCurrency(plan.tutar)}</Typography>
+                                <Typography variant="body1" fontWeight="700" color="primary">{formatCurrency(plan.amount)}</Typography>
                             </Box>
                             <Box>
                                 <Typography variant="caption" color="text.secondary">Kalan Tutar</Typography>
-                                <Typography variant="body1" fontWeight="700" color="error">{formatCurrency(kalanTutar)}</Typography>
+                                <Typography variant="body1" fontWeight="700" color="error">{formatCurrency(remainingAmount)}</Typography>
                             </Box>
                         </Box>
                     </Paper>
@@ -244,8 +244,8 @@ export default function PayInstallmentDialog({ open, onClose, onSuccess, plan }:
                     {/* Ödeme Tipi Seçimi */}
                     <FormControl>
                         <FormLabel sx={{ fontWeight: 600, mb: 1 }}>Ödeme Yöntemi</FormLabel>
-                        <RadioGroup value={odemeTipi} onChange={(e) => setOdemeTipi(e.target.value as OdemeTipi)}>
-                            <Paper sx={{ p: 1.5, mb: 1, border: '2px solid', borderColor: odemeTipi === 'BANKA_HAVALESI' ? 'primary.main' : 'divider', borderRadius: 2 }}>
+                        <RadioGroup value={paymentType} onChange={(e) => setPaymentType(e.target.value as PaymentType)}>
+                            <Paper sx={{ p: 1.5, mb: 1, border: '2px solid', borderColor: paymentType === 'BANKA_HAVALESI' ? 'primary.main' : 'divider', borderRadius: 2 }}>
                                 <FormControlLabel
                                     value="BANKA_HAVALESI"
                                     control={<Radio />}
@@ -260,7 +260,7 @@ export default function PayInstallmentDialog({ open, onClose, onSuccess, plan }:
                                     }
                                 />
                             </Paper>
-                            <Paper sx={{ p: 1.5, mb: 1, border: '2px solid', borderColor: odemeTipi === 'NAKIT' ? 'primary.main' : 'divider', borderRadius: 2 }}>
+                            <Paper sx={{ p: 1.5, mb: 1, border: '2px solid', borderColor: paymentType === 'NAKIT' ? 'primary.main' : 'divider', borderRadius: 2 }}>
                                 <FormControlLabel
                                     value="NAKIT"
                                     control={<Radio />}
@@ -275,7 +275,7 @@ export default function PayInstallmentDialog({ open, onClose, onSuccess, plan }:
                                     }
                                 />
                             </Paper>
-                            <Paper sx={{ p: 1.5, border: '2px solid', borderColor: odemeTipi === 'ELDEN' ? 'primary.main' : 'divider', borderRadius: 2 }}>
+                            <Paper sx={{ p: 1.5, border: '2px solid', borderColor: paymentType === 'ELDEN' ? 'primary.main' : 'divider', borderRadius: 2 }}>
                                 <FormControlLabel
                                     value="ELDEN"
                                     control={<Radio />}
@@ -294,36 +294,36 @@ export default function PayInstallmentDialog({ open, onClose, onSuccess, plan }:
                     </FormControl>
 
                     {/* Banka Hesabı Seçimi */}
-                    {odemeTipi === 'BANKA_HAVALESI' && (
+                    {paymentType === 'BANKA_HAVALESI' && (
                         <Autocomplete
-                            options={bankaHesaplar}
-                            getOptionLabel={(option) => `${option.hesapAdi} (${option.hesapKodu}) - ${formatCurrency(option.bakiye)}`}
-                            value={bankaHesaplar.find(h => h.id === bankaHesapId) || null}
-                            onChange={(_, newValue) => setBankaHesapId(newValue?.id || null)}
+                            options={bankAccounts}
+                            getOptionLabel={(option) => `${option.name} (${option.code}) - ${formatCurrency(option.balance)}`}
+                            value={bankAccounts.find(h => h.id === bankAccountId) || null}
+                            onChange={(_, newValue) => setBankAccountId(newValue?.id || null)}
                             renderInput={(params) => (
                                 <TextField
                                     {...params}
                                     label="Banka Hesabı"
                                     required
-                                    helperText={selectedHesap && `Bakiye: ${formatCurrency(selectedHesap.bakiye)}`}
+                                    helperText={selectedHesap && `Bakiye: ${formatCurrency(selectedHesap.balance)}`}
                                 />
                             )}
                         />
                     )}
 
                     {/* Kasa Seçimi */}
-                    {odemeTipi === 'NAKIT' && (
+                    {paymentType === 'NAKIT' && (
                         <Autocomplete
-                            options={kasalar}
-                            getOptionLabel={(option) => `${option.kasaAdi} (${option.kasaKodu}) - ${formatCurrency(option.bakiye)}`}
-                            value={kasalar.find(k => k.id === kasaId) || null}
-                            onChange={(_, newValue) => setKasaId(newValue?.id || null)}
+                            options={cashboxes}
+                            getOptionLabel={(option) => `${option.name} (${option.code}) - ${formatCurrency(option.balance)}`}
+                            value={cashboxes.find(k => k.id === cashboxId) || null}
+                            onChange={(_, newValue) => setCashboxId(newValue?.id || null)}
                             renderInput={(params) => (
                                 <TextField
                                     {...params}
                                     label="Kasa"
                                     required
-                                    helperText={selectedKasa && `Bakiye: ${formatCurrency(selectedKasa.bakiye)}`}
+                                    helperText={selectedKasa && `Bakiye: ${formatCurrency(selectedKasa.balance)}`}
                                 />
                             )}
                         />
@@ -335,12 +335,12 @@ export default function PayInstallmentDialog({ open, onClose, onSuccess, plan }:
                         type="number"
                         fullWidth
                         required
-                        value={tutar}
-                        onChange={(e) => setTutar(e.target.value)}
+                        value={amount}
+                        onChange={(e) => setAmount(e.target.value)}
                         InputProps={{
                             endAdornment: <Typography variant="body2" color="text.secondary">TL</Typography>
                         }}
-                        helperText={`Maksimum: ${formatCurrency(kalanTutar)}`}
+                        helperText={`Maksimum: ${formatCurrency(remainingAmount)}`}
                     />
 
                     {/* Ödeme Tarihi */}
@@ -348,8 +348,8 @@ export default function PayInstallmentDialog({ open, onClose, onSuccess, plan }:
                         label="Ödeme Tarihi"
                         type="date"
                         fullWidth
-                        value={odemeTarihi}
-                        onChange={(e) => setOdemeTarihi(e.target.value)}
+                        value={paymentDate}
+                        onChange={(e) => setPaymentDate(e.target.value)}
                         InputLabelProps={{ shrink: true }}
                     />
 
@@ -359,15 +359,15 @@ export default function PayInstallmentDialog({ open, onClose, onSuccess, plan }:
                         multiline
                         rows={2}
                         fullWidth
-                        value={aciklama}
-                        onChange={(e) => setAciklama(e.target.value)}
+                        value={notes}
+                        onChange={(e) => setNotes(e.target.value)}
                     />
 
                     {/* Bakiye Uyarısı */}
-                    {odemeTipi === 'BANKA_HAVALESI' && selectedHesap && selectedHesap.bakiye < parseFloat(tutar || '0') && (
+                    {paymentType === 'BANKA_HAVALESI' && selectedHesap && selectedHesap.balance < parseFloat(amount || '0') && (
                         <Alert severity="error">Banka hesabında yeterli bakiye yok!</Alert>
                     )}
-                    {odemeTipi === 'NAKIT' && selectedKasa && selectedKasa.bakiye < parseFloat(tutar || '0') && (
+                    {paymentType === 'NAKIT' && selectedKasa && selectedKasa.balance < parseFloat(amount || '0') && (
                         <Alert severity="error">Kasada yeterli bakiye yok!</Alert>
                     )}
                 </Stack>

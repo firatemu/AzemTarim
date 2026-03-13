@@ -9,7 +9,7 @@ import {
     Drafts
 } from '@mui/icons-material';
 
-export type InvoiceStatus = 'ACIK' | 'ONAYLANDI' | 'KISMEN_ODENDI' | 'KAPALI' | 'IPTAL' | 'DRAFT';
+export type InvoiceStatus = 'OPEN' | 'APPROVED' | 'PARTIALLY_PAID' | 'CLOSED' | 'CANCELLED' | 'DRAFT';
 
 interface StatusBadgeProps extends Omit<ChipProps, 'color'> {
     status: string;
@@ -17,31 +17,31 @@ interface StatusBadgeProps extends Omit<ChipProps, 'color'> {
 }
 
 const statusConfig: Record<string, { label: string; color: string; bgColor: string; icon: React.ReactElement }> = {
-    ACIK: {
+    OPEN: {
         label: 'Beklemede',
         color: '#d97706', // amber-600
         bgColor: 'color-mix(in srgb, var(--chart-2) 15%, transparent)',
         icon: <HourglassEmpty sx={{ fontSize: 16 }} />,
     },
-    ONAYLANDI: {
+    APPROVED: {
         label: 'Onaylandı',
         color: '#2563eb', // blue-600
         bgColor: '#dbeafe', // blue-100
         icon: <CheckCircle sx={{ fontSize: 16 }} />,
     },
-    KISMEN_ODENDI: {
+    PARTIALLY_PAID: {
         label: 'Kısmen Ödendi',
         color: '#0891b2', // cyan-600
         bgColor: '#cffafe', // cyan-100
         icon: <Paid sx={{ fontSize: 16 }} />,
     },
-    KAPALI: {
+    CLOSED: {
         label: 'Ödendi',
         color: '#059669', // emerald-600
         bgColor: '#d1fae5', // emerald-100
         icon: <Paid sx={{ fontSize: 16 }} />,
     },
-    IPTAL: {
+    CANCELLED: {
         label: 'İptal Edildi',
         color: '#dc2626', // red-600
         bgColor: '#fee2e2', // red-100

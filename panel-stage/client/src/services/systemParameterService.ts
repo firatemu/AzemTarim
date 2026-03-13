@@ -28,7 +28,7 @@ export interface UpdateParameterDto {
  */
 export async function getAllParameters(category?: string): Promise<SystemParameter[]> {
   const params = category ? { category } : {};
-  const response = await axios.get('/system-parameter', { params });
+  const response = await axios.get('/system-parameters', { params });
   return response.data;
 }
 
@@ -36,7 +36,7 @@ export async function getAllParameters(category?: string): Promise<SystemParamet
  * Belirli bir parametreyi getir
  */
 export async function getParameter(key: string): Promise<any> {
-  const response = await axios.get(`/system-parameter/${key}`);
+  const response = await axios.get(`/system-parameters/${key}`);
   return response.data;
 }
 
@@ -44,7 +44,7 @@ export async function getParameter(key: string): Promise<any> {
  * Parametre oluştur
  */
 export async function createParameter(dto: CreateParameterDto): Promise<SystemParameter> {
-  const response = await axios.post('/system-parameter', dto);
+  const response = await axios.post('/system-parameters', dto);
   return response.data;
 }
 
@@ -55,7 +55,7 @@ export async function updateParameter(
   key: string,
   dto: UpdateParameterDto,
 ): Promise<SystemParameter> {
-  const response = await axios.put(`/system-parameter/${key}`, dto);
+  const response = await axios.put(`/system-parameters/${key}`, dto);
   return response.data;
 }
 
@@ -63,7 +63,7 @@ export async function updateParameter(
  * Parametre sil
  */
 export async function deleteParameter(key: string): Promise<void> {
-  await axios.delete(`/system-parameter/${key}`);
+  await axios.delete(`/system-parameters/${key}`);
 }
 
 /**

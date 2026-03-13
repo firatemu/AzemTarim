@@ -49,7 +49,7 @@ export class AccountService {
         const type = dto.type || 'CUSTOMER';
         const finalTenantId = (dto as any).tenantId ?? tenantId ?? undefined;
 
-        const existing = await this.prisma.extended.account.findFirst({
+        const existing = await this.prisma.account.findFirst({
             where: {
                 code,
                 ...(finalTenantId ? { tenantId: finalTenantId } : {}),
@@ -61,7 +61,7 @@ export class AccountService {
 
         const { contacts, addresses, banks, ...rest } = dto;
 
-        const created = await this.prisma.extended.account.create({
+        const created = await this.prisma.account.create({
             data: {
                 ...rest,
                 code: code!,
@@ -117,7 +117,7 @@ export class AccountService {
         }
 
         const [accounts, total] = await Promise.all([
-            this.prisma.extended.account.findMany({
+            this.prisma.account.findMany({
                 where,
                 skip,
                 take: limit,
@@ -135,7 +135,7 @@ export class AccountService {
                     },
                 },
             }),
-            this.prisma.extended.account.count({ where }),
+            this.prisma.account.count({ where }),
         ]);
 
         const data = accounts.map((account) => ({
@@ -146,7 +146,7 @@ export class AccountService {
 
         return {
             data,
-            metadata: {
+            meta: {
                 total,
                 page,
                 limit,
@@ -155,7 +155,7 @@ export class AccountService {
         };
     }
 
-    async getDebtCreditReport(query: any) {
+    async getDebitCreditReport(query: any) {
         const tenantId = await this.tenantResolver.resolveForQuery();
         const { search, type, salesAgentId, status, page = 1, limit = 50 } = query;
         const skip = (page - 1) * limit;
@@ -190,7 +190,7 @@ export class AccountService {
         }
 
         const [accounts, total] = await Promise.all([
-            this.prisma.extended.account.findMany({
+            this.prisma.account.findMany({
                 where,
                 skip,
                 take: limit,
@@ -203,10 +203,10 @@ export class AccountService {
                     },
                 }
             }),
-            this.prisma.extended.account.count({ where }),
+            this.prisma.account.count({ where }),
         ]);
 
-        const aggregates = await this.prisma.extended.account.aggregate({
+        const aggregates = await this.prisma.account.aggregate({
             where,
             _sum: {
                 balance: true,
@@ -216,12 +216,12 @@ export class AccountService {
             }
         });
 
-        const [totalDebtResult, totalCreditResult] = await Promise.all([
-            this.prisma.extended.account.aggregate({
+        const [totalDebitResult, totalCreditResult] = await Promise.all([
+            this.prisma.account.aggregate({
                 where: { ...where, balance: { gt: 0 } },
                 _sum: { balance: true }
             }),
-            this.prisma.extended.account.aggregate({
+            this.prisma.account.aggregate({
                 where: { ...where, balance: { lt: 0 } },
                 _sum: { balance: true }
             })
@@ -232,7 +232,7 @@ export class AccountService {
             return {
                 ...item,
                 balance,
-                debt: balance < 0 ? Math.abs(balance) : 0,
+                debit: balance < 0 ? Math.abs(balance) : 0,
                 credit: balance > 0 ? balance : 0,
             };
         });
@@ -240,8 +240,8 @@ export class AccountService {
         return {
             items,
             summary: {
-                totalDebt: Math.abs(Number(totalCreditResult._sum.balance || 0)),
-                totalCredit: Number(totalDebtResult._sum.balance || 0),
+                totalDebit: Math.abs(Number(totalCreditResult._sum.balance || 0)),
+                totalCredit: Number(totalDebitResult._sum.balance || 0),
                 netBalance: Number(aggregates._sum.balance || 0),
                 count: aggregates._count.id,
             },
@@ -255,7 +255,7 @@ export class AccountService {
     }
 
     async findOne(id: string) {
-        const account = await this.prisma.extended.account.findUnique({
+        const account = await this.prisma.account.findUnique({
             where: { id },
             include: {
                 invoices: {
@@ -288,7 +288,7 @@ export class AccountService {
 
         const { contacts, addresses, banks, ...rest } = dto;
 
-        return this.prisma.extended.account.update({
+        return this.prisma.account.update({
             where: { id },
             data: {
                 ...rest,
@@ -306,7 +306,7 @@ export class AccountService {
 
         await this.deletionProtection.checkCariDeletion(id, tenantId);
 
-        return this.prisma.extended.account.delete({
+        return this.prisma.account.delete({
             where: { id },
         });
     }
@@ -315,13 +315,13 @@ export class AccountService {
         const skip = (page - 1) * limit;
 
         const [data, total] = await Promise.all([
-            this.prisma.extended.accountMovement.findMany({
+            this.prisma.accountMovement.findMany({
                 where: { accountId },
                 skip,
                 take: limit,
                 orderBy: { createdAt: 'desc' },
             }),
-            this.prisma.extended.accountMovement.count({ where: { accountId } }),
+            this.prisma.accountMovement.count({ where: { accountId } }),
         ]);
 
         return {
@@ -335,11 +335,11 @@ export class AccountService {
         };
     }
 
-    async exportDebtCreditReportExcel(query: any): Promise<Buffer> {
-        const { items: accounts, summary } = await this.getDebtCreditReport({ ...query, limit: 10000 });
+    async exportDebitCreditReportExcel(query: any): Promise<Buffer> {
+        const { items: accounts, summary } = await this.getDebitCreditReport({ ...query, limit: 10000 });
 
         const tenantId = await this.tenantResolver.resolveForQuery();
-        const tenantSettings = await this.prisma.extended.tenantSettings.findUnique({
+        const tenantSettings = await this.prisma.tenantSettings.findUnique({
             where: { tenantId: tenantId || '' },
         });
 
@@ -351,7 +351,7 @@ export class AccountService {
         worksheet.getCell('A1').font = { size: 14, bold: true, color: { argb: 'FF1F2937' } };
 
         worksheet.mergeCells('A2:G2');
-        worksheet.getCell('A2').value = 'DEBT CREDIT STATUS REPORT';
+        worksheet.getCell('A2').value = 'DEBIT CREDIT STATUS REPORT';
         worksheet.getCell('A2').font = { size: 18, bold: true, color: { argb: 'FF8B5CF6' } };
         worksheet.getCell('A2').alignment = { horizontal: 'center' };
 
@@ -359,8 +359,8 @@ export class AccountService {
         worksheet.getCell('E4').value = new Date().toLocaleDateString('tr-TR');
         worksheet.getCell('D4').font = { bold: true };
 
-        worksheet.getCell('A6').value = 'TOTAL DEBT';
-        worksheet.getCell('B6').value = Number(summary.totalDebt);
+        worksheet.getCell('A6').value = 'TOTAL DEBIT';
+        worksheet.getCell('B6').value = Number(summary.totalDebit);
         worksheet.getCell('B6').numFmt = '#,##0.00 ₺';
         worksheet.getCell('B6').font = { bold: true, color: { argb: 'FFEF4444' } };
 
@@ -438,11 +438,11 @@ export class AccountService {
         return Buffer.from(buffer);
     }
 
-    async exportDebtCreditReportPdf(query: any): Promise<Buffer> {
-        const { items: accounts, summary } = await this.getDebtCreditReport({ ...query, limit: 10000 });
+    async exportDebitCreditReportPdf(query: any): Promise<Buffer> {
+        const { items: accounts, summary } = await this.getDebitCreditReport({ ...query, limit: 10000 });
 
         const tenantId = await this.tenantResolver.resolveForQuery();
-        const tenantSettings = await this.prisma.extended.tenantSettings.findUnique({
+        const tenantSettings = await this.prisma.tenantSettings.findUnique({
             where: { tenantId: tenantId || '' },
         });
 
@@ -545,7 +545,7 @@ export class AccountService {
                                 {
                                     stack: [
                                         { text: 'TOTAL DEBT', style: 'summaryLabel' },
-                                        { text: `${Number(summary.totalDebt).toLocaleString('tr-TR', { minimumFractionDigits: 2 })} TL`, style: 'summaryValueDanger' }
+                                        { text: `${Number(summary.totalDebit).toLocaleString('tr-TR', { minimumFractionDigits: 2 })} TL`, style: 'summaryValueDanger' }
                                     ],
                                     fillColor: '#fef2f2',
                                     padding: [10, 10, 10, 10] as any
@@ -680,7 +680,7 @@ export class AccountService {
         }
 
         const [accounts, total] = await Promise.all([
-            this.prisma.extended.account.findMany({
+            this.prisma.account.findMany({
                 where,
                 skip,
                 take: limit,
@@ -693,10 +693,10 @@ export class AccountService {
                     },
                 }
             }),
-            this.prisma.extended.account.count({ where }),
+            this.prisma.account.count({ where }),
         ]);
 
-        const aggregates = await this.prisma.extended.account.aggregate({
+        const aggregates = await this.prisma.account.aggregate({
             where,
             _sum: {
                 balance: true,
@@ -759,7 +759,7 @@ export class AccountService {
         const { items: accounts, summary } = await this.getCreditLimitReport({ ...query, limit: 10000 });
 
         const tenantId = await this.tenantResolver.resolveForQuery();
-        const tenantSettings = await this.prisma.extended.tenantSettings.findUnique({
+        const tenantSettings = await this.prisma.tenantSettings.findUnique({
             where: { tenantId: tenantId || '' },
         });
 
@@ -864,7 +864,7 @@ export class AccountService {
         const { items: accounts, summary } = await this.getCreditLimitReport({ ...query, limit: 10000 });
 
         const tenantId = await this.tenantResolver.resolveForQuery();
-        const tenantSettings = await this.prisma.extended.tenantSettings.findUnique({
+        const tenantSettings = await this.prisma.tenantSettings.findUnique({
             where: { tenantId: tenantId || '' },
         });
 

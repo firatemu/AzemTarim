@@ -46,69 +46,69 @@ import CreditPlanDialog from '@/components/Banka/CreditPlanDialog';
 import { getBankLogo } from '@/constants/bankalar';
 
 // Interfaces matching the new Prisma schema
-interface BankaHesabi {
+interface BankAccount {
     id: string;
-    hesapAdi: string;
-    hesapKodu: string;
-    hesapTipi: 'VADESIZ' | 'POS' | 'KREDI' | 'FIRMA_KREDI_KARTI';
-    hesapNo?: string;
+    name: string;
+    code: string;
+    type: 'VADESIZ' | 'POS' | 'KREDI' | 'FIRMA_KREDI_KARTI';
+    accountNo?: string;
     iban?: string;
-    bakiye: number;
-    aktif: boolean;
+    balance: number;
+    isActive: boolean;
     // POS specific
-    komisyonOrani?: number;
+    commissionRate?: number;
     // Credit specific
-    krediLimiti?: number;
-    kullanilanLimit?: number;
+    creditLimit?: number;
+    usedLimit?: number;
     // Credit card specific
-    kartLimiti?: number;
-    hesapKesimGunu?: number;
-    sonOdemeGunu?: number;
-    krediler?: BankaKredi[];
+    cardLimit?: number;
+    billingDay?: number;
+    dueDay?: number;
+    loans?: BankLoan[];
 }
 
-interface BankaKrediPlan {
+interface BankLoanPlan {
     id: string;
-    taksitNo: number;
-    vadeTarihi: string;
-    odenen: number;
-    durum: string;
-    tutar: number;
+    installmentNo: number;
+    dueDate: string;
+    paid: number;
+    status: string;
+    amount: number;
 }
 
-interface BankaKredi {
+interface BankLoan {
     id: string;
-    tutar: number;
-    toplamGeriOdeme: number;
-    aciklama?: string;
-    durum: string;
-    planlar?: BankaKrediPlan[];
+    amount: number;
+    totalRepayment: number;
+    description?: string;
+    status: string;
+    plans?: BankLoanPlan[];
 }
 
-interface Banka {
+interface Bank {
     id: string;
-    ad: string;
-    sube?: string;
-    sehir?: string;
-    yetkili?: string;
-    telefon?: string;
+    name: string;
+    branch?: string;
+    city?: string;
+    authorizedPerson?: string;
+    phone?: string;
     logo?: string;
-    durum: boolean;
-    hesaplar: BankaHesabi[];
-    ozet?: {
-        toplamBakiye: number;
-        tipBazliToplam: Record<string, number>;
+    isActive: boolean;
+    accounts: BankAccount[];
+    summary?: {
+        totalBalance: number;
+        typeBasedTotal: Record<string, number>;
     };
 }
 
 // API Functions using axios
 const fetchBankaDetay = async (id: string) => {
-    const res = await axios.get(`/banka/${id}`);
+    const res = await axios.get(`/banks/${id}`);
     return res.data;
 };
 
-const deleteAccount = async (hesapId: string) => {
-    const res = await axios.delete(`/banka/hesap/${hesapId}`);
+const deleteAccount = async (id: string) => {
+    const res = await axios.delete(`/banks/accounts/${id}`);
     return res.data;
 };
 
@@ -118,7 +118,7 @@ export default function BankaDetayPage() {
     const bankaId = params.id as string;
     const { enqueueSnackbar } = useSnackbar();
 
-    const [banka, setBanka] = useState<Banka | null>(null);
+    const [banka, setBanka] = useState<Bank | null>(null);
     const [loading, setLoading] = useState(true);
     const [dialogOpen, setDialogOpen] = useState(false);
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -171,19 +171,19 @@ export default function BankaDetayPage() {
         if (!banka) return { total: 0, byType: {} as Record<string, number> };
 
         // Backend'den gelen özeti kullan
-        if (banka.ozet) {
+        if (banka.summary) {
             return {
-                total: banka.ozet.toplamBakiye,
-                byType: banka.ozet.tipBazliToplam
+                total: banka.summary.totalBalance,
+                byType: banka.summary.typeBasedTotal
             };
         }
 
         const byType: Record<string, number> = {};
         let total = 0;
-        banka.hesaplar.forEach(h => {
-            const bakiye = Number(h.bakiye);
-            total += bakiye;
-            byType[h.hesapTipi] = (byType[h.hesapTipi] || 0) + bakiye;
+        banka.accounts.forEach(h => {
+            const balance = Number(h.balance);
+            total += balance;
+            byType[h.type] = (byType[h.type] || 0) + balance;
         });
         return { total, byType };
     };
@@ -232,8 +232,8 @@ export default function BankaDetayPage() {
                                 border: '1px solid var(--border)',
                                 p: 1
                             }}>
-                                {getBankLogo(banka.ad, banka.logo) ? (
-                                    <Box component="img" src={getBankLogo(banka.ad, banka.logo)!} sx={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                                {getBankLogo(banka.name, banka.logo) ? (
+                                    <Box component="img" src={getBankLogo(banka.name, banka.logo)!} sx={{ width: '100%', height: '100%', objectFit: 'contain' }} />
                                 ) : (
                                     <AccountBalance sx={{ fontSize: 32 }} />
                                 )}
@@ -244,10 +244,10 @@ export default function BankaDetayPage() {
                                     color: 'var(--foreground)',
                                     letterSpacing: '-0.025em',
                                 }}>
-                                    {banka.ad}
+                                    {banka.name}
                                 </Typography>
                                 <Typography sx={{ color: 'var(--muted-foreground)', mt: 0.5 }}>
-                                    {banka.sube && `${banka.sube} Şubesi`} {banka.sehir && `- ${banka.sehir}`}
+                                    {banka.branch && `${banka.branch} Şubesi`} {banka.city && `- ${banka.city}`}
                                 </Typography>
                             </Box>
                         </Box>
@@ -300,14 +300,14 @@ export default function BankaDetayPage() {
                                     {formatCurrency(totals.total)}
                                 </Typography>
                                 <Typography variant="caption" sx={{ color: 'var(--muted-foreground)', opacity: 0.8, display: 'block', mt: 0.5 }}>
-                                    {banka.hesaplar.length} Hesap
+                                    {banka.accounts.length} Hesap
                                 </Typography>
                             </CardContent>
                         </Card>
                     </Grid>
                     {accountTypes.map((type, index) => {
                         const amount = totals.byType[type.value] || 0;
-                        const count = banka.hesaplar.filter(h => h.hesapTipi === type.value).length;
+                        const count = banka.accounts.filter(h => h.type === type.value).length;
                         if (count === 0) return null;
                         const Icon = type.icon;
                         const accentColor = 'var(--chart-2)';
@@ -353,14 +353,14 @@ export default function BankaDetayPage() {
                                     </TableRow>
                                 </TableHead>
                                 <TableBody>
-                                    {banka.hesaplar.map((hesap: any) => {
-                                        const typeInfo = getAccountTypeInfo(hesap.hesapTipi);
+                                    {banka.accounts.map((hesap: any) => {
+                                        const typeInfo = getAccountTypeInfo(hesap.type);
                                         // Kredi hesabı ise kredilerin toplam geri ödeme tutarını göster
-                                        let displayAmount = Number(hesap.bakiye);
-                                        const isCreditAccount = hesap.hesapTipi === 'KREDI';
+                                        let displayAmount = Number(hesap.balance);
+                                        const isCreditAccount = hesap.type === 'KREDI';
 
-                                        if (isCreditAccount && hesap.krediler && hesap.krediler.length > 0) {
-                                            displayAmount = hesap.krediler.reduce((sum: number, k: any) => sum + Number(k.toplamGeriOdeme), 0);
+                                        if (isCreditAccount && hesap.loans && hesap.loans.length > 0) {
+                                            displayAmount = hesap.loans.reduce((sum: number, k: any) => sum + Number(k.totalRepayment), 0);
                                         }
 
                                         return (
@@ -368,10 +368,10 @@ export default function BankaDetayPage() {
                                                 key={hesap.id}
                                                 hover
                                                 sx={{ cursor: 'pointer' }}
-                                                onClick={() => router.push(`/banka/hesap/${hesap.id}`)}
+                                                onClick={() => router.push(`/bank/hesap/${hesap.id}`)}
                                             >
                                                 <TableCell>
-                                                    <Typography fontWeight="500">{hesap.hesapAdi}</Typography>
+                                                    <Typography fontWeight="500">{hesap.name}</Typography>
                                                 </TableCell>
                                                 <TableCell>
                                                     <Chip
@@ -382,7 +382,7 @@ export default function BankaDetayPage() {
                                                     />
                                                 </TableCell>
                                                 <TableCell align="right">
-                                                    <Typography fontWeight="bold" color={Number(hesap.bakiye) < 0 || isCreditAccount ? 'error.main' : 'success.main'}>
+                                                    <Typography fontWeight="bold" color={Number(hesap.balance) < 0 || isCreditAccount ? 'error.main' : 'success.main'}>
                                                         {formatCurrency(displayAmount)}
                                                     </Typography>
                                                 </TableCell>
@@ -402,7 +402,7 @@ export default function BankaDetayPage() {
                                                         size="small"
                                                         onClick={(e) => {
                                                             e.stopPropagation();
-                                                            router.push(`/banka/hesap/${hesap.id}`);
+                                                            router.push(`/bank/hesap/${hesap.id}`);
                                                         }}
                                                     >
                                                         <Visibility fontSize="small" />
@@ -422,7 +422,7 @@ export default function BankaDetayPage() {
                                             </TableRow>
                                         );
                                     })}
-                                    {banka.hesaplar.length === 0 && (
+                                    {banka.accounts.length === 0 && (
                                         <TableRow>
                                             <TableCell colSpan={6} align="center" sx={{ py: 8 }}>
                                                 <Typography color="text.secondary">Bu bankada henüz hesap bulunmuyor.</Typography>
@@ -453,7 +453,7 @@ export default function BankaDetayPage() {
                     onClose={() => setDialogOpen(false)}
                     onSuccess={loadData}
                     bankaId={bankaId}
-                    bankaAdi={banka.ad}
+                    bankaAdi={banka.name}
                     mode={dialogMode}
                     initialData={selectedAccountForEdit}
                 />

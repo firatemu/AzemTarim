@@ -1,0 +1,83 @@
+version: "3.9"
+
+# ── NETWORKS ───────────────────────────────────────────────────────────────────
+# Use existing networks from docker-compose.prod.yml
+# DO NOT create new networks here - reuse existing ones
+
+networks:
+  backend-network:
+    name: otomuhasebe_backend_net
+    external: true
+
+# ── VOLUMES ─────────────────────────────────────────────────────────────────────
+# No named volumes - using bind mounts for local backup storage
+# Backup files are stored in: ./backups/postgres (bind mount)
+
+# ── SERVICES ─────────────────────────────────────────────────────────────────────
+# Automated PostgreSQL backup service
+# Runs on cron schedule, uploads to local storage and MinIO
+
+services:
+  # ═════════════════════════════════════════════════════════════════
+  # BACKUP - Automated PostgreSQL Backup Service
+  # ═════════════════════════════════════════════════════════════════
+  # Features:
+  #   - Daily scheduled backups (cron-based)
+  #   - Local storage (bind mount: ./backups/postgres)
+  #   - MinIO upload (off-site backup)
+  #   - Automatic retention (7 days)
+  #   - gzip compression
+  #   - Full logging with timestamps
+  backup:
+    image: otomuhasebe-backup:latest
+    container_name: otomuhasebe_saas_backup
+    restart: unless-stopped
+    build:
+      context: ../../backup
+      dockerfile: Dockerfile
+    env_file:
+      - ../../.env.backup
+    environment:
+      # PostgreSQL connection
+      POSTGRES_HOST: ${POSTGRES_HOST:-postgres}
+      POSTGRES_PORT: ${POSTGRES_PORT:-5432}
+      POSTGRES_DB: ${POSTGRES_DB:-otomuhasebe_saas_db}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+
+      # MinIO connection
+      MINIO_ENDPOINT: ${MINIO_ENDPOINT:-http://minio:9000}
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY}
+      MINIO_BUCKET: ${MINIO_BUCKET:-db-backups}
+
+      # Backup settings
+      BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-7}
+      BACKUP_SCHEDULE: ${BACKUP_SCHEDULE:-30 23 * * *}
+      # Schedule format: minute hour day month weekday
+      # Current: every day at 23:30 (30 23 * * *)
+      # Examples:
+      #   - Every 6 hours: 0 */6 * * *
+      #   - Twice daily (2:30, 14:30): 30 2,14 * * *
+      #   - Weekly (Sunday 23:30): 30 23 * * 0
+
+    volumes:
+      # Local backup storage (bind mount)
+      # Backup files are stored here: ./backups/postgres/
+      - ../../backups/postgres:/backups
+
+    networks:
+      - backend-network
+
+    # NO host port exposure - internal only!
+    # Backup service communicates via backend-network only
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"

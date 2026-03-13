@@ -39,7 +39,7 @@ export class TenantMiddleware implements NestMiddleware {
 
     try {
       // Veritabanından oku
-      const parameter = await this.prisma.extended.systemParameter.findFirst({
+      const parameter = await this.prisma.systemParameter.findFirst({
         where: {
           key: 'STAGING_DEFAULT_TENANT_ID',
           tenantId: null, // Explicitly query global parameter
@@ -66,7 +66,7 @@ export class TenantMiddleware implements NestMiddleware {
     }
     // Fallback: veritabanında tek/ilk aktif tenant (staging için)
     try {
-      const first = await this.prisma.extended.tenant.findFirst({
+      const first = await this.prisma.tenant.findFirst({
         where: { status: 'ACTIVE' },
         select: { id: true },
       });
@@ -140,7 +140,7 @@ export class TenantMiddleware implements NestMiddleware {
 
     // 3. User bazlı kontroller (Token varsa)
     if (jwtPayload?.sub) {
-      const user = await this.prisma.extended.user.findUnique({
+      const user = await this.prisma.user.findUnique({
         where: { id: jwtPayload.sub },
         include: { tenant: true },
       });

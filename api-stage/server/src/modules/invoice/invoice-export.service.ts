@@ -64,7 +64,7 @@ export class InvoiceExportService {
             ];
         }
 
-        const faturalar = await this.prisma.extended.invoice.findMany({
+        const faturalar = await this.prisma.invoice.findMany({
             where,
             include: {
                 account: { select: { title: true, code: true } },

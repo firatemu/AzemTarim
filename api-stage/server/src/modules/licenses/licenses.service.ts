@@ -1,3 +1,4 @@
+import { TenantResolverService } from '../../common/services/tenant-resolver.service';
 import { Injectable, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma.service';
 import { LicenseService } from '../../common/services/license.service';
@@ -5,17 +6,15 @@ import { InvitationService } from '../../common/services/invitation.service';
 
 @Injectable()
 export class LicensesService {
-  constructor(
-    private prisma: PrismaService,
+  constructor(private prisma: PrismaService,
     private licenseService: LicenseService,
-    private invitationService: InvitationService,
-  ) { }
+    private invitationService: InvitationService, private readonly tenantResolver: TenantResolverService) { }
 
   /**
    * Tenant'ın lisans statusunu getir
    */
   async getTenantLicenseStatus(tenantId: string) {
-    const subscription = await this.prisma.extended.subscription.findUnique({
+    const subscription = await this.prisma.subscription.findUnique({
       where: { tenantId },
       include: {
         plan: true,
@@ -65,7 +64,7 @@ export class LicensesService {
    * Kullanıcıya ana paket lisansı ata
    */
   async assignBasePlanLicense(userId: string, assignedBy: string) {
-    const user = await this.prisma.extended.user.findUnique({
+    const user = await this.prisma.user.findUnique({
       where: { id: userId },
     });
 
@@ -111,7 +110,7 @@ export class LicensesService {
    * Tenant'ın tüm lisanslı kullanıcılarını getir
    */
   async getTenantLicensedUsers(tenantId: string) {
-    const users = await this.prisma.extended.user.findMany({
+    const users = await this.prisma.user.findMany({
       where: {
         tenantId,
         licenses: {
@@ -140,7 +139,7 @@ export class LicensesService {
    * Tenant'ın tüm kullanıcılarını getir (lisanslı ve lisanssız)
    */
   async getAllTenantUsers(tenantId: string) {
-    const users = await this.prisma.extended.user.findMany({
+    const users = await this.prisma.user.findMany({
       where: {
         tenantId,
       },
@@ -166,7 +165,7 @@ export class LicensesService {
    * Ek kullanıcı satın al
    */
   async purchaseAdditionalUsers(tenantId: string, quantity: number) {
-    const subscription = await this.prisma.extended.subscription.findUnique({
+    const subscription = await this.prisma.subscription.findUnique({
       where: { tenantId },
     });
 
@@ -174,7 +173,7 @@ export class LicensesService {
       throw new BadRequestException('Subscription not found');
     }
 
-    await this.prisma.extended.subscription.update({
+    await this.prisma.subscription.update({
       where: { tenantId },
       data: {
         additionalUsers: {
@@ -197,7 +196,7 @@ export class LicensesService {
     moduleSlug: string,
     quantity: number,
   ) {
-    const module = await this.prisma.extended.module.findUnique({
+    const module = await this.prisma.module.findUnique({
       where: { slug: moduleSlug },
     });
 
@@ -205,7 +204,7 @@ export class LicensesService {
       throw new BadRequestException(`Module not found: ${moduleSlug}`);
     }
 
-    const subscription = await this.prisma.extended.subscription.findUnique({
+    const subscription = await this.prisma.subscription.findUnique({
       where: { tenantId },
     });
 
@@ -214,7 +213,7 @@ export class LicensesService {
     }
 
     // Mevcut lisans var mı kontrol et
-    const existing = await this.prisma.extended.moduleLicense.findFirst({
+    const existing = await this.prisma.moduleLicense.findFirst({
       where: {
         subscriptionId: subscription.id,
         moduleId: module.id,
@@ -223,7 +222,7 @@ export class LicensesService {
 
     if (existing) {
       // Mevcut lisansı güncelle
-      await this.prisma.extended.moduleLicense.update({
+      await this.prisma.moduleLicense.update({
         where: { id: existing.id },
         data: {
           quantity: {
@@ -233,7 +232,7 @@ export class LicensesService {
       });
     } else {
       // Yeni lisans oluştur
-      await this.prisma.extended.moduleLicense.create({
+      await this.prisma.moduleLicense.create({
         data: {
           subscriptionId: subscription.id,
           moduleId: module.id,

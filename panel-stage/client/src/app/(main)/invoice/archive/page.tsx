@@ -35,7 +35,7 @@ import MainLayout from '@/components/Layout/MainLayout';
 interface Fatura {
   id: string;
   faturaNo: string;
-  faturaTipi: 'SATIS' | 'ALIS';
+  faturaTipi: 'SALE' | 'PURCHASE';
   tarih: string;
   vade?: string;
   toplamTutar: number;
@@ -76,9 +76,9 @@ function FaturaArsivContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
 
-  const initialTab = (searchParams.get('tab') as 'SATIS' | 'ALIS') || 'SATIS';
+  const initialTab = (searchParams.get('tab') as 'SALE' | 'PURCHASE') || 'SALE';
 
-  const [activeTab, setActiveTab] = useState<'SATIS' | 'ALIS'>(initialTab);
+  const [activeTab, setActiveTab] = useState<'SALE' | 'PURCHASE'>(initialTab);
   const [faturalar, setFaturalar] = useState<Fatura[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -103,7 +103,7 @@ function FaturaArsivContent() {
 
   useEffect(() => {
     const tabParam = searchParams.get('tab');
-    if (tabParam && (tabParam === 'SATIS' || tabParam === 'ALIS') && tabParam !== activeTab) {
+    if (tabParam && (tabParam === 'SALE' || tabParam === 'PURCHASE') && tabParam !== activeTab) {
       setActiveTab(tabParam);
     }
   }, [searchParams, activeTab]);
@@ -111,9 +111,9 @@ function FaturaArsivContent() {
   const fetchDeletedFaturalar = async () => {
     try {
       setLoading(true);
-      const response = await axios.get('/invoice/deleted', {
+      const response = await axios.get('/invoices/deleted', {
         params: {
-          faturaTipi: activeTab,
+          type: activeTab,
           search: searchTerm,
           limit: 100,
         },
@@ -130,7 +130,7 @@ function FaturaArsivContent() {
     if (!selectedFatura) return;
 
     try {
-      await axios.put(`/fatura/${selectedFatura.id}/restore`);
+      await axios.put(`/invoices/${selectedFatura.id}/restore`);
       showSnackbar('Fatura başarıyla geri yüklendi', 'success');
       setOpenRestore(false);
       fetchDeletedFaturalar();
@@ -156,7 +156,7 @@ function FaturaArsivContent() {
     async (id: string) => {
       try {
         setDetailLoading(true);
-        const response = await axios.get<Fatura>(`/fatura/${id}`);
+        const response = await axios.get<Fatura>(`/invoices/${id}`);
         setSelectedFatura(response.data);
         setCurrentDetailId(id);
         setOpenView(true);
@@ -244,8 +244,8 @@ function FaturaArsivContent() {
 
         {/* Tabs */}
         <Paper sx={{ mb: 2 }}>
-          <Tabs 
-            value={activeTab} 
+          <Tabs
+            value={activeTab}
             onChange={(_, value) => {
               setActiveTab(value);
               const params = new URLSearchParams(searchParams.toString());
@@ -260,18 +260,18 @@ function FaturaArsivContent() {
               },
             }}
           >
-            <Tab 
-              label="💜 Satış Faturaları" 
-              value="SATIS"
+            <Tab
+              label="💜 Satış Faturaları"
+              value="SALE"
               sx={{
                 '&.Mui-selected': {
                   color: '#8b5cf6',
                 },
               }}
             />
-            <Tab 
-              label="🟠 Satın Alma Faturaları" 
-              value="ALIS"
+            <Tab
+              label="🟠 Satın Alma Faturaları"
+              value="PURCHASE"
               sx={{
                 '&.Mui-selected': {
                   color: '#f59e0b',
@@ -345,7 +345,7 @@ function FaturaArsivContent() {
                       Silinmiş fatura bulunamadı
                     </Typography>
                     <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                      {activeTab === 'SATIS' ? 'Satış' : 'Satın Alma'} faturaları arşivinde kayıt yok
+                      {activeTab === 'SALE' ? 'Satış' : 'Satın Alma'} faturaları arşivinde kayıt yok
                     </Typography>
                   </TableCell>
                 </TableRow>
@@ -362,7 +362,7 @@ function FaturaArsivContent() {
                           href={`/fatura/arsiv?tab=${activeTab}&view=${fatura.id}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          style={{ textDecoration: 'none', color: activeTab === 'SATIS' ? '#8b5cf6' : '#f59e0b', fontWeight: 600 }}
+                          style={{ textDecoration: 'none', color: activeTab === 'SALE' ? '#8b5cf6' : '#f59e0b', fontWeight: 600 }}
                         >
                           {fatura.faturaNo}
                         </Link>
@@ -425,7 +425,7 @@ function FaturaArsivContent() {
 
         {/* View Dialog */}
         <Dialog open={openView} onClose={() => setOpenView(false)} maxWidth="lg" fullWidth>
-          <DialogTitle component="div" sx={{ fontWeight: 'bold', borderBottom: '1px solid #e0e0e0' }} component="div">
+          <DialogTitle component="div" sx={{ fontWeight: 'bold', borderBottom: '1px solid #e0e0e0' }}>
             Fatura Detayı (Silinmiş)
           </DialogTitle>
           <DialogContent>
@@ -436,11 +436,11 @@ function FaturaArsivContent() {
             ) : selectedFatura ? (
               <Box sx={{ mt: 2, display: 'flex', flexDirection: 'column', gap: 3 }}>
                 <Box>
-                  <Chip 
-                    label="SİLİNMİŞ" 
-                    color="error" 
-                    size="small" 
-                    sx={{ mb: 2, fontWeight: 600 }} 
+                  <Chip
+                    label="SİLİNMİŞ"
+                    color="error"
+                    size="small"
+                    sx={{ mb: 2, fontWeight: 600 }}
                   />
                   <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', mb: 2 }}>
                     <Box sx={{ flex: 1, minWidth: 220 }}>
@@ -561,14 +561,14 @@ function FaturaArsivContent() {
             updateUrl(params);
           }}
         >
-          <DialogTitle component="div" sx={{ fontWeight: 'bold' }} component="div">Fatura Geri Yükle</DialogTitle>
+          <DialogTitle component="div" sx={{ fontWeight: 'bold' }}>Fatura Geri Yükle</DialogTitle>
           <DialogContent>
             <Typography>
               <strong>{selectedFatura?.faturaNo}</strong> nolu faturayı geri yüklemek istediğinizden emin misiniz?
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
               Fatura aktif faturalar listesine geri dönecek.
-              {selectedFatura?.durum === 'ONAYLANDI' && (
+              {selectedFatura?.durum === 'APPROVED' && (
                 <strong> Onaylanmış bir fatura olduğu için stok ve cari işlemleri de geri yüklenecektir.</strong>
               )}
             </Typography>

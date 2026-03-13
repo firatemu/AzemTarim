@@ -1,3 +1,4 @@
+import { TenantResolverService } from '../../common/services/tenant-resolver.service';
 import {
   Injectable,
   NotFoundException,
@@ -8,11 +9,11 @@ import { CreateVehicleBrandDto, UpdateVehicleBrandDto } from './dto';
 
 @Injectable()
 export class VehicleBrandService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService, private readonly tenantResolver: TenantResolverService) {}
 
   async create(createVehicleBrandDto: CreateVehicleBrandDto) {
     // Aynı araç zaten var mı kontrol et
-    const existingArac = await this.prisma.extended.vehicleCatalog.findFirst({
+    const existingArac = await this.prisma.vehicleCatalog.findFirst({
       where: {
         brand: createVehicleBrandDto.brand,
         model: createVehicleBrandDto.model,
@@ -27,7 +28,7 @@ export class VehicleBrandService {
       );
     }
 
-    return this.prisma.extended.vehicleCatalog.create({
+    return this.prisma.vehicleCatalog.create({
       data: {
         brand: createVehicleBrandDto.brand,
         model: createVehicleBrandDto.model,
@@ -66,13 +67,13 @@ export class VehicleBrandService {
     }
 
     const [data, total] = await Promise.all([
-      this.prisma.extended.vehicleCatalog.findMany({
+      this.prisma.vehicleCatalog.findMany({
         where,
         skip,
         take: limit,
         orderBy: [{ brand: 'asc' }, { model: 'asc' }, { engineVolume: 'asc' }],
       }),
-      this.prisma.extended.vehicleCatalog.count({ where }),
+      this.prisma.vehicleCatalog.count({ where }),
     ]);
 
     return {
@@ -93,7 +94,7 @@ export class VehicleBrandService {
   }
 
   async findOne(id: string) {
-    const vehicleBrand = await this.prisma.extended.vehicleCatalog.findUnique({
+    const vehicleBrand = await this.prisma.vehicleCatalog.findUnique({
       where: { id },
     });
 
@@ -131,7 +132,7 @@ export class VehicleBrandService {
       updateVehicleBrandDto.fuelType;
 
     if (uniqueFieldsChanged) {
-      const existingArac = await this.prisma.extended.vehicleCatalog.findFirst({
+      const existingArac = await this.prisma.vehicleCatalog.findFirst({
         where: {
           id: { not: id },
           brand: brandToUpdate,
@@ -148,7 +149,7 @@ export class VehicleBrandService {
       }
     }
 
-    const updated = await this.prisma.extended.vehicleCatalog.update({
+    const updated = await this.prisma.vehicleCatalog.update({
       where: { id },
       data: {
         brand: updateVehicleBrandDto.brand,
@@ -170,13 +171,13 @@ export class VehicleBrandService {
 
   async remove(id: string) {
     await this.findOne(id);
-    return this.prisma.extended.vehicleCatalog.delete({
+    return this.prisma.vehicleCatalog.delete({
       where: { id },
     });
   }
 
   async getBrands() {
-    const brands = await this.prisma.extended.vehicleCatalog.findMany({
+    const brands = await this.prisma.vehicleCatalog.findMany({
       select: {
         brand: true,
       },
@@ -190,7 +191,7 @@ export class VehicleBrandService {
   }
 
   async getFuelTypes() {
-    const yakitTipleri = await this.prisma.extended.vehicleCatalog.findMany({
+    const yakitTipleri = await this.prisma.vehicleCatalog.findMany({
       select: {
         fuelType: true,
       },
@@ -206,7 +207,7 @@ export class VehicleBrandService {
   async getModels(brand?: string) {
     const where = brand ? { brand: brand } : {};
 
-    const models = await this.prisma.extended.vehicleCatalog.findMany({
+    const models = await this.prisma.vehicleCatalog.findMany({
       where,
       select: {
         model: true,

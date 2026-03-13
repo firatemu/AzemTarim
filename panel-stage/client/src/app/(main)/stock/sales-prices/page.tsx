@@ -27,11 +27,15 @@ import { SalePriceDialog } from '@/components/SalePriceDialog';
 
 interface Stok {
   id: string;
+  productId: string;
   stokKodu: string;
   stokAdi: string;
   marka?: string | null;
   satisFiyati: number;
-  alisFiyati: number;
+  alisFiyati?: number;
+  priceType?: string;
+  currency?: string;
+  notes?: string;
 }
 
 const formatDateOnly = (date: Date) => {
@@ -60,17 +64,32 @@ export default function SatisFiyatlariPage() {
   const fetchStoklar = async () => {
     setLoading(true);
     try {
-      const response = await axios.get('/product', {
+      const response = await axios.get('/price-cards', {
         params: {
           limit: 200,
+          type: 'SALE',
           search: debouncedSearch || undefined,
         },
       });
-      const items: Stok[] = response.data?.data ?? [];
-      setStoklar(items);
+      const items: any[] = response.data?.data ?? [];
+      
+      // Map price cards to Stok format
+      const mappedItems: Stok[] = items.map((card) => ({
+        id: card.id,
+        productId: card.productId,
+        stokKodu: card.product?.code || card.product?.stokKodu || '',
+        stokAdi: card.product?.name || card.product?.stokAdi || '',
+        marka: card.product?.brand || null,
+        satisFiyati: card.salePrice || card.price || 0,
+        priceType: card.priceType || card.type || 'SALE',
+        currency: card.currency || 'TRY',
+        notes: card.notes || card.note || '',
+      }));
+      
+      setStoklar(mappedItems);
       setDraftPrices((prev) => {
         const next: Record<string, string> = { ...prev };
-        items.forEach((stok) => {
+        mappedItems.forEach((stok) => {
           if (next[stok.id] === undefined) {
             next[stok.id] = Number(stok.satisFiyati ?? 0).toString();
           }
@@ -111,11 +130,13 @@ export default function SatisFiyatlariPage() {
     try {
       const now = new Date();
       await axios.post('/price-cards', {
-        stokId: stok.id,
-        type: 'SALE',
+        productId: stok.productId,
+        priceType: 'SALE',
         price: parsed,
+        salePrice: parsed,
+        currency: 'TRY',
         effectiveFrom: formatDateOnly(now),
-        note: `Tablodan güncelleme • ${now.toLocaleString('tr-TR')}`,
+        notes: `Tablodan güncelleme • ${now.toLocaleString('tr-TR')}`,
       });
       setSnackbar({ open: true, severity: 'success', message: `${stok.stokKodu} için satış fiyatı güncellendi.` });
       setStoklar((prev) =>

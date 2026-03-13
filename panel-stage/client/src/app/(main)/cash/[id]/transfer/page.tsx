@@ -300,7 +300,7 @@ export default function POSTransferPage() {
 
         {/* Confirm Dialog */}
         <Dialog open={openConfirm} onClose={() => setOpenConfirm(false)} maxWidth="sm" fullWidth>
-          <DialogTitle component="div" sx={{ fontWeight: 'bold' }} component="div">
+          <DialogTitle component="div" sx={{ fontWeight: 'bold' }}>
             Transfer Onayı
           </DialogTitle>
           <DialogContent>

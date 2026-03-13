@@ -13,7 +13,7 @@ export class DeletionProtectionService {
      */
     async checkCariDeletion(id: string, tenantId: string) {
         // 1. Hareket kontrolü
-        const hareketSayisi = await this.prisma.extended.accountMovement.count({
+        const hareketSayisi = await this.prisma.accountMovement.count({
             where: { accountId: id, tenantId },
         });
 
@@ -25,7 +25,7 @@ export class DeletionProtectionService {
         }
 
         // 2. Invoice kontrolü
-        const faturaSayisi = await this.prisma.extended.invoice.count({
+        const faturaSayisi = await this.prisma.invoice.count({
             where: { accountId: id, tenantId, deletedAt: null },
         });
 
@@ -37,7 +37,7 @@ export class DeletionProtectionService {
         }
 
         // 3. Collection kontrolü
-        const tahsilatSayisi = await this.prisma.extended.collection.count({
+        const tahsilatSayisi = await this.prisma.collection.count({
             where: { accountId: id, tenantId },
         });
 
@@ -58,7 +58,7 @@ export class DeletionProtectionService {
      */
     async checkStokDeletion(id: string, tenantId: string) {
         // 1. Stok hareketi
-        const hareketSayisi = await this.prisma.extended.productMovement.count({
+        const hareketSayisi = await this.prisma.productMovement.count({
             where: { productId: id, tenantId },
         });
 
@@ -70,7 +70,7 @@ export class DeletionProtectionService {
         }
 
         // 2. Invoice itemsi
-        const faturaKalemSayisi = await this.prisma.extended.invoiceItem.count({
+        const faturaKalemSayisi = await this.prisma.invoiceItem.count({
             where: { productId: id, invoice: { tenantId, deletedAt: null } },
         });
 
@@ -82,7 +82,7 @@ export class DeletionProtectionService {
         }
 
         // 3. Stok transferleri/hareketleri (stock_moves)
-        const stockMoveSayisi = await this.prisma.extended.stockMove.count({
+        const stockMoveSayisi = await this.prisma.stockMove.count({
             where: { productId: id, product: { tenantId } },
         });
 
@@ -102,7 +102,7 @@ export class DeletionProtectionService {
      * @param tenantId Tenant ID
      */
     async checkFaturaDeletion(id: string, tenantId: string) {
-        const fatura = await this.prisma.extended.invoice.findUnique({
+        const fatura = await this.prisma.invoice.findUnique({
             where: { id },
             select: { status: true, tenantId: true },
         });
@@ -120,7 +120,7 @@ export class DeletionProtectionService {
         }
 
         // 2. Collection kontrolü (FaturaTahsilat tablosu)
-        const tahsilatSayisi = await this.prisma.extended.invoiceCollection.count({
+        const tahsilatSayisi = await this.prisma.invoiceCollection.count({
             where: { invoiceId: id, tenantId },
         });
 
@@ -139,13 +139,13 @@ export class DeletionProtectionService {
      */
     private async logAttempt(resourceId: string, resource: string, tenantId: string, reason: string) {
         try {
-            await this.prisma.extended.auditLog.create({
+            await this.prisma.auditLog.create({
                 data: {
                     action: 'DELETE_BLOCKED',
                     resource,
                     resourceId,
                     tenantId,
-                    metadata: { reason },
+                    meta: { reason },
                 },
             });
         } catch (error) {

@@ -102,7 +102,7 @@ export default function FaturaKarlilikPage() {
 
   const fetchCariler = async () => {
     try {
-      const response = await axios.get('/account', { params: { limit: 1000 } });
+      const response = await axios.get('/accounts', { params: { limit: 1000 } });
       setCariler(response.data.data || []);
     } catch (error) {
       console.error('Cariler yüklenirken hata:', error);
@@ -266,9 +266,9 @@ export default function FaturaKarlilikPage() {
                     }
                   >
                     <MenuItem value="">Tümü</MenuItem>
-                    <MenuItem value="ACIK">Açık</MenuItem>
-                    <MenuItem value="ONAYLANDI">Onaylandı</MenuItem>
-                    <MenuItem value="KAPALI">Kapalı</MenuItem>
+                    <MenuItem value="OPEN">Açık</MenuItem>
+                    <MenuItem value="APPROVED">Onaylandı</MenuItem>
+                    <MenuItem value="CLOSED">Kapalı</MenuItem>
                   </Select>
                 </FormControl>
               </>

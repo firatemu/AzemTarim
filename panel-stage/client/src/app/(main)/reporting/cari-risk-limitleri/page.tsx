@@ -124,7 +124,7 @@ export default function CariRiskLimitleriPage() {
                 }
             });
 
-            const response = await axios.get('/account/rapor/risk-limitleri', { params });
+            const response = await axios.get('/account/report/credit-limits', { params });
             setData(response.data);
         } catch (error) {
             console.error('Risk limitleri raporu alınamadı:', error);
@@ -170,7 +170,7 @@ export default function CariRiskLimitleriPage() {
                 }
             });
 
-            const response = await axios.get(`/cari/rapor/risk-limitleri/export/${type}`, {
+            const response = await axios.get(`/account/report/credit-limits/export/${type}`, {
                 params,
                 responseType: 'blob'
             });

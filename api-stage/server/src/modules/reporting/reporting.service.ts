@@ -1,3 +1,4 @@
+import { TenantResolverService } from '../../common/services/tenant-resolver.service';
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../common/prisma.service';
@@ -24,7 +25,7 @@ interface StokSummary {
 
 @Injectable()
 export class ReportingService {
-  constructor(private readonly prisma: PrismaService) { }
+  constructor(private readonly prisma: PrismaService, private readonly tenantResolver: TenantResolverService) { }
 
   async getOverview(query: OverviewQueryDto) {
     const range = this.resolveRange(query);
@@ -62,27 +63,27 @@ export class ReportingService {
       topCustomersRaw,
       topProductsRaw,
     ] = await Promise.all([
-      this.prisma.extended.invoice.aggregate({
+      this.prisma.invoice.aggregate({
         where: { ...approvedSalesWhereBase, invoiceType: 'SALE' as any },
         _sum: { grandTotal: true },
         _count: { id: true },
       }),
-      this.prisma.extended.invoice.aggregate({
+      this.prisma.invoice.aggregate({
         where: { ...approvedSalesWhereBase, invoiceType: 'SALES_RETURN' as any },
         _sum: { grandTotal: true },
         _count: { id: true },
       }),
-      this.prisma.extended.invoice.aggregate({
+      this.prisma.invoice.aggregate({
         where: { ...approvedPurchaseWhereBase, invoiceType: 'PURCHASE' as any },
         _sum: { grandTotal: true },
         _count: { id: true },
       }),
-      this.prisma.extended.invoice.aggregate({
+      this.prisma.invoice.aggregate({
         where: { ...approvedPurchaseWhereBase, invoiceType: 'PURCHASE_RETURN' as any },
         _sum: { grandTotal: true },
         _count: { id: true },
       }),
-      this.prisma.extended.collection.aggregate({
+      this.prisma.collection.aggregate({
         where: {
           type: 'COLLECTION',
           date: {
@@ -93,7 +94,7 @@ export class ReportingService {
         _sum: { amount: true },
         _count: { id: true },
       }),
-      this.prisma.extended.collection.aggregate({
+      this.prisma.collection.aggregate({
         where: {
           type: 'PAYMENT',
           date: {
@@ -104,7 +105,7 @@ export class ReportingService {
         _sum: { amount: true },
         _count: { id: true },
       }),
-      this.prisma.extended.expense.aggregate({
+      this.prisma.expense.aggregate({
         where: {
           date: {
             gte: range.startDate,
@@ -114,7 +115,7 @@ export class ReportingService {
         _sum: { amount: true },
         _count: { id: true },
       }),
-      this.prisma.extended.invoice.findMany({
+      this.prisma.invoice.findMany({
         where: {
           ...approvedSalesWhereBase,
           invoiceType: { in: ['SALE', 'SALES_RETURN'] as any },
@@ -128,7 +129,7 @@ export class ReportingService {
           accountId: true,
         },
       }),
-      this.prisma.extended.invoice.findMany({
+      this.prisma.invoice.findMany({
         where: {
           ...approvedPurchaseWhereBase,
           invoiceType: { in: ['PURCHASE', 'PURCHASE_RETURN'] as any },
@@ -142,7 +143,7 @@ export class ReportingService {
           accountId: true,
         },
       }),
-      this.prisma.extended.invoice.groupBy({
+      this.prisma.invoice.groupBy({
         by: ['accountId'],
         where: {
           ...approvedSalesWhereBase,
@@ -157,7 +158,7 @@ export class ReportingService {
         },
         take: 5,
       }),
-      this.prisma.extended.invoiceItem.groupBy({
+      this.prisma.invoiceItem.groupBy({
         by: ['productId'],
         where: {
           invoice: {
@@ -210,13 +211,13 @@ export class ReportingService {
     const accountIds = topCustomersRaw.map((item: any) => item.accountId);
     const [accounts, products] = await Promise.all([
       accountIds.length
-        ? this.prisma.extended.account.findMany({
+        ? this.prisma.account.findMany({
           where: { id: { in: accountIds } },
           select: { id: true, code: true, title: true },
         })
         : Promise.resolve<CariSummary[]>([]),
       topProductsRaw.length
-        ? this.prisma.extended.product.findMany({
+        ? this.prisma.product.findMany({
           where: { id: { in: topProductsRaw.map((item: any) => item.productId) } },
           select: { id: true, code: true, name: true, unit: true },
         })
@@ -293,7 +294,7 @@ export class ReportingService {
   }
 
   private async getLowStockItems() {
-    const candidates = await this.prisma.extended.product.findMany({
+    const candidates = await this.prisma.product.findMany({
       where: {
         criticalQty: { gt: 0 },
       },
@@ -312,7 +313,7 @@ export class ReportingService {
 
     const itemsWithStock = await Promise.all(
       candidates.map(async (product) => {
-        const hareketler = await this.prisma.extended.productMovement.groupBy({
+        const hareketler = await this.prisma.productMovement.groupBy({
           by: ['movementType'],
           where: { productId: product.id },
           _sum: { quantity: true },
@@ -429,7 +430,7 @@ export class ReportingService {
     const range = this.resolveRange(query);
 
     const [salesRaw, collectionsRaw, salespersons] = await Promise.all([
-      this.prisma.extended.invoice.groupBy({
+      this.prisma.invoice.groupBy({
         by: ['salesAgentId'],
         where: {
           invoiceType: 'SALE' as any,
@@ -448,7 +449,7 @@ export class ReportingService {
           id: true,
         },
       }),
-      this.prisma.extended.collection.groupBy({
+      this.prisma.collection.groupBy({
         by: ['salesAgentId'],
         where: {
           type: 'COLLECTION',
@@ -465,7 +466,7 @@ export class ReportingService {
           id: true,
         },
       }),
-      this.prisma.extended.salesAgent.findMany({
+      this.prisma.salesAgent.findMany({
         where: { isActive: true },
         select: { id: true, fullName: true },
       }),

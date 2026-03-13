@@ -1,13 +1,15 @@
+import { TenantResolverService } from '../../common/services/tenant-resolver.service';
 import {
     Injectable,
     NotFoundException,
     BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma.service';
+import { ClsService } from '../../common/services/cls.service';
 
 @Injectable()
 export class BrandService {
-    constructor(private prisma: PrismaService) { }
+    constructor(private prisma: PrismaService, private readonly tenantResolver: TenantResolverService) { }
 
     private isPlaceholderProduct(p: { name?: string | null; isBrandOnly?: boolean | null }) {
         return (
@@ -22,7 +24,7 @@ export class BrandService {
      * Includes placeholder records (with product count 0)
      */
     async findAll() {
-        const products = await this.prisma.extended.product.findMany({
+        const products = await this.prisma.product.findMany({
             where: {
                 brand: {
                     not: null,
@@ -67,7 +69,7 @@ export class BrandService {
     async findOne(brandName: string) {
         const decodedBrandName = decodeURIComponent(brandName);
 
-        const productCount = await this.prisma.extended.product.count({
+        const productCount = await this.prisma.product.count({
             where: {
                 brand: decodedBrandName,
                 NOT: {
@@ -80,7 +82,7 @@ export class BrandService {
             },
         });
 
-        const totalProductCount = await this.prisma.extended.product.count({
+        const totalProductCount = await this.prisma.product.count({
             where: {
                 brand: decodedBrandName,
             },
@@ -106,7 +108,7 @@ export class BrandService {
 
         const trimmedBrandName = brandName.trim();
 
-        const existingProduct = await this.prisma.extended.product.findFirst({
+        const existingProduct = await this.prisma.product.findFirst({
             where: {
                 brand: trimmedBrandName,
             },
@@ -120,13 +122,28 @@ export class BrandService {
         const code = `BRD-${trimmedBrandName.substring(0, 3).toUpperCase()}-${timestamp}`;
 
         try {
-            const product = await this.prisma.extended.product.create({
+            const product = await this.prisma.product.create({
                 data: {
+                    tenantId: ClsService.getTenantId() || '',
                     code,
                     name: `[Brand Definition] ${trimmedBrandName}`,
                     unit: 'Adet',
-                    purchasePrice: 0,
-                    salePrice: 0,
+                    priceCards: {
+                        create: [
+                            {
+                                tenantId: ClsService.getTenantId() || '',
+                                type: 'PURCHASE',
+                                price: 0,
+                                vatRate: 20,
+                            },
+                            {
+                                tenantId: ClsService.getTenantId() || '',
+                                type: 'SALE',
+                                price: 0,
+                                vatRate: 20,
+                            }
+                        ]
+                    },
                     brand: trimmedBrandName,
                     isBrandOnly: true,
                     description:
@@ -144,13 +161,28 @@ export class BrandService {
                 const timestamp = Date.now().toString();
                 const retryCode = `BRD-${trimmedBrandName.substring(0, 3).toUpperCase()}-${timestamp}`;
 
-                const product = await this.prisma.extended.product.create({
+                const product = await this.prisma.product.create({
                     data: {
+                        tenantId: ClsService.getTenantId() || '',
                         code: retryCode,
                         name: `[Brand Definition] ${trimmedBrandName}`,
                         unit: 'Adet',
-                        purchasePrice: 0,
-                        salePrice: 0,
+                        priceCards: {
+                            create: [
+                                {
+                                    tenantId: ClsService.getTenantId() || '',
+                                    type: 'PURCHASE',
+                                    price: 0,
+                                    vatRate: 20,
+                                },
+                                {
+                                    tenantId: ClsService.getTenantId() || '',
+                                    type: 'SALE',
+                                    price: 0,
+                                    vatRate: 20,
+                                }
+                            ]
+                        },
                         brand: trimmedBrandName,
                         isBrandOnly: true,
                         description:
@@ -184,7 +216,7 @@ export class BrandService {
             );
         }
 
-        const productCount = await this.prisma.extended.product.count({
+        const productCount = await this.prisma.product.count({
             where: {
                 brand: decodedBrandName,
             },
@@ -194,7 +226,7 @@ export class BrandService {
             throw new NotFoundException(`Brand not found: ${decodedBrandName}`);
         }
 
-        const newBrandProductCount = await this.prisma.extended.product.count({
+        const newBrandProductCount = await this.prisma.product.count({
             where: {
                 brand: decodedNewBrandName,
             },
@@ -206,7 +238,7 @@ export class BrandService {
             );
         }
 
-        await this.prisma.extended.product.updateMany({
+        await this.prisma.product.updateMany({
             where: {
                 brand: decodedBrandName,
             },
@@ -229,7 +261,7 @@ export class BrandService {
     async remove(brandName: string) {
         const decodedBrandName = decodeURIComponent(brandName);
 
-        const productCount = await this.prisma.extended.product.count({
+        const productCount = await this.prisma.product.count({
             where: {
                 brand: decodedBrandName,
                 NOT: {
@@ -242,7 +274,7 @@ export class BrandService {
             },
         });
 
-        const totalProductCount = await this.prisma.extended.product.count({
+        const totalProductCount = await this.prisma.product.count({
             where: {
                 brand: decodedBrandName,
             },
@@ -258,7 +290,7 @@ export class BrandService {
             );
         }
 
-        const placeholderRecords = await this.prisma.extended.product.findMany({
+        const placeholderRecords = await this.prisma.product.findMany({
             where: {
                 brand: decodedBrandName,
                 OR: [
@@ -271,7 +303,7 @@ export class BrandService {
         });
 
         if (placeholderRecords.length > 0) {
-            await this.prisma.extended.product.deleteMany({
+            await this.prisma.product.deleteMany({
                 where: {
                     id: {
                         in: placeholderRecords.map((k) => k.id),

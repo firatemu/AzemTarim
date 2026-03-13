@@ -8,19 +8,45 @@ import {
   MaxLength,
 } from 'class-validator';
 
-export enum PriceCardType { SALE = 'SALE', PURCHASE = 'PURCHASE' }
+export enum PriceType {
+  SALE = 'SALE',
+  PURCHASE = 'PURCHASE',
+  CAMPAIGN = 'CAMPAIGN',
+  LIST = 'LIST',
+}
 
 export class CreatePriceCardDto {
   @IsUUID()
   productId!: string;
 
-  @IsEnum(PriceCardType)
+  @IsEnum(PriceType)
   @IsOptional()
-  type?: PriceCardType = PriceCardType.SALE;
+  priceType?: PriceType = PriceType.SALE;
 
   @IsNumber()
   @Type(() => Number)
-  price!: number;
+  @IsOptional()
+  price?: number;
+
+  @IsNumber()
+  @IsOptional()
+  @Type(() => Number)
+  salePrice?: number;
+
+  @IsNumber()
+  @IsOptional()
+  @Type(() => Number)
+  purchasePrice?: number | null;
+
+  @IsNumber()
+  @IsOptional()
+  @Type(() => Number)
+  vatRate?: number = 20;
+
+  @IsNumber()
+  @IsOptional()
+  @Type(() => Number)
+  minQuantity?: number = 1;
 
   @IsString()
   @IsOptional()
@@ -38,5 +64,5 @@ export class CreatePriceCardDto {
   @IsString()
   @IsOptional()
   @MaxLength(500)
-  note?: string | null;
+  notes?: string | null;
 }

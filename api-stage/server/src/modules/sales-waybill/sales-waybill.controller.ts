@@ -17,7 +17,7 @@ import { UpdateSalesWaybillDto } from './dto/update-sales-waybill.dto';
 import { FilterSalesWaybillDto } from './dto/filter-sales-waybill.dto';
 
 @UseGuards(JwtAuthGuard)
-@Controller('sales-waybill')
+@Controller('sales-waybills')
 export class SalesWaybillController {
   constructor(
     private readonly salesWaybillService: SalesWaybillService,

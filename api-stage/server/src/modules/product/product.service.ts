@@ -43,7 +43,7 @@ export class ProductService {
     const finalTenantId = (dto as any).tenantId ?? tenantId ?? undefined;
     const existingWhere: any = { code: code };
     if (finalTenantId) existingWhere.tenantId = finalTenantId;
-    const existing = await this.prisma.extended.extended.product.findFirst({
+    const existing = await this.prisma.product.findFirst({
       where: existingWhere,
     });
     if (existing) {
@@ -53,13 +53,11 @@ export class ProductService {
     try {
       const createData = {
         code: code,
-        ...(finalTenantId != null && { tenantId: finalTenantId }),
+        tenantId: finalTenantId as string,
         name: dto.name,
         description: dto.description ?? undefined,
         unit: dto.unit,
         unitId: dto.unitId ?? undefined,
-        purchasePrice: dto.purchasePrice,
-        salePrice: dto.salePrice,
         vatRate: dto.vatRate ?? 20,
         category: dto.category ?? undefined,
         mainCategory: dto.mainCategory ?? undefined,
@@ -84,23 +82,51 @@ export class ProductService {
         minOrderQty: dto.minOrderQty != null ? dto.minOrderQty : undefined,
         leadTimeDays: dto.leadTimeDays != null ? dto.leadTimeDays : undefined,
       };
-      const createdStok = await this.prisma.extended.product.create({
-        data: createData,
+      const createdStok = await this.prisma.$transaction(async (tx) => {
+        const product = await tx.product.create({
+          data: createData,
+        });
+
+        // Fiyat Kartlarını Oluştur (SALE ve PURCHASE)
+        if (dto.salePrice != null) {
+          await tx.priceCard.create({
+            data: {
+              tenantId: finalTenantId as string,
+              productId: product.id,
+              type: 'SALE',
+              price: dto.salePrice,
+              currency: 'TRY',
+            } as any
+          });
+        }
+
+        if (dto.purchasePrice != null) {
+          await tx.priceCard.create({
+            data: {
+              tenantId: finalTenantId as string,
+              productId: product.id,
+              type: 'PURCHASE',
+              price: dto.purchasePrice,
+              currency: 'TRY',
+            } as any
+          });
+        }
+
+        return product;
       });
 
       return createdStok;
     } catch (error: any) {
+      console.error('❌ [Stok Service] create hatası:', error);
       if (error?.code === 'P2002') {
         const field = error?.meta?.target?.[0] || 'alan';
         throw new BadRequestException(`${field} zaten kullanılıyor`);
       }
-      throw new BadRequestException(
-        error?.message || 'Stok kaydedilirken hata oluştu',
-      );
+      throw error; // Ham hatayı fırlat (AllExceptionsFilter yakalayacak)
     }
   }
 
-  async findAll(page = 1, limit = 50, search?: string, isActive?: boolean) {
+  async findAll(page = 1, limit = 50, search?: string, isActive?: any) {
     const tenantId = await this.tenantResolver.resolveForQuery();
     const skip = (page - 1) * limit;
     const where: any = {
@@ -122,12 +148,16 @@ export class ProductService {
 
     try {
       const [initialData, total] = await Promise.all([
-        this.prisma.extended.product.findMany({
+        this.prisma.product.findMany({
           where,
           skip,
           take: limit,
           orderBy: { createdAt: 'desc' },
           include: {
+            priceCards: {
+              where: { isActive: true } as any,
+              orderBy: { createdAt: 'desc' } as any,
+            },
             productLocationStocks: {
               take: 1,
               include: {
@@ -137,7 +167,7 @@ export class ProductService {
             unitRef: true,
           },
         }),
-        this.prisma.extended.product.count({ where }),
+        this.prisma.product.count({ where }),
       ]);
 
 
@@ -150,7 +180,7 @@ export class ProductService {
 
       if (esdegerGrupIds.length > 0) {
         console.log('🔍 [findAll] Found groups:', esdegerGrupIds);
-        const esdegerUrunler = await this.prisma.extended.product.findMany({
+        const esdegerUrunler = await this.prisma.product.findMany({
           where: {
             equivalencyGroupId: { in: esdegerGrupIds },
             isCategoryOnly: { not: true },
@@ -183,7 +213,7 @@ export class ProductService {
       const dataWithDetails = await Promise.all(
         initialData.map(async (product) => {
           // Stok hareketlerinden toplam quantityı hesapla (iptal faturalara ait hareketler hariç - sadece onaylı faturalar dikkate alınır)
-          const productHareketler = await this.prisma.extended.productMovement.findMany({
+          const productHareketler = await this.prisma.productMovement.findMany({
             where: { productId: product.id },
             include: { invoiceItem: { include: { invoice: { select: { status: true } } } } },
           });
@@ -222,7 +252,7 @@ export class ProductService {
           }
 
           // Son satınalma fiyatını bul
-          const lastPurchase = await this.prisma.extended.invoiceItem.findFirst({
+          const lastPurchase = await this.prisma.invoiceItem.findFirst({
             where: {
               productId: product.id,
               invoice: {
@@ -238,9 +268,13 @@ export class ProductService {
             },
           });
 
+          // En güncel fiyatları fiyat kartlarından al
+          const latestSalePriceCard = (product as any).priceCards?.find((pc: any) => pc.type === 'SALE');
+          const latestPurchasePriceCard = (product as any).priceCards?.find((pc: any) => pc.type === 'PURCHASE');
+
           const sonAlisFiyati = lastPurchase
             ? Number(lastPurchase.amount) / lastPurchase.quantity
-            : Number(product.purchasePrice);
+            : Number(latestPurchasePriceCard?.price ?? 0);
 
           const rafValue = product.shelf ?? (product.productLocationStocks?.[0]?.location?.code ?? null);
           return {
@@ -250,8 +284,11 @@ export class ProductService {
             birim: product.unit,
             marka: product.brand ?? undefined,
             raf: rafValue,
-            alisFiyati: Number(product.purchasePrice),
-            satisFiyati: Number(product.salePrice),
+            alisFiyati: Number(latestPurchasePriceCard?.price ?? 0),
+            satisFiyati: Number(latestSalePriceCard?.price ?? 0),
+            purchasePrice: Number(latestPurchasePriceCard?.price ?? 0),
+            salePrice: Number(latestSalePriceCard?.price ?? 0),
+            vatRate: Number((product as any).vatRate ?? 20),
             aracBilgisi: [product.vehicleBrand, product.vehicleModel, product.vehicleEngineSize, product.vehicleFuelType].filter(Boolean).join(' / ') || undefined,
             quantity,
             eslesikUrunler,
@@ -272,22 +309,19 @@ export class ProductService {
       };
     } catch (error: any) {
       console.error('❌ [Stok Service] findAll hatası:', error);
-      console.error('❌ [Stok Service] Hata detayları:', {
-        message: error?.message,
-        code: error?.code,
-        meta: error?.meta,
-        stack: error?.stack,
-      });
-      throw new BadRequestException(
-        error?.message || 'Stok verileri alınırken hata oluştu'
-      );
+      // Prisma hatalarını direkt fırlat, aksi halde 400 sarmalaması yapma
+      throw error;
     }
   }
 
   async findOne(id: string) {
-    const product = await this.prisma.extended.product.findUnique({
+    const product = await this.prisma.product.findUnique({
       where: { id },
       include: {
+        priceCards: {
+          where: { isActive: true } as any,
+          orderBy: { createdAt: 'desc' } as any,
+        },
         productMovements: {
           orderBy: { createdAt: 'desc' },
           take: 10,
@@ -316,7 +350,7 @@ export class ProductService {
 
     const [productLocationStocks, girisAggregate, cikisAggregate] =
       await Promise.all([
-        this.prisma.extended.productLocationStock.findMany({
+        this.prisma.productLocationStock.findMany({
           where: { productId: id },
           include: {
             warehouse: true,
@@ -339,7 +373,7 @@ export class ProductService {
             },
           ],
         }),
-        this.prisma.extended.productMovement.aggregate({
+        this.prisma.productMovement.aggregate({
           where: {
             productId: id,
             movementType: {
@@ -352,7 +386,7 @@ export class ProductService {
           },
           _sum: { quantity: true },
         }),
-        this.prisma.extended.productMovement.aggregate({
+        this.prisma.productMovement.aggregate({
           where: {
             productId: id,
             movementType: {
@@ -375,8 +409,14 @@ export class ProductService {
     const totalStock =
       (girisAggregate._sum.quantity ?? 0) - (cikisAggregate._sum.quantity ?? 0);
 
+    const latestSalePriceCard = (product as any).priceCards?.find((pc: any) => pc.type === 'SALE');
+    const latestPurchasePriceCard = (product as any).priceCards?.find((pc: any) => pc.type === 'PURCHASE');
+
     return {
       ...product,
+      purchasePrice: Number(latestPurchasePriceCard?.price ?? 0),
+      salePrice: Number(latestSalePriceCard?.price ?? 0),
+      vatRate: Number((product as any).vatRate ?? 20),
       productLocationStocks,
       productLocationStockTotal,
       totalStock,
@@ -392,9 +432,43 @@ export class ProductService {
     if (dto.description != null) data.description = dto.description;
     if (dto.unit != null) data.unit = dto.unit;
     if (dto.unitId != null) data.unitId = dto.unitId;
-    if (dto.purchasePrice != null) data.purchasePrice = dto.purchasePrice;
-    if (dto.salePrice != null) data.salePrice = dto.salePrice;
+
     if (dto.vatRate != null) data.vatRate = dto.vatRate;
+
+    const updatedProduct = await this.prisma.$transaction(async (tx) => {
+      const product = await tx.product.update({
+        where: { id },
+        data: data as any,
+      });
+
+      // Fiyat Kartlarını Güncelle (Yeni Kart Oluştur)
+      if (dto.salePrice != null) {
+        await tx.priceCard.create({
+          data: {
+            tenantId: product.tenantId,
+            productId: product.id,
+            type: 'SALE',
+            price: dto.salePrice,
+            currency: 'TRY',
+          } as any
+        });
+      }
+
+      if (dto.purchasePrice != null) {
+        await tx.priceCard.create({
+          data: {
+            tenantId: product.tenantId,
+            productId: product.id,
+            type: 'PURCHASE',
+            price: dto.purchasePrice,
+            currency: 'TRY',
+          } as any
+        });
+      }
+
+      return product;
+    });
+
     if (dto.category != null) data.category = dto.category;
     if (dto.mainCategory != null) data.mainCategory = dto.mainCategory;
     if (dto.subCategory != null) data.subCategory = dto.subCategory;
@@ -418,7 +492,7 @@ export class ProductService {
     if (dto.minOrderQty != null) data.minOrderQty = dto.minOrderQty;
     if (dto.leadTimeDays != null) data.leadTimeDays = dto.leadTimeDays;
 
-    return this.prisma.extended.product.update({
+    return this.prisma.product.update({
       where: { id },
       data,
     });
@@ -426,36 +500,36 @@ export class ProductService {
 
   async canDelete(id: string) {
     // Stok hareketi var mı kontrol et
-    const hareketSayisi = await this.prisma.extended.productMovement.count({
+    const hareketSayisi = await this.prisma.productMovement.count({
       where: { productId: id },
     });
 
     // Invoice kalemi var mı kontrol et
-    const faturaKalemSayisi = await this.prisma.extended.invoiceItem.count({
+    const faturaKalemSayisi = await this.prisma.invoiceItem.count({
       where: { productId: id },
     });
 
     // Sipariş kalemi var mı kontrol et (Satış ve Satınalma)
-    const satisSiparisKalemSayisi = await this.prisma.extended.salesOrderItem.count({
+    const satisSiparisKalemSayisi = await this.prisma.salesOrderItem.count({
       where: { productId: id },
     });
-    const satinAlmaSiparisKalemSayisi = await this.prisma.extended.purchaseOrderItem.count({
+    const satinAlmaSiparisKalemSayisi = await this.prisma.purchaseOrderItem.count({
       where: { productId: id },
     });
     const siparisKalemSayisi = satisSiparisKalemSayisi + satinAlmaSiparisKalemSayisi;
 
     // Teklif kalemi var mı kontrol et
-    const quoteKalemSayisi = await this.prisma.extended.quoteItem.count({
+    const quoteKalemSayisi = await this.prisma.quoteItem.count({
       where: { productId: id },
     });
 
     // Sayım kalemi var mı kontrol et
-    const sayimKalemSayisi = await this.prisma.extended.stocktakeItem.count({
+    const sayimKalemSayisi = await this.prisma.stocktakeItem.count({
       where: { productId: id },
     });
 
     // Stock move var mı kontrol et
-    const stockMoveSayisi = await this.prisma.extended.stockMove.count({
+    const stockMoveSayisi = await this.prisma.stockMove.count({
       where: { productId: id },
     });
 
@@ -486,13 +560,13 @@ export class ProductService {
 
     await this.deletionProtection.checkStokDeletion(id, tenantId);
 
-    return this.prisma.extended.product.delete({
+    return this.prisma.product.delete({
       where: { id },
     });
   }
 
   async addEsdeger(productId1: string, productId2: string) {
-    return this.prisma.extended.productEquivalent.create({
+    return this.prisma.productEquivalent.create({
       data: {
         product1Id: productId1,
         product2Id: productId2,
@@ -504,13 +578,13 @@ export class ProductService {
     const skip = (page - 1) * limit;
 
     const [data, total] = await Promise.all([
-      this.prisma.extended.productMovement.findMany({
+      this.prisma.productMovement.findMany({
         where: { productId },
         skip,
         take: limit,
         orderBy: { createdAt: 'desc' },
       }),
-      this.prisma.extended.productMovement.count({ where: { productId } }),
+      this.prisma.productMovement.count({ where: { productId } }),
     ]);
 
     return {
@@ -525,13 +599,17 @@ export class ProductService {
   }
 
   async matchProducts(mainProductId: string, equivalentProductIds: string[]) {
+    const tenantId = await this.tenantResolver.resolveForCreate({});
+    if (!tenantId) {
+      throw new BadRequestException('Tenant ID is required for equivalency group');
+    }
     // Ana ürünü kontrol et
     const anaUrun = await this.findOne(mainProductId);
 
     console.log('🔗 [ProductService] matchProducts started', { mainProductId, equivalentProductIds, anaUrunGrupId: anaUrun.equivalencyGroupId });
 
     // Eş ürünleri kontrol et
-    const esUrunler = await this.prisma.extended.product.findMany({
+    const esUrunler = await this.prisma.product.findMany({
       where: { id: { in: equivalentProductIds } },
       include: { equivalencyGroup: true },
     });
@@ -567,8 +645,9 @@ export class ProductService {
         }
       }
 
-      const yeniGrup = await this.prisma.extended.equivalencyGroup.create({
+      const yeniGrup = await this.prisma.equivalencyGroup.create({
         data: {
+          tenantId,
           name: `Grup - ${anaUrun.code}`,
         },
       });
@@ -583,27 +662,27 @@ export class ProductService {
 
       // Diğer gruplardaki tüm ürünleri hedef gruba taşı
       for (let i = 1; i < grupIds.length; i++) {
-        await this.prisma.extended.product.updateMany({
+        await this.prisma.product.updateMany({
           where: { equivalencyGroupId: grupIds[i] },
           data: { equivalencyGroupId: hedefGrupId },
         });
 
         // Boş kalan grupları sil
-        await this.prisma.extended.equivalencyGroup.delete({
+        await this.prisma.equivalencyGroup.delete({
           where: { id: grupIds[i] },
         });
       }
     }
 
     // Ana ürünü gruba ekle
-    await this.prisma.extended.product.update({
+    await this.prisma.product.update({
       where: { id: mainProductId },
       data: { equivalencyGroupId: hedefGrupId },
     });
 
     // Eş ürünleri gruba ekle (seçilenleri güncelle)
     if (equivalentProductIds.length > 0) {
-      await this.prisma.extended.product.updateMany({
+      await this.prisma.product.updateMany({
         where: {
           id: { in: equivalentProductIds },
         },
@@ -613,7 +692,7 @@ export class ProductService {
 
     // Grupta olup listede olmayan ürünleri gruptan çıkar
     // 1. Gruptaki tüm ürünleri bul
-    const gruptakiTumUrunler = await this.prisma.extended.product.findMany({
+    const gruptakiTumUrunler = await this.prisma.product.findMany({
       where: { equivalencyGroupId: hedefGrupId },
       select: { id: true }
     });
@@ -629,7 +708,7 @@ export class ProductService {
 
     // 3. Bu ürünlerin grup bağlantısını kes
     if (gruptanCikarilacakIds.length > 0) {
-      await this.prisma.extended.product.updateMany({
+      await this.prisma.product.updateMany({
         where: {
           id: { in: gruptanCikarilacakIds }
         },
@@ -639,19 +718,19 @@ export class ProductService {
     }
 
     // GRUP TEMİZLİĞİ: Eğer grupta 2'den az ürün kaldıysa, grubu dağıt
-    const gruptakiSonUrunler = await this.prisma.extended.product.count({
+    const gruptakiSonUrunler = await this.prisma.product.count({
       where: { equivalencyGroupId: hedefGrupId }
     });
 
     if (gruptakiSonUrunler < 2) {
       // Grubu dağıt (kalan ürünlerin bağlantısını kes)
-      await this.prisma.extended.product.updateMany({
+      await this.prisma.product.updateMany({
         where: { equivalencyGroupId: hedefGrupId },
         data: { equivalencyGroupId: null }
       });
 
       // Grubu sil
-      await this.prisma.extended.equivalencyGroup.delete({
+      await this.prisma.equivalencyGroup.delete({
         where: { id: hedefGrupId }
       });
 
@@ -664,7 +743,7 @@ export class ProductService {
     }
 
     // Grup içindeki tüm ürünleri getir (son status - eğer grup hala varsa)
-    const grupUrunler = await this.prisma.extended.product.findMany({
+    const grupUrunler = await this.prisma.product.findMany({
       where: { equivalencyGroupId: hedefGrupId },
       select: {
         id: true,
@@ -684,7 +763,7 @@ export class ProductService {
   }
 
   async getEsdegerUrunler(productId: string) {
-    const product = await this.prisma.extended.product.findUnique({
+    const product = await this.prisma.product.findUnique({
       where: { id: productId },
       select: { equivalencyGroupId: true },
     });
@@ -701,7 +780,7 @@ export class ProductService {
     }
 
     // Aynı gruptaki diğer ürünleri getir (kendisi hariç)
-    const esdegerler = await this.prisma.extended.product.findMany({
+    const esdegerler = await this.prisma.product.findMany({
       where: {
         equivalencyGroupId: product.equivalencyGroupId,
         id: { not: productId },
@@ -712,8 +791,7 @@ export class ProductService {
         name: true,
         brand: true,
         oem: true,
-        purchasePrice: true,
-        salePrice: true,
+        priceCards: true,
         unit: true,
       },
     });
@@ -723,14 +801,14 @@ export class ProductService {
       const grupId = product.equivalencyGroupId;
 
       // Ürünü gruptan çıkar
-      await this.prisma.extended.product.update({
+      await this.prisma.product.update({
         where: { id: productId },
         data: { equivalencyGroupId: null },
       });
 
       // Grubu sil
       try {
-        await this.prisma.extended.equivalencyGroup.delete({
+        await this.prisma.equivalencyGroup.delete({
           where: { id: grupId },
         });
       } catch (err) {
@@ -746,7 +824,7 @@ export class ProductService {
     // Her eşdeğer ürün için quantity hesapla
     const esdegerlerWithMiktar = await Promise.all(
       esdegerler.map(async (urun) => {
-        const productHareketler = await this.prisma.extended.productMovement.findMany({
+        const productHareketler = await this.prisma.productMovement.findMany({
           where: { productId: urun.id },
           include: { invoiceItem: { include: { invoice: { select: { status: true } } } } },
         });
@@ -797,30 +875,30 @@ export class ProductService {
     const grupId = product.equivalencyGroupId;
 
     // Gruptaki diğer ürünleri say
-    const gruptakiUrunSayisi = await this.prisma.extended.product.count({
+    const gruptakiUrunSayisi = await this.prisma.product.count({
       where: { equivalencyGroupId: grupId },
     });
 
     // Bu ürünü gruptan çıkar
-    await this.prisma.extended.product.update({
+    await this.prisma.product.update({
       where: { id: productId },
       data: { equivalencyGroupId: null },
     });
 
     // Eğer grupta sadece 1 ürün kaldıysa, onu da gruptan çıkar ve grubu sil
     if (gruptakiUrunSayisi === 2) {
-      const kalanUrun = await this.prisma.extended.product.findFirst({
+      const kalanUrun = await this.prisma.product.findFirst({
         where: { equivalencyGroupId: grupId },
       });
 
       if (kalanUrun) {
-        await this.prisma.extended.product.update({
+        await this.prisma.product.update({
           where: { id: kalanUrun.id },
           data: { equivalencyGroupId: null },
         });
       }
 
-      await this.prisma.extended.equivalencyGroup.delete({
+      await this.prisma.equivalencyGroup.delete({
         where: { id: grupId },
       });
     }
@@ -836,7 +914,7 @@ export class ProductService {
       throw new NotFoundException('Equivalent product to remove not found');
     }
 
-    const urunler = await this.prisma.extended.product.findMany({
+    const urunler = await this.prisma.product.findMany({
       where: { id: { in: [productId, eslesikId] } },
       select: {
         id: true,
@@ -862,12 +940,12 @@ export class ProductService {
 
     const grupId = anaUrun.equivalencyGroupId;
 
-    await this.prisma.extended.product.update({
+    await this.prisma.product.update({
       where: { id: eslesikId },
       data: { equivalencyGroupId: null },
     });
 
-    const kalanUrunler = await this.prisma.extended.product.findMany({
+    const kalanUrunler = await this.prisma.product.findMany({
       where: { equivalencyGroupId: grupId },
       select: {
         id: true,
@@ -882,13 +960,13 @@ export class ProductService {
       const kalan = kalanUrunler[0];
 
       if (kalan) {
-        await this.prisma.extended.product.update({
+        await this.prisma.product.update({
           where: { id: kalan.id },
           data: { equivalencyGroupId: null },
         });
       }
 
-      await this.prisma.extended.equivalencyGroup.delete({
+      await this.prisma.equivalencyGroup.delete({
         where: { id: grupId },
       });
 
@@ -906,7 +984,7 @@ export class ProductService {
 
   async matchOemIle() {
     // OEM numarası olan tüm ürünleri getir
-    const urunler = await this.prisma.extended.product.findMany({
+    const urunler = await this.prisma.product.findMany({
       where: {
         oem: { not: null },
       },

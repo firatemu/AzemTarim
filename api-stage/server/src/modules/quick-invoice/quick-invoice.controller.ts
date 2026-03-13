@@ -2,9 +2,9 @@ import { Controller, Get, Post, Body, Query } from '@nestjs/common';
 import { Public } from '../../common/decorators/public.decorator';
 import { QuickInvoiceService } from './quick-invoice.service';
 
-@Controller('quick-invoice')
+@Controller('quick-invoices')
 export class QuickInvoiceController {
-  constructor(private readonly quickInvoiceService: QuickInvoiceService) {}
+  constructor(private readonly quickInvoiceService: QuickInvoiceService) { }
 
   @Public()
   @Get('token-status')
@@ -73,20 +73,20 @@ export class QuickInvoiceController {
   @Get('document-content')
   async getDocumentContent(@Query('uuid') uuid: string, @Query('type') type?: string) {
     // #region agent log
-    fetch('http://localhost:7244/ingest/fde0823c-7edc-4232-a192-3b97a49bcd3d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'quick-invoice.controller.ts:74',message:'getDocumentContent called',data:{uuid,type},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+    fetch('http://localhost:7244/ingest/fde0823c-7edc-4232-a192-3b97a49bcd3d', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'quick-invoice.controller.ts:74', message: 'getDocumentContent called', data: { uuid, type }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run1', hypothesisId: 'A' }) }).catch(() => { });
     // #endregion
     if (!uuid) {
       // #region agent log
-      fetch('http://localhost:7244/ingest/fde0823c-7edc-4232-a192-3b97a49bcd3d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'quick-invoice.controller.ts:77',message:'UUID missing error',data:{uuid},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+      fetch('http://localhost:7244/ingest/fde0823c-7edc-4232-a192-3b97a49bcd3d', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'quick-invoice.controller.ts:77', message: 'UUID missing error', data: { uuid }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run1', hypothesisId: 'A' }) }).catch(() => { });
       // #endregion
       throw new Error('UUID parametresi gerekli');
     }
     // #region agent log
-    fetch('http://localhost:7244/ingest/fde0823c-7edc-4232-a192-3b97a49bcd3d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'quick-invoice.controller.ts:81',message:'Calling service.getDocumentContent',data:{uuid,type:type || 'XML'},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+    fetch('http://localhost:7244/ingest/fde0823c-7edc-4232-a192-3b97a49bcd3d', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'quick-invoice.controller.ts:81', message: 'Calling service.getDocumentContent', data: { uuid, type: type || 'XML' }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run1', hypothesisId: 'A' }) }).catch(() => { });
     // #endregion
     const result: any = await this.quickInvoiceService.getDocumentContent(uuid, type || 'XML');
     // #region agent log
-    fetch('http://localhost:7244/ingest/fde0823c-7edc-4232-a192-3b97a49bcd3d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'quick-invoice.controller.ts:85',message:'getDocumentContent result',data:{hasContent:!!result?.content,contentLength:result?.content?.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+    fetch('http://localhost:7244/ingest/fde0823c-7edc-4232-a192-3b97a49bcd3d', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'quick-invoice.controller.ts:85', message: 'getDocumentContent result', data: { hasContent: !!result?.content, contentLength: result?.content?.length }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run1', hypothesisId: 'A' }) }).catch(() => { });
     // #endregion
     return result;
   }

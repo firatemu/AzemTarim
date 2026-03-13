@@ -71,7 +71,7 @@ export default function CariPage({
   // Menu state
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [menuCariId, setMenuCariId] = useState<string | null>(null);
-  
+
   // Yeni cari form state
   const [showNewCariForm, setShowNewCariForm] = useState(false);
   const [newCariFormData, setNewCariFormData] = useState<CariFormData>(initialCariFormData);
@@ -120,7 +120,7 @@ export default function CariPage({
       });
       const result = response.data;
       setCariler(result.data || []);
-      setTotalCount(result.metadata?.total ?? 0);
+      setTotalCount(result.meta?.total ?? 0);
     } catch (error) {
       console.error('Cari verisi alınamadı:', error);
       showSnackbar('Cari listesi yüklenemedi', 'error');
@@ -167,67 +167,94 @@ export default function CariPage({
   }, []);
 
   const prepareDataToSend = (data: CariFormData) => {
-    const dataToSend: any = { ...data };
-
-    // Tip dönüşümleri
-    if (dataToSend.vadeSuresi) {
-      dataToSend.vadeSuresi = parseInt(dataToSend.vadeSuresi) || 0;
-    } else {
-      dataToSend.vadeSuresi = undefined;
-    }
-
-    if (!dataToSend.vadeGun && dataToSend.vadeSuresi) {
-      dataToSend.vadeGun = dataToSend.vadeSuresi;
-    }
+    const dataToSend: any = {
+      code: data.cariKodu?.trim() || undefined,
+      title: data.unvan?.trim(),
+      type: data.tip || 'CUSTOMER',
+      companyType: data.sirketTipi || 'CORPORATE',
+      taxNumber: data.vergiNo || undefined,
+      taxOffice: data.vergiDairesi || undefined,
+      nationalId: data.tcKimlikNo || undefined,
+      fullName: data.isimSoyisim || undefined,
+      phone: data.telefon || undefined,
+      email: data.email || undefined,
+      country: data.ulke || 'Türkiye',
+      city: data.il || undefined,
+      district: data.ilce || undefined,
+      address: data.adres || undefined,
+      contactName: data.yetkili || undefined,
+      isActive: data.aktif ?? true,
+      salesAgentId: data.satisElemaniId || undefined,
+      creditLimit: Number(data.riskLimiti) || 0,
+      creditStatus: data.riskDurumu || 'NORMAL',
+      collateralAmount: Number(data.teminatTutar) || 0,
+      dueDays: parseInt(data.vadeSuresi) || data.vadeGun || 0,
+      currency: data.paraBirimi || 'TRY',
+      bankInfo: data.bankaBilgileri || undefined,
+      sector: data.sektor || undefined,
+      customCode1: data.ozelKod1 || undefined,
+      customCode2: data.ozelKod2 || undefined,
+      website: data.webSite || undefined,
+      fax: data.faks || undefined,
+    };
 
     // Şahıs şirketi değilse TC ve isim-soyisim temizle
     if (data.sirketTipi !== 'SAHIS') {
-      dataToSend.tcKimlikNo = undefined;
-      dataToSend.isimSoyisim = undefined;
+      dataToSend.nationalId = undefined;
+      dataToSend.fullName = undefined;
     } else {
-      dataToSend.vergiNo = undefined;
-      dataToSend.vergiDairesi = undefined;
+      dataToSend.taxNumber = undefined;
+      dataToSend.taxOffice = undefined;
     }
 
-    // Boş risk değerleri
-    if (!dataToSend.riskLimiti) dataToSend.riskLimiti = 0;
-    if (!dataToSend.teminatTutar) dataToSend.teminatTutar = 0;
-
-    // cariKodu temizliği
-    if (!dataToSend.cariKodu || !dataToSend.cariKodu.trim()) {
-      dataToSend.cariKodu = undefined;
-    } else {
-      dataToSend.cariKodu = dataToSend.cariKodu.trim();
+    // code temizliği
+    if (!dataToSend.code || !dataToSend.code.trim()) {
+      dataToSend.code = undefined;
     }
 
     // Boş alanları temizle
-    const nullableFields = ['telefon', 'email', 'yetkili', 'vergiNo', 'vergiDairesi', 'tcKimlikNo', 'isimSoyisim', 'adres', 'webSite', 'faks', 'sektor', 'ozelKod1', 'ozelKod2', 'bankaBilgileri'];
+    const nullableFields = ['phone', 'email', 'contactName', 'taxNumber', 'taxOffice', 'nationalId', 'fullName', 'address', 'website', 'fax', 'sector', 'customCode1', 'customCode2', 'bankInfo', 'salesAgentId'];
     nullableFields.forEach(field => {
       if (dataToSend[field] !== undefined && (dataToSend[field] === '' || dataToSend[field] === null)) {
         dataToSend[field] = undefined;
       }
     });
 
-    // İlişkili tabloları temizle (Prisma ID'lerini ve relation ID'lerini sil)
-    if (dataToSend.yetkililer) {
-      dataToSend.yetkililer = dataToSend.yetkililer.map((y: any) => {
-        const { id, cariId, createdAt, updatedAt, ...rest } = y;
-        return rest;
-      });
+    // İlişkili tabloları temizle ve mapla
+    if (data.yetkililer?.length) {
+      dataToSend.contacts = data.yetkililer.map((y: any) => ({
+        fullName: y.adSoyad,
+        title: y.unvan,
+        phone: y.telefon,
+        email: y.email,
+        extension: y.dahili,
+        isDefault: y.varsayilan,
+        notes: y.notlar,
+      }));
     }
 
-    if (dataToSend.ekAdresler) {
-      dataToSend.ekAdresler = dataToSend.ekAdresler.map((a: any) => {
-        const { id, cariId, createdAt, updatedAt, ...rest } = a;
-        return rest;
-      });
+    if (data.ekAdresler?.length) {
+      dataToSend.addresses = data.ekAdresler.map((a: any) => ({
+        title: a.baslik,
+        type: a.tip || 'OTHER',
+        address: a.adres,
+        city: a.il,
+        district: a.ilce,
+        postalCode: a.postaKodu,
+        isDefault: a.varsayilan,
+      }));
     }
 
-    if (dataToSend.tedarikciBankalar) {
-      dataToSend.tedarikciBankalar = dataToSend.tedarikciBankalar.map((b: any) => {
-        const { id, cariId, createdAt, updatedAt, ...rest } = b;
-        return rest;
-      });
+    if (data.tedarikciBankalar?.length) {
+      dataToSend.banks = data.tedarikciBankalar.map((b: any) => ({
+        bankName: b.bankaAdi,
+        branchName: b.subeAdi,
+        branchCode: b.subeKodu,
+        accountNumber: b.hesapNo,
+        iban: b.iban,
+        currency: b.paraBirimi,
+        notes: b.aciklama,
+      }));
     }
 
     return dataToSend;
@@ -250,7 +277,7 @@ export default function CariPage({
       delete dataToSend.faturalar;
       delete dataToSend.tahsilatlar;
 
-      await axios.patch(`/cari/${selectedCari.id}`, dataToSend);
+      await axios.patch(`/account/${selectedCari.id}`, dataToSend);
       showSnackbar('Cari başarıyla güncellendi', 'success');
       setOpenEdit(false);
       resetForm();
@@ -263,7 +290,7 @@ export default function CariPage({
 
   const handleDelete = async () => {
     try {
-      await axios.delete(`/cari/${selectedCari.id}`);
+      await axios.delete(`/account/${selectedCari.id}`);
       showSnackbar('Cari başarıyla silindi', 'success');
       setOpenDelete(false);
       setSelectedCari(null);
@@ -276,7 +303,7 @@ export default function CariPage({
   const openEditDialog = async (cariSummary: any) => {
     try {
       // Detaylı veriyi çek (ilişkisel tablolar için)
-      const response = await axios.get(`/cari/${cariSummary.id}`);
+      const response = await axios.get(`/account/${cariSummary.id}`);
       const cari = response.data;
 
       setSelectedCari(cari);
@@ -344,7 +371,7 @@ export default function CariPage({
 
   const openViewDialog = async (cari: any) => {
     try {
-      const response = await axios.get(`/cari/${cari.id}`);
+      const response = await axios.get(`/account/${cari.id}`);
       setSelectedCari(response.data);
       setOpenView(true);
     } catch (error) {
@@ -394,7 +421,7 @@ export default function CariPage({
 
       await axios.post('/account', dataToSend);
       showSnackbar('Cari başarıyla eklendi', 'success');
-      
+
       // Listeye geri dön
       setShowNewCariForm(false);
       setActiveTab('cari-liste');
@@ -812,7 +839,7 @@ export default function CariPage({
             <MenuItem
               key="statement"
               onClick={() => {
-                router.push(`/cari/${cari.id}`);
+                router.push(`/account/${cari.id}`);
                 handleMenuClose();
               }}
               sx={{

@@ -9,9 +9,9 @@ import { JournalEntryService } from './journal-entry.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 
 @UseGuards(JwtAuthGuard)
-@Controller('journal-entry')
+@Controller('journal-entries')
 export class JournalEntryController {
-  constructor(private readonly journalEntryService: JournalEntryService) {}
+  constructor(private readonly journalEntryService: JournalEntryService) { }
 
   @Get('by-reference/:referenceType/:referenceId')
   findByReference(

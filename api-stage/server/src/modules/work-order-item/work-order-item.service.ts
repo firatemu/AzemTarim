@@ -39,8 +39,12 @@ export class WorkOrderItemService {
     tx: Prisma.TransactionClient,
     workOrderId: string,
   ) {
+    const tenantId = await this.tenantResolver.resolveForQuery();
     const items = await tx.workOrderItem.findMany({
-      where: { workOrderId },
+      where: {
+        workOrderId,
+        ...buildTenantWhereClause(tenantId ?? undefined),
+      },
     });
 
     let totalLaborCost = 0;
@@ -59,8 +63,11 @@ export class WorkOrderItemService {
     const taxAmount = items.reduce((sum, i) => sum + Number(i.taxAmount), 0);
     const grandTotal = subtotal + taxAmount;
 
-    await tx.workOrder.update({
-      where: { id: workOrderId },
+    await tx.workOrder.updateMany({
+      where: {
+        id: workOrderId,
+        ...buildTenantWhereClause(tenantId ?? undefined),
+      },
       data: {
         totalLaborCost: new Decimal(totalLaborCost),
         totalPartsCost: new Decimal(totalPartsCost),
@@ -73,7 +80,7 @@ export class WorkOrderItemService {
   async create(dto: CreateWorkOrderItemDto) {
     const tenantId = await this.tenantResolver.resolveForQuery();
 
-    return this.prisma.extended.$transaction(async (tx) => {
+    return this.prisma.$transaction(async (tx) => {
       const workOrder = await tx.workOrder.findFirst({
         where: {
           id: dto.workOrderId,
@@ -107,6 +114,7 @@ export class WorkOrderItemService {
 
       const item = await tx.workOrderItem.create({
         data: {
+          tenantId: workOrder.tenantId || tenantId || undefined,
           workOrderId: dto.workOrderId,
           type: dto.type,
           description: dto.description,
@@ -127,8 +135,11 @@ export class WorkOrderItemService {
           where: { workOrderId: dto.workOrderId },
         });
         if (partRequestCount === 0) {
-          await tx.workOrder.update({
-            where: { id: dto.workOrderId },
+          await tx.workOrder.updateMany({
+            where: {
+              id: dto.workOrderId,
+              ...buildTenantWhereClause(workOrder.tenantId || tenantId || undefined),
+            },
             data: { partWorkflowStatus: PartWorkflowStatus.PARTS_SUPPLIED_DIRECT },
           });
         }
@@ -141,7 +152,7 @@ export class WorkOrderItemService {
 
   async findAll(workOrderId: string) {
     const tenantId = await this.tenantResolver.resolveForQuery();
-    const workOrder = await this.prisma.extended.workOrder.findFirst({
+    const workOrder = await this.prisma.workOrder.findFirst({
       where: {
         id: workOrderId,
         ...buildTenantWhereClause(tenantId ?? undefined),
@@ -152,7 +163,7 @@ export class WorkOrderItemService {
       throw new NotFoundException('Work order not found');
     }
 
-    return this.prisma.extended.workOrderItem.findMany({
+    return this.prisma.workOrderItem.findMany({
       where: { workOrderId },
       include: {
         product: { select: { id: true, code: true, name: true } },
@@ -164,7 +175,7 @@ export class WorkOrderItemService {
   async findOne(id: string) {
     const tenantId = await this.tenantResolver.resolveForQuery();
     const tenantWhere = buildTenantWhereClause(tenantId ?? undefined);
-    const item = await this.prisma.extended.workOrderItem.findFirst({
+    const item = await this.prisma.workOrderItem.findFirst({
       where: {
         id,
         workOrder: tenantWhere,
@@ -185,7 +196,7 @@ export class WorkOrderItemService {
   async update(id: string, dto: UpdateWorkOrderItemDto) {
     const tenantId = await this.tenantResolver.resolveForQuery();
 
-    return this.prisma.extended.$transaction(async (tx) => {
+    return this.prisma.$transaction(async (tx) => {
       const item = await tx.workOrderItem.findFirst({
         where: {
           id,
@@ -216,8 +227,13 @@ export class WorkOrderItemService {
         taxRate,
       );
 
-      const updated = await tx.workOrderItem.update({
-        where: { id },
+      const finalTenantId = item.workOrder.tenantId || tenantId || undefined;
+
+      await tx.workOrderItem.updateMany({
+        where: {
+          id,
+          ...buildTenantWhereClause(finalTenantId),
+        },
         data: {
           ...dto,
           quantity,
@@ -225,6 +241,13 @@ export class WorkOrderItemService {
           taxRate,
           taxAmount,
           totalPrice,
+        },
+      });
+
+      const updated = await tx.workOrderItem.findFirst({
+        where: {
+          id,
+          ...buildTenantWhereClause(finalTenantId),
         },
         include: {
           product: { select: { id: true, code: true, name: true } },
@@ -239,7 +262,7 @@ export class WorkOrderItemService {
   async remove(id: string) {
     const tenantId = await this.tenantResolver.resolveForQuery();
 
-    return this.prisma.extended.$transaction(async (tx) => {
+    return this.prisma.$transaction(async (tx) => {
       const item = await tx.workOrderItem.findFirst({
         where: {
           id,
@@ -258,8 +281,11 @@ export class WorkOrderItemService {
         );
       }
 
-      const deleted = await tx.workOrderItem.delete({
-        where: { id },
+      const deleted = await tx.workOrderItem.deleteMany({
+        where: {
+          id,
+          ...buildTenantWhereClause(item.workOrder.tenantId || tenantId || undefined),
+        },
       });
 
       await this.recalculateWorkOrderTotalsInTx(tx, item.workOrderId);

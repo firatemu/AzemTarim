@@ -514,7 +514,7 @@ export default function PersonelPage() {
       if (filterAktif !== '') params.aktif = filterAktif;
       if (filterDepartman) params.departman = filterDepartman;
 
-      const response = await axios.get('/employee', { params });
+      const response = await axios.get('/employees', { params });
       const data = response.data?.data || (Array.isArray(response.data) ? response.data : []);
       setPersoneller(data);
     } catch (error) {
@@ -529,7 +529,7 @@ export default function PersonelPage() {
       if (filterAktif !== '') params.aktif = filterAktif;
       if (filterDepartman) params.departman = filterDepartman;
 
-      const response = await axios.get('/employee/stats', { params });
+      const response = await axios.get('/employees/stats', { params });
       setStats(response.data);
     } catch (error) {
       console.error('İstatistikler yüklenirken hata:', error);
@@ -581,7 +581,7 @@ export default function PersonelPage() {
         await axios.put(`/personel/${selectedPersonel.id}`, formData);
         showSnackbar('Personel başarıyla güncellendi', 'success');
       } else {
-        await axios.post('/employee', formData);
+        await axios.post('/employees', formData);
         showSnackbar('Personel başarıyla eklendi', 'success');
       }
       handleCloseDialog();

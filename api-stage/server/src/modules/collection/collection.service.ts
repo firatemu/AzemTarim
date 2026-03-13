@@ -1,3 +1,4 @@
+import { TenantResolverService } from '../../common/services/tenant-resolver.service';
 import {
   Injectable,
   NotFoundException,
@@ -9,12 +10,15 @@ import { CreateCollectionDto } from './dto/create-collection.dto';
 import { CreateCrossPaymentDto } from './dto/create-cross-payment.dto';
 import { CollectionType, PaymentMethod } from './collection.enums';
 import { CashboxMovementType } from '@prisma/client';
+import { buildTenantWhereClause } from '../../common/utils/staging.util';
+import { Prisma } from '@prisma/client';
 
 @Injectable()
 export class CollectionService {
   constructor(
     private prisma: PrismaService,
     private systemParameterService: SystemParameterService,
+    private readonly tenantResolver: TenantResolverService
   ) { }
 
   async create(dto: CreateCollectionDto, userId: string) {
@@ -22,9 +26,13 @@ export class CollectionService {
     const bankAccountId = (!dto.bankAccountId || dto.bankAccountId === 'null' || dto.bankAccountId === 'undefined' || dto.bankAccountId.trim() === '') ? null : dto.bankAccountId;
     const companyCreditCardId = (!dto.companyCreditCardId || dto.companyCreditCardId === 'null' || dto.companyCreditCardId === 'undefined' || dto.companyCreditCardId.trim() === '') ? null : dto.companyCreditCardId;
 
-    const account = await this.prisma.extended.account.findUnique({
-      where: { id: dto.accountId },
-      select: { id: true, salesAgentId: true }
+    const tenantId = await this.tenantResolver.resolveForQuery();
+    const account = await this.prisma.account.findFirst({
+      where: {
+        id: dto.accountId,
+        ...buildTenantWhereClause(tenantId ?? undefined),
+      },
+      select: { id: true, salesAgentId: true, tenantId: true }
     });
 
     if (!account) {
@@ -32,8 +40,11 @@ export class CollectionService {
     }
 
     if (dto.invoiceId) {
-      const invoice = await this.prisma.extended.invoice.findUnique({
-        where: { id: dto.invoiceId },
+      const invoice = await this.prisma.invoice.findFirst({
+        where: {
+          id: dto.invoiceId,
+          ...buildTenantWhereClause(tenantId ?? undefined),
+        },
       });
 
       if (!invoice) {
@@ -42,8 +53,11 @@ export class CollectionService {
     }
 
     if (dto.serviceInvoiceId) {
-      const serviceInvoice = await this.prisma.extended.serviceInvoice.findUnique({
-        where: { id: dto.serviceInvoiceId },
+      const serviceInvoice = await this.prisma.serviceInvoice.findFirst({
+        where: {
+          id: dto.serviceInvoiceId,
+          ...buildTenantWhereClause(tenantId ?? undefined),
+        },
       });
       if (!serviceInvoice) {
         throw new NotFoundException('Service invoice not found');
@@ -51,8 +65,11 @@ export class CollectionService {
     }
 
     if (cashboxId) {
-      const cashbox = await this.prisma.extended.cashbox.findUnique({
-        where: { id: cashboxId },
+      const cashbox = await this.prisma.cashbox.findFirst({
+        where: {
+          id: cashboxId,
+          ...buildTenantWhereClause(tenantId ?? undefined),
+        },
       });
 
       if (!cashbox) {
@@ -71,8 +88,11 @@ export class CollectionService {
       );
 
       if (riskControlEnabled) {
-        const accountWithRisk = await this.prisma.extended.account.findUnique({
-          where: { id: dto.accountId },
+        const accountWithRisk = await this.prisma.account.findFirst({
+          where: {
+            id: dto.accountId,
+            ...buildTenantWhereClause(tenantId ?? undefined),
+          },
           select: { balance: true, creditLimit: true, title: true },
         });
 
@@ -91,9 +111,12 @@ export class CollectionService {
       }
     }
 
-    return await this.prisma.extended.$transaction(async (tx) => {
+    const finalTenantId = account?.tenantId || tenantId || undefined;
+
+    return await this.prisma.$transaction(async (tx) => {
       const collection = await tx.collection.create({
         data: {
+          tenantId: finalTenantId!,
           accountId: dto.accountId,
           invoiceId: dto.invoiceId,
           serviceInvoiceId: dto.serviceInvoiceId,
@@ -127,8 +150,11 @@ export class CollectionService {
         );
       }
 
-      const accountRecord = await tx.account.findUnique({
-        where: { id: dto.accountId },
+      const accountRecord = await tx.account.findFirst({
+        where: {
+          id: dto.accountId,
+          ...buildTenantWhereClause(finalTenantId),
+        },
         select: { balance: true },
       });
 
@@ -137,6 +163,7 @@ export class CollectionService {
 
       await tx.accountMovement.create({
         data: {
+          tenantId: finalTenantId!,
           accountId: dto.accountId,
           type: dto.type === 'COLLECTION' ? 'CREDIT' : 'DEBIT',
           amount: dto.amount as any,
@@ -148,15 +175,21 @@ export class CollectionService {
         },
       });
 
-      await tx.account.update({
-        where: { id: dto.accountId },
+      await tx.account.updateMany({
+        where: {
+          id: dto.accountId,
+          ...buildTenantWhereClause(finalTenantId),
+        },
         data: { balance: newAccountBalance },
       });
 
       if (dto.cashboxId) {
         const movementType: CashboxMovementType = dto.type === 'COLLECTION' ? 'COLLECTION' : 'PAYMENT';
-        const cashbox = await tx.cashbox.findUnique({
-          where: { id: dto.cashboxId },
+        const cashbox = await tx.cashbox.findFirst({
+          where: {
+            id: dto.cashboxId,
+            ...buildTenantWhereClause(finalTenantId),
+          },
           select: { balance: true },
         });
 
@@ -165,6 +198,7 @@ export class CollectionService {
 
         await tx.cashboxMovement.create({
           data: {
+            tenantId: finalTenantId!,
             cashboxId: dto.cashboxId,
             movementType: movementType,
             amount: dto.amount,
@@ -178,8 +212,11 @@ export class CollectionService {
           },
         });
 
-        await tx.cashbox.update({
-          where: { id: dto.cashboxId },
+        await tx.cashbox.updateMany({
+          where: {
+            id: dto.cashboxId,
+            ...buildTenantWhereClause(finalTenantId),
+          },
           data: { balance: newCashboxBalance },
         });
       }
@@ -193,29 +230,39 @@ export class CollectionService {
       throw new BadRequestException('Collection and payment accounts must be different');
     }
 
-    const collectionAccount = await this.prisma.extended.account.findUnique({
-      where: { id: dto.collectionAccountId },
+    const tenantId = await this.tenantResolver.resolveForQuery();
+    const collectionAccount = await this.prisma.account.findFirst({
+      where: {
+        id: dto.collectionAccountId,
+        ...buildTenantWhereClause(tenantId ?? undefined),
+      },
     });
 
     if (!collectionAccount) {
       throw new NotFoundException('Collection account not found');
     }
 
-    const paymentAccount = await this.prisma.extended.account.findUnique({
-      where: { id: dto.paymentAccountId },
+    const paymentAccount = await this.prisma.account.findFirst({
+      where: {
+        id: dto.paymentAccountId,
+        ...buildTenantWhereClause(tenantId ?? undefined),
+      },
     });
 
     if (!paymentAccount) {
       throw new NotFoundException('Payment account not found');
     }
 
-    return await this.prisma.extended.$transaction(async (tx) => {
+    return await this.prisma.$transaction(async (tx) => {
       const date = dto.date ? new Date(dto.date) : new Date();
       const notes = dto.notes || `Cross payment: ${collectionAccount.title} -> ${paymentAccount.title}`;
       const paymentMethod = dto.paymentMethod || 'CREDIT_CARD';
 
+      const finalTenantId = collectionAccount.tenantId || tenantId || undefined;
+
       const collection = await tx.collection.create({
         data: {
+          tenantId: finalTenantId!,
           accountId: dto.collectionAccountId,
           type: 'COLLECTION',
           amount: dto.amount,
@@ -228,6 +275,7 @@ export class CollectionService {
 
       const payment = await tx.collection.create({
         data: {
+          tenantId: finalTenantId!,
           accountId: dto.paymentAccountId,
           type: 'PAYMENT',
           amount: dto.amount,
@@ -241,16 +289,41 @@ export class CollectionService {
       await this.applyFIFO(tx, collection.id, dto.collectionAccountId, CollectionType.COLLECTION, dto.amount);
       await this.applyFIFO(tx, payment.id, dto.paymentAccountId, CollectionType.PAYMENT, dto.amount);
 
-      const collectionAccountBefore = await tx.account.findUnique({ where: { id: dto.collectionAccountId }, select: { balance: true } });
+      const collectionAccountBefore = await tx.account.findFirst({
+        where: {
+          id: dto.collectionAccountId,
+          ...buildTenantWhereClause(finalTenantId),
+        },
+        select: { balance: true },
+      });
       const collectionAccountNewBalance = collectionAccountBefore!.balance.toNumber() - dto.amount;
-      await tx.account.update({ where: { id: dto.collectionAccountId }, data: { balance: collectionAccountNewBalance } });
+      await tx.account.updateMany({
+        where: {
+          id: dto.collectionAccountId,
+          ...buildTenantWhereClause(finalTenantId),
+        },
+        data: { balance: collectionAccountNewBalance },
+      });
 
-      const paymentAccountBefore = await tx.account.findUnique({ where: { id: dto.paymentAccountId }, select: { balance: true } });
+      const paymentAccountBefore = await tx.account.findFirst({
+        where: {
+          id: dto.paymentAccountId,
+          ...buildTenantWhereClause(finalTenantId),
+        },
+        select: { balance: true },
+      });
       const paymentAccountNewBalance = paymentAccountBefore!.balance.toNumber() + dto.amount;
-      await tx.account.update({ where: { id: dto.paymentAccountId }, data: { balance: paymentAccountNewBalance } });
+      await tx.account.updateMany({
+        where: {
+          id: dto.paymentAccountId,
+          ...buildTenantWhereClause(finalTenantId),
+        },
+        data: { balance: paymentAccountNewBalance },
+      });
 
       await tx.accountMovement.create({
         data: {
+          tenantId: finalTenantId!,
           accountId: dto.collectionAccountId,
           type: 'CREDIT',
           amount: dto.amount as any,
@@ -264,6 +337,7 @@ export class CollectionService {
 
       await tx.accountMovement.create({
         data: {
+          tenantId: finalTenantId!,
           accountId: dto.paymentAccountId,
           type: 'DEBIT',
           amount: dto.amount as any,
@@ -291,9 +365,11 @@ export class CollectionService {
     bankAccountId?: string,
     companyCreditCardId?: string,
   ) {
+    const tenantId = await this.tenantResolver.resolveForQuery();
     const skip = (page - 1) * limit;
     const where: any = {
       deletedAt: null,
+      ...buildTenantWhereClause(tenantId ?? undefined),
       OR: [
         { invoiceId: null },
         { invoice: { deletedAt: null } }
@@ -314,7 +390,7 @@ export class CollectionService {
     }
 
     const [data, total] = await Promise.all([
-      this.prisma.extended.collection.findMany({
+      this.prisma.collection.findMany({
         where,
         skip,
         take: limit,
@@ -327,7 +403,7 @@ export class CollectionService {
           invoice: true,
         },
       }),
-      this.prisma.extended.collection.count({ where }),
+      this.prisma.collection.count({ where }),
     ]);
 
     return {
@@ -337,15 +413,25 @@ export class CollectionService {
   }
 
   async findOne(id: string) {
-    const data = await this.prisma.extended.collection.findFirst({
-      where: { id, deletedAt: null },
+    const tenantId = await this.tenantResolver.resolveForQuery();
+    const data = await this.prisma.collection.findFirst({
+      where: {
+        id,
+        deletedAt: null,
+        ...buildTenantWhereClause(tenantId ?? undefined),
+      },
       include: { account: true, cashbox: true, invoice: true },
     });
 
     if (!data) throw new NotFoundException('Collection record not found');
 
-    const movement = await this.prisma.extended.accountMovement.findFirst({
-      where: { documentType: 'COLLECTION', documentNo: id, accountId: data.accountId },
+    const movement = await this.prisma.accountMovement.findFirst({
+      where: {
+        documentType: 'COLLECTION',
+        documentNo: id,
+        accountId: data.accountId,
+        ...buildTenantWhereClause(tenantId ?? undefined),
+      },
       select: { balance: true },
     });
 
@@ -354,19 +440,21 @@ export class CollectionService {
 
   async getStats() {
     const today = new Date();
+    const tenantId = await this.tenantResolver.resolveForQuery();
     const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
     const baseWhere = {
       deletedAt: null,
+      ...buildTenantWhereClause(tenantId ?? undefined),
       OR: [{ invoiceId: null }, { invoice: { deletedAt: null } }]
     };
 
     const [tCollection, tOdeme, aCollection, aOdeme, nCollection, kCollection] = await Promise.all([
-      this.prisma.extended.collection.aggregate({ where: { ...baseWhere, type: 'COLLECTION' }, _sum: { amount: true } }),
-      this.prisma.extended.collection.aggregate({ where: { ...baseWhere, type: 'PAYMENT' }, _sum: { amount: true } }),
-      this.prisma.extended.collection.aggregate({ where: { ...baseWhere, type: 'COLLECTION', date: { gte: startOfMonth } }, _sum: { amount: true } }),
-      this.prisma.extended.collection.aggregate({ where: { ...baseWhere, type: 'PAYMENT', date: { gte: startOfMonth } }, _sum: { amount: true } }),
-      this.prisma.extended.collection.aggregate({ where: { ...baseWhere, type: 'COLLECTION', paymentType: 'CASH' }, _sum: { amount: true } }),
-      this.prisma.extended.collection.aggregate({ where: { ...baseWhere, type: 'COLLECTION', paymentType: 'CREDIT_CARD' }, _sum: { amount: true } }),
+      this.prisma.collection.aggregate({ where: { ...baseWhere, type: 'COLLECTION' }, _sum: { amount: true } }),
+      this.prisma.collection.aggregate({ where: { ...baseWhere, type: 'PAYMENT' }, _sum: { amount: true } }),
+      this.prisma.collection.aggregate({ where: { ...baseWhere, type: 'COLLECTION', date: { gte: startOfMonth } }, _sum: { amount: true } }),
+      this.prisma.collection.aggregate({ where: { ...baseWhere, type: 'PAYMENT', date: { gte: startOfMonth } }, _sum: { amount: true } }),
+      this.prisma.collection.aggregate({ where: { ...baseWhere, type: 'COLLECTION', paymentType: 'CASH' }, _sum: { amount: true } }),
+      this.prisma.collection.aggregate({ where: { ...baseWhere, type: 'COLLECTION', paymentType: 'CREDIT_CARD' }, _sum: { amount: true } }),
     ]);
 
     return {
@@ -382,18 +470,48 @@ export class CollectionService {
   async delete(id: string) {
     const data = await this.findOne(id);
 
-    return await this.prisma.extended.$transaction(async (tx) => {
+    return await this.prisma.$transaction(async (tx) => {
       const balanceChange = data.type === 'COLLECTION' ? (data.amount as any) : -(data.amount as any);
-      await tx.account.update({ where: { id: data.accountId }, data: { balance: { increment: balanceChange } } });
+      await tx.account.updateMany({
+        where: {
+          id: data.accountId,
+          ...buildTenantWhereClause(data.tenantId ?? undefined),
+        },
+        data: { balance: { increment: balanceChange } },
+      });
 
       if (data.cashboxId) {
         const cashboxBalanceChange = data.type === 'COLLECTION' ? -(data.amount as any) : (data.amount as any);
-        await tx.cashbox.update({ where: { id: data.cashboxId }, data: { balance: { increment: cashboxBalanceChange } } });
-        await tx.cashboxMovement.deleteMany({ where: { documentType: 'COLLECTION', documentNo: id } });
+        await tx.cashbox.updateMany({
+          where: {
+            id: data.cashboxId,
+            ...buildTenantWhereClause(data.tenantId ?? undefined),
+          },
+          data: { balance: { increment: cashboxBalanceChange } },
+        });
+        await tx.cashboxMovement.deleteMany({
+          where: {
+            documentType: 'COLLECTION',
+            documentNo: id,
+            ...buildTenantWhereClause(data.tenantId ?? undefined),
+          },
+        });
       }
 
-      await tx.accountMovement.deleteMany({ where: { documentType: 'COLLECTION', documentNo: id } });
-      await tx.collection.update({ where: { id }, data: { deletedAt: new Date() } });
+      await tx.accountMovement.deleteMany({
+        where: {
+          documentType: 'COLLECTION',
+          documentNo: id,
+          ...buildTenantWhereClause(data.tenantId ?? undefined),
+        },
+      });
+      await tx.collection.updateMany({
+        where: {
+          id,
+          ...buildTenantWhereClause(data.tenantId ?? undefined),
+        },
+        data: { deletedAt: new Date() },
+      });
 
       return { message: 'Collection record deleted' };
     });
@@ -423,7 +541,7 @@ export class CollectionService {
       if (invoiceRemaining <= 0) continue;
 
       const paymentAmount = Math.min(remainingAmount, invoiceRemaining);
-      await tx.invoiceCollection.create({ data: { invoiceId: invoice.id, collectionId: collectionId, amount: paymentAmount } });
+      await tx.invoiceCollection.create({ data: { tenantId: invoice.tenantId, invoiceId: invoice.id, collectionId: collectionId, amount: paymentAmount } });
 
       const newPaid = invoicePaid + paymentAmount;
       const newRemaining = invoiceTotal - newPaid;
@@ -432,8 +550,11 @@ export class CollectionService {
       else if (newPaid > 0.01) newStatus = 'PARTIALLY_PAID';
       else newStatus = 'APPROVED';
 
-      await tx.invoice.update({
-        where: { id: invoice.id },
+      await tx.invoice.updateMany({
+        where: {
+          id: invoice.id,
+          ...buildTenantWhereClause(invoice.tenantId ?? undefined),
+        },
         data: { paidAmount: newPaid, status: newStatus },
       });
       remainingAmount -= paymentAmount;

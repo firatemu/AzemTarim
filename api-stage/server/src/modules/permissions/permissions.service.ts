@@ -1,3 +1,4 @@
+import { TenantResolverService } from '../../common/services/tenant-resolver.service';
 import { Injectable, Logger } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma.service';
 import { RedisService } from '../../common/services/redis.service';
@@ -7,20 +8,16 @@ export class PermissionsService {
     private readonly logger = new Logger(PermissionsService.name);
     private readonly CACHE_TTL_SECONDS = 900; // 15 minutes
 
-    constructor(
-        private readonly prisma: PrismaService,
-        private readonly redis: RedisService,
-    ) { }
+    constructor(private readonly prisma: PrismaService,
+        private readonly redis: RedisService, private readonly tenantResolver: TenantResolverService) { }
 
     /**
      * Checks if a user has a specific permission.
      * Caches the result in Redis.
      */
     async hasPermission(userId: string, permissionModule: string, permissionAction: string): Promise<boolean> {
-        const cacheKey = `user_perms:${userId}`;
-
         // 1. Check Cache
-        const cachedPermsStr = await this.redis.get(cacheKey);
+        const cachedPermsStr = await this.redis.getForTenant('user_perms', userId);
         if (cachedPermsStr) {
             const cachedPerms = JSON.parse(cachedPermsStr) as string[];
             if (cachedPerms.includes('ALL')) return true; // SuperAdmin bypass
@@ -28,7 +25,7 @@ export class PermissionsService {
         }
 
         // 2. Fetch from DB if not in cache
-        const user = await this.prisma.extended.user.findUnique({
+        const user = await this.prisma.user.findUnique({
             where: { id: userId },
             include: {
                 roleRelation: {
@@ -58,7 +55,7 @@ export class PermissionsService {
         }
 
         // 4. Cache Results
-        await this.redis.set(cacheKey, JSON.stringify(permissions), this.CACHE_TTL_SECONDS);
+        await this.redis.setForTenant('user_perms', JSON.stringify(permissions), this.CACHE_TTL_SECONDS, userId);
 
         // 5. Return Check Result
         if (permissions.includes('ALL')) return true;
@@ -69,7 +66,7 @@ export class PermissionsService {
      * Invalidates the permission cache for a specific user.
      */
     async invalidateUserCache(userId: string): Promise<void> {
-        await this.redis.del(`user_perms:${userId}`);
+        await this.redis.delForTenant('user_perms', userId);
         this.logger.log(`Permission cache invalidated for user ${userId}`);
     }
 
@@ -78,7 +75,7 @@ export class PermissionsService {
      * Use this when updating a role's permissions.
      */
     async invalidateRoleCache(roleId: string): Promise<void> {
-        const users = await this.prisma.extended.user.findMany({
+        const users = await this.prisma.user.findMany({
             where: { roleId },
             select: { id: true },
         });

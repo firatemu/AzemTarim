@@ -72,10 +72,10 @@ export default function SilinenHavalelerPage() {
   const [loading, setLoading] = useState(false);
   const [openDetail, setOpenDetail] = useState(false);
   const [selectedKayit, setSelectedKayit] = useState<DeletedBankaHavale | null>(null);
-  const [snackbar, setSnackbar] = useState({ 
-    open: false, 
-    message: '', 
-    severity: 'success' as 'success' | 'error' | 'info' 
+  const [snackbar, setSnackbar] = useState({
+    open: false,
+    message: '',
+    severity: 'success' as 'success' | 'error' | 'info'
   });
 
   // Filter state
@@ -127,10 +127,10 @@ export default function SilinenHavalelerPage() {
 
   const filteredKayitlar = kayitlar.filter(kayit => {
     if (filterHareketTip && kayit.hareketTipi !== filterHareketTip) return false;
-    
+
     if (filterBaslangic && new Date(kayit.deletedAt) < new Date(filterBaslangic)) return false;
     if (filterBitis && new Date(kayit.deletedAt) > new Date(filterBitis)) return false;
-    
+
     return true;
   });
 
@@ -278,10 +278,10 @@ export default function SilinenHavalelerPage() {
                         icon={kayit.hareketTipi === 'GELEN' ? <TrendingUp /> : <TrendingDown />}
                         label={kayit.hareketTipi === 'GELEN' ? 'Gelen' : 'Giden'}
                         size="small"
-                        sx={{ 
+                        sx={{
                           bgcolor: kayit.hareketTipi === 'GELEN' ? '#ecfdf5' : '#fef2f2',
                           color: kayit.hareketTipi === 'GELEN' ? '#10b981' : '#ef4444',
-                          fontWeight: 600 
+                          fontWeight: 600
                         }}
                       />
                     </TableCell>
@@ -341,7 +341,7 @@ export default function SilinenHavalelerPage() {
 
         {/* Detay Dialog */}
         <Dialog open={openDetail} onClose={() => setOpenDetail(false)} maxWidth="md" fullWidth>
-          <DialogTitle component="div" sx={{ bgcolor: '#f9fafb' }} component="div">
+          <DialogTitle component="div" sx={{ bgcolor: '#f9fafb' }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               <DeleteForever sx={{ color: '#ef4444' }} />
               Silinen Havale Detayı
@@ -362,7 +362,7 @@ export default function SilinenHavalelerPage() {
                     <Chip
                       icon={selectedKayit.hareketTipi === 'GELEN' ? <TrendingUp /> : <TrendingDown />}
                       label={selectedKayit.hareketTipi === 'GELEN' ? 'Gelen Havale' : 'Giden Havale'}
-                      sx={{ 
+                      sx={{
                         mt: 1,
                         bgcolor: selectedKayit.hareketTipi === 'GELEN' ? '#ecfdf5' : '#fef2f2',
                         color: selectedKayit.hareketTipi === 'GELEN' ? '#10b981' : '#ef4444',
@@ -371,10 +371,10 @@ export default function SilinenHavalelerPage() {
                   </Grid>
                   <Grid size={{ xs: 6 }}>
                     <Typography variant="caption" color="textSecondary">Tutar</Typography>
-                    <Typography variant="h5" sx={{ 
-                      color: selectedKayit.hareketTipi === 'GELEN' ? '#10b981' : '#ef4444', 
+                    <Typography variant="h5" sx={{
+                      color: selectedKayit.hareketTipi === 'GELEN' ? '#10b981' : '#ef4444',
                       fontWeight: 600,
-                      mt: 1 
+                      mt: 1
                     }}>
                       {formatCurrency(selectedKayit.tutar)}
                     </Typography>

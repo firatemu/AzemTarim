@@ -15,9 +15,9 @@ import { CreateExpenseDto } from './dto/create-expense.dto';
 import { UpdateExpenseDto } from './dto/update-expense.dto';
 
 @UseGuards(JwtAuthGuard)
-@Controller('expense')
+@Controller('expenses')
 export class ExpenseController {
-  constructor(private readonly expenseService: ExpenseService) {}
+  constructor(private readonly expenseService: ExpenseService) { }
 
   @Get('stats')
   getStats(

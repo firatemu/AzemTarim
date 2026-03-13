@@ -96,7 +96,7 @@ export default function UrunEslestirmePage() {
   const fetchStoklar = async () => {
     try {
       setLoading(true);
-      const response = await axios.get('/product', {
+      const response = await axios.get('/products', {
         params: {
           page,
           limit: 50,
@@ -118,7 +118,7 @@ export default function UrunEslestirmePage() {
 
     // Tüm ürünleri getir (eşleştirme için)
     try {
-      const response = await axios.get('/product', {
+      const response = await axios.get('/products', {
         params: { limit: 1000 },
       });
       // Seçilen ürünü ve zaten eşleştirilmiş ürünleri listeden çıkar
@@ -134,9 +134,9 @@ export default function UrunEslestirmePage() {
     if (!secilenUrun) return;
 
     try {
-      await axios.post('/product/eslestir', {
-        anaUrunId: secilenUrun.id,
-        esUrunIds: secilenEslestirmeler,
+      await axios.post('/products/match', {
+        mainProductId: secilenUrun.id,
+        equivalentProductIds: secilenEslestirmeler,
       });
 
       showSnackbar('Eşleştirme başarıyla kaydedildi', 'success');
@@ -151,7 +151,7 @@ export default function UrunEslestirmePage() {
     if (!confirm('Bu eşleştirmeyi kaldırmak istediğinizden emin misiniz?')) return;
 
     try {
-      await axios.delete(`/stok/${urunId}/eslesme/${eslesikUrunId}`);
+      await axios.delete(`/products/${urunId}/eslesme/${eslesikUrunId}`);
       showSnackbar('Eşleştirme kaldırıldı', 'success');
       fetchStoklar();
     } catch (error: any) {
@@ -166,7 +166,7 @@ export default function UrunEslestirmePage() {
 
     try {
       setOemEslestirmeLoading(true);
-      const response = await axios.post('/product/eslestir-oem');
+      const response = await axios.post('/products/match-oem');
       showSnackbar(
         `OEM ile eşleştirme tamamlandı! ${response.data.toplamGrup} grup oluşturuldu, ${response.data.toplamEslestirilenUrun} ürün eşleştirildi.`,
         'success'
@@ -220,7 +220,7 @@ export default function UrunEslestirmePage() {
               variant="outlined"
               onClick={async () => {
                 try {
-                  const response = await axios.get('/product/export/eslesme', {
+                  const response = await axios.get('/products/export/eslesme', {
                     responseType: 'blob',
                   });
                   const url = window.URL.createObjectURL(new Blob([response.data]));
@@ -481,7 +481,7 @@ export default function UrunEslestirmePage() {
           fullWidth
           PaperProps={{ sx: { borderRadius: 'var(--radius-lg)' } }}
         >
-          <DialogTitle component="div" sx={{ borderBottom: '1px solid var(--border)', pb: 2 }} component="div">
+          <DialogTitle component="div" sx={{ borderBottom: '1px solid var(--border)', pb: 2 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
               <LinkIcon color="primary" />
               <Box>

@@ -23,10 +23,10 @@ export class SimpleOrderService {
     }
 
     const [firma, urun] = await Promise.all([
-      this.prisma.extended.account.findFirst({
+      this.prisma.account.findFirst({
         where: { id: dto.companyId, ...buildTenantWhereClause(tenantId) },
       }),
-      this.prisma.extended.product.findFirst({
+      this.prisma.product.findFirst({
         where: { id: dto.productId, ...buildTenantWhereClause(tenantId) },
       }),
     ]);
@@ -39,7 +39,7 @@ export class SimpleOrderService {
       throw new NotFoundException('Product not found');
     }
 
-    const order = await this.prisma.extended.simpleOrder.create({
+    const order = await this.prisma.simpleOrder.create({
       data: {
         companyId: dto.companyId,
         productId: dto.productId,
@@ -62,7 +62,10 @@ export class SimpleOrderService {
             code: true,
             name: true,
             unit: true,
-            purchasePrice: true,
+            priceCards: {
+              where: { type: 'PURCHASE', isActive: true },
+              take: 1,
+            },
           },
         },
       },
@@ -73,19 +76,19 @@ export class SimpleOrderService {
       // Backward-compatible aliases
       firma: (order as any).company
         ? {
-            id: (order as any).company.id,
-            code: (order as any).company.code,
-            unvan: (order as any).company.title,
-          }
+          id: (order as any).company.id,
+          code: (order as any).company.code,
+          title: (order as any).company.title,
+        }
         : null,
       urun: (order as any).product
         ? {
-            id: (order as any).product.id,
-            code: (order as any).product.code,
-            name: (order as any).product.name,
-            birim: (order as any).product.unit,
-            alisFiyati: (order as any).product.purchasePrice,
-          }
+          id: (order as any).product.id,
+          code: (order as any).product.code,
+          name: (order as any).product.name,
+          birim: (order as any).product.unit,
+          alisFiyati: (order.product as any).priceCards?.[0]?.price ?? 0,
+        }
         : null,
     };
   }
@@ -99,7 +102,7 @@ export class SimpleOrderService {
     if (status) where.status = status;
 
     const [salesOrders, total] = await Promise.all([
-      this.prisma.extended.simpleOrder.findMany({
+      this.prisma.simpleOrder.findMany({
         where,
         skip,
         take: limit,
@@ -118,28 +121,31 @@ export class SimpleOrderService {
               code: true,
               name: true,
               unit: true,
-              purchasePrice: true,
+              priceCards: {
+                where: { type: 'PURCHASE', isActive: true },
+                take: 1,
+              },
             },
           },
         },
       }),
-      this.prisma.extended.simpleOrder.count({ where }),
+      this.prisma.simpleOrder.count({ where }),
     ]);
 
     return {
       data: salesOrders.map((s: any) => ({
         ...s,
         firma: s.company
-          ? { id: s.company.id, code: s.company.code, unvan: s.company.title }
+          ? { id: s.company.id, code: s.company.code, title: s.company.title }
           : null,
         urun: s.product
           ? {
-              id: s.product.id,
-              code: s.product.code,
-              name: s.product.name,
-              birim: s.product.unit,
-              alisFiyati: s.product.purchasePrice,
-            }
+            id: s.product.id,
+            code: s.product.code,
+            name: s.product.name,
+            birim: s.product.unit,
+            alisFiyati: s.product.priceCards?.[0]?.price ?? 0,
+          }
           : null,
       })),
       meta: {
@@ -153,7 +159,7 @@ export class SimpleOrderService {
 
   async findOne(id: string) {
     const tenantId = await this.tenantResolver.resolveForQuery();
-    const order = await this.prisma.extended.simpleOrder.findFirst({
+    const order = await this.prisma.simpleOrder.findFirst({
       where: {
         id,
         ...buildTenantWhereClause(tenantId ?? undefined),
@@ -174,8 +180,10 @@ export class SimpleOrderService {
             code: true,
             name: true,
             unit: true,
-            purchasePrice: true,
-            vatRate: true,
+            priceCards: {
+              where: { type: 'PURCHASE', isActive: true },
+              take: 1,
+            },
           },
         },
       },
@@ -189,22 +197,22 @@ export class SimpleOrderService {
       ...order,
       firma: (order as any).company
         ? {
-            id: (order as any).company.id,
-            code: (order as any).company.code,
-            unvan: (order as any).company.title,
-            telefon: (order as any).company.phone,
-            email: (order as any).company.email,
-          }
+          id: (order as any).company.id,
+          code: (order as any).company.code,
+          title: (order as any).company.title,
+          telefon: (order as any).company.phone,
+          email: (order as any).company.email,
+        }
         : null,
       urun: (order as any).product
         ? {
-            id: (order as any).product.id,
-            code: (order as any).product.code,
-            name: (order as any).product.name,
-            birim: (order as any).product.unit,
-            alisFiyati: (order as any).product.purchasePrice,
-            vatRate: (order as any).product.vatRate,
-          }
+          id: (order as any).product.id,
+          code: (order as any).product.code,
+          name: (order as any).product.name,
+          birim: (order as any).product.unit,
+          alisFiyati: (order.product as any).priceCards?.[0]?.price ?? 0,
+          vatRate: (order.product as any).priceCards?.[0]?.vatRate ?? 20,
+        }
         : null,
     };
   }

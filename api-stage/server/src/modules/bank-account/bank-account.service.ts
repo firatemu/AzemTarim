@@ -1,3 +1,4 @@
+import { TenantResolverService } from '../../common/services/tenant-resolver.service';
 import {
   Injectable,
   NotFoundException,
@@ -10,13 +11,11 @@ import { BankAccountType } from '@prisma/client';
 
 @Injectable()
 export class BankAccountService {
-  constructor(
-    private prisma: PrismaService,
-    private tenantContext: TenantContextService,
-  ) { }
+  constructor(private prisma: PrismaService,
+    private tenantContext: TenantContextService, private readonly tenantResolver: TenantResolverService) { }
 
   async create(createDto: CreateBankAccountDto) {
-    return this.prisma.extended.bankAccount.create({
+    return this.prisma.bankAccount.create({
       data: {
         bankId: createDto.bankId,
         code: createDto.code || `ACC-${Date.now()}`,
@@ -32,7 +31,7 @@ export class BankAccountService {
   async findAll(bankId?: string, type?: string) {
     const tenantId = this.tenantContext.getTenantId();
 
-    return this.prisma.extended.bankAccount.findMany({
+    return this.prisma.bankAccount.findMany({
       where: {
         bank: {
           tenantId: tenantId,
@@ -50,7 +49,7 @@ export class BankAccountService {
 
   async findOne(id: string) {
     const tenantId = this.tenantContext.getTenantId();
-    const hesap = await this.prisma.extended.bankAccount.findFirst({
+    const hesap = await this.prisma.bankAccount.findFirst({
       where: {
         id,
         bank: {
@@ -72,7 +71,7 @@ export class BankAccountService {
   async update(id: string, updateDto: UpdateBankAccountDto) {
     await this.findOne(id);
 
-    return this.prisma.extended.bankAccount.update({
+    return this.prisma.bankAccount.update({
       where: { id },
       data: {
         name: updateDto.name,
@@ -86,7 +85,7 @@ export class BankAccountService {
   async remove(id: string) {
     await this.findOne(id);
 
-    return this.prisma.extended.bankAccount.update({
+    return this.prisma.bankAccount.update({
       where: { id },
       data: { isActive: false },
     });

@@ -112,7 +112,7 @@ export default function Reminders() {
 
             // Fetch Personel
             const gun = new Date().getDate();
-            const personelRes = await axios.get('/employee', { params: { aktif: true } });
+            const personelRes = await axios.get('/employees', { params: { aktif: true } });
             const personelData = Array.isArray(personelRes.data) ? personelRes.data : (personelRes.data?.data || []);
 
             let personelOdemeleri = [];
@@ -124,7 +124,7 @@ export default function Reminders() {
             }
 
             // Fetch Invoices
-            const faturaRes = await axios.get('/invoice', { params: { limit: 100 } });
+            const faturaRes = await axios.get('/invoices', { params: { limit: 100 } });
             const faturaData = Array.isArray(faturaRes.data) ? faturaRes.data : (faturaRes.data?.data || []);
             const vadesiGecenFaturalar = faturaData.filter((f: any) =>
                 f.vade && new Date(f.vade) < new Date() && Number(f.odenecekTutar) > 0
@@ -133,7 +133,7 @@ export default function Reminders() {
             // Fetch Credit Cards
             const ccBitis = new Date();
             ccBitis.setDate(ccBitis.getDate() + 15);
-            const ccRes = await axios.get('/bank/credit-cards/upcoming', {
+            const ccRes = await axios.get('/banks/credit-cards/upcoming', {
                 params: { start: baslangicStr, end: ccBitis.toISOString() }
             });
             const krediKartiTarihleri = Array.isArray(ccRes.data) ? ccRes.data : [];
@@ -141,7 +141,7 @@ export default function Reminders() {
             // Fetch Installments
             let krediTaksitleri: any[] = [];
             try {
-                const krediRes = await axios.get('/bank/installments/upcoming', {
+                const krediRes = await axios.get('/banks/installments/upcoming', {
                     params: { start: baslangicStr, end: bitisStr }
                 });
                 krediTaksitleri = Array.isArray(krediRes.data) ? krediRes.data : [];

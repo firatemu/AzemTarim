@@ -140,20 +140,22 @@ export class WorkOrderService {
       details?: any;
       userId?: string;
     },
-    tx?: Prisma.TransactionClient,
+    tx?: any,
   ) {
     const prisma = tx || this.prisma;
+    const tenantId = await this.tenantResolver.resolveForQuery();
     await prisma.workOrderActivity.create({
       data: {
         workOrderId: data.workOrderId,
         action: data.action,
         userId: data.userId,
-        metadata: data.details || {},
+        meta: (data.details as any) || {},
+        tenantId,
       },
     });
   }
 
-  private async generateWorkOrderNo(tx: Prisma.TransactionClient): Promise<string> {
+  private async generateWorkOrderNo(tx: any): Promise<string> {
     const tenantId = await this.tenantResolver.resolveForQuery();
     const prefix = `IE${new Date().getFullYear()}`;
     const last = await tx.workOrder.findFirst({
@@ -183,8 +185,14 @@ export class WorkOrderService {
     };
   }
 
-  private async recalculateTotals(workOrderId: string, tx: Prisma.TransactionClient): Promise<void> {
-    const lines = await tx.workOrderItem.findMany({ where: { workOrderId } });
+  private async recalculateTotals(workOrderId: string, tx: any): Promise<void> {
+    const tenantId = await this.tenantResolver.resolveForQuery();
+    const lines = await tx.workOrderItem.findMany({
+      where: {
+        workOrderId,
+        ...buildTenantWhereClause(tenantId ?? undefined),
+      }
+    });
     let labor = 0, parts = 0, tax = 0;
     for (const line of lines) {
       const total = Number(line.totalPrice);
@@ -193,8 +201,11 @@ export class WorkOrderService {
       else parts += total - lTax;
       tax += lTax;
     }
-    await tx.workOrder.update({
-      where: { id: workOrderId },
+    await tx.workOrder.updateMany({
+      where: {
+        id: workOrderId,
+        ...buildTenantWhereClause(tenantId ?? undefined),
+      },
       data: {
         totalLaborCost: new Decimal(labor),
         totalPartsCost: new Decimal(parts),
@@ -205,11 +216,12 @@ export class WorkOrderService {
   }
 
   async create(dto: CreateWorkOrderDto, userId?: string) {
-    const tenantId = await this.tenantResolver.resolveForQuery();
-    return this.prisma.extended.$transaction(async (tx) => {
+    const tenantId = await this.tenantResolver.resolveForCreate({ userId });
+    return this.prisma.$transaction(async (tx: any) => {
       const workOrderNo = await this.generateWorkOrderNo(tx);
       const workOrder = await tx.workOrder.create({
         data: {
+          tenantId,
           workOrderNo,
           customerVehicleId: dto.customerVehicleId,
           accountId: dto.accountId,
@@ -217,8 +229,7 @@ export class WorkOrderService {
           status: WorkOrderStatus.WAITING_DIAGNOSIS,
           description: dto.description || '',
           diagnosisNotes: dto.diagnosisNotes,
-          ...buildTenantWhereClause(tenantId ?? undefined),
-        } as any,
+        },
         include: {
           customerVehicle: true,
           account: { select: { id: true, code: true, title: true } },
@@ -231,12 +242,14 @@ export class WorkOrderService {
   }
 
   async addLaborLine(workOrderId: string, dto: any, userId?: string) {
-    return this.prisma.extended.$transaction(async (tx) => {
+    return (this.prisma.extended as any).$transaction(async (tx: any) => {
+      const tenantId = await this.tenantResolver.resolveForQuery();
       const wo = await this.findWorkOrderOrThrow(workOrderId, tx);
       this.assertMutable(wo.status);
       const { taxAmount, totalPrice } = this.calculateLineTotal(1, dto.laborHours * dto.hourlyRate, dto.taxRate || 20);
       const line = await tx.workOrderItem.create({
         data: {
+          tenantId: wo.tenantId || tenantId,
           workOrderId,
           type: WorkOrderItemType.LABOR,
           description: dto.description || 'Labor',
@@ -254,14 +267,21 @@ export class WorkOrderService {
   }
 
   async addPartLine(workOrderId: string, dto: any, userId?: string) {
-    return this.prisma.extended.$transaction(async (tx) => {
+    return (this.prisma.extended as any).$transaction(async (tx: any) => {
+      const tenantId = await this.tenantResolver.resolveForQuery();
       const wo = await this.findWorkOrderOrThrow(workOrderId, tx);
       this.assertMutable(wo.status);
-      const prod = await tx.product.findUnique({ where: { id: dto.productId } });
+      const prod = await tx.product.findFirst({
+        where: {
+          id: dto.productId,
+          ...buildTenantWhereClause(tenantId ?? undefined),
+        }
+      });
       if (!prod) throw new NotFoundException('Product not found');
       const { taxAmount, totalPrice } = this.calculateLineTotal(dto.quantity, dto.unitPrice, dto.taxRate || 20);
       const line = await tx.workOrderItem.create({
         data: {
+          tenantId: wo.tenantId || tenantId,
           workOrderId,
           type: WorkOrderItemType.PART,
           productId: dto.productId,
@@ -280,14 +300,19 @@ export class WorkOrderService {
   }
 
   async updateStatus(workOrderId: string, dto: ChangeStatusWorkOrderDto, userId?: string) {
-    return this.prisma.extended.$transaction(async (tx) => {
+    return (this.prisma.extended as any).$transaction(async (tx: any) => {
+      const tenantId = await this.tenantResolver.resolveForQuery();
       const wo = await this.findWorkOrderOrThrow(workOrderId, tx);
       this.assertMutable(wo.status);
       this.assertValidTransition(wo.status, dto.status);
-      const updated = await tx.workOrder.update({
-        where: { id: workOrderId },
+      await tx.workOrder.updateMany({
+        where: {
+          id: workOrderId,
+          ...buildTenantWhereClause(tenantId ?? undefined),
+        },
         data: { status: dto.status },
       });
+      const updated = await this.findWorkOrderOrThrow(workOrderId, tx);
       await this.createAuditLog({ workOrderId, action: 'STATUS_CHANGE', userId, details: { from: wo.status, to: dto.status } }, tx);
       return updated;
     });
@@ -295,14 +320,16 @@ export class WorkOrderService {
 
   async generateInvoice(workOrderId: string, userId?: string) {
     const tenantId = await this.tenantResolver.resolveForQuery();
-    return this.prisma.extended.$transaction(async (tx) => {
+    return (this.prisma.extended as any).$transaction(async (tx: any) => {
       const wo = await this.findWorkOrderOrThrow(workOrderId, tx);
       if (wo.status !== WorkOrderStatus.VEHICLE_READY) throw new BadRequestException('Only ready vehicles can be invoiced');
 
       const invoiceNo = `SRV${new Date().getFullYear()}${Math.floor(Math.random() * 1000000)}`;
+      const finalTenantId = wo.tenantId || tenantId || undefined;
+
       const invoice = await tx.serviceInvoice.create({
         data: {
-          tenantId: (wo as any).tenantId,
+          tenantId: finalTenantId!,
           invoiceNo,
           accountId: wo.accountId,
           workOrderId: wo.id,
@@ -316,14 +343,17 @@ export class WorkOrderService {
         } as any,
       });
 
-      await tx.workOrder.update({
-        where: { id: workOrderId },
+      await tx.workOrder.updateMany({
+        where: {
+          id: workOrderId,
+          ...buildTenantWhereClause(finalTenantId),
+        },
         data: { status: WorkOrderStatus.INVOICED_CLOSED },
       });
 
       await (tx as any).accountMovement.create({
         data: {
-          tenantId: (wo as any).tenantId,
+          tenantId: finalTenantId!,
           accountId: wo.accountId,
           type: 'DEBIT',
           documentType: 'INVOICE',
@@ -339,12 +369,186 @@ export class WorkOrderService {
     });
   }
 
+  async getAssignmentUsers() {
+    const tenantId = await this.tenantResolver.resolveForQuery();
+    return this.prisma.user.findMany({
+      where: {
+        tenantId,
+        isActive: true,
+        role: {
+          in: ['ADMIN', 'TECHNICIAN', 'SERVICE_MANAGER'] as any
+        }
+      },
+      select: {
+        id: true,
+        fullName: true,
+        role: true
+      }
+    });
+  }
+
+  async getStats() {
+    const tenantId = await this.tenantResolver.resolveForQuery();
+    const stats = await this.prisma.workOrder.groupBy({
+      by: ['status'],
+      where: { tenantId },
+      _count: true
+    });
+    return stats;
+  }
+
+  async findForPartsManagement(page: number, limit: number, search?: string, partWorkflowStatus?: any) {
+    const tenantId = await this.tenantResolver.resolveForQuery();
+    const where: any = {
+      tenantId,
+      ...(partWorkflowStatus && { partWorkflowStatus }),
+      ...(search && {
+        OR: [
+          { workOrderNo: { contains: search, mode: 'insensitive' } },
+          { customerVehicle: { plate: { contains: search, mode: 'insensitive' } } }
+        ]
+      })
+    };
+
+    const [items, total] = await Promise.all([
+      this.prisma.workOrder.findMany({
+        where,
+        skip: (page - 1) * limit,
+        take: limit,
+        include: {
+          customerVehicle: true,
+          account: true,
+          items: {
+            where: { type: 'PART' }
+          }
+        },
+        orderBy: { createdAt: 'desc' }
+      }),
+      this.prisma.workOrder.count({ where })
+    ]);
+
+    return { items, total };
+  }
+
+  async getActivities(workOrderId: string) {
+    const tenantId = await this.tenantResolver.resolveForQuery();
+    return this.prisma.workOrderActivity.findMany({
+      where: {
+        workOrderId,
+        workOrder: { tenantId }
+      },
+      include: {
+        user: { select: { fullName: true } }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+  }
+
+  async sendForApproval(id: string, dto: any, userId?: string) {
+    return this.prisma.$transaction(async (tx) => {
+      const tenantId = await this.tenantResolver.resolveForQuery();
+      const wo = await this.findWorkOrderOrThrow(id, tx as any);
+      this.assertMutable(wo.status);
+
+      await tx.workOrder.updateMany({
+        where: {
+          id,
+          ...buildTenantWhereClause(tenantId ?? undefined),
+        },
+        data: {
+          status: 'PENDING_APPROVAL',
+          diagnosisNotes: dto.diagnosisNotes
+        }
+      });
+
+      await this.createAuditLog({
+        workOrderId: id,
+        action: 'SEND_FOR_APPROVAL',
+        userId,
+        details: dto
+      }, tx as any);
+
+      return this.findWorkOrderOrThrow(id, tx as any);
+    });
+  }
+
+  async update(id: string, dto: any, userId?: string) {
+    return this.prisma.$transaction(async (tx) => {
+      const tenantId = await this.tenantResolver.resolveForQuery();
+      const wo = await this.findWorkOrderOrThrow(id, tx as any);
+      this.assertMutable(wo.status);
+
+      await tx.workOrder.updateMany({
+        where: {
+          id,
+          ...buildTenantWhereClause(tenantId ?? undefined),
+        },
+        data: {
+          ...dto,
+          updatedBy: userId
+        }
+      });
+
+      await this.createAuditLog({
+        workOrderId: id,
+        action: 'UPDATE',
+        userId,
+        details: dto
+      }, tx as any);
+
+      return this.findWorkOrderOrThrow(id, tx as any);
+    });
+  }
+
+  async changeStatus(id: string, status: any, userId?: string) {
+    return this.updateStatus(id, { status }, userId);
+  }
+
+  async changeVehicleWorkflowStatus(id: string, dto: any, userId?: string) {
+    return this.prisma.$transaction(async (tx) => {
+      const tenantId = await this.tenantResolver.resolveForQuery();
+      const wo = await this.findWorkOrderOrThrow(id, tx as any);
+
+      await tx.workOrder.updateMany({
+        where: {
+          id,
+          ...buildTenantWhereClause(tenantId ?? undefined),
+        },
+        data: {
+          vehicleWorkflowStatus: dto.status
+        }
+      });
+
+      await this.createAuditLog({
+        workOrderId: id,
+        action: 'VEHICLE_WORKFLOW_CHANGE',
+        userId,
+        details: dto
+      }, tx as any);
+
+      return this.findWorkOrderOrThrow(id, tx as any);
+    });
+  }
+
+  async remove(id: string) {
+    const tenantId = await this.tenantResolver.resolveForQuery();
+    const wo = await this.findWorkOrderOrThrow(id);
+    this.assertMutable(wo.status);
+
+    return this.prisma.workOrder.deleteMany({
+      where: {
+        id,
+        ...buildTenantWhereClause(tenantId ?? undefined),
+      }
+    });
+  }
+
   async findAll(options: any) {
     const tenantId = await this.tenantResolver.resolveForQuery();
     const where: Prisma.WorkOrderWhereInput = {
       ...buildTenantWhereClause(tenantId ?? undefined),
     };
-    return this.prisma.extended.workOrder.findMany({
+    return this.prisma.workOrder.findMany({
       where,
       include: {
         customerVehicle: true,

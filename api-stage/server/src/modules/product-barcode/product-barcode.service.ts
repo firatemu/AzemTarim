@@ -1,3 +1,4 @@
+import { TenantResolverService } from '../../common/services/tenant-resolver.service';
 import {
   Injectable,
   NotFoundException,
@@ -8,17 +9,17 @@ import { CreateProductBarcodeDto } from './dto/create-product-barcode.dto';
 
 @Injectable()
 export class ProductBarcodeService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService, private readonly tenantResolver: TenantResolverService) {}
 
   async findByProduct(productId: string) {
-    return this.prisma.extended.productBarcode.findMany({
+    return this.prisma.productBarcode.findMany({
       where: { productId },
       orderBy: [{ isPrimary: 'desc' }, { createdAt: 'asc' }],
     });
   }
 
   async findByBarcode(barcode: string) {
-    const productBarcode = await this.prisma.extended.productBarcode.findUnique({
+    const productBarcode = await this.prisma.productBarcode.findUnique({
       where: { barcode },
       include: {
         product: {
@@ -52,7 +53,7 @@ export class ProductBarcodeService {
 
   async create(createDto: CreateProductBarcodeDto) {
     // Ürün kontrolü
-    const product = await this.prisma.extended.product.findUnique({
+    const product = await this.prisma.product.findUnique({
       where: { id: createDto.productId },
     });
 
@@ -61,7 +62,7 @@ export class ProductBarcodeService {
     }
 
     // Barkod benzersizliği kontrolü
-    const existing = await this.prisma.extended.productBarcode.findUnique({
+    const existing = await this.prisma.productBarcode.findUnique({
       where: { barcode: createDto.barcode },
     });
 
@@ -71,7 +72,7 @@ export class ProductBarcodeService {
 
     // Eğer birincil barkod olarak işaretleniyorsa, diğer birincil barkodları kaldır
     if (createDto.isPrimary) {
-      await this.prisma.extended.productBarcode.updateMany({
+      await this.prisma.productBarcode.updateMany({
         where: {
           productId: createDto.productId,
           isPrimary: true,
@@ -82,7 +83,7 @@ export class ProductBarcodeService {
       });
     }
 
-    return this.prisma.extended.productBarcode.create({
+    return this.prisma.productBarcode.create({
       data: {
         productId: createDto.productId,
         barcode: createDto.barcode,
@@ -93,7 +94,7 @@ export class ProductBarcodeService {
   }
 
   async remove(id: string) {
-    const productBarcode = await this.prisma.extended.productBarcode.findUnique({
+    const productBarcode = await this.prisma.productBarcode.findUnique({
       where: { id },
     });
 
@@ -101,13 +102,13 @@ export class ProductBarcodeService {
       throw new NotFoundException('Barcode not found');
     }
 
-    return this.prisma.extended.productBarcode.delete({
+    return this.prisma.productBarcode.delete({
       where: { id },
     });
   }
 
   async setPrimary(id: string) {
-    const productBarcode = await this.prisma.extended.productBarcode.findUnique({
+    const productBarcode = await this.prisma.productBarcode.findUnique({
       where: { id },
     });
 
@@ -116,7 +117,7 @@ export class ProductBarcodeService {
     }
 
     // Diğer birincil barkodları kaldır
-    await this.prisma.extended.productBarcode.updateMany({
+    await this.prisma.productBarcode.updateMany({
       where: {
         productId: productBarcode.productId,
         isPrimary: true,
@@ -127,7 +128,7 @@ export class ProductBarcodeService {
     });
 
     // Bu barkodu birincil yap
-    return this.prisma.extended.productBarcode.update({
+    return this.prisma.productBarcode.update({
       where: { id },
       data: {
         isPrimary: true,

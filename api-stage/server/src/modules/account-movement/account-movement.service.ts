@@ -1,3 +1,4 @@
+import { TenantResolverService } from '../../common/services/tenant-resolver.service';
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma.service';
 import { CreateAccountMovementDto, StatementQueryDto } from './dto';
@@ -11,10 +12,10 @@ import * as path from 'path';
 
 @Injectable()
 export class AccountMovementService {
-    constructor(private prisma: PrismaService) { }
+    constructor(private prisma: PrismaService, private readonly tenantResolver: TenantResolverService) { }
 
     async create(dto: CreateAccountMovementDto) {
-        const account = await this.prisma.extended.account.findUnique({
+        const account = await this.prisma.account.findUnique({
             where: { id: dto.accountId },
         });
 
@@ -32,10 +33,11 @@ export class AccountMovementService {
             nextBalance = Number(dto.amount);
         }
 
-        const movement = await this.prisma.extended.$transaction(async (tx) => {
+        const movement = await this.prisma.$transaction(async (tx) => {
             const newMovement = await tx.accountMovement.create({
                 data: {
                     accountId: dto.accountId,
+                    tenantId: account.tenantId,
                     type: dto.type as DebitCredit,
                     amount: new Prisma.Decimal(dto.amount),
                     balance: new Prisma.Decimal(nextBalance),
@@ -62,14 +64,14 @@ export class AccountMovementService {
 
     async findAll(accountId: string, skip = 0, take = 100) {
         const [movements, total] = await Promise.all([
-            this.prisma.extended.accountMovement.findMany({
+            this.prisma.accountMovement.findMany({
                 where: { accountId },
                 include: { account: true },
                 orderBy: { date: 'desc' },
                 skip,
                 take,
             }),
-            this.prisma.extended.accountMovement.count({ where: { accountId } }),
+            this.prisma.accountMovement.count({ where: { accountId } }),
         ]);
 
         return {
@@ -92,10 +94,10 @@ export class AccountMovementService {
         }
 
         const [account, movements] = await Promise.all([
-            this.prisma.extended.account.findUnique({
+            this.prisma.account.findUnique({
                 where: { id: query.accountId },
             }),
-            this.prisma.extended.accountMovement.findMany({
+            this.prisma.accountMovement.findMany({
                 where,
                 orderBy: { date: 'asc' },
             }),
@@ -114,7 +116,7 @@ export class AccountMovementService {
             throw new NotFoundException('Account not found');
         }
 
-        const tenantSettings = await this.prisma.extended.tenantSettings.findUnique({
+        const tenantSettings = await this.prisma.tenantSettings.findUnique({
             where: { tenantId: account.tenantId || '' },
         });
 
@@ -251,7 +253,7 @@ export class AccountMovementService {
             throw new NotFoundException('Account not found');
         }
 
-        const tenantSettings = await this.prisma.extended.tenantSettings.findUnique({
+        const tenantSettings = await this.prisma.tenantSettings.findUnique({
             where: { tenantId: account.tenantId || '' },
         });
 
@@ -612,7 +614,7 @@ export class AccountMovementService {
     }
 
     async delete(id: string) {
-        const movement = await this.prisma.extended.accountMovement.findUnique({
+        const movement = await this.prisma.accountMovement.findUnique({
             where: { id },
         });
 
@@ -620,7 +622,7 @@ export class AccountMovementService {
             throw new NotFoundException('Movement record not found');
         }
 
-        const account = await this.prisma.extended.account.findUnique({
+        const account = await this.prisma.account.findUnique({
             where: { id: movement.accountId },
         });
 
@@ -636,7 +638,7 @@ export class AccountMovementService {
             nextBalance += Number(movement.amount);
         }
 
-        await this.prisma.extended.$transaction(async (tx) => {
+        await this.prisma.$transaction(async (tx) => {
             await tx.accountMovement.delete({
                 where: { id },
             });

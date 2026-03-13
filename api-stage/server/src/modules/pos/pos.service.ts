@@ -22,7 +22,7 @@ export class PosService {
     private tenantResolver: TenantResolverService,
     @Inject(forwardRef(() => CodeTemplateService))
     private codeTemplateService: CodeTemplateService,
-  ) {}
+  ) { }
 
   /**
    * Create DRAFT invoice for POS cart
@@ -32,24 +32,24 @@ export class PosService {
     if (!dto.accountId) {
       throw new BadRequestException('POS satışı için müşteri (cari) seçimi zorunludur.');
     }
-    return this.prisma.extended.$transaction(async (tx) => {
+    return this.prisma.$transaction(async (tx) => {
       const prisma = tx as any;
-      
+
       // Calculate totals
       let subtotal = 0;
       let totalVat = 0;
       let totalDiscount = 0;
-      
+
       const invoiceItems = dto.items.map(item => {
         const itemTotal = item.quantity * item.unitPrice;
         const itemVat = itemTotal * (item.vatRate / 100);
         const itemDiscount = itemTotal * (item.discountRate || 0) / 100;
         const itemAmount = itemTotal - itemDiscount + itemVat;
-        
+
         subtotal += itemTotal;
         totalVat += itemVat;
         totalDiscount += itemDiscount;
-        
+
         return {
           productId: item.productId,
           quantity: item.quantity,
@@ -61,15 +61,15 @@ export class PosService {
           discountAmount: itemDiscount,
         };
       });
-      
+
       const grandTotal = subtotal + totalVat - totalDiscount;
-      
+
       // Create invoice
       const invoice = await prisma.invoice.create({
         data: {
           tenantId,
           accountId: dto.accountId,
-          invoiceType: InvoiceType.SALES,
+          invoiceType: InvoiceType.SALE,
           status: InvoiceStatus.OPEN,
           totalAmount: subtotal,
           vatAmount: totalVat,
@@ -85,10 +85,10 @@ export class PosService {
           },
         },
       });
-      
+
       // Create product movements (NOT for DRAFT - Rule 1)
       // Stock movements ONLY when status becomes COMPLETED
-      
+
       return invoice;
     });
   }
@@ -102,8 +102,8 @@ export class PosService {
    */
   async completeSale(invoiceId: string, payments: CreatePosSaleDto['payments'], userId?: string) {
     const tenantId = await this.tenantResolver.resolveForQuery();
-    
-    const invoice = await this.prisma.extended.invoice.findFirst({
+
+    const invoice = await this.prisma.invoice.findFirst({
       where: {
         id: invoiceId,
         ...buildTenantWhereClause(tenantId ?? undefined),
@@ -114,38 +114,50 @@ export class PosService {
         account: true,
       },
     });
-    
+
     if (!invoice) {
       throw new NotFoundException('Invoice not found');
     }
-    
+
     if (invoice.status !== InvoiceStatus.OPEN) {
       throw new BadRequestException('Sadece TASLAK faturaları tamamlanabilir');
     }
-    
+
     // Calculate total paid
     const totalPaid = payments.reduce((sum, p) => sum + p.amount, 0);
-    
-    if (totalPaid !== invoice.grandTotal) {
+
+    if (Number(totalPaid) !== Number(invoice.grandTotal)) {
       throw new BadRequestException('Ödeme amountı fatura toplamı ile eşleşmiyor');
     }
-    
-    return this.prisma.extended.$transaction(async (tx) => {
+
+    return this.prisma.$transaction(async (tx) => {
       const prisma = tx as any;
-      
+
       // Generate invoice number
-      const invoiceNumber = await this.codeTemplateService.getNextCode('INVOICE_SALES');
-      
+      const invoiceNumber = await this.codeTemplateService.getNextCode('INVOICE_SALES' as any);
+
       // Update invoice status
-      const updatedInvoice = await prisma.invoice.update({
-        where: { id: invoiceId },
+      await prisma.invoice.updateMany({
+        where: {
+          id: invoiceId,
+          ...buildTenantWhereClause(tenantId ?? undefined),
+        },
         data: {
           status: InvoiceStatus.CLOSED,
           invoiceNo: invoiceNumber,
           updatedBy: userId,
         },
       });
-      
+
+      const updatedInvoice = await prisma.invoice.findFirst({
+        where: {
+          id: invoiceId,
+          ...buildTenantWhereClause(tenantId ?? undefined),
+        },
+      });
+
+      if (!updatedInvoice) throw new NotFoundException('Invoice not found after update');
+
       // Create POS payments
       const posPayments = await Promise.all(
         payments.map(payment =>
@@ -155,16 +167,16 @@ export class PosService {
               invoiceId,
               paymentMethod: payment.paymentMethod,
               amount: payment.amount,
-              change: payment.change,
+              change: (payment as any).change,
               giftCardId: payment.giftCardId,
-              notes: payment.notes,
+              notes: (payment as any).notes,
               createdBy: userId,
               updatedBy: userId,
             },
           })
         )
       );
-      
+
       // Create stock movements (negative for sale)
       const stockMovements = await Promise.all(
         invoice.items.map(item =>
@@ -172,7 +184,7 @@ export class PosService {
             data: {
               tenantId,
               productId: item.productId,
-              movementType: MovementType.SALES,
+              movementType: MovementType.SALE,
               quantity: -item.quantity, // NEGATIVE - critical
               unitPrice: item.unitPrice,
               invoiceItemId: item.id,
@@ -181,10 +193,10 @@ export class PosService {
           })
         )
       );
-      
+
       // Credit account validation and ledger update
       for (const payment of payments) {
-        if (payment.paymentMethod === PaymentMethod.KREDI_HESABI && invoice.accountId) {
+        if (payment.paymentMethod === PaymentMethod.LOAN_ACCOUNT && invoice.accountId) {
           // Validate credit limit
           const account = await prisma.account.findFirst({
             where: {
@@ -192,17 +204,17 @@ export class PosService {
               ...buildTenantWhereClause(tenantId ?? undefined),
             },
           });
-          
+
           if (!account) {
             throw new NotFoundException('Customer not found');
           }
-          
+
           const availableCredit = (account.creditLimit || 0) - (account.balance || 0);
-          
+
           if (availableCredit < payment.amount) {
             throw new BadRequestException('Müşteri kredi limiti aşıldı');
           }
-          
+
           // Create customer ledger debit
           await prisma.accountMovement.create({
             data: {
@@ -215,10 +227,13 @@ export class PosService {
               createdBy: userId,
             },
           });
-          
+
           // Update customer balance
-          await prisma.account.update({
-            where: { id: invoice.accountId },
+          await prisma.account.updateMany({
+            where: {
+              id: invoice.accountId,
+              ...buildTenantWhereClause(tenantId ?? undefined),
+            },
             data: {
               balance: {
                 increment: payment.amount,
@@ -226,14 +241,14 @@ export class PosService {
             },
           });
         }
-        
+
         // Gift card validation
-        if (payment.paymentMethod === PaymentMethod.HEDIYE_KARTI && payment.giftCardId) {
+        if (payment.paymentMethod === PaymentMethod.GIFT_CARD && payment.giftCardId) {
           // Gift card balance validation would be here
           // Assuming gift card model exists
         }
       }
-      
+
       return {
         invoice: updatedInvoice,
         posPayments,
@@ -250,8 +265,8 @@ export class PosService {
    */
   async createReturn(dto: CreatePosReturnDto, userId?: string) {
     const tenantId = await this.tenantResolver.resolveForCreate({ userId });
-    
-    const originalInvoice = await this.prisma.extended.invoice.findFirst({
+
+    const originalInvoice = await this.prisma.invoice.findFirst({
       where: {
         id: dto.originalInvoiceId,
         ...buildTenantWhereClause(tenantId ?? undefined),
@@ -262,17 +277,17 @@ export class PosService {
         account: true,
       },
     });
-    
+
     if (!originalInvoice) {
       throw new NotFoundException('Original invoice not found');
     }
-    
-    return this.prisma.extended.$transaction(async (tx) => {
+
+    return this.prisma.$transaction(async (tx) => {
       const prisma = tx as any;
-      
+
       // Generate invoice number
-      const invoiceNumber = await this.codeTemplateService.getNextCode('INVOICE_SALES');
-      
+      const invoiceNumber = await this.codeTemplateService.getNextCode('INVOICE_SALES' as any);
+
       // Create return invoice
       const returnInvoice = await prisma.invoice.create({
         data: {
@@ -303,7 +318,7 @@ export class PosService {
           },
         },
       });
-      
+
       // Create stock movements (positive for return)
       const stockMovements = await Promise.all(
         dto.items.map(item =>
@@ -311,7 +326,7 @@ export class PosService {
             data: {
               tenantId,
               productId: item.productId,
-              movementType: MovementType.IADE,
+              movementType: MovementType.RETURN,
               quantity: item.quantity, // POSITIVE - stock returns to shelf
               unitPrice: item.unitPrice,
               invoiceItemId: null, // Not linking to original items
@@ -320,7 +335,7 @@ export class PosService {
           })
         )
       );
-      
+
       // Create refund payment
       const posPayment = await prisma.posPayment.create({
         data: {
@@ -333,20 +348,20 @@ export class PosService {
           updatedBy: userId,
         },
       });
-      
+
       // Credit account ledger credit
-      if (originalInvoice.accountId && originalInvoice.invoiceType === InvoiceType.SALES) {
+      if (originalInvoice.accountId && originalInvoice.invoiceType === InvoiceType.SALE) {
         // Check if original used credit account
         const originalPayments = await prisma.collection.findMany({
           where: {
             invoiceId: dto.originalInvoiceId,
-            paymentType: PaymentMethod.KREDI_HESABI,
+            paymentType: PaymentMethod.LOAN_ACCOUNT,
           },
         });
-        
+
         if (originalPayments.length > 0) {
           const totalOriginalCredit = originalPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
-          
+
           // Create customer ledger credit
           await prisma.accountMovement.create({
             data: {
@@ -359,10 +374,13 @@ export class PosService {
               createdBy: userId,
             },
           });
-          
+
           // Update customer balance
-          await prisma.account.update({
-            where: { id: originalInvoice.accountId },
+          await prisma.account.updateMany({
+            where: {
+              id: originalInvoice.accountId,
+              ...buildTenantWhereClause(tenantId ?? undefined),
+            },
             data: {
               balance: {
                 decrement: dto.totalAmount,
@@ -371,7 +389,7 @@ export class PosService {
           });
         }
       }
-      
+
       return {
         invoice: returnInvoice,
         posPayment,
@@ -385,11 +403,11 @@ export class PosService {
    */
   async createSession(dto: CreatePosSessionDto, userId?: string) {
     const tenantId = await this.tenantResolver.resolveForCreate({ userId });
-    
+
     // Generate session number
-    const sessionNo = await this.codeTemplateService.getNextCode('POS_CONSOLE');
-    
-    return this.prisma.extended.posSession.create({
+    const sessionNo = await this.codeTemplateService.getNextCode('POS_CONSOLE' as any);
+
+    return this.prisma.posSession.create({
       data: {
         tenantId,
         cashierId: dto.cashierId,
@@ -408,24 +426,27 @@ export class PosService {
    */
   async closeSession(sessionId: string, dto: ClosePosSessionDto, userId?: string) {
     const tenantId = await this.tenantResolver.resolveForQuery();
-    
-    const session = await this.prisma.extended.posSession.findFirst({
+
+    const session = await this.prisma.posSession.findFirst({
       where: {
         id: sessionId,
         ...buildTenantWhereClause(tenantId ?? undefined),
       },
     });
-    
+
     if (!session) {
       throw new NotFoundException('Session not found');
     }
-    
+
     if (session.status !== 'OPEN') {
       throw new BadRequestException('Sadece açık sessionlar kapatılabilir');
     }
-    
-    return this.prisma.extended.posSession.update({
-      where: { id: sessionId },
+
+    return this.prisma.posSession.updateMany({
+      where: {
+        id: sessionId,
+        ...buildTenantWhereClause(tenantId ?? undefined),
+      },
       data: {
         closingAmount: dto.closingAmount,
         closingNotes: dto.closingNotes,
@@ -441,8 +462,8 @@ export class PosService {
    */
   async getProductsByBarcode(barcode: string, tenantId?: string) {
     const resolvedTenantId = tenantId || await this.tenantResolver.resolveForQuery();
-    
-    return this.prisma.extended.product.findMany({
+
+    return this.prisma.product.findMany({
       where: {
         ...buildTenantWhereClause(resolvedTenantId ?? undefined),
         OR: [
@@ -450,14 +471,7 @@ export class PosService {
           { code: { equals: barcode, mode: 'insensitive' } },
         ],
         deletedAt: null,
-      },
-      include: {
-        productVariants: {
-          include: {
-            variant: true,
-          },
-        },
-      },
+      }
     });
   }
 
@@ -466,11 +480,11 @@ export class PosService {
    */
   async getActiveCarts(cashierId?: string) {
     const tenantId = await this.tenantResolver.resolveForQuery();
-    
-    return this.prisma.extended.invoice.findMany({
+
+    return this.prisma.invoice.findMany({
       where: {
         ...buildTenantWhereClause(tenantId ?? undefined),
-        invoiceType: InvoiceType.SALES,
+        invoiceType: InvoiceType.SALE,
         status: InvoiceStatus.OPEN,
         deletedAt: null,
         cashierId, // If provided, filter by cashier
@@ -490,26 +504,29 @@ export class PosService {
    */
   async deleteDraftCart(invoiceId: string, userId?: string) {
     const tenantId = await this.tenantResolver.resolveForQuery();
-    
-    const invoice = await this.prisma.extended.invoice.findFirst({
+
+    const invoice = await this.prisma.invoice.findFirst({
       where: {
         id: invoiceId,
         ...buildTenantWhereClause(tenantId ?? undefined),
         deletedAt: null,
       },
     });
-    
+
     if (!invoice) {
       throw new NotFoundException('Invoice not found');
     }
-    
+
     if (invoice.status !== InvoiceStatus.OPEN) {
       throw new BadRequestException('Sadece TASLAK faturaları silinebilir');
     }
-    
+
     // Soft delete (no stock reversal per Rule 1)
-    return this.prisma.extended.invoice.update({
-      where: { id: invoiceId },
+    return this.prisma.invoice.updateMany({
+      where: {
+        id: invoiceId,
+        ...buildTenantWhereClause(tenantId ?? undefined),
+      },
       data: {
         deletedAt: new Date(),
         deletedBy: userId,

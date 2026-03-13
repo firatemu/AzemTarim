@@ -4,9 +4,9 @@ import { CalculateBulkCostDto } from './dto/calculate-bulk-cost.dto';
 import { CalculateCostDto } from './dto/calculate-cost.dto';
 import { GetCostingQueryDto } from './dto/get-costing-query.dto';
 
-@Controller('costing')
+@Controller('costings')
 export class CostingController {
-  constructor(private readonly costingService: CostingService) {}
+  constructor(private readonly costingService: CostingService) { }
 
   @Get('latest')
   getLatest(@Query() query: GetCostingQueryDto) {

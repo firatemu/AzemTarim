@@ -5,7 +5,7 @@ const prisma = new PrismaClient();
 async function main() {
     console.log('Starting BordroItem migration...');
 
-    const cekSenetler = await prisma.cekSenet.findMany({
+    const cekSenetler = await prisma.checkBill.findMany({
         where: {
             sonBordroId: { not: null },
         },

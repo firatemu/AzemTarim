@@ -4,7 +4,7 @@ import { CreateUnitSetDto, UpdateUnitSetDto } from './dto/unit-set.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 
 @UseGuards(JwtAuthGuard)
-@Controller('unit-set')
+@Controller('unit-sets')
 export class UnitSetController {
     constructor(private readonly unitSetService: UnitSetService) { }
 

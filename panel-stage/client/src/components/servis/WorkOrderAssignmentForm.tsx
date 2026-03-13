@@ -27,7 +27,7 @@ export default function WorkOrderAssignmentForm({
   useEffect(() => {
     const fetch = async () => {
       try {
-        const res = await axios.get('/work-order/assignment-users');
+        const res = await axios.get('/work-orders/assignment-users');
         const data = Array.isArray(res.data) ? res.data : res.data?.data ?? [];
         setUsers(data);
       } catch {

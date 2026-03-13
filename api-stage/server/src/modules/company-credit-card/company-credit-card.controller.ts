@@ -15,7 +15,7 @@ import { CreateCompanyCreditCardDto } from './dto/create-company-credit-card.dto
 import { UpdateCompanyCreditCardDto } from './dto/update-company-credit-card.dto';
 
 @UseGuards(JwtAuthGuard)
-@Controller('company-credit-card')
+@Controller('company-credit-cards')
 export class CompanyCreditCardController {
   constructor(
     private readonly companyCreditCardService: CompanyCreditCardService,

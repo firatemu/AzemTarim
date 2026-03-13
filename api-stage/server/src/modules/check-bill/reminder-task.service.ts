@@ -1,3 +1,4 @@
+import { TenantResolverService } from '../../common/services/tenant-resolver.service';
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from '../../common/prisma.service';
@@ -7,9 +8,7 @@ import { CheckBillStatus, CheckBillType } from '@prisma/client';
 export class ReminderTaskService {
     private readonly logger = new Logger(ReminderTaskService.name);
 
-    constructor(
-        private prisma: PrismaService,
-    ) { }
+    constructor(private prisma: PrismaService, private readonly tenantResolver: TenantResolverService) { }
 
     @Cron(CronExpression.EVERY_DAY_AT_9AM)
     async handleCron() {
@@ -17,7 +16,7 @@ export class ReminderTaskService {
 
         try {
             // 1. Aktif tenant'ları bul
-            const tenants = await this.prisma.extended.tenant.findMany({
+            const tenants = await this.prisma.tenant.findMany({
                 where: { status: 'ACTIVE' },
                 include: { settings: true }
             });
@@ -40,7 +39,7 @@ export class ReminderTaskService {
         nextDay.setDate(nextDay.getDate() + 1);
 
         // Vadeleri yaklaşan çekleri bul
-        const upcomingChecks = await this.prisma.extended.checkBill.findMany({
+        const upcomingChecks = await this.prisma.checkBill.findMany({
             where: {
                 tenantId: tenant.id,
                 dueDate: {
@@ -67,7 +66,7 @@ export class ReminderTaskService {
 
         // TODO: Email gönderimi yapılandırıldığında aktif edilecek
         // Tenant'ın adminlerini bul
-        // const admins = await this.prisma.extended.user.findMany({
+        // const admins = await this.prisma.user.findMany({
         //     where: {
         //         tenantId: tenant.id,
         //         role: { in: ['ADMIN', 'TENANT_ADMIN', 'SUPER_ADMIN'] },

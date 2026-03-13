@@ -15,7 +15,7 @@ import { AccountMovementService } from './account-movement.service';
 import { CreateAccountMovementDto, StatementQueryDto } from './dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 
-@Controller('account-movement')
+@Controller('account-movements')
 @UseGuards(JwtAuthGuard)
 export class AccountMovementController {
     constructor(private readonly accountMovementService: AccountMovementService) { }

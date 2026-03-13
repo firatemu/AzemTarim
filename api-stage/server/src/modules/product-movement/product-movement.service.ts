@@ -1,3 +1,5 @@
+import { buildTenantWhereClause } from '../../common/utils/staging.util';
+import { TenantResolverService } from '../../common/services/tenant-resolver.service';
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma.service';
 import { MovementType } from './product-movement.controller';
@@ -5,7 +7,7 @@ import { Prisma } from '@prisma/client';
 
 @Injectable()
 export class ProductMovementService {
-  constructor(private prisma: PrismaService) { }
+  constructor(private prisma: PrismaService, private readonly tenantResolver: TenantResolverService) { }
 
   async findAll(
     page = 1,
@@ -16,14 +18,13 @@ export class ProductMovementService {
   ) {
     const skip = (page - 1) * limit;
 
-    const where: Prisma.ProductMovementWhereInput = {};
+    const resolvedTenantId = await this.tenantResolver.resolveForQuery();
+    const where: Prisma.ProductMovementWhereInput = {
+      ...buildTenantWhereClause(tenantId || resolvedTenantId || undefined),
+    };
 
     if (productId) {
       where.productId = productId;
-    }
-
-    if (tenantId) {
-      where.tenantId = tenantId;
     }
 
     if (movementType) {
@@ -31,7 +32,7 @@ export class ProductMovementService {
     }
 
     const [data, total] = await Promise.all([
-      this.prisma.extended.productMovement.findMany({
+      this.prisma.productMovement.findMany({
         where,
         skip,
         take: limit,
@@ -77,7 +78,7 @@ export class ProductMovementService {
           },
         },
       }),
-      this.prisma.extended.productMovement.count({ where }),
+      this.prisma.productMovement.count({ where }),
     ]);
 
     return {

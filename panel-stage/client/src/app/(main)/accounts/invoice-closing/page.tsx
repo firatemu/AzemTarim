@@ -138,7 +138,6 @@ export default function FaturaKapatmaPage() {
       NAKIT: 'Nakit',
       KREDI_KARTI: 'Kredi Kartı',
       BANKA_HAVALESI: 'Havale',
-      BANKA_HAVALESI: 'Havale',
     };
     return types[tip] || tip;
   };

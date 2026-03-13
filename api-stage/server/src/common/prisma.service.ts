@@ -21,8 +21,7 @@ export class PrismaService
     }
 
     super({
-      log:
-        process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
+      log: ['query', 'info', 'warn', 'error'],
       datasources: {
         db: {
           url: optimizedUrl,
@@ -47,23 +46,29 @@ export class PrismaService
    * Bu, Phase 3'te eklenen Row Level Security policy'leri ile çalışır.
    */
   get extended() {
+    const prisma = this;
     return this.$extends({
       query: {
         $allModels: {
           async $allOperations({ model, operation, args, query }) {
             // RLS için tenant context'i PostgreSQL'e set et
             const tenantId = ClsService.getTenantId();
-            
+
             if (!tenantId) {
               // Tenant context yoksa RLS sorguları bloke edecek
               // Log atarak uyar (production'da monitoring için)
               console.warn(`[RLS] No tenant context for ${model}.${operation}, RLS will block queries`);
             } else {
-              // Transaction içinde değilsek SET LOCAL kullanabiliriz
-              // Ancak Prisma transaction yönetimi için $transaction kullanın
-              await this.$executeRawUnsafe(`SET LOCAL app.current_tenant_id = $1`, [tenantId]);
+              // SET LOCAL yerine set_config kullanıyoruz çünkü:
+              // 1. SET LOCAL sadece transaction içinde çalışır
+              // 2. Prisma'nın normal sorguları transaction içinde değil
+              // 3. set_config session boyunca kalır ve transaction dışında da çalışır
+              await (prisma as any).$executeRawUnsafe(
+                `SELECT set_config('app.current_tenant_id', $1, false)`,
+                tenantId,
+              );
             }
-            
+
             return query(args);
           },
         },

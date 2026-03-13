@@ -57,7 +57,10 @@ export default function MarkaYonetimiPage() {
       console.log('[MarkaYonetimiPage] Markalar yükleniyor...');
       const response = await axios.get('/brand');
       console.log('[MarkaYonetimiPage] API yanıtı:', response.data);
-      const markalar = response.data || [];
+      const markalar = (response.data || []).map((marka: any) => ({
+        markaAdi: marka.brandName || '',
+        urunSayisi: marka.productCount || 0,
+      }));
       console.log('[MarkaYonetimiPage] Yüklenen marka sayısı:', markalar.length);
       setMarkalar(markalar);
     } catch (error: any) {
@@ -189,7 +192,10 @@ export default function MarkaYonetimiPage() {
     }
   };
 
-  const getMarkaInitials = (markaAdi: string) => {
+  const getMarkaInitials = (markaAdi: string | undefined) => {
+    if (!markaAdi || typeof markaAdi !== 'string') {
+      return '?';
+    }
     return markaAdi
       .split(' ')
       .map(word => word[0])

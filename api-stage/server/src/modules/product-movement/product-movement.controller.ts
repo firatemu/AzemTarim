@@ -17,7 +17,7 @@ export enum MovementType {
 }
 
 @ApiTags('product-movement')
-@Controller('product-movement')
+@Controller('product-movements')
 @UseGuards(JwtAuthGuard)
 export class ProductMovementController {
   constructor(private readonly productMovementService: ProductMovementService) { }

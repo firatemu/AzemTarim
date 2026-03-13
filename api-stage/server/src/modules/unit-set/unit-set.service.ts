@@ -34,7 +34,7 @@ export class UnitSetService {
 
     async findAll() {
         const tenantId = await this.tenantResolver.resolveForQuery();
-        const sets = await this.prisma.extended.unitSet.findMany({
+        const sets = await this.prisma.unitSet.findMany({
             where: { tenantId: tenantId ?? undefined },
             include: { units: true },
             orderBy: { createdAt: 'desc' },
@@ -44,7 +44,7 @@ export class UnitSetService {
 
     async findOne(id: string) {
         const tenantId = await this.tenantResolver.resolveForQuery();
-        const unitSet = await this.prisma.extended.unitSet.findFirst({
+        const unitSet = await this.prisma.unitSet.findFirst({
             where: { id, tenantId: tenantId ?? undefined },
             include: { units: true },
         });
@@ -61,7 +61,7 @@ export class UnitSetService {
         if (!tenantId) { throw new NotFoundException('Tenant not found'); }
         const { units, ...rest } = dto;
 
-        const created = await this.prisma.extended.unitSet.create({
+        const created = await this.prisma.unitSet.create({
             data: {
                 name: rest.name,
                 description: rest.description,
@@ -86,7 +86,7 @@ export class UnitSetService {
 
         await this.findOne(id);
 
-        return this.prisma.extended.$transaction(async (tx) => {
+        return this.prisma.$transaction(async (tx) => {
             if (units) {
                 await tx.unit.deleteMany({ where: { unitSetId: id } });
             }
@@ -116,7 +116,7 @@ export class UnitSetService {
 
         await this.findOne(id);
 
-        return this.prisma.extended.unitSet.delete({
+        return this.prisma.unitSet.delete({
             where: { id },
         });
     }

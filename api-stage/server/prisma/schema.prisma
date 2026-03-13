@@ -13,70 +13,107 @@ enum TenantType {
 }
 
 model Tenant {
-  id                    String                 @id @default(cuid())
-  uuid                  String                 @unique @default(uuid())
-  name                  String
-  subdomain             String?                @unique
-  domain                String?                @unique
-  status                TenantStatus           @default(TRIAL)
-  cancelledAt           DateTime?
-  purgedAt              DateTime?
-  createdAt             DateTime               @default(now())
-  updatedAt             DateTime               @updatedAt
-  auditLogs             AuditLog[]
-  bankTransfers         BankTransfer[]
-  unitSets              UnitSet[]
-  simpleOrders          SimpleOrder[]
-  accounts              Account[]
-  checksBills           CheckBill[]
-  invoices              Invoice[]
-  priceLists            PriceList[]            @relation("TenantPriceList")
-  invitations           Invitation[]
-  invoiceProfits        InvoiceProfit[]
-  cashboxes             Cashbox[]
-  expenses              Expense[]
-  employees             Employee[]
-  purchaseOrders        PurchaseOrder[]
-  purchaseDeliveryNotes PurchaseDeliveryNote[] @relation("PurchaseDeliveryNoteTenant")
-  procurementOrders     ProcurementOrder[]
-  salesDeliveryNotes    SalesDeliveryNote[]    @relation("SalesDeliveryNoteTenant")
-  stocktakes            Stocktake[]
-  salesOrders           SalesOrder[]
-  products              Product[]
-  subscription          Subscription?
-  systemParameters      SystemParameter[]
-  collections           Collection[]
-  quotes                Quote[]
-  settings              TenantSettings?
-  users                 User[]
-  warehouseTransfers    WarehouseTransfer[]
-  warehouses            Warehouse[]
-  banks                 Bank[]
-  checkBillJournals     CheckBillJournal[]
-  salesAgents           SalesAgent[]
-  salaryPlans           SalaryPlan[]
-  salaryPayments        SalaryPayment[]
-  salaryPaymentDetails  SalaryPaymentDetail[]
-  advances              Advance[]
-  advanceSettlements    AdvanceSettlement[]
-  accountMovements      AccountMovement[]
-  productMovements      ProductMovement[]
-  invoiceCollections    InvoiceCollection[]
-  roles                 Role[]
-  tenantPurgeAudits     TenantPurgeAudit[]
-  codeTemplates         CodeTemplate[]
-  tenantType            TenantType             @default(CORPORATE)
-  customerVehicles      CustomerVehicle[]
-  workOrders            WorkOrder[]
-  partRequests          PartRequest[]
-  inventoryTransactions InventoryTransaction[]
-  checkBillJournalItems CheckBillJournalItem[]
-  journalEntries        JournalEntry[]
-  serviceInvoices       ServiceInvoice[]
-  companyVehicles       CompanyVehicle[]       @relation("TenantCompanyVehicle")
-  vehicleExpenses       VehicleExpense[]       @relation("TenantVehicleExpense")
-  posPayments           PosPayment[]
-  posSessions           PosSession[]
+  id                            String                        @id @default(cuid())
+  uuid                          String                        @unique @default(uuid())
+  name                          String
+  subdomain                     String?                       @unique
+  domain                        String?                       @unique
+  status                        TenantStatus                  @default(TRIAL)
+  cancelledAt                   DateTime?
+  purgedAt                      DateTime?
+  createdAt                     DateTime                      @default(now())
+  updatedAt                     DateTime                      @updatedAt
+  auditLogs                     AuditLog[]
+  bankTransfers                 BankTransfer[]
+  unitSets                      UnitSet[]
+  simpleOrders                  SimpleOrder[]
+  accounts                      Account[]
+  checksBills                   CheckBill[]
+  invoices                      Invoice[]
+  priceLists                    PriceList[]                   @relation("TenantPriceList")
+  invitations                   Invitation[]
+  invoiceProfits                InvoiceProfit[]
+  cashboxes                     Cashbox[]
+  expenses                      Expense[]
+  employees                     Employee[]
+  purchaseOrders                PurchaseOrder[]
+  purchaseDeliveryNotes         PurchaseDeliveryNote[]        @relation("PurchaseDeliveryNoteTenant")
+  procurementOrders             ProcurementOrder[]
+  salesDeliveryNotes            SalesDeliveryNote[]           @relation("SalesDeliveryNoteTenant")
+  stocktakes                    Stocktake[]
+  salesOrders                   SalesOrder[]
+  products                      Product[]
+  subscription                  Subscription?
+  systemParameters              SystemParameter[]
+  collections                   Collection[]
+  quotes                        Quote[]
+  settings                      TenantSettings?
+  users                         User[]
+  warehouseTransfers            WarehouseTransfer[]
+  warehouses                    Warehouse[]
+  banks                         Bank[]
+  checkBillJournals             CheckBillJournal[]
+  salesAgents                   SalesAgent[]
+  salaryPlans                   SalaryPlan[]
+  salaryPayments                SalaryPayment[]
+  salaryPaymentDetails          SalaryPaymentDetail[]
+  advances                      Advance[]
+  advanceSettlements            AdvanceSettlement[]
+  accountMovements              AccountMovement[]
+  productMovements              ProductMovement[]
+  invoiceCollections            InvoiceCollection[]
+  roles                         Role[]
+  expenseCategories             ExpenseCategory[]
+  equivalencyGroups             EquivalencyGroup[]
+  einvoiceInboxes               EInvoiceInbox[]
+  brands                        Brand[]
+  categories                    Category[]
+  productVehicleCompatibilities ProductVehicleCompatibility[]
+  tenantPurgeAudits             TenantPurgeAudit[]
+  codeTemplates                 CodeTemplate[]
+  tenantType                    TenantType                    @default(CORPORATE)
+  customerVehicles              CustomerVehicle[]
+  workOrders                    WorkOrder[]
+  partRequests                  PartRequest[]
+  inventoryTransactions         InventoryTransaction[]
+  checkBillJournalItems         CheckBillJournalItem[]
+  journalEntries                JournalEntry[]
+  serviceInvoices               ServiceInvoice[]
+  companyVehicles               CompanyVehicle[]              @relation("TenantCompanyVehicle")
+  vehicleExpenses               VehicleExpense[]              @relation("TenantVehicleExpense")
+  posPayments                   PosPayment[]
+  posSessions                   PosSession[]
+
+  // Faz 5-8 Relations
+  usageMetrics            TenantUsageMetric[]
+  featureFlags            FeatureFlag[]
+  apiKeys                 ApiKey[]
+  webhookEndpoints        WebhookEndpoint[]
+  couponRedemptions       CouponRedemption[]
+  onboarding              TenantOnboarding?
+  einvoiceConfig          EInvoiceTenantConfig?
+  einvoiceSends           EInvoiceSend[]
+  departments             Department[]
+  leaveTypes              LeaveType[]
+  leaveRequests           LeaveRequest[]
+  overtimeRecords         OvertimeRecord[]
+  assetAssignments        AssetAssignment[]
+  performanceReviews      PerformanceReview[]
+  serviceTemplates        ServiceTemplate[]
+  workOrderWarranties     WorkOrderWarranty[]
+  preventiveMaintenances  PreventiveMaintenance[]
+  technicianMetrics       TechnicianMetric[]
+  WarehouseStockThreshold WarehouseStockThreshold[]
+  ProductCostingConfig    ProductCostingConfig[]
+  ProductLot              ProductLot[]
+  priceCards              PriceCard[]
+  cashboxMovements        CashboxMovement[]
+  bankAccountMovements    BankAccountMovement[]
+  bankTransferLogs        BankTransferLog[]
+  deletedBankTransfers    DeletedBankTransfer[]
+  BankAccount             BankAccount[]
+  BankLoan                BankLoan[]
+  BankLoanPlan            BankLoanPlan[]
 
   @@index([subdomain])
   @@index([domain])
@@ -192,27 +229,29 @@ model Payment {
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
   subscription    Subscription  @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  tenantId        String?
 
   @@index([subscriptionId])
   @@index([status])
   @@index([iyzicoPaymentId])
   @@index([conversationId])
   @@index([createdAt])
+  @@index([tenantId])
   @@map("payments")
 }
 
 model AuditLog {
   id         String   @id @default(cuid())
   userId     String?
-  tenantId   String?
+  tenantId   String
   action     String
   resource   String?
   resourceId String?
-  metadata   Json?
+  meta       Json?    @map("metadata")
   ipAddress  String?
   userAgent  String?
   createdAt  DateTime @default(now())
-  tenant     Tenant?  @relation(fields: [tenantId], references: [id])
+  tenant     Tenant   @relation(fields: [tenantId], references: [id])
 
   @@index([userId])
   @@index([tenantId])
@@ -314,6 +353,40 @@ model User {
   roleId                       String?
   roleRelation                 Role?                     @relation(fields: [roleId], references: [id])
 
+  // Faz 4-8 Relations
+  managedWarehouses             Warehouse[]             @relation("WarehouseManager")
+  enabledFeatureFlags           FeatureFlag[]           @relation("FeatureFlagEnabledBy")
+  revokedApiKeys                ApiKey[]                @relation("ApiKeyRevokedBy")
+  createdApiKeys                ApiKey[]                @relation("ApiKeyCreatedBy")
+  createdWebhooks               WebhookEndpoint[]       @relation("WebhookCreatedBy")
+  createdEInvoices              EInvoiceSend[]          @relation("EInvoiceCreatedBy")
+  processedEInvoiceInboxes      EInvoiceInbox[]         @relation("EInvoiceInboxProcessedBy")
+  managedDepartments            Department[]            @relation("DepartmentManager")
+  approvedLeaves                LeaveRequest[]          @relation("LeaveApprovedBy")
+  rejectedLeaves                LeaveRequest[]          @relation("LeaveRejectedBy")
+  createdLeaves                 LeaveRequest[]          @relation("LeaveCreatedBy")
+  approvedOvertimes             OvertimeRecord[]        @relation("OvertimeApprovedBy")
+  createdOvertimes              OvertimeRecord[]        @relation("OvertimeCreatedBy")
+  assignedAssets                AssetAssignment[]       @relation("AssetAssignedBy")
+  returnedAssets                AssetAssignment[]       @relation("AssetReturnedBy")
+  performanceReviews            PerformanceReview[]     @relation("PerformanceReviewer")
+  createdServiceTemplates       ServiceTemplate[]       @relation("ServiceTemplateCreatedBy")
+  createdWorkOrderWarranties    WorkOrderWarranty[]     @relation("WorkOrderWarrantyCreatedBy")
+  createdPreventiveMaintenances PreventiveMaintenance[] @relation("PreventiveMaintenanceCreatedBy")
+  technicianMetrics             TechnicianMetric[]      @relation("TechnicianMetricUser")
+
+  // Faz 10 Relations
+  deletedAccounts             Account[]             @relation("AccountDeletedBy")
+  updatedAccounts             Account[]             @relation("AccountUpdatedBy")
+  deletedCashboxMovements     CashboxMovement[]     @relation("CashboxMovementDeletedBy")
+  deletedWorkOrders           WorkOrder[]           @relation("WorkOrderDeletedBy")
+  updatedWorkOrders           WorkOrder[]           @relation("WorkOrderUpdatedBy")
+  deletedSalaryPlans          SalaryPlan[]          @relation("SalaryPlanDeletedBy")
+  deletedSalaryPayments       SalaryPayment[]       @relation("SalaryPaymentDeletedBy")
+  deletedAccountMovements     AccountMovement[]     @relation("AccountMovementDeletedBy")
+  deletedProductMovements     ProductMovement[]     @relation("ProductMovementDeletedBy")
+  deletedBankAccountMovements BankAccountMovement[] @relation("BankAccountMovementDeletedBy")
+
   @@unique([email, tenantId])
   @@index([tenantId])
   @@index([email])
@@ -343,63 +416,59 @@ model Session {
 }
 
 model Product {
-  id                        String                     @id @default(uuid())
-  code                      String                     @map("code")
-  tenantId                  String?
-  name                      String                     @map("name")
-  description               String?                    @map("description")
-  unit                      String                     @map("unit")
-  purchasePrice             Decimal                    @map("purchase_price") @db.Decimal(10, 2)
-  salePrice                 Decimal                    @map("sale_price") @db.Decimal(10, 2)
-  vatRate                   Int                        @default(20) @map("vat_rate")
-  criticalQty               Int                        @default(0) @map("critical_qty")
-  category                  String?                    @map("category")
-  mainCategory              String?                    @map("main_category")
-  subCategory               String?                    @map("sub_category")
-  brand                     String?                    @map("brand")
-  model                     String?                    @map("model")
-  oem                       String?                    @map("oem")
-  size                      String?                    @map("size")
-  shelf                     String?                    @map("shelf")
-  barcode                   String?                    @map("barcode")
-  supplierCode              String?                    @map("supplier_code")
-  equivalencyGroupId        String?                    @map("equivalency_group_id")
-  vehicleBrand              String?                    @map("vehicle_brand")
-  vehicleModel              String?                    @map("vehicle_model")
-  vehicleEngineSize         String?                    @map("vehicle_engine_size")
-  vehicleFuelType           String?                    @map("vehicle_fuel_type")
-  isCategoryOnly            Boolean?                   @default(false) @map("is_category_only")
-  isBrandOnly               Boolean?                   @default(false) @map("is_brand_only")
-  weight                    Decimal?                   @map("weight") @db.Decimal(12, 4)
-  weightUnit                String?                     @map("weight_unit")
-  dimensions                String?                     @map("dimensions")
-  countryOfOrigin           String?                     @map("country_of_origin")
-  warrantyMonths            Int?                       @map("warranty_months")
-  internalNote              String?                    @map("internal_note")
-  minOrderQty               Int?                       @map("min_order_qty")
-  leadTimeDays              Int?                       @map("lead_time_days")
-  createdAt                 DateTime                   @default(now())
-  updatedAt                 DateTime                   @updatedAt
-  simpleOrders              SimpleOrder[]              @relation("SimpleOrderProduct")
+  id                        String                        @id @default(uuid())
+  code                      String                        @map("code")
+  tenantId                  String
+  name                      String                        @map("name")
+  description               String?                       @map("description")
+  unit                      String                        @map("unit_text")
+  criticalQty               Int                           @default(0) @map("critical_qty")
+  category                  String?                       @map("category_text")
+  mainCategory              String?                       @map("main_category")
+  subCategory               String?                       @map("sub_category")
+  brand                     String?                       @map("brand_text")
+  model                     String?                       @map("model")
+  oem                       String?                       @map("oem")
+  shelf                     String?                       @map("shelf")
+  barcode                   String?                       @map("barcode")
+  supplierCode              String?                       @map("supplier_code")
+  equivalencyGroupId        String?                       @map("equivalency_group_id")
+  vehicleBrand              String?                       @map("vehicle_brand")
+  vehicleModel              String?                       @map("vehicle_model")
+  vehicleEngineSize         String?                       @map("vehicle_engine_size")
+  vehicleFuelType           String?                       @map("vehicle_fuel_type")
+  isCategoryOnly            Boolean?                      @default(false) @map("is_category_only")
+  isBrandOnly               Boolean?                      @default(false) @map("is_brand_only")
+  weight                    Decimal?                      @map("weight") @db.Decimal(12, 4)
+  weightUnit                String?                       @map("weight_unit")
+  dimensions                String?                       @map("dimensions")
+  countryOfOrigin           String?                       @map("country_of_origin")
+  warrantyMonths            Int?                          @map("warranty_months")
+  internalNote              String?                       @map("internal_note")
+  minOrderQty               Int?                          @map("min_order_qty")
+  leadTimeDays              Int?                          @map("lead_time_days")
+  createdAt                 DateTime                      @default(now())
+  updatedAt                 DateTime                      @updatedAt
+  simpleOrders              SimpleOrder[]                 @relation("SimpleOrderProduct")
   invoiceItems              InvoiceItem[]
   invoiceProfits            InvoiceProfit[]
   priceCards                PriceCard[]
   productBarcodes           ProductBarcode[]
   productLocationStocks     ProductLocationStock[]
-  purchaseOrderItems        PurchaseOrderItem[]        @relation("PurchaseOrderItemProduct")
-  purchaseDeliveryNoteItems PurchaseDeliveryNoteItem[] @relation("PurchaseDeliveryNoteItemProduct")
-  procurementOrderItems     ProcurementOrderItem[]     @relation("ProcurementOrderItemProduct")
-  productCostHistories      ProductCostHistory[]       @relation("ProductCostHistory")
-  priceListItems            PriceListItem[]            @relation("ProductPriceListItem")
-  salesDeliveryNoteItems    SalesDeliveryNoteItem[]    @relation("SalesDeliveryNoteItemProduct")
+  purchaseOrderItems        PurchaseOrderItem[]           @relation("PurchaseOrderItemProduct")
+  purchaseDeliveryNoteItems PurchaseDeliveryNoteItem[]    @relation("PurchaseDeliveryNoteItemProduct")
+  procurementOrderItems     ProcurementOrderItem[]        @relation("ProcurementOrderItemProduct")
+  productCostHistories      ProductCostHistory[]          @relation("ProductCostHistory")
+  priceListItems            PriceListItem[]               @relation("ProductPriceListItem")
+  salesDeliveryNoteItems    SalesDeliveryNoteItem[]       @relation("SalesDeliveryNoteItemProduct")
   stocktakeItems            StocktakeItem[]
-  salesOrderItems           SalesOrderItem[]           @relation("SalesOrderItemProduct")
+  salesOrderItems           SalesOrderItem[]              @relation("SalesOrderItemProduct")
   stockMoves                StockMove[]
-  equivalents               ProductEquivalent[]        @relation("Product1")
-  equivalents2              ProductEquivalent[]        @relation("Product2")
+  equivalents               ProductEquivalent[]           @relation("Product1")
+  equivalents2              ProductEquivalent[]           @relation("Product2")
   productMovements          ProductMovement[]
-  equivalencyGroup          EquivalencyGroup?          @relation(fields: [equivalencyGroupId], references: [id])
-  tenant                    Tenant?                    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  equivalencyGroup          EquivalencyGroup?             @relation(fields: [equivalencyGroupId], references: [id])
+  tenant                    Tenant                        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   quoteItems                QuoteItem[]
   shelves                   ProductShelf[]
   warehouseCriticalStocks   WarehouseCriticalStock[]
@@ -407,34 +476,114 @@ model Product {
   workOrderItems            WorkOrderItem[]
   partRequests              PartRequest[]
   inventoryTransactions     InventoryTransaction[]
-  unitId                    String?                    @map("unit_id")
-  unitRef                   Unit?                      @relation(fields: [unitId], references: [id])
+  unitId                    String?                       @map("unit_id")
+  unitRef                   Unit?                         @relation(fields: [unitId], references: [id])
+  vatRate                   Int                           @default(20) @map("vat_rate")
+  // Faz 3 — Normalize edilmiş FK'lar (deprecated String alanlar korunuyor)
+  brandId                   String?                       @map("brand_id") // @deprecated brand String? kullan
+  categoryId                String?                       @map("category_id") // @deprecated category/mainCategory/subCategory String? kullan
+  brandRef                  Brand?                        @relation(fields: [brandId], references: [id], onDelete: SetNull)
+  categoryRef               Category?                     @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  vehicleCompatibilities    ProductVehicleCompatibility[]
+  WarehouseStockThreshold   WarehouseStockThreshold[]
+  ProductCostingConfig      ProductCostingConfig?
+  ProductLot                ProductLot[]
 
   @@unique([code, tenantId])
   @@unique([barcode, tenantId])
   @@index([tenantId])
   @@index([tenantId, code])
   @@index([tenantId, barcode])
+  @@index([brandId])
+  @@index([categoryId])
   @@map("products")
+}
+
+// ========== Faz 3 — Normalize Tablolar ==========
+
+model Brand {
+  id        String    @id @default(uuid())
+  tenantId  String    @map("tenant_id")
+  name      String
+  slug      String?
+  logoUrl   String?   @map("logo_url")
+  isActive  Boolean   @default(true) @map("is_active")
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  tenant    Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  products  Product[]
+
+  @@unique([tenantId, name])
+  @@unique([tenantId, slug])
+  @@index([tenantId])
+  @@map("brands")
+}
+
+model Category {
+  id        String     @id @default(uuid())
+  tenantId  String     @map("tenant_id")
+  name      String
+  slug      String?
+  parentId  String?    @map("parent_id")
+  level     Int        @default(0)
+  isActive  Boolean    @default(true) @map("is_active")
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  tenant    Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  parent    Category?  @relation("CategoryParent", fields: [parentId], references: [id], onDelete: SetNull)
+  children  Category[] @relation("CategoryParent")
+  products  Product[]
+
+  @@unique([tenantId, slug])
+  @@index([tenantId])
+  @@index([parentId])
+  @@map("categories")
+}
+
+model ProductVehicleCompatibility {
+  id                String   @id @default(uuid())
+  tenantId          String   @map("tenant_id")
+  productId         String   @map("product_id")
+  vehicleBrand      String   @map("vehicle_brand")
+  vehicleModel      String?  @map("vehicle_model")
+  vehicleEngineSize String?  @map("vehicle_engine_size")
+  vehicleFuelType   String?  @map("vehicle_fuel_type")
+  yearFrom          Int?     @map("year_from")
+  yearTo            Int?     @map("year_to")
+  notes             String?
+  createdAt         DateTime @default(now())
+  tenant            Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  product           Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([productId])
+  @@index([tenantId, vehicleBrand, vehicleModel])
+  @@map("product_vehicle_compatibilities")
 }
 
 model PriceCard {
   id            String        @id @default(uuid())
+  tenantId      String        @map("tenant_id")
   productId     String        @map("product_id")
   type          PriceCardType
   price         Decimal       @db.Decimal(12, 2)
   currency      String        @default("TRY")
+  isActive      Boolean       @default(true) @map("is_active")
   effectiveFrom DateTime?     @map("effective_from")
   effectiveTo   DateTime?     @map("effective_to")
+  vatRate       Decimal       @default(20) @map("vat_rate") @db.Decimal(5, 2)
+  minQuantity   Decimal       @default(1) @map("min_quantity") @db.Decimal(12, 2)
   note          String?
   createdBy     String?       @map("created_by")
   updatedBy     String?       @map("updated_by")
   createdAt     DateTime      @default(now()) @map("created_at")
   updatedAt     DateTime      @updatedAt @map("updated_at")
   createdByUser User?         @relation("PriceCardCreatedBy", fields: [createdBy], references: [id])
+  tenant        Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   product       Product       @relation(fields: [productId], references: [id], onDelete: Cascade)
   updatedByUser User?         @relation("PriceCardUpdatedBy", fields: [updatedBy], references: [id])
 
+  @@index([tenantId])
   @@index([productId, type, createdAt])
   @@map("price_cards")
 }
@@ -450,19 +599,24 @@ model ProductCostHistory {
   subCategory  String?  @map("sub_category")
   note         String?
   product      Product  @relation("ProductCostHistory", fields: [productId], references: [id], onDelete: Cascade)
+  tenantId     String?
 
   @@index([productId, computedAt])
+  @@index([tenantId])
   @@map("stock_cost_history")
 }
 
 model EquivalencyGroup {
   id          String    @id @default(uuid())
+  tenantId    String
   name        String?   @map("name")
   description String?   @map("description")
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
   products    Product[]
+  tenant      Tenant    @relation(fields: [tenantId], references: [id], onDelete: Restrict)
 
+  @@index([tenantId])
   @@map("equivalency_groups")
 }
 
@@ -473,8 +627,10 @@ model ProductEquivalent {
   createdAt  DateTime @default(now())
   product1   Product  @relation("Product1", fields: [product1Id], references: [id], onDelete: Cascade)
   product2   Product  @relation("Product2", fields: [product2Id], references: [id], onDelete: Cascade)
+  tenantId   String?
 
   @@unique([product1Id, product2Id])
+  @@index([tenantId])
   @@map("product_equivalents")
 }
 
@@ -493,6 +649,9 @@ model ProductMovement {
   invoiceItem   InvoiceItem? @relation(fields: [invoiceItemId], references: [id], onDelete: SetNull)
   tenantId      String?
   tenant        Tenant?      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  deletedBy     String?      @map("deleted_by")
+  deletedAt     DateTime?    @map("deleted_at")
+  deletedByUser User?        @relation("ProductMovementDeletedBy", fields: [deletedBy], references: [id])
 
   @@index([tenantId])
   @@index([invoiceItemId])
@@ -502,7 +661,7 @@ model ProductMovement {
 model Account {
   id                         String                      @id @default(uuid())
   code                       String                      @map("code")
-  tenantId                   String?
+  tenantId                   String
   title                      String                      @map("title")
   type                       AccountType                 @map("type")
   companyType                CompanyType?                @default(CORPORATE) @map("company_type")
@@ -522,12 +681,17 @@ model Account {
   isActive                   Boolean                     @default(true) @map("is_active")
   createdAt                  DateTime                    @default(now())
   updatedAt                  DateTime                    @updatedAt
+  deletedBy                  String?                     @map("deleted_by")
+  deletedAt                  DateTime?                   @map("deleted_at")
+  updatedBy                  String?                     @map("updated_by")
+  deletedByUser              User?                       @relation("AccountDeletedBy", fields: [deletedBy], references: [id])
+  updatedByUser              User?                       @relation("AccountUpdatedBy", fields: [updatedBy], references: [id])
   bankTransfers              BankTransfer[]
   bankAccountMovements       BankAccountMovement[]
   checkBillJournals          CheckBillJournal[]
   simpleOrders               SimpleOrder[]               @relation("SimpleOrderAccount")
   accountMovements           AccountMovement[]
-  tenant                     Tenant?                     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant                     Tenant                      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   checksBills                CheckBill[]
   invoices                   Invoice[]
   companyCreditCardMovements CompanyCreditCardMovement[]
@@ -585,9 +749,11 @@ model AccountContact {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  account  Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  tenantId String?
 
   @@index([accountId])
+  @@index([tenantId])
   @@map("account_contacts")
 }
 
@@ -604,9 +770,11 @@ model AccountAddress {
   createdAt  DateTime    @default(now())
   updatedAt  DateTime    @updatedAt
 
-  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  account  Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  tenantId String?
 
   @@index([accountId])
+  @@index([tenantId])
   @@map("account_addresses")
 }
 
@@ -623,27 +791,32 @@ model AccountBank {
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
-  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  account  Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  tenantId String?
 
   @@index([accountId])
+  @@index([tenantId])
   @@map("account_banks")
 }
 
 model AccountMovement {
-  id           String        @id @default(uuid())
-  accountId    String        @map("account_id")
-  type         DebitCredit   @map("type")
-  amount       Decimal       @map("amount") @db.Decimal(12, 2)
-  balance      Decimal       @map("balance") @db.Decimal(12, 2)
-  documentType DocumentType? @map("document_type")
-  documentNo   String?       @map("document_no")
-  date         DateTime      @default(now()) @map("date")
-  notes        String        @map("notes")
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
-  account      Account       @relation(fields: [accountId], references: [id], onDelete: Cascade)
-  tenantId     String?
-  tenant       Tenant?       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  id            String        @id @default(uuid())
+  accountId     String        @map("account_id")
+  type          DebitCredit   @map("type")
+  amount        Decimal       @map("amount") @db.Decimal(12, 2)
+  balance       Decimal       @map("balance") @db.Decimal(12, 2)
+  documentType  DocumentType? @map("document_type")
+  documentNo    String?       @map("document_no")
+  date          DateTime      @default(now()) @map("date")
+  notes         String        @map("notes")
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  account       Account       @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  tenantId      String
+  tenant        Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  deletedBy     String?       @map("deleted_by")
+  deletedAt     DateTime?     @map("deleted_at")
+  deletedByUser User?         @relation("AccountMovementDeletedBy", fields: [deletedBy], references: [id])
 
   @@index([tenantId])
   @@index([accountId, date])
@@ -732,9 +905,12 @@ model BankAccount {
   loans                BankLoan[]
   bankTransfers        BankTransfer[]
   checkBillJournals    CheckBillJournal[]
+  tenantId             String?
+  tenant               Tenant?               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@index([bankId])
   @@index([type])
+  @@index([tenantId])
   @@map("bank_accounts")
 }
 
@@ -754,11 +930,17 @@ model BankAccountMovement {
   accountId        String?              @map("account_id")
   date             DateTime             @default(now()) @map("date")
   createdAt        DateTime             @default(now())
+  tenantId         String?              @map("tenant_id")
   account          Account?             @relation(fields: [accountId], references: [id])
   bankAccount      BankAccount          @relation(fields: [bankAccountId], references: [id], onDelete: Cascade)
+  deletedBy        String?              @map("deleted_by")
+  deletedAt        DateTime?            @map("deleted_at")
+  deletedByUser    User?                @relation("BankAccountMovementDeletedBy", fields: [deletedBy], references: [id])
+  Tenant           Tenant?              @relation(fields: [tenantId], references: [id])
 
   @@index([bankAccountId, date])
   @@index([movementType])
+  @@index([tenantId])
   @@map("bank_account_movements")
 }
 
@@ -780,23 +962,27 @@ model BankLoan {
   updatedAt          DateTime       @updatedAt
   bankAccount        BankAccount    @relation(fields: [bankAccountId], references: [id], onDelete: Cascade)
   plans              BankLoanPlan[]
+  tenant             Tenant?        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@index([bankAccountId])
+  @@index([tenantId])
   @@map("bank_loans")
 }
 
 model BankLoanPlan {
-  id            String         @id @default(uuid())
-  loanId        String         @map("loan_id")
-  installmentNo Int            @map("installment_no")
-  dueDate       DateTime       @map("due_date")
-  amount        Decimal        @map("amount") @db.Decimal(15, 2)
-  paidAmount    Decimal        @default(0) @map("paid_amount") @db.Decimal(15, 2)
+  id            String           @id @default(uuid())
+  loanId        String           @map("loan_id")
+  installmentNo Int              @map("installment_no")
+  dueDate       DateTime         @map("due_date")
+  amount        Decimal          @map("amount") @db.Decimal(15, 2)
+  paidAmount    Decimal          @default(0) @map("paid_amount") @db.Decimal(15, 2)
   status        CreditPlanStatus @default(PENDING) @map("status")
   tenantId      String?
-  loan          BankLoan       @relation(fields: [loanId], references: [id], onDelete: Cascade)
+  loan          BankLoan         @relation(fields: [loanId], references: [id], onDelete: Cascade)
+  tenant        Tenant?          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@index([loanId])
+  @@index([tenantId])
   @@map("bank_loan_plans")
 }
 
@@ -832,8 +1018,10 @@ model CompanyCreditCard {
   reminders      CompanyCreditCardReminder[]
   cashbox        Cashbox                     @relation(fields: [cashboxId], references: [id], onDelete: Cascade)
   collections    Collection[]
+  tenantId       String?
 
   @@index([cashboxId])
+  @@index([tenantId])
   @@map("company_credit_cards")
 }
 
@@ -849,8 +1037,10 @@ model CompanyCreditCardMovement {
   createdAt   DateTime          @default(now())
   account     Account?          @relation(fields: [accountId], references: [id])
   card        CompanyCreditCard @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  tenantId    String?
 
   @@index([cardId, date])
+  @@index([tenantId])
   @@map("company_credit_card_movements")
 }
 
@@ -872,13 +1062,20 @@ model CashboxMovement {
   transferDate     DateTime?           @map("transfer_date")
   createdBy        String?             @map("created_by")
   createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+  deletedBy        String?             @map("deleted_by")
+  deletedAt        DateTime?           @map("deleted_at")
+  deletedByUser    User?               @relation("CashboxMovementDeletedBy", fields: [deletedBy], references: [id])
   account          Account?            @relation(fields: [accountId], references: [id])
   createdByUser    User?               @relation("CashboxMovementCreatedBy", fields: [createdBy], references: [id])
   cashbox          Cashbox             @relation(fields: [cashboxId], references: [id])
+  tenantId         String?             @map("tenant_id")
+  tenant           Tenant?             @relation(fields: [tenantId], references: [id])
 
   @@index([cashboxId, date])
   @@index([accountId])
   @@index([isTransferred])
+  @@index([tenantId])
   @@map("cashbox_movements")
 }
 
@@ -937,11 +1134,15 @@ model Invoice {
   updatedByUser          User?                 @relation("InvoiceUpdatedBy", fields: [updatedBy], references: [id])
   invoiceProfits         InvoiceProfit[]
   collections            Collection[]
-  posPayments           PosPayment[]
+  posPayments            PosPayment[]
   salesAgentId           String?               @map("sales_agent_id")
   salesAgent             SalesAgent?           @relation(fields: [salesAgentId], references: [id])
   warehouseId            String?               @map("warehouse_id")
   warehouse              Warehouse?            @relation(fields: [warehouseId], references: [id])
+
+  // Opposite relations
+  einvoiceSends          EInvoiceSend?
+  matchedEInvoiceInboxes EInvoiceInbox[] @relation("EInvoiceInboxMatchedInvoice")
 
   @@unique([invoiceNo, tenantId])
   @@index([tenantId])
@@ -966,9 +1167,11 @@ model InvoiceLog {
   createdAt  DateTime  @default(now())
   invoice    Invoice   @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
   user       User?     @relation(fields: [userId], references: [id])
+  tenantId   String?
 
   @@index([invoiceId])
   @@index([userId])
+  @@index([tenantId])
   @@map("invoice_logs")
 }
 
@@ -997,9 +1200,11 @@ model InvoiceItem {
   product             Product            @relation(fields: [productId], references: [id])
   invoiceProfits      InvoiceProfit[]
   productMovements    ProductMovement[]
+  tenantId            String?
 
   @@index([invoiceId])
   @@index([productId])
+  @@index([tenantId])
   @@map("invoice_items")
 }
 
@@ -1014,14 +1219,16 @@ model InvoicePaymentPlan {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   invoice     Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  tenantId    String?
 
   @@index([invoiceId])
+  @@index([tenantId])
   @@map("invoice_payment_plans")
 }
 
 model Collection {
   id                  String              @id @default(uuid())
-  tenantId            String?
+  tenantId            String
   accountId           String              @map("account_id")
   invoiceId           String?             @map("invoice_id")
   serviceInvoiceId    String?             @map("service_invoice_id")
@@ -1047,7 +1254,7 @@ model Collection {
   serviceInvoice      ServiceInvoice?     @relation(fields: [serviceInvoiceId], references: [id], onDelete: SetNull)
   companyCreditCard   CompanyCreditCard?  @relation(fields: [companyCreditCardId], references: [id])
   cashbox             Cashbox?            @relation(fields: [cashboxId], references: [id])
-  tenant              Tenant?             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant              Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   salesAgentId        String?             @map("sales_agent_id")
   salesAgent          SalesAgent?         @relation(fields: [salesAgentId], references: [id])
 
@@ -1080,7 +1287,9 @@ model EInvoiceXML {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   invoice   Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  tenantId  String?
 
+  @@index([tenantId])
   @@map("einvoice_xml")
 }
 
@@ -1161,9 +1370,11 @@ model SalesOrderLog {
   createdAt  DateTime   @default(now())
   order      SalesOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
   user       User?      @relation(fields: [userId], references: [id])
+  tenantId   String?
 
   @@index([orderId])
   @@index([userId])
+  @@index([tenantId])
   @@map("sales_order_logs")
 }
 
@@ -1179,10 +1390,12 @@ model OrderPicking {
   location    Location       @relation("OrderPickingLocation", fields: [locationId], references: [id])
   order       SalesOrder     @relation(fields: [orderId], references: [id], onDelete: Cascade)
   orderItem   SalesOrderItem @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+  tenantId    String?
 
   @@index([orderId])
   @@index([orderItemId])
   @@index([locationId])
+  @@index([tenantId])
   @@map("order_pickings")
 }
 
@@ -1262,9 +1475,11 @@ model SalesDeliveryNoteLog {
   createdAt      DateTime          @default(now())
   deliveryNote   SalesDeliveryNote @relation(fields: [deliveryNoteId], references: [id], onDelete: Cascade)
   user           User?             @relation("SalesDeliveryNoteLogUser", fields: [userId], references: [id])
+  tenantId       String?
 
   @@index([deliveryNoteId])
   @@index([userId])
+  @@index([tenantId])
   @@map("sales_delivery_note_logs")
 }
 
@@ -1318,7 +1533,9 @@ model QuoteItem {
   createdAt      DateTime @default(now())
   product        Product  @relation(fields: [productId], references: [id])
   quote          Quote    @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  tenantId       String?
 
+  @@index([tenantId])
   @@map("quote_items")
 }
 
@@ -1333,9 +1550,11 @@ model QuoteLog {
   createdAt  DateTime  @default(now())
   quote      Quote     @relation(fields: [quoteId], references: [id], onDelete: Cascade)
   user       User?     @relation("QuoteLogUser", fields: [userId], references: [id])
+  tenantId   String?
 
   @@index([quoteId])
   @@index([userId])
+  @@index([tenantId])
   @@map("quote_logs")
 }
 
@@ -1377,10 +1596,12 @@ model StocktakeItem {
   stocktake       Stocktake @relation(fields: [stocktakeId], references: [id], onDelete: Cascade)
   location        Location? @relation(fields: [locationId], references: [id])
   product         Product   @relation(fields: [productId], references: [id])
+  tenantId        String?
 
   @@index([stocktakeId])
   @@index([productId])
   @@index([locationId])
+  @@index([tenantId])
   @@map("stocktake_items")
 }
 
@@ -1393,8 +1614,10 @@ model Shelf {
   updatedAt   DateTime       @updatedAt
   warehouse   Warehouse      @relation(fields: [warehouseId], references: [id], onDelete: Cascade)
   products    ProductShelf[]
+  tenantId    String?
 
   @@unique([warehouseId, code])
+  @@index([tenantId])
   @@map("shelves")
 }
 
@@ -1407,44 +1630,123 @@ model ProductShelf {
   updatedAt DateTime @updatedAt
   shelf     Shelf    @relation(fields: [shelfId], references: [id], onDelete: Cascade)
   product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  tenantId  String?
 
   @@unique([productId, shelfId])
+  @@index([tenantId])
   @@map("product_shelves")
 }
 
 model Warehouse {
-  id                      String                   @id @default(uuid())
+  id                      String                    @id @default(uuid())
   code                    String
   tenantId                String?
   name                    String
-  active                  Boolean                  @default(true)
+  active                  Boolean                   @default(true)
   address                 String?
   phone                   String?
-  manager                 String?
-  createdAt               DateTime                 @default(now())
-  updatedAt               DateTime                 @updatedAt
-  isDefault               Boolean                  @default(false)
+  manager                 String? // @deprecated — managerId FK kullan
+  managerId               String?                   @map("manager_id")
+  createdAt               DateTime                  @default(now())
+  updatedAt               DateTime                  @updatedAt
+  isDefault               Boolean                   @default(false)
   locations               Location[]
   productLocationStocks   ProductLocationStock[]
-  purchaseDeliveryNotes   PurchaseDeliveryNote[]   @relation("PurchaseDeliveryNoteWarehouse")
-  salesDeliveryNotes      SalesDeliveryNote[]      @relation("SalesDeliveryNoteWarehouse")
-  // orderPickings removed as it belongs to Location
-  productMovementsTo      StockMove[]              @relation("ToWarehouse")
-  productMovementsFrom    StockMove[]              @relation("FromWarehouse")
+  purchaseDeliveryNotes   PurchaseDeliveryNote[]    @relation("PurchaseDeliveryNoteWarehouse")
+  salesDeliveryNotes      SalesDeliveryNote[]       @relation("SalesDeliveryNoteWarehouse")
+  productMovementsTo      StockMove[]               @relation("ToWarehouse")
+  productMovementsFrom    StockMove[]               @relation("FromWarehouse")
   warehouseCriticalStocks WarehouseCriticalStock[]
   shelves                 Shelf[]
-  fromWarehouseTransfers  WarehouseTransfer[]      @relation("WarehouseTransferFrom")
-  toWarehouseTransfers    WarehouseTransfer[]      @relation("WarehouseTransferTo")
-  // warehouse transfer items removed as they belong to Location
+  fromWarehouseTransfers  WarehouseTransfer[]       @relation("WarehouseTransferFrom")
+  toWarehouseTransfers    WarehouseTransfer[]       @relation("WarehouseTransferTo")
   invoices                Invoice[]
   inventoryTransactions   InventoryTransaction[]
-  tenant                  Tenant?                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  productMovements        ProductMovement[]        @relation("WarehouseProductMovement")
+  tenant                  Tenant?                   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  productMovements        ProductMovement[]         @relation("WarehouseProductMovement")
+  managerUser             User?                     @relation("WarehouseManager", fields: [managerId], references: [id], onDelete: SetNull)
+  stockThresholds         WarehouseStockThreshold[]
+  productLots             ProductLot[]              @relation("LotWarehouse")
 
   @@unique([code, tenantId])
   @@index([tenantId])
   @@index([tenantId, code])
+  @@index([managerId])
   @@map("warehouses")
+}
+
+// ========== Faz 4 — Envanter & Depo İyileştirmeleri ==========
+
+enum CostingMethod {
+  WEIGHTED_AVERAGE
+  FIFO
+  LIFO
+  FEFO
+  STANDARD_COST
+}
+
+model WarehouseStockThreshold {
+  id          String    @id @default(uuid())
+  tenantId    String    @map("tenant_id")
+  warehouseId String    @map("warehouse_id")
+  productId   String    @map("product_id")
+  minQty      Int       @default(0) @map("min_qty")
+  maxQty      Int?      @map("max_qty")
+  reorderQty  Int?      @map("reorder_qty")
+  isActive    Boolean   @default(true) @map("is_active")
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  tenant      Tenant?   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  warehouse   Warehouse @relation(fields: [warehouseId], references: [id], onDelete: Cascade)
+  product     Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, warehouseId, productId])
+  @@index([tenantId])
+  @@index([warehouseId])
+  @@index([productId])
+  @@map("warehouse_stock_thresholds")
+}
+
+model ProductCostingConfig {
+  id            String        @id @default(uuid())
+  tenantId      String        @map("tenant_id")
+  productId     String        @unique @map("product_id")
+  method        CostingMethod @default(WEIGHTED_AVERAGE)
+  standardCost  Decimal?      @map("standard_cost") @db.Decimal(12, 4)
+  effectiveFrom DateTime      @default(now()) @map("effective_from")
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  tenant        Tenant?       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  product       Product       @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@map("product_costing_configs")
+}
+
+model ProductLot {
+  id               String     @id @default(uuid())
+  tenantId         String     @map("tenant_id")
+  productId        String     @map("product_id")
+  warehouseId      String?    @map("warehouse_id")
+  lotNumber        String     @map("lot_number")
+  serialNumber     String?    @map("serial_number")
+  expiryDate       DateTime?  @map("expiry_date")
+  manufacturedDate DateTime?  @map("manufactured_date")
+  quantity         Decimal    @default(0) @map("quantity") @db.Decimal(12, 4)
+  notes            String?
+  isActive         Boolean    @default(true) @map("is_active")
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+  tenant           Tenant?    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  product          Product    @relation(fields: [productId], references: [id], onDelete: Cascade)
+  warehouse        Warehouse? @relation("LotWarehouse", fields: [warehouseId], references: [id], onDelete: SetNull)
+
+  @@unique([tenantId, lotNumber, productId])
+  @@index([tenantId])
+  @@index([productId])
+  @@index([warehouseId])
+  @@index([expiryDate])
+  @@map("product_lots")
 }
 
 model Location {
@@ -1470,11 +1772,13 @@ model Location {
   fromWarehouseTransferItems WarehouseTransferItem[] @relation("WarehouseTransferItemFrom")
   toWarehouseTransferItems   WarehouseTransferItem[] @relation("WarehouseTransferItemTo")
   // Placeholder for deleted relation
+  tenantId                   String?
 
   @@unique([warehouseId, code])
   @@index([warehouseId])
   @@index([code])
   @@index([barcode])
+  @@index([tenantId])
   @@map("locations")
 }
 
@@ -1487,9 +1791,11 @@ model ProductBarcode {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  tenantId  String?
 
   @@index([productId])
   @@index([barcode])
+  @@index([tenantId])
   @@map("product_barcodes")
 }
 
@@ -1504,11 +1810,13 @@ model ProductLocationStock {
   location    Location  @relation(fields: [locationId], references: [id], onDelete: Cascade)
   product     Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
   warehouse   Warehouse @relation(fields: [warehouseId], references: [id], onDelete: Cascade)
+  tenantId    String?
 
   @@unique([warehouseId, locationId, productId])
   @@index([warehouseId])
   @@index([locationId])
   @@index([productId])
+  @@index([tenantId])
   @@map("product_location_stocks")
 }
 
@@ -1532,6 +1840,7 @@ model StockMove {
   product         Product       @relation(fields: [productId], references: [id], onDelete: Cascade)
   toLocation      Location      @relation("ToLocation", fields: [toLocationId], references: [id])
   toWarehouse     Warehouse     @relation("ToWarehouse", fields: [toWarehouseId], references: [id])
+  tenantId        String?
 
   @@index([productId])
   @@index([fromWarehouseId, fromLocationId])
@@ -1539,23 +1848,28 @@ model StockMove {
   @@index([moveType])
   @@index([createdAt])
   @@index([refType, refId])
+  @@index([tenantId])
   @@map("stock_moves")
 }
 
 model ExpenseCategory {
   id        String    @id @default(uuid())
-  name      String    @unique @map("name")
+  tenantId  String
+  name      String    @map("name")
   notes     String?   @map("notes")
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   expenses  Expense[]
+  tenant    Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
+  @@unique([tenantId, name])
+  @@index([tenantId])
   @@map("expense_categories")
 }
 
 model Expense {
   id          String          @id @default(uuid())
-  tenantId    String?
+  tenantId    String
   categoryId  String          @map("category_id")
   notes       String?         @map("notes")
   amount      Decimal         @map("amount") @db.Decimal(10, 2)
@@ -1564,7 +1878,7 @@ model Expense {
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt
   category    ExpenseCategory @relation(fields: [categoryId], references: [id])
-  tenant      Tenant?         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant      Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@index([tenantId])
   @@index([tenantId, date])
@@ -1573,7 +1887,7 @@ model Expense {
 
 model BankTransfer {
   id            String            @id @default(uuid())
-  tenantId      String?
+  tenantId      String
   transferType  TransferType      @map("transfer_type")
   cashboxId     String?           @map("cashbox_id")
   accountId     String            @map("account_id")
@@ -1596,7 +1910,7 @@ model BankTransfer {
   account       Account           @relation(fields: [accountId], references: [id])
   createdByUser User?             @relation("BankTransferCreatedBy", fields: [createdBy], references: [id])
   deletedByUser User?             @relation("BankTransferDeletedBy", fields: [deletedBy], references: [id])
-  tenant        Tenant?           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant        Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   updatedByUser User?             @relation("BankTransferUpdatedBy", fields: [updatedBy], references: [id])
 
   @@index([tenantId])
@@ -1619,6 +1933,8 @@ model DeletedBankTransfer {
   amount            Decimal      @map("amount") @db.Decimal(15, 2)
   date              DateTime     @map("date")
   notes             String?      @map("notes")
+  tenantId          String?      @map("tenant_id")
+  tenant            Tenant?      @relation(fields: [tenantId], references: [id])
   referenceNo       String?      @map("reference_no")
   sender            String?      @map("sender")
   receiver          String?      @map("receiver")
@@ -1649,6 +1965,8 @@ model BankTransferLog {
   createdAt      DateTime     @default(now())
   bankTransfer   BankTransfer @relation(fields: [bankTransferId], references: [id], onDelete: Cascade)
   user           User?        @relation(fields: [userId], references: [id])
+  tenantId       String?      @map("tenant_id")
+  tenant         Tenant?      @relation(fields: [tenantId], references: [id])
 
   @@index([bankTransferId])
   @@index([userId])
@@ -1687,16 +2005,16 @@ enum AddressType {
 }
 
 model CheckBillJournal {
-  id          String     @id @default(uuid())
-  journalNo   String     @map("journal_no")
+  id          String      @id @default(uuid())
+  journalNo   String      @map("journal_no")
   type        JournalType @map("type")
-  date        DateTime   @default(now()) @map("date")
-  accountId   String?    @map("account_id")
-  notes       String?    @map("notes")
+  date        DateTime    @default(now()) @map("date")
+  accountId   String?     @map("account_id")
+  notes       String?     @map("notes")
   tenantId    String?
-  createdById String?    @map("created_by_id")
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
+  createdById String?     @map("created_by_id")
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
 
   bankAccountId String?                @map("bank_account_id")
   bankAccount   BankAccount?           @relation(fields: [bankAccountId], references: [id])
@@ -1804,10 +2122,12 @@ model DeletedCheckBill {
   deletedAt           DateTime        @default(now()) @map("deleted_at")
   deleteReason        String?         @map("delete_reason")
   deletedByUser       User?           @relation("DeletedCheckBillDeletedBy", fields: [deletedBy], references: [id])
+  tenantId            String?
 
   @@index([originalId])
   @@index([deletedAt])
   @@index([accountId])
+  @@index([tenantId])
   @@map("deleted_checks_bills")
 }
 
@@ -1822,9 +2142,11 @@ model CheckBillLog {
   createdAt   DateTime  @default(now())
   checkBill   CheckBill @relation(fields: [checkBillId], references: [id], onDelete: Cascade)
   user        User?     @relation(fields: [userId], references: [id])
+  tenantId    String?
 
   @@index([checkBillId])
   @@index([userId])
+  @@index([tenantId])
   @@map("check_bill_logs")
 }
 
@@ -1844,7 +2166,9 @@ model Employee {
   city             String?           @map("city")
   district         String?           @map("district")
   position         String?           @map("position")
-  department       String?           @map("department")
+  department       String?           @map("department") // @deprecated departmentId FK kullan
+  departmentId     String?           @map("department_id")
+  departmentRef    Department?       @relation(fields: [departmentId], references: [id], onDelete: SetNull)
   startDate        DateTime?         @map("start_date")
   endDate          DateTime?         @map("end_date")
   isActive         Boolean           @default(true) @map("is_active")
@@ -1864,9 +2188,16 @@ model Employee {
   salaryPayments   SalaryPayment[]
   advances         Advance[]
   companyVehicles  CompanyVehicle[]
-  createdByUser    User?             @relation("EmployeeCreatedBy", fields: [createdBy], references: [id])
-  tenant           Tenant?           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  updatedByUser    User?             @relation("EmployeeUpdatedBy", fields: [updatedBy], references: [id])
+
+  // Faz 7 Relations
+  leaveRequests      LeaveRequest[]
+  overtimeRecords    OvertimeRecord[]
+  assetAssignments   AssetAssignment[]
+  performanceReviews PerformanceReview[]
+
+  createdByUser User?   @relation("EmployeeCreatedBy", fields: [createdBy], references: [id])
+  tenant        Tenant? @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  updatedByUser User?   @relation("EmployeeUpdatedBy", fields: [updatedBy], references: [id])
 
   @@unique([employeeCode, tenantId])
   @@unique([identityNumber, tenantId])
@@ -1891,10 +2222,12 @@ model EmployeePayment {
   createdByUser User?               @relation("EmployeePaymentCreatedBy", fields: [createdBy], references: [id])
   cashbox       Cashbox?            @relation(fields: [cashboxId], references: [id])
   employee      Employee            @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  tenantId      String?
 
   @@index([employeeId])
   @@index([date])
   @@index([type])
+  @@index([tenantId])
   @@map("employee_payments")
 }
 
@@ -2070,9 +2403,11 @@ model PurchaseOrderLocalLog {
   createdAt  DateTime         @default(now())
   order      ProcurementOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
   user       User?            @relation("PurchaseOrderLocalLogUser", fields: [userId], references: [id])
+  tenantId   String?
 
   @@index([orderId])
   @@index([userId])
+  @@index([tenantId])
   @@map("purchase_order_local_logs")
 }
 
@@ -2245,17 +2580,30 @@ model HizliToken {
 }
 
 model EInvoiceInbox {
-  id          Int       @id @default(autoincrement())
-  ettn        String    @unique
-  senderVkn   String
-  senderTitle String
-  invoiceNo   String?
-  invoiceDate DateTime?
-  rawXml      String?
-  createdAt   DateTime  @default(now())
+  id               Int       @id @default(autoincrement())
+  ettn             String    @unique
+  senderVkn        String
+  senderTitle      String
+  invoiceNo        String?
+  invoiceDate      DateTime?
+  rawXml           String?
+  createdAt        DateTime  @default(now())
+  tenantId         String?   @map("tenant_id")
+  matchedInvoiceId String?   @map("matched_invoice_id")
+  scenario         String?   @map("scenario") @db.VarChar(50)
+  receiverVkn      String?   @map("receiver_vkn") @db.VarChar(11)
+  status           String    @default("UNPROCESSED") @db.VarChar(20)
+  processedAt      DateTime? @map("processed_at")
+  processedById    String?   @map("processed_by")
+  tenant           Tenant?   @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+  matchedInvoice   Invoice?  @relation("EInvoiceInboxMatchedInvoice", fields: [matchedInvoiceId], references: [id], onDelete: SetNull)
+  processedBy      User?     @relation("EInvoiceInboxProcessedBy", fields: [processedById], references: [id], onDelete: SetNull)
 
   @@index([senderVkn])
   @@index([createdAt])
+  @@index([tenantId])
+  @@index([matchedInvoiceId])
+  @@index([status])
   @@map("einvoice_inbox")
 }
 
@@ -2272,36 +2620,39 @@ enum VehicleServiceStatus {
 }
 
 model CustomerVehicle {
-  id                String                @id @default(uuid())
-  tenantId          String?               @map("tenantId")
-  accountId         String                @map("account_id")
-  plate             String                @map("plate")
-  brand             String                @map("brand")
-  model             String                @map("model")
-  year              Int?                  @map("year")
-  chassisno         String?               @map("chassis_no")
-  enginePower       Int?                  @map("engine_power")
-  engineSize        String?               @map("engine_size")
-  fuelType          String?               @map("fuel_type")
-  transmission      String?               @map("transmission")
-  color             String?               @map("color")
-  registrationDate  DateTime?             @map("registration_date")
-  registrationNo    String?               @map("registration_no")
-  registrationOwner String?               @map("registration_owner")
-  mileage           Int?                  @map("mileage")
-  notes             String?               @map("notes")
-  serviceStatus     VehicleServiceStatus? @map("service_status")
-  createdAt         DateTime              @default(now())
-  updatedAt         DateTime              @updatedAt
-  account           Account               @relation(fields: [accountId], references: [id])
-  tenant            Tenant?               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  workOrders        WorkOrder[]
+  id                    String                  @id @default(uuid())
+  tenantId              String?                 @map("tenantId")
+  accountId             String                  @map("account_id")
+  plate                 String                  @map("plate")
+  brand                 String                  @map("brand")
+  model                 String                  @map("model")
+  year                  Int?                    @map("year")
+  chassisno             String?                 @map("chassis_no")
+  enginePower           Int?                    @map("engine_power")
+  engineSize            String?                 @map("engine_size")
+  fuelType              String?                 @map("fuel_type")
+  transmission          String?                 @map("transmission")
+  color                 String?                 @map("color")
+  registrationDate      DateTime?               @map("registration_date")
+  registrationNo        String?                 @map("registration_no")
+  registrationOwner     String?                 @map("registration_owner")
+  mileage               Int?                    @map("mileage")
+  notes                 String?                 @map("notes")
+  serviceStatus         VehicleServiceStatus?   @map("service_status")
+  vehicleCatalogId      String?                 @map("vehicle_catalog_id") // @deprecated FK to vehicle_catalog if available
+  createdAt             DateTime                @default(now())
+  updatedAt             DateTime                @updatedAt
+  account               Account                 @relation(fields: [accountId], references: [id])
+  tenant                Tenant?                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  workOrders            WorkOrder[]
+  PreventiveMaintenance PreventiveMaintenance[]
 
   @@unique([plate, tenantId])
   @@unique([chassisno, tenantId])
   @@index([tenantId])
   @@index([accountId])
   @@index([serviceStatus])
+  @@index([vehicleCatalogId])
   @@map("customer_vehicles")
 }
 
@@ -2320,14 +2671,18 @@ model WorkOrder {
   supplyResponseNotes     String?               @map("supplyResponseNotes")
   estimatedCompletionDate DateTime?             @map("estimatedCompletionDate")
   actualCompletionDate    DateTime?             @map("actualCompletionDate")
-  totalLaborCost          Decimal               @default(0) @db.Decimal(12, 2) @map("totalLaborCost")
-  totalPartsCost          Decimal               @default(0) @db.Decimal(12, 2) @map("totalPartsCost")
-  taxAmount               Decimal               @default(0) @db.Decimal(12, 2) @map("taxAmount")
-  grandTotal              Decimal               @default(0) @db.Decimal(12, 2) @map("grandTotal")
+  totalLaborCost          Decimal               @default(0) @map("totalLaborCost") @db.Decimal(12, 2)
+  totalPartsCost          Decimal               @default(0) @map("totalPartsCost") @db.Decimal(12, 2)
+  taxAmount               Decimal               @default(0) @map("taxAmount") @db.Decimal(12, 2)
+  grandTotal              Decimal               @default(0) @map("grandTotal") @db.Decimal(12, 2)
   version                 Int                   @default(1) @map("version")
   createdAt               DateTime              @default(now())
   updatedAt               DateTime              @updatedAt
-  deletedAt               DateTime?
+  deletedAt               DateTime?             @map("deleted_at")
+  deletedBy               String?               @map("deleted_by")
+  updatedBy               String?               @map("updated_by")
+  deletedByUser           User?                 @relation("WorkOrderDeletedBy", fields: [deletedBy], references: [id])
+  updatedByUser           User?                 @relation("WorkOrderUpdatedBy", fields: [updatedBy], references: [id])
   account                 Account               @relation(fields: [accountId], references: [id])
   customerVehicle         CustomerVehicle       @relation(fields: [customerVehicleId], references: [id], onDelete: Cascade)
   items                   WorkOrderItem[]
@@ -2336,6 +2691,9 @@ model WorkOrder {
   technician              User?                 @relation("WorkOrderTechnician", fields: [technicianId], references: [id])
   tenant                  Tenant?               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   activities              WorkOrderActivity[]
+  serviceTemplateId       String?               @map("service_template_id")
+  serviceTemplate         ServiceTemplate?      @relation(fields: [serviceTemplateId], references: [id], onDelete: SetNull)
+  warranties              WorkOrderWarranty[]
 
   @@unique([workOrderNo, tenantId])
   @@index([tenantId])
@@ -2343,6 +2701,7 @@ model WorkOrder {
   @@index([createdAt])
   @@index([accountId])
   @@index([technicianId])
+  @@index([serviceTemplateId])
   @@map("work_orders")
 }
 
@@ -2351,13 +2710,15 @@ model WorkOrderActivity {
   workOrderId String
   action      String
   userId      String?
-  metadata    Json?
+  meta        Json?     @map("metadata")
   createdAt   DateTime  @default(now())
   workOrder   WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
   user        User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+  tenantId    String?
 
   @@index([workOrderId])
   @@index([workOrderId, createdAt])
+  @@index([tenantId])
   @@map("work_order_activities")
 }
 
@@ -2368,18 +2729,20 @@ model WorkOrderItem {
   description String            @map("description")
   productId   String?           @map("product_id")
   quantity    Int               @default(1) @map("quantity")
-  unitPrice   Decimal           @db.Decimal(12, 2) @map("unitPrice")
+  unitPrice   Decimal           @map("unitPrice") @db.Decimal(12, 2)
   taxRate     Int               @default(20) @map("taxRate")
-  taxAmount   Decimal           @default(0) @db.Decimal(12, 2) @map("taxAmount")
-  totalPrice  Decimal           @db.Decimal(12, 2) @map("totalPrice")
+  taxAmount   Decimal           @default(0) @map("taxAmount") @db.Decimal(12, 2)
+  totalPrice  Decimal           @map("totalPrice") @db.Decimal(12, 2)
   version     Int               @default(1) @map("version")
   createdAt   DateTime          @default(now())
   updatedAt   DateTime          @updatedAt
   product     Product?          @relation(fields: [productId], references: [id])
   workOrder   WorkOrder         @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+  tenantId    String?
 
   @@index([workOrderId])
   @@index([productId])
+  @@index([tenantId])
   @@map("work_order_items")
 }
 
@@ -2415,7 +2778,7 @@ model InventoryTransaction {
   id              String                   @id @default(uuid())
   tenantId        String?
   partRequestId   String
-  productId       String                  @map("product_id")
+  productId       String                   @map("product_id")
   warehouseId     String?
   quantity        Int
   transactionType InventoryTransactionType @default(DEDUCTION)
@@ -2433,25 +2796,25 @@ model InventoryTransaction {
 }
 
 model ServiceInvoice {
-  id            String          @id @default(uuid())
-  tenantId      String?         @map("tenantId")
-  invoiceNo     String          @map("invoiceNo")
-  workOrderId   String          @unique @map("workOrderId")
-  accountId     String          @map("account_id")
-  issueDate     DateTime        @default(now()) @map("issueDate")
-  dueDate       DateTime?       @map("dueDate")
-  subtotal      Decimal         @db.Decimal(12, 2) @map("subtotal")
-  taxAmount     Decimal         @db.Decimal(12, 2) @map("taxAmount")
-  grandTotal    Decimal         @db.Decimal(12, 2) @map("grandTotal")
-  currency      String          @default("TRY") @map("currency")
-  createdBy     String?         @map("createdBy")
-  createdAt     DateTime        @default(now())
-  updatedAt     DateTime        @updatedAt
-  account       Account         @relation(fields: [accountId], references: [id])
-  createdByUser User?           @relation(fields: [createdBy], references: [id])
+  id            String        @id @default(uuid())
+  tenantId      String?       @map("tenantId")
+  invoiceNo     String        @map("invoiceNo")
+  workOrderId   String        @unique @map("workOrderId")
+  accountId     String        @map("account_id")
+  issueDate     DateTime      @default(now()) @map("issueDate")
+  dueDate       DateTime?     @map("dueDate")
+  subtotal      Decimal       @map("subtotal") @db.Decimal(12, 2)
+  taxAmount     Decimal       @map("taxAmount") @db.Decimal(12, 2)
+  grandTotal    Decimal       @map("grandTotal") @db.Decimal(12, 2)
+  currency      String        @default("TRY") @map("currency")
+  createdBy     String?       @map("createdBy")
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  account       Account       @relation(fields: [accountId], references: [id])
+  createdByUser User?         @relation(fields: [createdBy], references: [id])
   journalEntry  JournalEntry?
-  tenant        Tenant?         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  workOrder     WorkOrder       @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+  tenant        Tenant?       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  workOrder     WorkOrder     @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
   collections   Collection[]
 
   @@unique([invoiceNo, tenantId])
@@ -2491,8 +2854,10 @@ model JournalEntryLine {
   credit         Decimal      @default(0) @db.Decimal(12, 2)
   description    String?
   journalEntry   JournalEntry @relation(fields: [journalEntryId], references: [id], onDelete: Cascade)
+  tenantId       String?
 
   @@index([journalEntryId])
+  @@index([tenantId])
   @@map("journal_entry_lines")
 }
 
@@ -2507,32 +2872,34 @@ model CompanyCreditCardReminder {
   createdAt DateTime          @default(now())
   updatedAt DateTime          @updatedAt
   card      CompanyCreditCard @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  tenantId  String?
 
   @@unique([cardId, type])
   @@index([day, isActive])
   @@index([cardId])
+  @@index([tenantId])
   @@map("company_credit_card_reminders")
 }
 
 model InvoiceProfit {
-  id                 String       @id @default(uuid())
-  invoiceId          String       @map("invoice_id")
-  invoiceItemId      String?      @map("invoice_item_id")
-  productId          String      @map("product_id")
-  tenantId           String?
-  quantity           Int         @map("quantity")
-  unitPrice          Decimal     @db.Decimal(10, 2) @map("unit_price")
-  unitCost           Decimal     @db.Decimal(12, 4) @map("unit_cost")
-  totalSalesAmount   Decimal     @db.Decimal(12, 2) @map("total_sales_amount")
-  totalCost          Decimal     @db.Decimal(12, 2) @map("total_cost")
-  profit             Decimal     @db.Decimal(12, 2) @map("profit")
-  profitRate         Decimal     @db.Decimal(10, 2) @map("profit_rate")
-  computedAt         DateTime    @default(now()) @map("computed_at")
-  updatedAt          DateTime    @updatedAt
-  invoice            Invoice     @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
-  invoiceItem        InvoiceItem? @relation(fields: [invoiceItemId], references: [id], onDelete: Cascade)
-  product            Product     @relation(fields: [productId], references: [id])
-  tenants            Tenant?     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  id               String       @id @default(uuid())
+  invoiceId        String       @map("invoice_id")
+  invoiceItemId    String?      @map("invoice_item_id")
+  productId        String       @map("product_id")
+  tenantId         String?
+  quantity         Int          @map("quantity")
+  unitPrice        Decimal      @map("unit_price") @db.Decimal(10, 2)
+  unitCost         Decimal      @map("unit_cost") @db.Decimal(12, 4)
+  totalSalesAmount Decimal      @map("total_sales_amount") @db.Decimal(12, 2)
+  totalCost        Decimal      @map("total_cost") @db.Decimal(12, 2)
+  profit           Decimal      @map("profit") @db.Decimal(12, 2)
+  profitRate       Decimal      @map("profit_rate") @db.Decimal(10, 2)
+  computedAt       DateTime     @default(now()) @map("computed_at")
+  updatedAt        DateTime     @updatedAt
+  invoice          Invoice      @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  invoiceItem      InvoiceItem? @relation(fields: [invoiceItemId], references: [id], onDelete: Cascade)
+  product          Product      @relation(fields: [productId], references: [id])
+  tenants          Tenant?      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@index([invoiceId])
   @@index([invoiceItemId])
@@ -2586,10 +2953,12 @@ model WarehouseCriticalStock {
   updatedAt   DateTime  @updatedAt
   product     Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
   warehouse   Warehouse @relation(fields: [warehouseId], references: [id], onDelete: Cascade)
+  tenantId    String?
 
   @@unique([warehouseId, productId])
   @@index([productId])
   @@index([warehouseId])
+  @@index([tenantId])
   @@map("warehouse_critical_stocks")
 }
 
@@ -2605,9 +2974,11 @@ model WarehouseTransferItem {
   product        Product           @relation(fields: [productId], references: [id])
   toLocation     Location?         @relation("WarehouseTransferItemTo", fields: [toLocationId], references: [id])
   transfer       WarehouseTransfer @relation(fields: [transferId], references: [id], onDelete: Cascade)
+  tenantId       String?
 
   @@index([productId])
   @@index([transferId])
+  @@index([tenantId])
   @@map("warehouse_transfer_items")
 }
 
@@ -2622,9 +2993,11 @@ model WarehouseTransferLog {
   createdAt  DateTime          @default(now())
   transfer   WarehouseTransfer @relation(fields: [transferId], references: [id], onDelete: Cascade)
   user       User?             @relation(fields: [userId], references: [id])
+  tenantId   String?
 
   @@index([transferId])
   @@index([userId])
+  @@index([tenantId])
   @@map("warehouse_transfer_logs")
 }
 
@@ -2735,6 +3108,8 @@ enum UserRole {
 enum PriceCardType {
   SALE
   PURCHASE
+  CAMPAIGN
+  LIST
 }
 
 model PriceList {
@@ -2764,9 +3139,11 @@ model PriceListItem {
   updatedAt    DateTime  @updatedAt
   priceList    PriceList @relation(fields: [priceListId], references: [id], onDelete: Cascade)
   product      Product   @relation("ProductPriceListItem", fields: [productId], references: [id])
+  tenantId     String?
 
   @@unique([priceListId, productId])
   @@index([productId])
+  @@index([tenantId])
   @@map("price_list_items")
 }
 
@@ -3167,6 +3544,9 @@ model SalaryPlan {
   description     String?      @map("description")
   createdAt       DateTime     @default(now())
   updatedAt       DateTime     @updatedAt
+  deletedBy       String?      @map("deleted_by")
+  deletedAt       DateTime?    @map("deleted_at")
+  deletedByUser   User?        @relation("SalaryPlanDeletedBy", fields: [deletedBy], references: [id])
 
   tenant      Tenant?             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   employee    Employee            @relation(fields: [employeeId], references: [id], onDelete: Cascade)
@@ -3203,6 +3583,9 @@ model SalaryPayment {
   createdBy      String?               @map("created_by")
   createdAt      DateTime              @default(now())
   updatedAt      DateTime              @updatedAt
+  deletedBy      String?               @map("deleted_by")
+  deletedAt      DateTime?             @map("deleted_at")
+  deletedByUser  User?                 @relation("SalaryPaymentDeletedBy", fields: [deletedBy], references: [id])
   tenant         Tenant?               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   employee       Employee              @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   salaryPlan     SalaryPlan            @relation(fields: [salaryPlanId], references: [id], onDelete: Cascade)
@@ -3316,12 +3699,12 @@ model Role {
   name         String
   description  String?
   isSystemRole Boolean          @default(false)
-  tenantId     String?
+  tenantId     String
   createdAt    DateTime         @default(now())
   updatedAt    DateTime         @updatedAt
   users        User[]
   permissions  RolePermission[]
-  tenant       Tenant?          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant       Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@unique([tenantId, name])
   @@index([tenantId])
@@ -3372,27 +3755,28 @@ model TenantPurgeAudit {
 }
 
 model CompanyVehicle {
-  id                   String           @id @default(uuid())
-  tenantId             String?          @map("tenantId")
-  plate                String           @map("plate")
-  brand                String           @map("brand")
-  model                String           @map("model")
-  year                 Int?             @map("year")
-  chassisno            String?          @map("chassis_no")
-  engineNo             String?          @map("engine_no")
-  registrationDate     DateTime?        @map("registration_date")
-  vehicleType          String?          @map("vehicle_type")
-  fuelType             String?          @map("fuel_type")
-  isActive             Boolean          @default(true) @map("is_active")
-  assignedEmployeeId   String?          @map("assigned_employee_id")
-  registrationImageUrl String?          @map("registration_image_url")
-  notes                String?          @map("notes")
-  createdAt            DateTime         @default(now())
-  updatedAt            DateTime         @updatedAt
-  deletedAt            DateTime?
-  tenant               Tenant?          @relation("TenantCompanyVehicle", fields: [tenantId], references: [id], onDelete: Cascade)
-  assignedEmployee     Employee?        @relation(fields: [assignedEmployeeId], references: [id], onDelete: SetNull)
-  expenses             VehicleExpense[]
+  id                    String                  @id @default(uuid())
+  tenantId              String?                 @map("tenantId")
+  plate                 String                  @map("plate")
+  brand                 String                  @map("brand")
+  model                 String                  @map("model")
+  year                  Int?                    @map("year")
+  chassisno             String?                 @map("chassis_no")
+  engineNo              String?                 @map("engine_no")
+  registrationDate      DateTime?               @map("registration_date")
+  vehicleType           String?                 @map("vehicle_type")
+  fuelType              String?                 @map("fuel_type")
+  isActive              Boolean                 @default(true) @map("is_active")
+  assignedEmployeeId    String?                 @map("assigned_employee_id")
+  registrationImageUrl  String?                 @map("registration_image_url")
+  notes                 String?                 @map("notes")
+  createdAt             DateTime                @default(now())
+  updatedAt             DateTime                @updatedAt
+  deletedAt             DateTime?
+  tenant                Tenant?                 @relation("TenantCompanyVehicle", fields: [tenantId], references: [id], onDelete: Cascade)
+  assignedEmployee      Employee?               @relation(fields: [assignedEmployeeId], references: [id], onDelete: SetNull)
+  expenses              VehicleExpense[]
+  PreventiveMaintenance PreventiveMaintenance[]
 
   @@unique([plate, tenantId])
   @@index([tenantId])
@@ -3467,20 +3851,20 @@ model Unit {
 
 // POS Payment Records - Split payment support
 model PosPayment {
-  id             String       @id @default(uuid())
-  invoiceId      String       @map("invoice_id")
-  paymentMethod  PaymentMethod @map("payment_method")
-  amount          Decimal      @map("amount") @db.Decimal(12, 2)
-  change          Decimal?     @map("change") @db.Decimal(12, 2)
-  giftCardId     String?      @map("gift_card_id")
-  notes           String?      @map("notes")
-  createdAt       DateTime     @default(now())
-  updatedAt       DateTime     @updatedAt
-  invoice        Invoice      @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
-  tenantId       String?
-  tenant         Tenant?      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  createdBy      String?      @map("created_by")
-  updatedBy      String?      @map("updated_by")
+  id            String        @id @default(uuid())
+  invoiceId     String        @map("invoice_id")
+  paymentMethod PaymentMethod @map("payment_method")
+  amount        Decimal       @map("amount") @db.Decimal(12, 2)
+  change        Decimal?      @map("change") @db.Decimal(12, 2)
+  giftCardId    String?       @map("gift_card_id")
+  notes         String?       @map("notes")
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  invoice       Invoice       @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  tenantId      String?
+  tenant        Tenant?       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdBy     String?       @map("created_by")
+  updatedBy     String?       @map("updated_by")
 
   @@index([tenantId])
   @@index([invoiceId])
@@ -3495,26 +3879,525 @@ enum PosSessionStatus {
 
 // POS Cashier Sessions
 model PosSession {
-  id              String           @id @default(uuid())
-  sessionNo       String           @map("session_no")
-  cashierId       String           @map("cashier_id")
-  cashboxId      String           @map("cashbox_id")
-  openingAmount   Decimal          @map("opening_amount") @db.Decimal(12, 2)
-  closingAmount   Decimal?         @map("closing_amount") @db.Decimal(12, 2)
-  closingNotes    String?          @map("closing_notes")
-  status          PosSessionStatus  @map("status")
-  openedAt        DateTime          @default(now()) @map("opened_at")
-  closedAt        DateTime?         @map("closed_at")
-  createdAt       DateTime          @default(now())
-  updatedAt       DateTime          @updatedAt
-  tenantId        String?
-  tenant          Tenant?           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  createdBy       String?          @map("created_by")
-  updatedBy       String?          @map("updated_by")
+  id            String           @id @default(uuid())
+  sessionNo     String           @map("session_no")
+  cashierId     String           @map("cashier_id")
+  cashboxId     String           @map("cashbox_id")
+  openingAmount Decimal          @map("opening_amount") @db.Decimal(12, 2)
+  closingAmount Decimal?         @map("closing_amount") @db.Decimal(12, 2)
+  closingNotes  String?          @map("closing_notes")
+  status        PosSessionStatus @map("status")
+  openedAt      DateTime         @default(now()) @map("opened_at")
+  closedAt      DateTime?        @map("closed_at")
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  tenantId      String?
+  tenant        Tenant?          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdBy     String?          @map("created_by")
+  updatedBy     String?          @map("updated_by")
 
   @@unique([sessionNo, tenantId])
   @@index([tenantId])
   @@index([cashierId])
   @@index([status])
   @@map("pos_sessions")
+}
+
+// ============================================================
+// PHASE 5 — Yeni SaaS Altyapı Tabloları
+// ============================================================
+
+enum CouponDiscountType {
+  PERCENTAGE
+  FIXED_AMOUNT
+}
+
+model TenantUsageMetric {
+  id           String   @id @default(uuid())
+  tenantId     String   @map("tenant_id")
+  metricDate   DateTime @map("metric_date") @db.Date
+  apiCallCount Int      @default(0) @map("api_call_count")
+  storageBytes BigInt   @default(0) @map("storage_bytes")
+  activeUsers  Int      @default(0) @map("active_users")
+  invoiceCount Int      @default(0) @map("invoice_count")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, metricDate])
+  @@index([tenantId])
+  @@index([metricDate])
+  @@map("tenant_usage_metrics")
+}
+
+model FeatureFlag {
+  id          String    @id @default(uuid())
+  tenantId    String    @map("tenant_id")
+  flagKey     String    @map("flag_key")
+  isEnabled   Boolean   @default(false) @map("is_enabled")
+  payload     Json?
+  enabledAt   DateTime? @map("enabled_at")
+  disabledAt  DateTime? @map("disabled_at")
+  enabledBy   String?   @map("enabled_by")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  tenant      Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  enabledUser User?     @relation("FeatureFlagEnabledBy", fields: [enabledBy], references: [id], onDelete: SetNull)
+
+  @@unique([tenantId, flagKey])
+  @@index([tenantId])
+  @@map("feature_flags")
+}
+
+model ApiKey {
+  id          String    @id @default(uuid())
+  tenantId    String    @map("tenant_id")
+  name        String
+  keyHash     String    @unique @map("key_hash")
+  keyPrefix   String    @map("key_prefix")
+  scopes      String[]  @default([])
+  lastUsedAt  DateTime? @map("last_used_at")
+  expiresAt   DateTime? @map("expires_at")
+  revokedAt   DateTime? @map("revoked_at")
+  revokedBy   String?   @map("revoked_by")
+  createdBy   String?   @map("created_by")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  tenant      Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  revokedUser User?     @relation("ApiKeyRevokedBy", fields: [revokedBy], references: [id], onDelete: SetNull)
+  createdUser User?     @relation("ApiKeyCreatedBy", fields: [createdBy], references: [id], onDelete: SetNull)
+
+  @@index([tenantId])
+  @@index([keyPrefix])
+  @@map("api_keys")
+}
+
+model WebhookEndpoint {
+  id            String    @id @default(uuid())
+  tenantId      String    @map("tenant_id")
+  url           String
+  events        String[]  @default([])
+  secret        String
+  isActive      Boolean   @default(true) @map("is_active")
+  failureCount  Int       @default(0) @map("failure_count")
+  lastTriggered DateTime? @map("last_triggered")
+  createdBy     String?   @map("created_by")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+  tenant        Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdUser   User?     @relation("WebhookCreatedBy", fields: [createdBy], references: [id], onDelete: SetNull)
+
+  @@index([tenantId])
+  @@map("webhook_endpoints")
+}
+
+model Coupon {
+  id              String             @id @default(uuid())
+  code            String             @unique
+  description     String?
+  discountType    CouponDiscountType @map("discount_type")
+  discountValue   Decimal            @map("discount_value") @db.Decimal(12, 4)
+  currency        String             @default("TRY")
+  maxUses         Int?               @map("max_uses")
+  usedCount       Int                @default(0) @map("used_count")
+  validFrom       DateTime?          @map("valid_from")
+  validUntil      DateTime?          @map("valid_until")
+  applicablePlans String[]           @default([]) @map("applicable_plans")
+  isActive        Boolean            @default(true) @map("is_active")
+  createdAt       DateTime           @default(now()) @map("created_at")
+  updatedAt       DateTime           @updatedAt @map("updated_at")
+  redemptions     CouponRedemption[]
+  tenantId        String?
+
+  @@index([code])
+  @@index([isActive])
+  @@index([tenantId])
+  @@map("coupons")
+}
+
+model CouponRedemption {
+  id              String   @id @default(uuid())
+  couponId        String   @map("coupon_id")
+  tenantId        String   @map("tenant_id")
+  subscriptionId  String?  @map("subscription_id")
+  redeemedAt      DateTime @default(now()) @map("redeemed_at")
+  discountApplied Decimal  @map("discount_applied") @db.Decimal(12, 4)
+  coupon          Coupon   @relation(fields: [couponId], references: [id], onDelete: Cascade)
+  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([couponId, tenantId])
+  @@index([tenantId])
+  @@index([couponId])
+  @@map("coupon_redemptions")
+}
+
+model TenantOnboarding {
+  id          String    @id @default(uuid())
+  tenantId    String    @unique @map("tenant_id")
+  steps       Json      @default("{}")
+  completedAt DateTime? @map("completed_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  tenant      Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("tenant_onboardings")
+}
+
+// ============================================================
+// PHASE 6 — E-Fatura (E-Arsiv / E-Fatura) Yapısı
+// ============================================================
+
+enum EInvoiceScenario {
+  TICARIFATURA
+  TEMELFATURA
+  IHRACAT
+}
+
+model EInvoiceSend {
+  id                  String           @id @default(uuid())
+  tenantId            String           @map("tenant_id")
+  invoiceId           String           @unique @map("invoice_id")
+  ettn                String           @unique
+  scenario            EInvoiceScenario
+  profileId           String           @default("TR1.2") @map("profile_id")
+  senderAlias         String           @map("sender_alias")
+  receiverAlias       String?          @map("receiver_alias")
+  receiverVkn         String           @map("receiver_vkn")
+  xmlContent          String?          @map("xml_content")
+  status              String           @default("DRAFT")
+  sentAt              DateTime?        @map("sent_at")
+  responseCode        String?          @map("response_code")
+  responseDescription String?          @map("response_description")
+  responseXml         String?          @map("response_xml")
+  retryCount          Int              @default(0) @map("retry_count")
+  lastRetryAt         DateTime?        @map("last_retry_at")
+  errorDetail         String?          @map("error_detail")
+  createdBy           String?          @map("created_by")
+  createdAt           DateTime         @default(now()) @map("created_at")
+  updatedAt           DateTime         @updatedAt @map("updated_at")
+  tenant              Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  invoice             Invoice          @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  createdUser         User?            @relation("EInvoiceCreatedBy", fields: [createdBy], references: [id], onDelete: SetNull)
+
+  @@index([tenantId])
+  @@index([ettn])
+  @@index([status])
+  @@index([sentAt])
+  @@map("einvoice_sends")
+}
+
+model EInvoiceTenantConfig {
+  id              String   @id @default(uuid())
+  tenantId        String   @unique @map("tenant_id")
+  isEinvoiceUser  Boolean  @default(false) @map("is_einvoice_user")
+  isEarsivUser    Boolean  @default(false) @map("is_earsiv_user")
+  integrationVkn  String?  @map("integration_vkn")
+  senderAlias     String?  @map("sender_alias")
+  apiUsername     String?  @map("api_username")
+  apiPasswordHash String?  @map("api_password_hash")
+  testMode        Boolean  @default(true) @map("test_mode")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+  tenant          Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("einvoice_tenant_configs")
+}
+
+// ============================================================
+// PHASE 7 — İK Modülü
+// ============================================================
+
+enum LeaveStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum OvertimeType {
+  WEEKDAY
+  WEEKEND
+  PUBLIC_HOLIDAY
+}
+
+enum OvertimeStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  PAID
+}
+
+enum AssetCondition {
+  GOOD
+  DAMAGED
+  LOST
+  RETURNED
+}
+
+enum PerformanceStatus {
+  DRAFT
+  SUBMITTED
+  ACKNOWLEDGED
+  CLOSED
+}
+
+model Department {
+  id        String       @id @default(uuid())
+  tenantId  String       @map("tenant_id")
+  name      String
+  code      String?
+  managerId String?      @map("manager_id")
+  parentId  String?      @map("parent_id")
+  isActive  Boolean      @default(true) @map("is_active")
+  createdAt DateTime     @default(now()) @map("created_at")
+  updatedAt DateTime     @updatedAt @map("updated_at")
+  tenant    Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  manager   User?        @relation("DepartmentManager", fields: [managerId], references: [id], onDelete: SetNull)
+  parent    Department?  @relation("DepartmentParent", fields: [parentId], references: [id], onDelete: SetNull)
+  children  Department[] @relation("DepartmentParent")
+  employees Employee[]
+
+  @@unique([tenantId, name])
+  @@index([tenantId])
+  @@map("departments")
+}
+
+model LeaveType {
+  id          String         @id @default(uuid())
+  tenantId    String         @map("tenant_id")
+  name        String
+  code        String
+  isPaid      Boolean        @default(true) @map("is_paid")
+  defaultDays Int?           @map("default_days")
+  carryOver   Boolean        @default(false) @map("carry_over")
+  isActive    Boolean        @default(true) @map("is_active")
+  createdAt   DateTime       @default(now()) @map("created_at")
+  updatedAt   DateTime       @updatedAt @map("updated_at")
+  tenant      Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  requests    LeaveRequest[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId])
+  @@map("leave_types")
+}
+
+model LeaveRequest {
+  id            String      @id @default(uuid())
+  tenantId      String      @map("tenant_id")
+  employeeId    String      @map("employee_id")
+  leaveTypeId   String      @map("leave_type_id")
+  startDate     DateTime    @map("start_date")
+  endDate       DateTime    @map("end_date")
+  totalDays     Decimal     @map("total_days") @db.Decimal(5, 1)
+  reason        String?
+  status        LeaveStatus @default(PENDING)
+  approvedById  String?     @map("approved_by_id")
+  approvedAt    DateTime?   @map("approved_at")
+  rejectedById  String?     @map("rejected_by_id")
+  rejectedAt    DateTime?   @map("rejected_at")
+  rejectionNote String?     @map("rejection_note")
+  createdBy     String?     @map("created_by")
+  createdAt     DateTime    @default(now()) @map("created_at")
+  updatedAt     DateTime    @updatedAt @map("updated_at")
+  tenant        Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  employee      Employee    @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  leaveType     LeaveType   @relation(fields: [leaveTypeId], references: [id], onDelete: Restrict)
+  approvedBy    User?       @relation("LeaveApprovedBy", fields: [approvedById], references: [id], onDelete: SetNull)
+  rejectedBy    User?       @relation("LeaveRejectedBy", fields: [rejectedById], references: [id], onDelete: SetNull)
+  createdUser   User?       @relation("LeaveCreatedBy", fields: [createdBy], references: [id], onDelete: SetNull)
+
+  @@index([tenantId])
+  @@index([employeeId])
+  @@index([status])
+  @@index([startDate, endDate])
+  @@map("leave_requests")
+}
+
+model OvertimeRecord {
+  id           String         @id @default(uuid())
+  tenantId     String         @map("tenant_id")
+  employeeId   String         @map("employee_id")
+  date         DateTime       @map("date")
+  hours        Decimal        @map("hours") @db.Decimal(5, 2)
+  overtimeType OvertimeType   @map("overtime_type")
+  rate         Decimal        @default(1.5) @map("rate") @db.Decimal(5, 2)
+  amount       Decimal?       @map("amount") @db.Decimal(12, 2)
+  status       OvertimeStatus @default(PENDING)
+  approvedById String?        @map("approved_by_id")
+  approvedAt   DateTime?      @map("approved_at")
+  notes        String?
+  createdBy    String?        @map("created_by")
+  createdAt    DateTime       @default(now()) @map("created_at")
+  updatedAt    DateTime       @updatedAt @map("updated_at")
+  tenant       Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  employee     Employee       @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  approvedBy   User?          @relation("OvertimeApprovedBy", fields: [approvedById], references: [id], onDelete: SetNull)
+  createdUser  User?          @relation("OvertimeCreatedBy", fields: [createdBy], references: [id], onDelete: SetNull)
+
+  @@index([tenantId])
+  @@index([employeeId])
+  @@index([date])
+  @@map("overtime_records")
+}
+
+model AssetAssignment {
+  id           String         @id @default(uuid())
+  tenantId     String         @map("tenant_id")
+  employeeId   String         @map("employee_id")
+  assetName    String         @map("asset_name")
+  assetCode    String?        @map("asset_code")
+  serialNumber String?        @map("serial_number")
+  description  String?
+  assignedAt   DateTime       @default(now()) @map("assigned_at")
+  returnedAt   DateTime?      @map("returned_at")
+  condition    AssetCondition @default(GOOD)
+  notes        String?
+  assignedBy   String?        @map("assigned_by")
+  returnedBy   String?        @map("returned_by")
+  createdAt    DateTime       @default(now()) @map("created_at")
+  updatedAt    DateTime       @updatedAt @map("updated_at")
+  tenant       Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  employee     Employee       @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  assigner     User?          @relation("AssetAssignedBy", fields: [assignedBy], references: [id], onDelete: SetNull)
+  returner     User?          @relation("AssetReturnedBy", fields: [returnedBy], references: [id], onDelete: SetNull)
+
+  @@index([tenantId])
+  @@index([employeeId])
+  @@map("asset_assignments")
+}
+
+model PerformanceReview {
+  id             String            @id @default(uuid())
+  tenantId       String            @map("tenant_id")
+  employeeId     String            @map("employee_id")
+  reviewerId     String            @map("reviewer_id")
+  periodStart    DateTime          @map("period_start")
+  periodEnd      DateTime          @map("period_end")
+  overallScore   Decimal?          @map("overall_score") @db.Decimal(3, 1)
+  goals          Json?
+  strengths      String?
+  improvements   String?
+  managerNotes   String?           @map("manager_notes")
+  status         PerformanceStatus @default(DRAFT)
+  submittedAt    DateTime?         @map("submitted_at")
+  acknowledgedAt DateTime?         @map("acknowledged_at")
+  createdAt      DateTime          @default(now()) @map("created_at")
+  updatedAt      DateTime          @updatedAt @map("updated_at")
+  tenant         Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  employee       Employee          @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  reviewer       User              @relation("PerformanceReviewer", fields: [reviewerId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId])
+  @@index([employeeId])
+  @@index([periodStart, periodEnd])
+  @@map("performance_reviews")
+}
+
+// ============================================================
+// PHASE 8 — Servis Modülü Geliştirmeleri
+// ============================================================
+
+enum MaintenanceType {
+  PERIODIC
+  PREVENTIVE
+  PREDICTIVE
+  CORRECTIVE
+}
+
+model ServiceTemplate {
+  id             String      @id @default(uuid())
+  tenantId       String      @map("tenant_id")
+  name           String
+  description    String?
+  estimatedHours Decimal?    @map("estimated_hours") @db.Decimal(6, 2)
+  laborCost      Decimal?    @map("labor_cost") @db.Decimal(12, 2)
+  isActive       Boolean     @default(true) @map("is_active")
+  items          Json?
+  createdBy      String?     @map("created_by")
+  createdAt      DateTime    @default(now()) @map("created_at")
+  updatedAt      DateTime    @updatedAt @map("updated_at")
+  tenant         Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdUser    User?       @relation("ServiceTemplateCreatedBy", fields: [createdBy], references: [id], onDelete: SetNull)
+  workOrders     WorkOrder[]
+
+  @@unique([tenantId, name])
+  @@index([tenantId])
+  @@map("service_templates")
+}
+
+model WorkOrderWarranty {
+  id           String    @id @default(uuid())
+  tenantId     String    @map("tenant_id")
+  workOrderId  String    @map("work_order_id")
+  warrantyType String    @default("LABOR") @map("warranty_type")
+  validUntil   DateTime  @map("valid_until")
+  mileageLimit Int?      @map("mileage_limit")
+  description  String?
+  terms        String?
+  isActive     Boolean   @default(true) @map("is_active")
+  createdBy    String?   @map("created_by")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+  tenant       Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  workOrder    WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+  createdUser  User?     @relation("WorkOrderWarrantyCreatedBy", fields: [createdBy], references: [id], onDelete: SetNull)
+
+  @@index([tenantId])
+  @@index([workOrderId])
+  @@index([validUntil])
+  @@map("work_order_warranties")
+}
+
+model PreventiveMaintenance {
+  id                String           @id @default(uuid())
+  tenantId          String           @map("tenant_id")
+  vehicleId         String?          @map("vehicle_id")
+  customerVehicleId String?          @map("customer_vehicle_id")
+  maintenanceType   MaintenanceType  @map("maintenance_type")
+  name              String
+  description       String?
+  intervalDays      Int?             @map("interval_days")
+  intervalMileage   Int?             @map("interval_mileage")
+  lastPerformedAt   DateTime?        @map("last_performed_at")
+  lastMileage       Int?             @map("last_mileage")
+  nextDueAt         DateTime?        @map("next_due_at")
+  nextMileage       Int?             @map("next_mileage")
+  isActive          Boolean          @default(true) @map("is_active")
+  createdBy         String?          @map("created_by")
+  createdAt         DateTime         @default(now()) @map("created_at")
+  updatedAt         DateTime         @updatedAt @map("updated_at")
+  tenant            Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  companyVehicle    CompanyVehicle?  @relation(fields: [vehicleId], references: [id], onDelete: SetNull)
+  customerVehicle   CustomerVehicle? @relation(fields: [customerVehicleId], references: [id], onDelete: SetNull)
+  createdUser       User?            @relation("PreventiveMaintenanceCreatedBy", fields: [createdBy], references: [id], onDelete: SetNull)
+
+  @@index([tenantId])
+  @@index([vehicleId])
+  @@index([nextDueAt])
+  @@map("preventive_maintenances")
+}
+
+model TechnicianMetric {
+  id                   String   @id @default(uuid())
+  tenantId             String   @map("tenant_id")
+  technicianId         String   @map("technician_id")
+  periodStart          DateTime @map("period_start")
+  periodEnd            DateTime @map("period_end")
+  totalWorkOrders      Int      @default(0) @map("total_work_orders")
+  completedWorkOrders  Int      @default(0) @map("completed_work_orders")
+  avgCompletionHours   Decimal  @default(0) @map("avg_completion_hours") @db.Decimal(8, 2)
+  reworkCount          Int      @default(0) @map("rework_count")
+  customerSatisfaction Decimal? @map("customer_satisfaction") @db.Decimal(3, 1)
+  revenueGenerated     Decimal  @default(0) @map("revenue_generated") @db.Decimal(14, 2)
+  partsEfficiency      Decimal? @map("parts_efficiency") @db.Decimal(5, 2)
+  onTimeDeliveryRate   Decimal? @map("on_time_delivery_rate") @db.Decimal(5, 2)
+  createdAt            DateTime @default(now()) @map("created_at")
+  updatedAt            DateTime @updatedAt @map("updated_at")
+  tenant               Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  technician           User     @relation("TechnicianMetricUser", fields: [technicianId], references: [id], onDelete: Cascade)
+
+  @@unique([technicianId, periodStart, periodEnd])
+  @@index([tenantId])
+  @@index([technicianId])
+  @@map("technician_metrics")
 }

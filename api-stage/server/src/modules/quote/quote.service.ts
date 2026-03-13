@@ -118,7 +118,7 @@ export class QuoteService {
     }
 
     const [data, total] = await Promise.all([
-      this.prisma.extended.quote.findMany({
+      this.prisma.quote.findMany({
         where,
         skip,
         take: limit,
@@ -153,7 +153,7 @@ export class QuoteService {
         },
         orderBy: { createdAt: 'desc' },
       }),
-      this.prisma.extended.quote.count({ where }),
+      this.prisma.quote.count({ where }),
     ]);
 
     return {
@@ -175,7 +175,7 @@ export class QuoteService {
   }
 
   async findOne(id: string) {
-    const quote = await this.prisma.extended.quote.findUnique({
+    const quote = await this.prisma.quote.findUnique({
       where: { id },
       include: {
         account: true,
@@ -244,7 +244,7 @@ export class QuoteService {
 
     const tenantId = await this.tenantResolver.resolveForCreate({ userId });
 
-    const existingQuote = await this.prisma.extended.quote.findFirst({
+    const existingQuote = await this.prisma.quote.findFirst({
       where: {
         quoteNo: quoteData.quoteNo,
         ...buildTenantWhereClause(tenantId ?? undefined),
@@ -258,7 +258,7 @@ export class QuoteService {
     }
 
     // Account check
-    const account = await this.prisma.extended.account.findUnique({
+    const account = await this.prisma.account.findUnique({
       where: { id: quoteData.accountId },
     });
 
@@ -300,7 +300,7 @@ export class QuoteService {
     const grandTotal = totalAmount + vatAmount;
 
     // Create quote and items with transaction
-    return this.prisma.extended.$transaction(async (prisma) => {
+    return this.prisma.$transaction(async (prisma) => {
       const quote = await prisma.quote.create({
         data: {
           quoteNo: quoteData.quoteNo,
@@ -358,7 +358,7 @@ export class QuoteService {
     ipAddress?: string,
     userAgent?: string,
   ) {
-    const quote = await this.prisma.extended.quote.findUnique({
+    const quote = await this.prisma.quote.findUnique({
       where: { id },
       include: { items: true },
     });
@@ -381,7 +381,7 @@ export class QuoteService {
 
     // If items are not updated, only update quote information
     if (!items) {
-      const updated = await this.prisma.extended.quote.update({
+      const updated = await this.prisma.quote.update({
         where: { id },
         data: {
           ...(quoteData.quoteNo && { quoteNo: quoteData.quoteNo }),
@@ -423,7 +423,7 @@ export class QuoteService {
     }
 
     // If items are being updated, process within transaction
-    return this.prisma.extended.$transaction(async (prisma) => {
+    return this.prisma.$transaction(async (prisma) => {
       // Delete existing items
       await prisma.quoteItem.deleteMany({
         where: { quoteId: id },
@@ -523,7 +523,7 @@ export class QuoteService {
       throw new BadRequestException('Quote converted to order cannot be deleted');
     }
 
-    await this.prisma.extended.quote.update({
+    await this.prisma.quote.update({
       where: { id },
       data: {
         deletedAt: new Date(),
@@ -551,7 +551,7 @@ export class QuoteService {
       );
     }
 
-    const updated = await this.prisma.extended.quote.update({
+    const updated = await this.prisma.quote.update({
       where: { id },
       data: {
         status: status as any,
@@ -589,7 +589,7 @@ export class QuoteService {
     ipAddress?: string,
     userAgent?: string,
   ) {
-    const quote = await this.prisma.extended.quote.findUnique({
+    const quote = await this.prisma.quote.findUnique({
       where: { id },
       include: { items: true },
     });
@@ -611,7 +611,7 @@ export class QuoteService {
     const prefix = orderType === 'SALE' ? 'SS' : 'SA';
     const year = new Date().getFullYear();
 
-    return this.prisma.extended.$transaction(async (prisma) => {
+    return this.prisma.$transaction(async (prisma) => {
       const orderNo = await this.generateUniqueOrderNo(
         prisma,
         prefix,

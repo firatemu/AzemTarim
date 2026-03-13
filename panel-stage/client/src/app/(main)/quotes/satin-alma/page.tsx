@@ -27,73 +27,73 @@ import MainLayout from '@/components/Layout/MainLayout';
 import axios from '@/lib/axios';
 import { useRouter } from 'next/navigation';
 
-interface Cari {
+interface Account {
   id: string;
-  cariKodu: string;
-  unvan: string;
-  tip: string;
+  code: string;
+  name: string;
+  type: string;
 }
 
-interface Teklif {
+interface Quote {
   id: string;
-  teklifNo: string;
-  teklifTipi: 'SATIS' | 'SATIN_ALMA';
-  tarih: string;
-  gecerlilikTarihi: string | null;
-  cari: Cari;
-  toplamTutar: number;
-  kdvTutar: number;
-  genelToplam: number;
-  durum: 'TEKLIF' | 'ONAYLANDI' | 'REDDEDILDI' | 'SIPARISE_DONUSTU';
-  iskonto?: number;
-  aciklama?: string;
-  siparisId?: string | null;
+  quoteNo: string;
+  quoteType: 'SALE' | 'PURCHASE';
+  date: string;
+  validUntil: string | null;
+  account: Account;
+  totalAmount: number;
+  taxAmount: number;
+  grandTotal: number;
+  status: 'OFFERED' | 'APPROVED' | 'REJECTED' | 'CONVERTED_TO_ORDER';
+  discount?: number;
+  notes?: string;
+  orderId?: string | null;
 }
 
-const durumRenkleri: Record<string, 'default' | 'warning' | 'info' | 'success' | 'error'> = {
-  TEKLIF: 'default',
-  ONAYLANDI: 'info',
-  REDDEDILDI: 'error',
-  SIPARISE_DONUSTU: 'success',
+const statusColors: Record<string, 'default' | 'warning' | 'info' | 'success' | 'error'> = {
+  OFFERED: 'default',
+  APPROVED: 'info',
+  REJECTED: 'error',
+  CONVERTED_TO_ORDER: 'success',
 };
 
-const durumMetinleri: Record<string, string> = {
-  TEKLIF: 'Teklif',
-  ONAYLANDI: 'Onaylandı',
-  REDDEDILDI: 'Reddedildi',
-  SIPARISE_DONUSTU: 'Siparişe Dönüştü',
+const statusTexts: Record<string, string> = {
+  OFFERED: 'Teklif',
+  APPROVED: 'Onaylandı',
+  REJECTED: 'Reddedildi',
+  CONVERTED_TO_ORDER: 'Siparişe Dönüştü',
 };
 
 export default function SatinAlmaTeklifleriPage() {
   const router = useRouter();
   const [searchTerm, setSearchTerm] = useState('');
-  const [teklifler, setTeklifler] = useState<Teklif[]>([]);
+  const [quotes, setQuotes] = useState<Quote[]>([]);
   const [loading, setLoading] = useState(false);
-  const [durumFilter, setDurumFilter] = useState<'ALL' | 'TEKLIF' | 'ONAYLANDI' | 'REDDEDILDI' | 'SIPARISE_DONUSTU'>('ALL');
+  const [statusFilter, setStatusFilter] = useState<'ALL' | 'OFFERED' | 'APPROVED' | 'REJECTED' | 'CONVERTED_TO_ORDER'>('ALL');
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' | 'info' });
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
-  const [selectedTeklif, setSelectedTeklif] = useState<Teklif | null>(null);
+  const [selectedQuote, setSelectedQuote] = useState<Quote | null>(null);
 
   useEffect(() => {
-    fetchTeklifler();
+    fetchQuotes();
   }, [searchTerm]);
 
-  const fetchTeklifler = async () => {
+  const fetchQuotes = async () => {
     try {
       setLoading(true);
       const params: any = {
-        teklifTipi: 'SATIN_ALMA',
+        quoteType: 'PURCHASE',
       };
       if (searchTerm && searchTerm.trim()) {
         params.search = searchTerm.trim();
       }
-      const response = await axios.get('/quote', { params });
-      setTeklifler(response.data.data || []);
+      const response = await axios.get('/quotes', { params });
+      setQuotes(response.data.data || []);
     } catch (error: any) {
       console.error('Teklif yükleme hatası:', error);
       // API yoksa boş liste göster
       if (error.response?.status === 404) {
-        setTeklifler([]);
+        setQuotes([]);
       } else {
         showSnackbar(error.response?.data?.message || 'Teklifler yüklenirken hata oluştu', 'error');
       }
@@ -106,22 +106,22 @@ export default function SatinAlmaTeklifleriPage() {
     setSnackbar({ open: true, message, severity });
   };
 
-  const handleMenuOpen = (event: React.MouseEvent<HTMLElement>, teklif: Teklif) => {
+  const handleMenuOpen = (event: React.MouseEvent<HTMLElement>, quote: Quote) => {
     setAnchorEl(event.currentTarget);
-    setSelectedTeklif(teklif);
+    setSelectedQuote(quote);
   };
 
   const handleMenuClose = () => {
     setAnchorEl(null);
   };
 
-  const handleDurumChange = async (yeniDurum: string) => {
-    if (!selectedTeklif) return;
-    
+  const handleStatusChange = async (newStatus: string) => {
+    if (!selectedQuote) return;
+
     try {
-      await axios.put(`/teklif/${selectedTeklif.id}/durum`, { durum: yeniDurum });
-      showSnackbar(`Teklif durumu "${durumMetinleri[yeniDurum]}" olarak güncellendi`, 'success');
-      fetchTeklifler();
+      await axios.put(`/quotes/${selectedQuote.id}/status`, { status: newStatus });
+      showSnackbar(`Teklif durumu "${statusTexts[newStatus]}" olarak güncellendi`, 'success');
+      fetchQuotes();
     } catch (error: any) {
       showSnackbar(error.response?.data?.message || 'Durum değiştirilirken hata oluştu', 'error');
     } finally {
@@ -130,18 +130,18 @@ export default function SatinAlmaTeklifleriPage() {
   };
 
   const handleConvertToSiparis = async () => {
-    if (!selectedTeklif) return;
-    
+    if (!selectedQuote) return;
+
     if (!confirm('Bu teklifi siparişe dönüştürmek istediğinizden emin misiniz?')) {
       handleMenuClose();
       return;
     }
-    
+
     try {
-      const response = await axios.post(`/teklif/${selectedTeklif.id}/siparise-donustur`);
+      const response = await axios.post(`/quotes/${selectedQuote.id}/convert-to-order`);
       showSnackbar('Teklif başarıyla siparişe dönüştürüldü', 'success');
       setTimeout(() => {
-        router.push(`/siparis/satin-alma/duzenle/${response.data.siparisId}`);
+        router.push(`/order/purchase/edit/${response.data.orderId}`);
       }, 1500);
     } catch (error: any) {
       showSnackbar(error.response?.data?.message || 'Teklif siparişe dönüştürülürken hata oluştu', 'error');
@@ -151,17 +151,17 @@ export default function SatinAlmaTeklifleriPage() {
   };
 
   const handleDelete = async () => {
-    if (!selectedTeklif) return;
-    
+    if (!selectedQuote) return;
+
     if (!confirm('Bu teklifi silmek istediğinizden emin misiniz?')) {
       handleMenuClose();
       return;
     }
-    
+
     try {
-      await axios.delete(`/teklif/${selectedTeklif.id}`);
+      await axios.delete(`/quotes/${selectedQuote.id}`);
       showSnackbar('Teklif başarıyla silindi', 'success');
-      fetchTeklifler();
+      fetchQuotes();
     } catch (error: any) {
       showSnackbar(error.response?.data?.message || 'Teklif silinirken hata oluştu', 'error');
     } finally {
@@ -199,7 +199,7 @@ export default function SatinAlmaTeklifleriPage() {
           <Button
             variant="contained"
             startIcon={<Add />}
-            onClick={() => router.push('/teklif/satin-alma/yeni')}
+            onClick={() => router.push('/quotes/satin-alma/yeni')}
             sx={{
               background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
             }}
@@ -211,7 +211,7 @@ export default function SatinAlmaTeklifleriPage() {
         <Paper sx={{ p: 2, mb: 2 }}>
           <TextField
             fullWidth
-            placeholder="Teklif No, Cari Unvan veya Cari Kodu ile ara..."
+            placeholder="Teklif No, Tedarikçi Ünvanı veya Kodu ile ara..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             InputProps={{
@@ -225,14 +225,14 @@ export default function SatinAlmaTeklifleriPage() {
           <Box sx={{ display: 'flex', gap: 1.5, mt: 2, flexWrap: 'wrap' }}>
             <Chip
               label="Tümü"
-              color={durumFilter === 'ALL' ? 'primary' : 'default'}
-              onClick={() => setDurumFilter('ALL')}
+              color={statusFilter === 'ALL' ? 'primary' : 'default'}
+              onClick={() => setStatusFilter('ALL')}
               size="small"
             />
-            <Chip label="Teklif" color={durumFilter === 'TEKLIF' ? 'primary' : 'default'} onClick={() => setDurumFilter('TEKLIF')} size="small" />
-            <Chip label="Onaylandı" color={durumFilter === 'ONAYLANDI' ? 'primary' : 'default'} onClick={() => setDurumFilter('ONAYLANDI')} size="small" />
-            <Chip label="Reddedildi" color={durumFilter === 'REDDEDILDI' ? 'primary' : 'default'} onClick={() => setDurumFilter('REDDEDILDI')} size="small" />
-            <Chip label="Siparişe Dönüştü" color={durumFilter === 'SIPARISE_DONUSTU' ? 'primary' : 'default'} onClick={() => setDurumFilter('SIPARISE_DONUSTU')} size="small" />
+            <Chip label="Teklif" color={statusFilter === 'OFFERED' ? 'primary' : 'default'} onClick={() => setStatusFilter('OFFERED')} size="small" />
+            <Chip label="Onaylandı" color={statusFilter === 'APPROVED' ? 'primary' : 'default'} onClick={() => setStatusFilter('APPROVED')} size="small" />
+            <Chip label="Reddedildi" color={statusFilter === 'REJECTED' ? 'primary' : 'default'} onClick={() => setStatusFilter('REJECTED')} size="small" />
+            <Chip label="Siparişe Dönüştü" color={statusFilter === 'CONVERTED_TO_ORDER' ? 'primary' : 'default'} onClick={() => setStatusFilter('CONVERTED_TO_ORDER')} size="small" />
           </Box>
         </Paper>
 
@@ -257,63 +257,63 @@ export default function SatinAlmaTeklifleriPage() {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {teklifler.filter(t => durumFilter === 'ALL' ? true : t.durum === durumFilter).length === 0 ? (
+                {quotes.filter(t => statusFilter === 'ALL' ? true : t.status === statusFilter).length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={9} align="center" sx={{ py: 4 }}>
                       <Typography color="text.secondary">Teklif bulunamadı</Typography>
                     </TableCell>
                   </TableRow>
                 ) : (
-                  teklifler
-                    .filter(t => durumFilter === 'ALL' ? true : t.durum === durumFilter)
-                    .map((teklif) => (
-                    <TableRow key={teklif.id} hover>
-                      <TableCell>
-                        <Typography variant="body2" fontWeight="600">
-                          {teklif.teklifNo}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>{formatDate(teklif.tarih)}</TableCell>
-                      <TableCell>
-                        {teklif.gecerlilikTarihi ? formatDate(teklif.gecerlilikTarihi) : '-'}
-                      </TableCell>
-                      <TableCell>
-                        <Typography variant="body2">{teklif.cari.unvan}</Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          {teklif.cari.cariKodu}
-                        </Typography>
-                      </TableCell>
-                      <TableCell align="right">{formatCurrency(teklif.toplamTutar)}</TableCell>
-                      <TableCell align="right">{formatCurrency(teklif.kdvTutar)}</TableCell>
-                      <TableCell align="right">
-                        <Typography variant="body2" fontWeight="bold">
-                          {formatCurrency(teklif.genelToplam)}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>
-                        <Chip
-                          label={durumMetinleri[teklif.durum]}
-                          color={durumRenkleri[teklif.durum]}
-                          size="small"
-                        />
-                      </TableCell>
-                      <TableCell align="center">
-                        <IconButton
-                          size="small"
-                          onClick={() => router.push(`/teklif/satin-alma/duzenle/${teklif.id}`)}
-                          disabled={teklif.durum === 'SIPARISE_DONUSTU' || teklif.durum === 'REDDEDILDI'}
-                        >
-                          <Edit />
-                        </IconButton>
-                        <IconButton
-                          size="small"
-                          onClick={(e) => handleMenuOpen(e, teklif)}
-                        >
-                          <MoreVert />
-                        </IconButton>
-                      </TableCell>
-                    </TableRow>
-                  ))
+                  quotes
+                    .filter(t => statusFilter === 'ALL' ? true : t.status === statusFilter)
+                    .map((quote) => (
+                      <TableRow key={quote.id} hover>
+                        <TableCell>
+                          <Typography variant="body2" fontWeight="600">
+                            {quote.quoteNo}
+                          </Typography>
+                        </TableCell>
+                        <TableCell>{formatDate(quote.date)}</TableCell>
+                        <TableCell>
+                          {quote.validUntil ? formatDate(quote.validUntil) : '-'}
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant="body2">{quote.account.name}</Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            {quote.account.code}
+                          </Typography>
+                        </TableCell>
+                        <TableCell align="right">{formatCurrency(quote.totalAmount)}</TableCell>
+                        <TableCell align="right">{formatCurrency(quote.taxAmount)}</TableCell>
+                        <TableCell align="right">
+                          <Typography variant="body2" fontWeight="bold">
+                            {formatCurrency(quote.grandTotal)}
+                          </Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Chip
+                            label={statusTexts[quote.status]}
+                            color={statusColors[quote.status]}
+                            size="small"
+                          />
+                        </TableCell>
+                        <TableCell align="center">
+                          <IconButton
+                            size="small"
+                            onClick={() => router.push(`/quotes/purchase/edit/${quote.id}`)}
+                            disabled={quote.status === 'CONVERTED_TO_ORDER' || quote.status === 'REJECTED'}
+                          >
+                            <Edit />
+                          </IconButton>
+                          <IconButton
+                            size="small"
+                            onClick={(e) => handleMenuOpen(e, quote)}
+                          >
+                            <MoreVert />
+                          </IconButton>
+                        </TableCell>
+                      </TableRow>
+                    ))
                 )}
               </TableBody>
             </Table>
@@ -325,25 +325,25 @@ export default function SatinAlmaTeklifleriPage() {
           open={Boolean(anchorEl)}
           onClose={handleMenuClose}
         >
-          {selectedTeklif && selectedTeklif.durum !== 'SIPARISE_DONUSTU' && (
+          {selectedQuote && selectedQuote.status !== 'CONVERTED_TO_ORDER' && (
             [
-              selectedTeklif.durum === 'TEKLIF' && (
-                <MenuItem key="onaylandi" onClick={() => handleDurumChange('ONAYLANDI')}>
+              selectedQuote.status === 'OFFERED' && (
+                <MenuItem key="onaylandi" onClick={() => handleStatusChange('APPROVED')}>
                   Onaylandı Olarak İşaretle
                 </MenuItem>
               ),
-              selectedTeklif.durum === 'TEKLIF' && (
-                <MenuItem key="reddedildi" onClick={() => handleDurumChange('REDDEDILDI')}>
+              selectedQuote.status === 'OFFERED' && (
+                <MenuItem key="reddedildi" onClick={() => handleStatusChange('REJECTED')}>
                   Reddedildi Olarak İşaretle
                 </MenuItem>
               ),
-              selectedTeklif.durum === 'TEKLIF' && (
+              selectedQuote.status === 'OFFERED' && (
                 <MenuItem key="siparise-donustur-teklif" onClick={handleConvertToSiparis}>
                   <ShoppingCart sx={{ mr: 1 }} fontSize="small" />
                   Siparişe Dönüştür
                 </MenuItem>
               ),
-              selectedTeklif.durum === 'ONAYLANDI' && (
+              selectedQuote.status === 'APPROVED' && (
                 <MenuItem key="siparise-donustur-onaylandi" onClick={handleConvertToSiparis}>
                   <ShoppingCart sx={{ mr: 1 }} fontSize="small" />
                   Siparişe Dönüştür
@@ -351,8 +351,8 @@ export default function SatinAlmaTeklifleriPage() {
               ),
             ].filter(Boolean)
           )}
-          {selectedTeklif && selectedTeklif.siparisId && (
-            <MenuItem onClick={() => router.push(`/siparis/satin-alma/duzenle/${selectedTeklif.siparisId}`)}>
+          {selectedQuote && selectedQuote.orderId && (
+            <MenuItem onClick={() => router.push(`/order/purchase/edit/${selectedQuote.orderId}`)}>
               <Visibility sx={{ mr: 1 }} fontSize="small" />
               İlgili Siparişi Görüntüle
             </MenuItem>

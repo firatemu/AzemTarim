@@ -32,7 +32,7 @@ export class AdminLogsController {
         }
 
         const [logs, total] = await Promise.all([
-            this.prisma.extended.auditLog.findMany({
+            this.prisma.auditLog.findMany({
                 where,
                 orderBy: { createdAt: 'desc' },
                 skip,
@@ -43,7 +43,7 @@ export class AdminLogsController {
                     },
                 },
             }),
-            this.prisma.extended.auditLog.count({ where }),
+            this.prisma.auditLog.count({ where }),
         ]);
 
         return {
@@ -58,11 +58,11 @@ export class AdminLogsController {
     @Get('stats')
     async getStats() {
         const [total, last24h, byAction] = await Promise.all([
-            this.prisma.extended.auditLog.count(),
-            this.prisma.extended.auditLog.count({
+            this.prisma.auditLog.count(),
+            this.prisma.auditLog.count({
                 where: { createdAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) } },
             }),
-            this.prisma.extended.auditLog.groupBy({
+            this.prisma.auditLog.groupBy({
                 by: ['action'],
                 _count: { action: true },
                 orderBy: { _count: { action: 'desc' } },

@@ -88,7 +88,7 @@ export class SalesWaybillService {
     }
 
     const [data, total] = await Promise.all([
-      this.prisma.extended.salesDeliveryNote.findMany({
+      this.prisma.salesDeliveryNote.findMany({
         where,
         skip,
         take: limit,
@@ -129,7 +129,7 @@ export class SalesWaybillService {
         },
         orderBy: { createdAt: 'desc' },
       }),
-      this.prisma.extended.salesDeliveryNote.count({ where }),
+      this.prisma.salesDeliveryNote.count({ where }),
     ]);
 
     return {
@@ -159,7 +159,7 @@ export class SalesWaybillService {
   }
 
   async findOne(id: string) {
-    const deliveryNote = await this.prisma.extended.salesDeliveryNote.findUnique({
+    const deliveryNote = await this.prisma.salesDeliveryNote.findUnique({
       where: { id },
       include: {
         account: true,
@@ -248,7 +248,7 @@ export class SalesWaybillService {
       throw new BadRequestException('At least one item must be added');
     }
 
-    const existingWaybill = await this.prisma.extended.salesDeliveryNote.findFirst({
+    const existingWaybill = await this.prisma.salesDeliveryNote.findFirst({
       where: {
         deliveryNoteNo: deliveryNoteData.deliveryNoteNo,
         ...buildTenantWhereClause(tenantId ?? undefined),
@@ -262,7 +262,7 @@ export class SalesWaybillService {
     }
 
     // Account check
-    const account = await this.prisma.extended.account.findUnique({
+    const account = await this.prisma.account.findUnique({
       where: { id: deliveryNoteData.accountId },
     });
 
@@ -272,7 +272,7 @@ export class SalesWaybillService {
 
     // Order check (if sourceType: ORDER)
     if (deliveryNoteData.sourceType === DeliveryNoteSourceType.ORDER && deliveryNoteData.sourceId) {
-      const salesOrder = await this.prisma.extended.salesOrder.findUnique({
+      const salesOrder = await this.prisma.salesOrder.findUnique({
         where: { id: deliveryNoteData.sourceId },
       });
 
@@ -307,7 +307,7 @@ export class SalesWaybillService {
     const grandTotal = subtotal + vatAmount;
 
     // Create deliveryNote and items with transaction
-    return this.prisma.extended.$transaction(async (prisma) => {
+    return this.prisma.$transaction(async (prisma) => {
       const deliveryNote = await prisma.salesDeliveryNote.create({
         data: {
           deliveryNoteNo: deliveryNoteData.deliveryNoteNo,
@@ -398,7 +398,7 @@ export class SalesWaybillService {
     ipAddress?: string,
     userAgent?: string,
   ) {
-    const existingWaybill = await this.prisma.extended.salesDeliveryNote.findUnique({
+    const existingWaybill = await this.prisma.salesDeliveryNote.findUnique({
       where: { id },
       include: {
         items: true,
@@ -421,7 +421,7 @@ export class SalesWaybillService {
     const { items, ...deliveryNoteData } = updateDto;
 
     // Update with transaction
-    return this.prisma.extended.$transaction(async (prisma) => {
+    return this.prisma.$transaction(async (prisma) => {
       // If items are being updated
       if (items && items.length > 0) {
         // Delete existing items
@@ -557,7 +557,7 @@ export class SalesWaybillService {
     ipAddress?: string,
     userAgent?: string,
   ) {
-    const deliveryNote = await this.prisma.extended.salesDeliveryNote.findUnique({
+    const deliveryNote = await this.prisma.salesDeliveryNote.findUnique({
       where: { id },
       include: {
         invoices: true,
@@ -578,7 +578,7 @@ export class SalesWaybillService {
       throw new BadRequestException('Waybill linked to an invoice cannot be deleted');
     }
 
-    return this.prisma.extended.$transaction(async (prisma) => {
+    return this.prisma.$transaction(async (prisma) => {
       // Soft delete
       await prisma.salesDeliveryNote.update({
         where: { id },
@@ -614,7 +614,7 @@ export class SalesWaybillService {
   async getPendingByAccount(accountId: string) {
     const tenantId = await this.tenantResolver.resolveForQuery();
 
-    return this.prisma.extended.salesDeliveryNote.findMany({
+    return this.prisma.salesDeliveryNote.findMany({
       where: {
         accountId: accountId,
         status: { not: DeliveryNoteStatus.INVOICED as any },

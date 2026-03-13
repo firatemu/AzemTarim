@@ -60,6 +60,7 @@ export class InvoiceService {
     tx?: Prisma.TransactionClient,
   ) {
     const prisma = tx || this.prisma;
+    const tenantId = await this.tenantResolver.resolveForQuery();
     await prisma.invoiceLog.create({
       data: {
         invoiceId: invoiceId,
@@ -68,6 +69,7 @@ export class InvoiceService {
         changes: changes ? JSON.stringify(changes) : null,
         ipAddress,
         userAgent,
+        tenantId,
       },
     });
   }
@@ -87,18 +89,13 @@ export class InvoiceService {
     prisma: any,
   ) {
     // Check WMS Module status
-    // TODO: Optimize by fetching ONCE per transaction instead of per item
+    const tenantId = await this.tenantResolver.resolveForQuery();
     const wmsParam = await prisma.systemParameter.findFirst({
       where: {
         key: 'ENABLE_WMS_MODULE',
-        OR: [
-          // Check generic/global param (assuming tenant filtering is handled or we want global config)
-          { tenantId: null },
-          // If we had tenant context, we'd check that too.
-          // For now, looking up broadly is safe as we just inserted a global/tenant-linked one.
-        ]
+        ...buildTenantWhereClause(tenantId ?? undefined),
       },
-      orderBy: { tenantId: 'desc' }, // Prefer specific tenant if available (non-null first usually)
+      orderBy: { tenantId: 'desc' },
     });
 
     const isWmsEnabled = wmsParam?.value === 'true' || wmsParam?.value === true;
@@ -113,13 +110,12 @@ export class InvoiceService {
     const defaultLocation = await this.warehouseService.getOrCreateDefaultLocation(warehouseId);
 
     // Find existing ProductLocationStock
-    let stock = await prisma.productLocationStock.findUnique({
+    let stock = await prisma.productLocationStock.findFirst({
       where: {
-        warehouseId_locationId_productId: {
-          warehouseId,
-          locationId: defaultLocation.id,
-          productId,
-        },
+        warehouseId,
+        locationId: defaultLocation.id,
+        productId,
+        ...buildTenantWhereClause(tenantId ?? undefined),
       },
     });
 
@@ -141,6 +137,7 @@ export class InvoiceService {
           where: {
             warehouseId,
             productId,
+            ...buildTenantWhereClause(tenantId ?? undefined),
           },
           _sum: {
             qtyOnHand: true,
@@ -155,13 +152,12 @@ export class InvoiceService {
         }
       }
 
-      await prisma.productLocationStock.update({
+      await prisma.productLocationStock.updateMany({
         where: {
-          warehouseId_locationId_productId: {
-            warehouseId,
-            locationId: defaultLocation.id,
-            productId,
-          },
+          warehouseId,
+          locationId: defaultLocation.id,
+          productId,
+          ...buildTenantWhereClause(tenantId ?? undefined),
         },
         data: {
           qtyOnHand: newQty,
@@ -182,6 +178,7 @@ export class InvoiceService {
             where: {
               warehouseId,
               productId,
+              ...buildTenantWhereClause(tenantId ?? undefined),
             },
             _sum: {
               qtyOnHand: true,
@@ -197,28 +194,33 @@ export class InvoiceService {
         }
 
         // If negative stock is allowed, create a negative stock record
+        const createTenantId = await this.tenantResolver.resolveForCreate({ userId });
         await prisma.productLocationStock.create({
           data: {
             warehouseId,
             locationId: defaultLocation.id,
             productId,
             qtyOnHand: -quantity, // Negative stock
+            tenantId: createTenantId,
           },
         });
       } else {
         // For PUT_AWAY, create positive stock
+        const createTenantId = await this.tenantResolver.resolveForCreate({ userId });
         await prisma.productLocationStock.create({
           data: {
             warehouseId,
             locationId: defaultLocation.id,
             productId,
             qtyOnHand: quantity,
+            tenantId: createTenantId,
           },
         });
       }
     }
 
     // Create StockMove record
+    const createTenantId = await this.tenantResolver.resolveForCreate({ userId });
     await prisma.stockMove.create({
       data: {
         productId,
@@ -232,6 +234,7 @@ export class InvoiceService {
         refId,
         note,
         createdBy: userId,
+        tenantId: createTenantId,
       },
     });
   }
@@ -310,7 +313,7 @@ export class InvoiceService {
       }
 
       const [data, total] = await Promise.all([
-        this.prisma.extended.invoice.findMany({
+        this.prisma.invoice.findMany({
           where,
           skip,
           take: limit,
@@ -355,7 +358,7 @@ export class InvoiceService {
             ? { [sortBy]: sortOrder || 'desc' }
             : { createdAt: 'desc' },
         }),
-        this.prisma.extended.invoice.count({ where }),
+        this.prisma.invoice.count({ where }),
       ]);
 
       const dataWithKalan = data.map((item: any) => {
@@ -378,8 +381,12 @@ export class InvoiceService {
   }
 
   async findOne(id: string) {
-    const invoice = await this.prisma.extended.invoice.findUnique({
-      where: { id },
+    const tenantId = await this.tenantResolver.resolveForQuery();
+    const invoice = await this.prisma.invoice.findFirst({
+      where: {
+        id,
+        ...buildTenantWhereClause(tenantId ?? undefined),
+      },
       include: {
         account: true,
         deliveryNote: {
@@ -497,7 +504,7 @@ export class InvoiceService {
           invoiceData.invoiceNo = await this.codeTemplateService.getNextCode(ModuleType.INVOICE_PURCHASE);
         } else {
           const year = new Date().getFullYear();
-          const lastInvoice = await this.prisma.extended.invoice.findFirst({
+          const lastInvoice = await this.prisma.invoice.findFirst({
             where: {
               invoiceType: invoiceData.type as InvoiceType,
               ...(tenantId && { tenantId }),
@@ -510,7 +517,7 @@ export class InvoiceService {
         }
       } catch (error: any) {
         const year = new Date().getFullYear();
-        const lastInvoice = await this.prisma.extended.invoice.findFirst({
+        const lastInvoice = await this.prisma.invoice.findFirst({
           where: {
             invoiceType: invoiceData.type as InvoiceType,
             ...(tenantId && { tenantId }),
@@ -523,7 +530,7 @@ export class InvoiceService {
       }
     }
 
-    const existingInvoice = await this.prisma.extended.invoice.findFirst({
+    const existingInvoice = await this.prisma.invoice.findFirst({
       where: {
         invoiceNo: invoiceData.invoiceNo,
         ...(tenantId && { tenantId }),
@@ -536,8 +543,11 @@ export class InvoiceService {
       );
     }
 
-    const account = await this.prisma.extended.account.findUnique({
-      where: { id: invoiceData.accountId },
+    const account = await this.prisma.account.findFirst({
+      where: {
+        id: invoiceData.accountId,
+        ...buildTenantWhereClause(tenantId ?? undefined),
+      },
       select: { id: true, salesAgentId: true, title: true, balance: true, creditLimit: true }
     });
 
@@ -629,8 +639,11 @@ export class InvoiceService {
     let salesOrder: any = null;
     let orderPickings: any[] = [];
     if (orderId) {
-      salesOrder = await this.prisma.extended.salesOrder.findUnique({
-        where: { id: orderId },
+      salesOrder = await this.prisma.salesOrder.findFirst({
+        where: {
+          id: orderId,
+          ...buildTenantWhereClause(tenantId ?? undefined),
+        },
         include: {
           orderPickings: {
             include: {
@@ -676,15 +689,19 @@ export class InvoiceService {
         }> = [];
 
         for (const item of itemsWithCalculations) {
-          const product = await this.prisma.extended.product.findUnique({
-            where: { id: item.productId },
+          const product = await this.prisma.product.findFirst({
+            where: {
+              id: item.productId,
+              ...buildTenantWhereClause(tenantId ?? undefined),
+            },
             select: { code: true, name: true },
           });
 
-          const stock = await this.prisma.extended.productLocationStock.aggregate({
+          const stock = await this.prisma.productLocationStock.aggregate({
             where: {
               warehouseId,
               productId: item.productId,
+              ...buildTenantWhereClause(tenantId ?? undefined),
             },
             _sum: {
               qtyOnHand: true,
@@ -745,15 +762,18 @@ export class InvoiceService {
       }
     }
 
-    const createdInvoice = await this.prisma.extended.$transaction(async (prisma) => {
+    const createdInvoice = await this.prisma.$transaction(async (prisma) => {
       let transactionWarehouseId = warehouseId;
       let finalDeliveryNoteId: string | undefined = undefined;
       let purchaseDeliveryNoteId: string | undefined = undefined;
 
       if (deliveryNoteId) {
         if (invoiceData.type === InvoiceType.SALE || invoiceData.type === InvoiceType.SALES_RETURN) {
-          const deliveryNote = await prisma.salesDeliveryNote.findUnique({
-            where: { id: deliveryNoteId },
+          const deliveryNote = await prisma.salesDeliveryNote.findFirst({
+            where: {
+              id: deliveryNoteId,
+              ...buildTenantWhereClause(tenantId ?? undefined),
+            },
             include: {
               sourceOrder: { select: { id: true, orderNo: true } },
               items: true,
@@ -771,22 +791,31 @@ export class InvoiceService {
           for (const faturaKalemi of items) {
             const dnItem = deliveryNote.items.find(ik => ik.productId === faturaKalemi.productId);
             if (dnItem) {
-              await prisma.salesDeliveryNoteItem.update({
-                where: { id: dnItem.id },
+              await prisma.salesDeliveryNoteItem.updateMany({
+                where: {
+                  id: dnItem.id,
+                  ...buildTenantWhereClause(tenantId ?? undefined),
+                },
                 data: { invoicedQuantity: { increment: faturaKalemi.quantity } }
               });
             }
           }
 
-          const updatedDN = await prisma.salesDeliveryNote.findUnique({
-            where: { id: deliveryNoteId },
+          const updatedDN = await prisma.salesDeliveryNote.findFirst({
+            where: {
+              id: deliveryNoteId,
+              ...buildTenantWhereClause(tenantId ?? undefined),
+            },
             include: { items: true }
           });
 
           const isFullyInvoiced = updatedDN?.items.every(k => k.invoicedQuantity >= k.quantity);
           if (isFullyInvoiced) {
-            await prisma.salesDeliveryNote.update({
-              where: { id: deliveryNoteId },
+            await prisma.salesDeliveryNote.updateMany({
+              where: {
+                id: deliveryNoteId,
+                ...buildTenantWhereClause(tenantId ?? undefined),
+              },
               data: { status: DeliveryNoteStatus.INVOICED },
             });
           }
@@ -794,8 +823,11 @@ export class InvoiceService {
           finalDeliveryNoteId = deliveryNoteId;
           if (deliveryNote.warehouseId) transactionWarehouseId = deliveryNote.warehouseId;
         } else if (invoiceData.type === InvoiceType.PURCHASE || invoiceData.type === InvoiceType.PURCHASE_RETURN) {
-          const deliveryNote = await prisma.purchaseDeliveryNote.findUnique({
-            where: { id: deliveryNoteId },
+          const deliveryNote = await prisma.purchaseDeliveryNote.findFirst({
+            where: {
+              id: deliveryNoteId,
+              ...buildTenantWhereClause(tenantId ?? undefined),
+            },
             include: {
               sourceOrder: { select: { id: true, orderNo: true } },
             },
@@ -809,8 +841,11 @@ export class InvoiceService {
             throw new BadRequestException('Bu deliveryNote zaten faturalandırılmış');
           }
 
-          await prisma.purchaseDeliveryNote.update({
-            where: { id: deliveryNoteId },
+          await prisma.purchaseDeliveryNote.updateMany({
+            where: {
+              id: deliveryNoteId,
+              ...buildTenantWhereClause(tenantId ?? undefined),
+            },
             data: { status: DeliveryNoteStatus.INVOICED },
           });
 
@@ -976,8 +1011,11 @@ export class InvoiceService {
       });
 
       if (salesOrder && salesOrder.id) {
-        await prisma.salesOrder.update({
-          where: { id: salesOrder.id },
+        await prisma.salesOrder.updateMany({
+          where: {
+            id: salesOrder.id,
+            ...buildTenantWhereClause(tenantId ?? undefined),
+          },
           data: {
             status: 'INVOICED',
             invoiceNo: invoiceData.invoiceNo,
@@ -1059,7 +1097,7 @@ export class InvoiceService {
       // Check invoiceNo uniqueness if changed
       if (invoiceNo !== undefined && invoiceNo.trim() !== '' && invoiceNo !== invoice.invoiceNo) {
         const tenantId = invoice.tenantId ?? undefined;
-        const existing = await this.prisma.extended.invoice.findFirst({
+        const existing = await this.prisma.invoice.findFirst({
           where: {
             invoiceNo: invoiceNo.trim(),
             ...(tenantId && { tenantId }),
@@ -1073,7 +1111,8 @@ export class InvoiceService {
         }
       }
 
-      const updated = await this.prisma.extended.invoice.update({
+      const tenantId = invoice.tenantId ?? undefined;
+      const updated = await this.prisma.invoice.update({
         where: { id },
         data: {
           ...updateData,
@@ -1098,7 +1137,7 @@ export class InvoiceService {
       // Status change and process movements
       if (updateInvoiceDto.status === InvoiceStatus.APPROVED && invoice.status !== InvoiceStatus.APPROVED) {
         const whId = updateInvoiceDto.warehouseId ?? (updated as any).warehouseId ?? (invoice as any).warehouseId ?? undefined;
-        await this.prisma.extended.$transaction(async (tx) => {
+        await this.prisma.$transaction(async (tx) => {
           await this.processInvoiceMovements(updated, tx, userId, whId, [], updated.tenantId ?? invoice.tenantId);
         });
       }
@@ -1124,7 +1163,7 @@ export class InvoiceService {
     const newInvoiceNo = invoiceData.invoiceNo != null && String(invoiceData.invoiceNo).trim() !== '' ? String(invoiceData.invoiceNo).trim() : null;
     if (newInvoiceNo && newInvoiceNo !== invoice.invoiceNo) {
       const tenantId = invoice.tenantId ?? undefined;
-      const existing = await this.prisma.extended.invoice.findFirst({
+      const existing = await this.prisma.invoice.findFirst({
         where: {
           invoiceNo: newInvoiceNo,
           ...(tenantId && { tenantId }),
@@ -1202,7 +1241,7 @@ export class InvoiceService {
       }
     }
 
-    const updated = await this.prisma.extended.$transaction(
+    const updated = await this.prisma.$transaction(
       async (prisma) => {
         if (invoice.status === InvoiceStatus.APPROVED) {
           await this.reverseInvoiceMovements(invoice, prisma, invoice.tenantId ?? undefined);
@@ -1328,7 +1367,7 @@ export class InvoiceService {
     await this.deletionProtection.checkFaturaDeletion(id, tenantId);
 
     // Soft delete
-    const deletedInvoice = await this.prisma.extended.$transaction(async (prisma) => {
+    const deletedInvoice = await this.prisma.$transaction(async (prisma) => {
       // Delete account movements and stock movements if approved
       if (invoice.status === InvoiceStatus.APPROVED) {
         await prisma.accountMovement.deleteMany({
@@ -1336,12 +1375,16 @@ export class InvoiceService {
             accountId: invoice.accountId,
             documentType: 'INVOICE',
             documentNo: invoice.invoiceNo,
+            ...buildTenantWhereClause(tenantId ?? undefined),
           },
         });
 
         // Revert account balance
-        await prisma.account.update({
-          where: { id: invoice.accountId },
+        await prisma.account.updateMany({
+          where: {
+            id: invoice.accountId,
+            ...buildTenantWhereClause(tenantId ?? undefined),
+          },
           data: {
             balance:
               invoice.invoiceType === InvoiceType.SALE
@@ -1354,7 +1397,10 @@ export class InvoiceService {
         const itemIds = invoice.items?.map((item) => item.id) ?? [];
         if (itemIds.length > 0) {
           await prisma.productMovement.deleteMany({
-            where: { invoiceItemId: { in: itemIds } },
+            where: {
+              invoiceItemId: { in: itemIds },
+              ...buildTenantWhereClause(tenantId ?? undefined),
+            },
           });
         }
 
@@ -1375,8 +1421,11 @@ export class InvoiceService {
           }
         }
         if (invoice.invoiceType === InvoiceType.SALE && invoice.deliveryNoteId && !transactionWarehouseId) {
-          const deliveryNote = await prisma.salesDeliveryNote.findUnique({
-            where: { id: invoice.deliveryNoteId },
+          const deliveryNote = await prisma.salesDeliveryNote.findFirst({
+            where: {
+              id: invoice.deliveryNoteId,
+              ...buildTenantWhereClause(tenantId ?? undefined),
+            },
             select: { warehouseId: true },
           });
           if (deliveryNote?.warehouseId) {
@@ -1395,8 +1444,11 @@ export class InvoiceService {
           }
         }
         if (invoice.invoiceType === InvoiceType.PURCHASE && !transactionWarehouseId && invoice.purchaseDeliveryNoteId) {
-          const deliveryNote = await prisma.purchaseDeliveryNote.findUnique({
-            where: { id: invoice.purchaseDeliveryNoteId },
+          const deliveryNote = await prisma.purchaseDeliveryNote.findFirst({
+            where: {
+              id: invoice.purchaseDeliveryNoteId,
+              ...buildTenantWhereClause(tenantId ?? undefined),
+            },
             select: { warehouseId: true },
           });
           if (deliveryNote?.warehouseId) {
@@ -1422,6 +1474,8 @@ export class InvoiceService {
         data: {
           deletedAt: new Date(),
           deletedBy: userId,
+          status: InvoiceStatus.CANCELLED,
+          ...(tenantId && { tenantId }),
         },
       });
 
@@ -1473,8 +1527,10 @@ export class InvoiceService {
   ) {
     const skip = (page - 1) * limit;
 
+    const tenantId = await this.tenantResolver.resolveForQuery();
     const where: Prisma.InvoiceWhereInput = {
       deletedAt: { not: null },
+      ...buildTenantWhereClause(tenantId ?? undefined),
     };
 
     if (invoiceType) {
@@ -1490,7 +1546,7 @@ export class InvoiceService {
     }
 
     const [data, total] = await Promise.all([
-      this.prisma.extended.invoice.findMany({
+      this.prisma.invoice.findMany({
         where,
         skip,
         take: limit,
@@ -1511,7 +1567,7 @@ export class InvoiceService {
         },
         orderBy: { deletedAt: 'desc' },
       }),
-      this.prisma.extended.invoice.count({ where }),
+      this.prisma.invoice.count({ where }),
     ]);
 
     return {
@@ -1529,8 +1585,12 @@ export class InvoiceService {
     ipAddress?: string,
     userAgent?: string,
   ) {
-    const invoice = await this.prisma.extended.invoice.findUnique({
-      where: { id },
+    const tenantId = await this.tenantResolver.resolveForQuery();
+    const invoice = await this.prisma.invoice.findFirst({
+      where: {
+        id,
+        ...buildTenantWhereClause(tenantId ?? undefined),
+      },
       include: {
         account: true,
         items: true,
@@ -1547,10 +1607,13 @@ export class InvoiceService {
       );
     }
 
-    return this.prisma.extended.$transaction(async (prisma) => {
+    return this.prisma.$transaction(async (prisma) => {
       // Restore the invoice
       const restored = await prisma.invoice.update({
-        where: { id },
+        where: {
+          id,
+          ...buildTenantWhereClause(tenantId ?? undefined),
+        },
         data: {
           deletedAt: null,
           deletedBy: null,
@@ -1574,6 +1637,7 @@ export class InvoiceService {
         await prisma.accountMovement.create({
           data: {
             accountId: invoice.accountId,
+            tenantId: invoice.tenantId!,
             type: invoice.invoiceType === InvoiceType.SALE ? 'DEBIT' : 'CREDIT',
             amount: gt,
             balance: invoice.invoiceType === InvoiceType.SALE ? accountBalance + gt : accountBalance - gt,
@@ -1585,8 +1649,12 @@ export class InvoiceService {
         });
 
         // Update account balance
-        await prisma.account.update({
-          where: { id: invoice.accountId },
+        const tenantId = restored.tenantId ?? undefined;
+        await prisma.account.updateMany({
+          where: {
+            id: invoice.accountId,
+            ...buildTenantWhereClause(tenantId),
+          },
           data: {
             balance:
               invoice.invoiceType === InvoiceType.SALE
@@ -1655,7 +1723,7 @@ export class InvoiceService {
       );
     }
 
-    return this.prisma.extended.$transaction(async (prisma) => {
+    return this.prisma.$transaction(async (prisma) => {
       // For SALE/PURCHASE cancel: Only revert account, no stock movement created (status is cancelled)
       // For SALES_RETURN/PURCHASE_RETURN: Revert both account and stock
       if (invoice.status === InvoiceStatus.APPROVED) {
@@ -1689,6 +1757,7 @@ export class InvoiceService {
           await prisma.accountMovement.create({
             data: {
               accountId: invoice.accountId,
+              tenantId: invoice.tenantId!,
               type: invoice.invoiceType === InvoiceType.SALE ? 'CREDIT' : 'DEBIT',
               amount: this.toDecimalNumber(invoice.grandTotal),
               balance: this.toDecimalNumber(currentAccount.balance),
@@ -1754,7 +1823,7 @@ export class InvoiceService {
       throw new BadRequestException('Invoice is already in this status.');
     }
 
-    return this.prisma.extended.$transaction(async (prisma) => {
+    return this.prisma.$transaction(async (prisma) => {
       // If old status was APPROVED, revert movements
       if (oldStatus === InvoiceStatus.APPROVED) {
         if (invoice.invoiceType === InvoiceType.SALE || invoice.invoiceType === InvoiceType.PURCHASE) {
@@ -1797,6 +1866,7 @@ export class InvoiceService {
             await prisma.accountMovement.create({
               data: {
                 accountId: invoice.accountId,
+                tenantId: invoice.tenantId!,
                 type: invoice.invoiceType === InvoiceType.SALE ? 'CREDIT' : 'DEBIT',
                 amount: this.toDecimalNumber(invoice.grandTotal),
                 balance: this.toDecimalNumber(account.balance),
@@ -1856,7 +1926,7 @@ export class InvoiceService {
       where.accountId = accountId;
     }
 
-    const invoices = await this.prisma.extended.invoice.findMany({
+    const invoices = await this.prisma.invoice.findMany({
       where,
       include: {
         account: {
@@ -1995,7 +2065,7 @@ export class InvoiceService {
    */
   async getMaterialPreparationSlip(invoiceId: string) {
     // Get invoice and its items
-    const invoice = await this.prisma.extended.invoice.findUnique({
+    const invoice = await this.prisma.invoice.findUnique({
       where: { id: invoiceId },
       include: {
         account: {
@@ -2039,7 +2109,7 @@ export class InvoiceService {
     const itemsWithShelf = await Promise.all(
       invoice.items.map(async (item) => {
         // Get shelf info from ProductLocationStock
-        const shelfInfo = await this.prisma.extended.productLocationStock.findMany({
+        const shelfInfo = await this.prisma.productLocationStock.findMany({
           where: {
             productId: item.productId,
             qtyOnHand: {
@@ -2214,7 +2284,7 @@ export class InvoiceService {
       // 5. Check result and save to DB
       if (result && result.length > 0 && result[0].IsSucceeded) {
         // Success - update e-invoice status
-        await this.prisma.extended.invoice.update({
+        await this.prisma.invoice.update({
           where: { id: invoiceId },
           data: {
             eInvoiceStatus: 'SENT',
@@ -2244,7 +2314,7 @@ export class InvoiceService {
         // Failed
         const errorMessage = result && result.length > 0 ? result[0].Message : 'Unknown error';
 
-        await this.prisma.extended.invoice.update({
+        await this.prisma.invoice.update({
           where: { id: invoiceId },
           data: {
             eInvoiceStatus: 'ERROR',
@@ -2265,7 +2335,7 @@ export class InvoiceService {
       }
     } catch (error: any) {
       // On error, update status
-      await this.prisma.extended.invoice.update({
+      await this.prisma.invoice.update({
         where: { id: invoiceId },
         data: {
           eInvoiceStatus: 'ERROR',
@@ -2478,7 +2548,7 @@ export class InvoiceService {
     const approvedStatuses: InvoiceStatus[] = [InvoiceStatus.APPROVED, InvoiceStatus.PARTIALLY_PAID, InvoiceStatus.CLOSED];
 
     // Monthly total sales (approved only)
-    const monthlyStats = await this.prisma.extended.invoice.aggregate({
+    const monthlyStats = await this.prisma.invoice.aggregate({
       where: {
         ...baseWhere,
         date: { gte: startOfMonth },
@@ -2489,7 +2559,7 @@ export class InvoiceService {
     });
 
     // Pending collection (approved or partially paid)
-    const pendingStats = await this.prisma.extended.invoice.aggregate({
+    const pendingStats = await this.prisma.invoice.aggregate({
       where: {
         ...baseWhere,
         status: { in: [InvoiceStatus.APPROVED, InvoiceStatus.PARTIALLY_PAID] },
@@ -2499,7 +2569,7 @@ export class InvoiceService {
     });
 
     // Overdue (approved, partially paid, dueDate < now)
-    const overdueStats = await this.prisma.extended.invoice.aggregate({
+    const overdueStats = await this.prisma.invoice.aggregate({
       where: {
         ...baseWhere,
         dueDate: { lt: now },
@@ -2541,7 +2611,7 @@ export class InvoiceService {
   async getPriceHistory(accountId: string, productId: string) {
     const tenantId = await this.tenantResolver.resolveForQuery();
 
-    const items = await this.prisma.extended.invoiceItem.findMany({
+    const items = await this.prisma.invoiceItem.findMany({
       where: {
         productId,
         invoice: {
@@ -2585,7 +2655,7 @@ export class InvoiceService {
 
     for (const id of ids) {
       try {
-        await this.prisma.extended.invoice.update({
+        await this.prisma.invoice.update({
           where: { id },
           data: {
             status,
@@ -2593,7 +2663,7 @@ export class InvoiceService {
           },
         });
         // Log the action
-        await this.prisma.extended.invoiceLog.create({
+        await this.prisma.invoiceLog.create({
           data: {
             invoiceId: id,
             userId,
@@ -2687,7 +2757,7 @@ export class InvoiceService {
     }
 
     const [data, total] = await Promise.all([
-      this.prisma.extended.invoice.findMany({
+      this.prisma.invoice.findMany({
         where,
         skip,
         take: limit,
@@ -2723,7 +2793,7 @@ export class InvoiceService {
         },
         orderBy,
       }),
-      this.prisma.extended.invoice.count({ where }),
+      this.prisma.invoice.count({ where }),
     ]);
 
     return {
@@ -2775,7 +2845,7 @@ export class InvoiceService {
    * Get multiple invoices by IDs (for bulk printing)
    */
   async findManyByIds(ids: string[]) {
-    return this.prisma.extended.invoice.findMany({
+    return this.prisma.invoice.findMany({
       where: {
         id: { in: ids },
         deletedAt: null,
@@ -2800,20 +2870,23 @@ export class InvoiceService {
     invoiceType: string,
     prisma: any,
   ) {
+    const tenantId = await this.tenantResolver.resolveForQuery();
     const wmsParam = await prisma.systemParameter.findFirst({
-      where: { key: 'ENABLE_WMS_MODULE', OR: [{ tenantId: null }] },
+      where: {
+        key: 'ENABLE_WMS_MODULE',
+        ...buildTenantWhereClause(tenantId ?? undefined),
+      },
       orderBy: { tenantId: 'desc' },
     });
     if (wmsParam?.value !== 'true' && wmsParam?.value !== true) return;
 
     const defaultLocation = await this.warehouseService.getOrCreateDefaultLocation(warehouseId);
-    const stock = await prisma.productLocationStock.findUnique({
+    const stock = await prisma.productLocationStock.findFirst({
       where: {
-        warehouseId_locationId_productId: {
-          warehouseId,
-          locationId: defaultLocation.id,
-          productId,
-        },
+        warehouseId,
+        locationId: defaultLocation.id,
+        productId,
+        ...buildTenantWhereClause(tenantId ?? undefined),
       },
     });
     if (!stock) return;
@@ -2834,21 +2907,25 @@ export class InvoiceService {
   /**
    * Only reverses account movements for SALE/PURCHASE cancellation.
    */
-  private async reverseAccountOnlyForInvoice(invoice: any, prisma: any) {
+  private async reverseAccountOnlyForInvoice(invoice: any, prisma: any, tenantId?: string) {
     const grandTotal = Number(invoice.grandTotal);
     await prisma.accountMovement.deleteMany({
       where: {
         accountId: invoice.accountId,
         documentType: 'INVOICE',
         documentNo: invoice.invoiceNo,
+        ...buildTenantWhereClause(tenantId ?? undefined),
       },
     });
     const balanceUpdate =
       invoice.invoiceType === InvoiceType.SALE || invoice.invoiceType === InvoiceType.PURCHASE_RETURN
         ? { decrement: grandTotal }
         : { increment: grandTotal };
-    await prisma.account.update({
-      where: { id: invoice.accountId },
+    await prisma.account.updateMany({
+      where: {
+        id: invoice.accountId,
+        ...buildTenantWhereClause(tenantId ?? undefined),
+      },
       data: { balance: balanceUpdate },
     });
   }
@@ -2875,6 +2952,7 @@ export class InvoiceService {
           where: {
             notes: `Invoice Cancellation: ${invoice.invoiceNo}`,
             movementType: { in: ['CANCELLATION_ENTRY', 'CANCELLATION_EXIT'] },
+            ...buildTenantWhereClause(tenantId ?? undefined),
           },
         });
         if (existingCancelCount >= validItemCount) {
@@ -2893,6 +2971,7 @@ export class InvoiceService {
         accountId: invoice.accountId,
         documentType: 'INVOICE',
         documentNo: invoice.invoiceNo,
+        ...buildTenantWhereClause(tenantId ?? undefined),
       },
     });
 
@@ -2901,8 +2980,11 @@ export class InvoiceService {
       invoice.invoiceType === InvoiceType.SALE || invoice.invoiceType === InvoiceType.PURCHASE_RETURN
         ? { decrement: grandTotal }
         : { increment: grandTotal };
-    await prisma.account.update({
-      where: { id: invoice.accountId },
+    await prisma.account.updateMany({
+      where: {
+        id: invoice.accountId,
+        ...buildTenantWhereClause(tenantId ?? undefined),
+      },
       data: { balance: balanceUpdate },
     });
 
@@ -2960,8 +3042,11 @@ export class InvoiceService {
 
     // SALE with deliveryNoteId may have used delivery note warehouseId
     if (invoice.invoiceType === InvoiceType.SALE && invoice.deliveryNoteId && !transactionWarehouseId) {
-      const salesDeliveryNote = await prisma.salesDeliveryNote.findUnique({
-        where: { id: invoice.deliveryNoteId },
+      const salesDeliveryNote = await prisma.salesDeliveryNote.findFirst({
+        where: {
+          id: invoice.deliveryNoteId,
+          ...buildTenantWhereClause(tenantId ?? undefined),
+        },
         select: { warehouseId: true },
       });
       if (salesDeliveryNote?.warehouseId) {
@@ -2982,8 +3067,11 @@ export class InvoiceService {
 
     // PURCHASE may use warehouseId from purchaseDeliveryNote
     if (invoice.invoiceType === InvoiceType.PURCHASE && !transactionWarehouseId && invoice.purchaseDeliveryNoteId) {
-      const deliveryNote = await prisma.purchaseDeliveryNote.findUnique({
-        where: { id: invoice.purchaseDeliveryNoteId },
+      const deliveryNote = await prisma.purchaseDeliveryNote.findFirst({
+        where: {
+          id: invoice.purchaseDeliveryNoteId,
+          ...buildTenantWhereClause(tenantId ?? undefined),
+        },
         select: { warehouseId: true },
       });
       if (deliveryNote?.warehouseId) {
@@ -3023,8 +3111,11 @@ export class InvoiceService {
       tenantId,
     });
 
-    const currentAccount = await prisma.account.findUnique({
-      where: { id: invoice.accountId },
+    const currentAccount = await prisma.account.findFirst({
+      where: {
+        id: invoice.accountId,
+        ...buildTenantWhereClause(tenantId ?? undefined),
+      },
       select: { balance: true },
     });
 
@@ -3073,13 +3164,16 @@ export class InvoiceService {
         documentNo: invoice.invoiceNo,
         date: new Date(invoice.date),
         notes: description,
-        ...(effectiveTenantId && { tenantId: effectiveTenantId }),
+        tenantId: effectiveTenantId!,
       },
     });
 
     // 2. Update Account Balance
-    await prisma.account.update({
-      where: { id: invoice.accountId },
+    await prisma.account.updateMany({
+      where: {
+        id: invoice.accountId,
+        ...buildTenantWhereClause(effectiveTenantId ?? undefined),
+      },
       data: { balance: balanceUpdate },
     });
 
@@ -3094,12 +3188,16 @@ export class InvoiceService {
             where: {
               productId: slip.orderItem.productId,
               locationId: slip.locationId,
+              ...buildTenantWhereClause(effectiveTenantId ?? undefined),
             },
           });
 
           if (locationStock) {
-            await prisma.productLocationStock.update({
-              where: { id: locationStock.id },
+            await prisma.productLocationStock.updateMany({
+              where: {
+                id: locationStock.id,
+                ...buildTenantWhereClause(effectiveTenantId ?? undefined),
+              },
               data: { qtyOnHand: { decrement: slip.quantity } },
             });
           }
@@ -3117,6 +3215,7 @@ export class InvoiceService {
               refId: invoice.id,
               note: description,
               createdBy: userId,
+              tenantId: effectiveTenantId!,
             },
           });
         }
@@ -3140,8 +3239,11 @@ export class InvoiceService {
       }
 
       if (preparationSlips.length === 0 && invoice.deliveryNoteId) {
-        const salesDeliveryNote = await prisma.salesDeliveryNote.findUnique({
-          where: { id: invoice.deliveryNoteId },
+        const salesDeliveryNote = await prisma.salesDeliveryNote.findFirst({
+          where: {
+            id: invoice.deliveryNoteId,
+            ...buildTenantWhereClause(effectiveTenantId ?? undefined),
+          },
           select: { warehouseId: true },
         });
 
@@ -3214,8 +3316,11 @@ export class InvoiceService {
         transactionWarehouseId ||
         (invoice.purchaseDeliveryNoteId
           ? (
-            await prisma.purchaseDeliveryNote.findUnique({
-              where: { id: invoice.purchaseDeliveryNoteId },
+            await prisma.purchaseDeliveryNote.findFirst({
+              where: {
+                id: invoice.purchaseDeliveryNoteId,
+                ...buildTenantWhereClause(effectiveTenantId ?? undefined),
+              },
               select: { warehouseId: true },
             })
           )?.warehouseId
@@ -3271,7 +3376,7 @@ export class InvoiceService {
   }
 
   async createPaymentPlan(invoiceId: string, plan: any[]) {
-    return this.prisma.extended.$transaction(async (tx) => {
+    return this.prisma.$transaction(async (tx) => {
       await (tx as any).invoicePaymentPlan.deleteMany({
         where: { invoiceId },
       });

@@ -13,7 +13,7 @@ import {
 import type { Response } from 'express';
 import { AccountService } from './account.service';
 import { AccountMovementService } from '../account-movement/account-movement.service';
-import { CreateAccountDto, UpdateAccountDto, DebtCreditReportQueryDto } from './dto';
+import { CreateAccountDto, UpdateAccountDto, DebitCreditReportQueryDto } from './dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 
 @UseGuards(JwtAuthGuard)
@@ -25,40 +25,40 @@ export class AccountController {
         private readonly accountMovementService: AccountMovementService,
     ) { }
 
-    @Get('report/debt-credit')
-    getDebtCreditReport(@Query() query: DebtCreditReportQueryDto) {
-        return this.accountService.getDebtCreditReport(query);
+    @Get('report/debit-credit')
+    getDebitCreditReport(@Query() query: DebitCreditReportQueryDto) {
+        return this.accountService.getDebitCreditReport(query);
     }
 
-    @Get('report/debt-credit/export/excel')
-    async exportDebtCreditReportExcel(@Query() query: DebtCreditReportQueryDto, @Res() res: Response) {
-        const buffer = await this.accountService.exportDebtCreditReportExcel(query);
+    @Get('report/debit-credit/export/excel')
+    async exportDebitCreditReportExcel(@Query() query: DebitCreditReportQueryDto, @Res() res: Response) {
+        const buffer = await this.accountService.exportDebitCreditReportExcel(query);
         res.set({
             'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-            'Content-Disposition': 'attachment; filename=debt-credit-report.xlsx',
+            'Content-Disposition': 'attachment; filename=debit-credit-report.xlsx',
             'Content-Length': buffer.length,
         });
         res.end(buffer);
     }
 
-    @Get('report/debt-credit/export/pdf')
-    async exportDebtCreditReportPdf(@Query() query: DebtCreditReportQueryDto, @Res() res: Response) {
-        const buffer = await this.accountService.exportDebtCreditReportPdf(query);
+    @Get('report/debit-credit/export/pdf')
+    async exportDebitCreditReportPdf(@Query() query: DebitCreditReportQueryDto, @Res() res: Response) {
+        const buffer = await this.accountService.exportDebitCreditReportPdf(query);
         res.set({
             'Content-Type': 'application/pdf',
-            'Content-Disposition': 'attachment; filename=debt-credit-report.pdf',
+            'Content-Disposition': 'attachment; filename=debit-credit-report.pdf',
             'Content-Length': buffer.length,
         });
         res.end(buffer);
     }
 
     @Get('report/credit-limits')
-    getCreditLimitReport(@Query() query: DebtCreditReportQueryDto) {
+    getCreditLimitReport(@Query() query: DebitCreditReportQueryDto) {
         return this.accountService.getCreditLimitReport(query);
     }
 
     @Get('report/credit-limits/export/excel')
-    async exportCreditLimitReportExcel(@Query() query: DebtCreditReportQueryDto, @Res() res: Response) {
+    async exportCreditLimitReportExcel(@Query() query: DebitCreditReportQueryDto, @Res() res: Response) {
         const buffer = await this.accountService.exportCreditLimitReportExcel(query);
         res.set({
             'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -69,7 +69,7 @@ export class AccountController {
     }
 
     @Get('report/credit-limits/export/pdf')
-    async exportCreditLimitReportPdf(@Query() query: DebtCreditReportQueryDto, @Res() res: Response) {
+    async exportCreditLimitReportPdf(@Query() query: DebitCreditReportQueryDto, @Res() res: Response) {
         const buffer = await this.accountService.exportCreditLimitReportPdf(query);
         res.set({
             'Content-Type': 'application/pdf',

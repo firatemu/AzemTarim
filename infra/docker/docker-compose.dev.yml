@@ -1,0 +1,139 @@
+# Docker Compose - Sadece geliştirme için (developer mod, hot reload)
+# Kullanım: cd docker/compose && docker compose -f docker-compose.dev.yml up -d
+# Gereksiz servisler (Caddy, migrate) yok. Panel: NODE_ENV=development, NEXT_PUBLIC_DEVELOPER_MODE=true
+
+version: "3.9"
+
+networks:
+  app_net:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:
+  minio_data:
+  panel_stage_node_modules:
+  panel_stage_next_cache:
+  backend_uploads:
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: otomuhasebe_saas_postgres
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: otomuhasebe_saas_db
+      TZ: Europe/Istanbul
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      app_net:
+        aliases: [ otomuhasebe_saas_postgres ]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: otomuhasebe_saas_redis
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:6379:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    networks:
+      app_net:
+        aliases: [ otomuhasebe_saas_redis ]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  minio:
+    image: minio/minio:latest
+    container_name: otomuhasebe_saas_minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001" --address ":9000"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin123}
+      MINIO_REGION: us-east-1
+    volumes:
+      - minio_data:/data
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    networks:
+      app_net:
+        aliases: [ otomuhasebe_saas_minio ]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  backend-staging:
+    build:
+      context: ../../api-stage
+      dockerfile: server/Dockerfile.staging.prod
+    env_file:
+      - .env.staging
+    environment:
+      NODE_ENV: development
+    networks: [ app_net ]
+    ports:
+      - "3020:3000"
+    volumes:
+      - backend_uploads:/app/server/uploads
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      minio: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://0.0.0.0:3000/api/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+    restart: unless-stopped
+
+  user-panel-staging:
+    image: node:20-alpine
+    working_dir: /app
+    ports:
+      - "3010:3000"
+    env_file:
+      - .env.staging
+    environment:
+      NODE_ENV: development
+      NEXT_PUBLIC_DEVELOPER_MODE: "true"
+      HOSTNAME: "0.0.0.0"
+      PORT: "3000"
+      NEXT_TELEMETRY_DISABLED: "1"
+      CHOKIDAR_USEPOLLING: "true"
+      WATCHPACK_POLLING: "true"
+      API_PROXY_TARGET: "http://otomuhasebe_saas_backend:3000"
+    volumes:
+      - ../../panel-stage/client:/app
+      - panel_stage_node_modules:/app/node_modules
+      - panel_stage_next_cache:/app/.next
+    command: sh -c "corepack enable && pnpm install && pnpm dev"
+    networks: [ app_net ]
+    depends_on:
+      backend-staging: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://localhost:3000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 90s
+    restart: unless-stopped

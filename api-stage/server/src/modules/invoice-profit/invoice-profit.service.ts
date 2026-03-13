@@ -289,7 +289,7 @@ export class InvoiceProfitService {
    * Invoice bazlı kar bilgisi
    */
   async getProfitByInvoice(invoiceId: string) {
-    const invoice = await this.prisma.extended.invoice.findUnique({
+    const invoice = await this.prisma.invoice.findUnique({
       where: { id: invoiceId },
       include: {
         account: {
@@ -318,7 +318,7 @@ export class InvoiceProfitService {
     }
 
     // Invoice total profit record (invoiceItemId = null)
-    const totalProfitRecord = await this.prisma.extended.invoiceProfit.findFirst({
+    const totalProfitRecord = await this.prisma.invoiceProfit.findFirst({
       where: {
         invoiceId: invoiceId,
         invoiceItemId: null,
@@ -326,7 +326,7 @@ export class InvoiceProfitService {
     });
 
     // Item-based profit records
-    const itemProfitRecords = await this.prisma.extended.invoiceProfit.findMany({
+    const itemProfitRecords = await this.prisma.invoiceProfit.findMany({
       where: {
         invoiceId: invoiceId,
         invoiceItemId: { not: null },
@@ -408,7 +408,7 @@ export class InvoiceProfitService {
       where.tenantId = tenantId;
     }
 
-    let profitRecords = await this.prisma.extended.invoiceProfit.findMany({
+    let profitRecords = await this.prisma.invoiceProfit.findMany({
       where,
       include: {
         product: {
@@ -461,7 +461,7 @@ export class InvoiceProfitService {
         invoiceWhere.tenantId = tenantId;
       }
 
-      const invoices = await this.prisma.extended.invoice.findMany({
+      const invoices = await this.prisma.invoice.findMany({
         where: invoiceWhere,
         select: {
           id: true,
@@ -481,7 +481,7 @@ export class InvoiceProfitService {
       );
 
       // Yeniden sorgula
-      profitRecords = await this.prisma.extended.invoiceProfit.findMany({
+      profitRecords = await this.prisma.invoiceProfit.findMany({
         where,
         include: {
           product: {
@@ -616,7 +616,7 @@ export class InvoiceProfitService {
       where.tenantId = tenantId;
     }
 
-    const invoices = await this.prisma.extended.invoice.findMany({
+    const invoices = await this.prisma.invoice.findMany({
       where,
       include: {
         account: {
@@ -647,7 +647,7 @@ export class InvoiceProfitService {
       profitWhere.tenantId = tenantId;
     }
 
-    const totalProfitRecords = await this.prisma.extended.invoiceProfit.findMany({
+    const totalProfitRecords = await this.prisma.invoiceProfit.findMany({
       where: profitWhere,
     });
 
@@ -680,7 +680,7 @@ export class InvoiceProfitService {
         newProfitWhere.tenantId = tenantId;
       }
 
-      const newTotalProfitRecords = await this.prisma.extended.invoiceProfit.findMany({
+      const newTotalProfitRecords = await this.prisma.invoiceProfit.findMany({
         where: newProfitWhere,
       });
 
@@ -714,7 +714,7 @@ export class InvoiceProfitService {
 
   async getProfitDetailByInvoice(invoiceId: string) {
     // First check profit records
-    let itemProfitRecords = await this.prisma.extended.invoiceProfit.findMany({
+    let itemProfitRecords = await this.prisma.invoiceProfit.findMany({
       where: {
         invoiceId: invoiceId,
         invoiceItemId: { not: null },
@@ -747,7 +747,7 @@ export class InvoiceProfitService {
         console.log(`[getProfitDetailByInvoice] No valid profit record for invoice ${invoiceId}, starting automatic calculation...`);
         await this.calculateAndSaveProfit(invoiceId);
         // Re-query
-        itemProfitRecords = await this.prisma.extended.invoiceProfit.findMany({
+        itemProfitRecords = await this.prisma.invoiceProfit.findMany({
           where: {
             invoiceId: invoiceId,
             invoiceItemId: { not: null },

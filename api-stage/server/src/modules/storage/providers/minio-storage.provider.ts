@@ -16,17 +16,13 @@ export class MinIOStorageProvider implements IStorageService, OnModuleInit {
             useSSL: process.env.MINIO_USE_SSL === 'true',
             accessKey: process.env.MINIO_ACCESS_KEY,
             secretKey: process.env.MINIO_SECRET_KEY,
+            region: process.env.MINIO_REGION || 'us-east-1',
             pathStyle: true, // MinIO için path-style bucket access
         });
     }
 
     async onModuleInit() {
         try {
-            // GEÇİCİ ÇÖZÜM: MinIO bağlantı sorunu nedeniyle devre dışı
-            // MinIO bağlantısı düzeltildikten sonra enable edilecek
-            this.logger.warn(`⚠️ MinIO storage provider geçici olarak devre dışı bırakıldı`);
-            return;
-
             // Ensure bucket exists
             const exists = await this.client.bucketExists(this.bucketName);
 
@@ -41,8 +37,14 @@ export class MinIOStorageProvider implements IStorageService, OnModuleInit {
             });
             this.logger.log(`✅ Versioning enabled for '${this.bucketName}'`);
         } catch (error) {
-            this.logger.error(`❌ MinIO initialization failed: ${error.message}`);
-            throw error;
+            // Don't crash the app in development if MinIO is not available
+            if (process.env.NODE_ENV === 'development') {
+                this.logger.warn(`⚠️  MinIO initialization failed in development mode: ${error.message}`);
+                this.logger.warn('⚠️  Storage operations will fail until MinIO is available');
+            } else {
+                this.logger.error(`❌ MinIO initialization failed: ${error.message}`);
+                throw error;
+            }
         }
     }
 

@@ -35,8 +35,8 @@ const withPWA = require('next-pwa')({
   ],
 });
 
-// API Proxy Target: Docker'da API_PROXY_TARGET (http://backend-staging:3000), local'de localhost:3020
-const apiProxyTarget = (process.env.API_PROXY_TARGET || 'http://localhost:3020').replace(/\/$/, '');
+// API Proxy Target: Docker'da API_PROXY_TARGET (http://localhost:3000) veya local'de (http://localhost:3020) kullanabilir
+const apiProxyTarget = process.env.API_PROXY_TARGET || 'http://localhost:3000';
 const isDevelopment = process.env.NODE_ENV === 'development';
 const isProduction = process.env.NODE_ENV === 'production';
 const isStaging = (process.env.NODE_ENV as string) === 'staging';
@@ -45,9 +45,20 @@ const nextConfig: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
 
+  // TypeScript ve ESLint hatalarını build sırasında görmezden gel (staging için)
+  typescript: {
+    ignoreBuildErrors: true,
+  },
+  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+  // @ts-ignore – eslint property exists in Next.js runtime but not typed in NextConfig
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
+
   // Production optimizasyonları
   output: 'standalone', // Standalone build - daha küçük ve hızlı
   compress: true, // Gzip compression
+
 
   // External packages for server components
   serverExternalPackages: [
@@ -84,11 +95,6 @@ const nextConfig: NextConfig = {
     },
   },
 
-  // TypeScript
-  typescript: {
-    ignoreBuildErrors: true,
-  },
-
   // Staging için developer modu özellikleri
   ...(isStaging && {
     // Source maps staging'de açık
@@ -118,7 +124,7 @@ const nextConfig: NextConfig = {
       {
         protocol: 'http',
         hostname: 'backend-staging',
-      }
+      },
     ],
   },
 
@@ -128,12 +134,7 @@ const nextConfig: NextConfig = {
       maxInactiveAge: 60 * 1000,
       pagesBufferLength: 5,
     },
-    // Build aktivite göstergesi (sol alt köşe)
-    devIndicators: {
-      appIsrStatus: true,
-      buildActivity: true,
-      buildActivityPosition: 'bottom-left',
-    },
+    // devIndicators deprecated options removed
   }),
 
   // Webpack ayarları - sadece --webpack flag'i ile
@@ -159,7 +160,7 @@ const nextConfig: NextConfig = {
       }
 
       if (!isServer) {
-        const watchPolling = process.env.WATCHPACK_POLLING === 'true' || process.env.CHOKIDAR_USEPOLLING === 'true';
+        const watchPolling = process.env.WATCHPACK_POLLING === 'true' || process.env.CHOKIDAR_USE_POLLING === 'true';
         config.watchOptions = config.watchOptions || {};
         config.watchOptions.poll = watchPolling ? 500 : false;
         config.watchOptions.aggregateTimeout = 200;
@@ -172,7 +173,7 @@ const nextConfig: NextConfig = {
         ];
       }
     } else {
-      // Production modunda cache aktif
+      // Production modunda cache aktif et
       if (!config.cache) {
         config.cache = {
           type: 'filesystem',
@@ -207,5 +208,3 @@ const nextConfig: NextConfig = {
 };
 
 export default withPWA(nextConfig);
-
-

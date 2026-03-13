@@ -2,18 +2,18 @@
 # This file provides a convenient entry point for split compose files
 
 # Usage:
-#   docker compose --env-file docker/compose/.env.staging -f docker/compose/docker-compose.base.yml -f docker/compose/docker-compose.staging.yml up -d
-#   docker compose --env-file docker/compose/.env.production -f docker/compose/docker-compose.base.yml -f docker/compose/docker-compose.prod.yml up -d
+#   docker compose --env-file .env.staging -f infra/docker/docker-compose.base.yml -f infra/docker/docker-compose.staging.yml up -d
+#   docker compose --env-file .env.production -f infra/docker/docker-compose.base.yml -f infra/docker/docker-compose.prod.yml up -d
 
 # For simplicity, use the Makefile commands:
 #   make up-staging
-#   make up-prod
+#   make up-staging-dev
 #   make logs-staging
-#   make logs-prod
+#   make logs-staging-dev
 #   make down-staging
-#   make down-prod
+#   make down-staging-dev
+#   make migrate-staging
 #   make backup-staging
-#   make backup-prod
 
 version: "3.9"
 
@@ -23,4 +23,4 @@ version: "3.9"
 #   - db: PostgreSQL database
 #   - cache: Redis cache
 #
-# Example: docker compose --env-file docker/compose/.env.staging -f docker/compose/docker-compose.base.yml -f docker/compose/docker-compose.staging.yml up -d --profile proxy,db,cache
+# Example: docker compose --env-file .env.staging -f infra/docker/docker-compose.base.yml -f infra/docker/docker-compose.staging.yml up -d --profile proxy,db,cache

@@ -30,7 +30,7 @@ export class PartRequestService {
 
     const finalTenantId = (dto as any).tenantId ?? tenantId ?? undefined;
 
-    const workOrder = await this.prisma.extended.workOrder.findFirst({
+    const workOrder = await this.prisma.workOrder.findFirst({
       where: {
         id: dto.workOrderId,
         ...buildTenantWhereClause(finalTenantId),
@@ -45,7 +45,7 @@ export class PartRequestService {
       throw new BadRequestException('Part request cannot be added to this work order');
     }
 
-    const partRequest = await this.prisma.extended.partRequest.create({
+    const partRequest = await this.prisma.partRequest.create({
       data: {
         tenantId: finalTenantId,
         workOrderId: dto.workOrderId,
@@ -62,17 +62,22 @@ export class PartRequestService {
       },
     });
 
-    await this.prisma.extended.workOrder.update({
-      where: { id: dto.workOrderId },
+    await this.prisma.workOrder.updateMany({
+      where: {
+        id: dto.workOrderId,
+        ...buildTenantWhereClause(finalTenantId),
+      },
       data: { partWorkflowStatus: PartWorkflowStatus.PARTS_PENDING },
     });
 
-    await this.prisma.extended.workOrderActivity.create({
+    await (this.prisma.workOrderActivity as any).create({
       data: {
+        tenantId: finalTenantId!,
         workOrderId: dto.workOrderId,
         action: 'PART_WORKFLOW_CHANGED',
         userId: requestedBy,
-        metadata: {
+        // @ts-ignore
+        meta: {
           partWorkflowStatus: PartWorkflowStatus.PARTS_PENDING,
           trigger: 'PART_REQUEST_CREATED',
         },
@@ -103,7 +108,7 @@ export class PartRequestService {
     const skip = (page - 1) * limit;
 
     const [data, total] = await Promise.all([
-      this.prisma.extended.partRequest.findMany({
+      this.prisma.partRequest.findMany({
         where,
         skip,
         take: limit,
@@ -114,21 +119,18 @@ export class PartRequestService {
           workOrder: { select: { id: true, workOrderNo: true, status: true } },
         },
       }),
-      this.prisma.extended.partRequest.count({ where }),
+      this.prisma.partRequest.count({ where }),
     ]);
 
     return {
       data,
-      total,
-      page,
-      limit,
-      totalPages: Math.ceil(total / limit),
+      meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
     };
   }
 
   async findOne(id: string) {
     const tenantId = await this.tenantResolver.resolveForQuery();
-    const partRequest = await this.prisma.extended.partRequest.findFirst({
+    const partRequest = await this.prisma.partRequest.findFirst({
       where: { id, ...buildTenantWhereClause(tenantId ?? undefined) },
       include: {
         product: { select: { id: true, code: true, name: true } },
@@ -147,7 +149,7 @@ export class PartRequestService {
   async supply(id: string, dto: SupplyPartRequestDto, suppliedBy: string) {
     const tenantId = await this.tenantResolver.resolveForQuery();
 
-    return this.prisma.extended.$transaction(async (tx) => {
+    return this.prisma.$transaction(async (tx) => {
       const partRequest = await tx.partRequest.findFirst({
         where: { id, ...buildTenantWhereClause(tenantId ?? undefined) },
       });
@@ -229,15 +231,20 @@ export class PartRequestService {
       });
       const newPartStatus =
         pendingCount === 0 ? PartWorkflowStatus.ALL_PARTS_SUPPLIED : PartWorkflowStatus.PARTIALLY_SUPPLIED;
-      await tx.workOrder.update({
-        where: { id: updated.workOrderId },
+      await tx.workOrder.updateMany({
+        where: {
+          id: updated.workOrderId,
+          ...buildTenantWhereClause(tenantId ?? undefined),
+        },
         data: { partWorkflowStatus: newPartStatus },
       });
       await tx.workOrderActivity.create({
         data: {
+          tenantId: tenantId ?? undefined,
           workOrderId: updated.workOrderId,
           action: 'PART_WORKFLOW_CHANGED',
-          metadata: {
+          // @ts-ignore
+          meta: {
             partWorkflowStatus: newPartStatus,
             trigger: 'PART_SUPPLY',
           },
@@ -255,7 +262,7 @@ export class PartRequestService {
   async markAsUsed(id: string) {
     const tenantId = await this.tenantResolver.resolveForQuery();
 
-    return this.prisma.extended.$transaction(async (tx) => {
+    return this.prisma.$transaction(async (tx) => {
       const pr = await tx.partRequest.findFirst({
         where: { id, ...buildTenantWhereClause(tenantId ?? undefined) },
       });
@@ -301,8 +308,11 @@ export class PartRequestService {
         },
       });
 
-      return tx.partRequest.findUniqueOrThrow({
-        where: { id },
+      return tx.partRequest.findFirst({
+        where: {
+          id,
+          ...buildTenantWhereClause(pr.tenantId ?? undefined),
+        },
         include: {
           product: { select: { id: true, code: true, name: true } },
           workOrder: { select: { id: true, workOrderNo: true } },
@@ -325,27 +335,48 @@ export class PartRequestService {
       );
     }
 
-    const updated = await this.prisma.extended.partRequest.update({
-      where: { id },
+    const tenantId = await this.tenantResolver.resolveForQuery();
+    const updatedRes = await this.prisma.partRequest.updateMany({
+      where: {
+        id,
+        ...buildTenantWhereClause(tenantId ?? undefined),
+      },
       data: { status: PartRequestStatus.CANCELLED },
+    });
+
+    if (updatedRes.count === 0) {
+      throw new NotFoundException('Part request not found or access denied');
+    }
+
+    const updated = await this.prisma.partRequest.findFirst({
+      where: {
+        id,
+        ...buildTenantWhereClause(tenantId ?? undefined),
+      },
       include: {
         product: { select: { id: true, code: true, name: true } },
         workOrder: true,
       },
     });
 
+    if (!updated) throw new NotFoundException('Part request not found after update');
+
     if (updated.workOrder.partWorkflowStatus === PartWorkflowStatus.PARTS_PENDING ||
       updated.workOrder.partWorkflowStatus === PartWorkflowStatus.PARTIALLY_SUPPLIED) {
-      const pendingCount = await this.prisma.extended.partRequest.count({
+      const pendingCount = await this.prisma.partRequest.count({
         where: {
           workOrderId: updated.workOrderId,
           status: PartRequestStatus.REQUESTED,
+          ...buildTenantWhereClause(tenantId ?? undefined),
         },
       });
       const newPartStatus =
         pendingCount === 0 ? PartWorkflowStatus.ALL_PARTS_SUPPLIED : PartWorkflowStatus.PARTIALLY_SUPPLIED;
-      await this.prisma.extended.workOrder.update({
-        where: { id: updated.workOrderId },
+      await this.prisma.workOrder.updateMany({
+        where: {
+          id: updated.workOrderId,
+          ...buildTenantWhereClause(tenantId ?? undefined),
+        },
         data: { partWorkflowStatus: newPartStatus },
       });
     }

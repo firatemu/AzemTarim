@@ -107,7 +107,7 @@ export interface GetProfitQuery {
 export async function getProfitByInvoice(
   faturaId: string,
 ): Promise<ProfitByInvoiceResponse> {
-  const response = await axios.get(`/invoice-profit/by-invoice/${faturaId}`);
+  const response = await axios.get(`/invoice-profits/by-invoice/${faturaId}`);
   return response.data;
 }
 
@@ -117,7 +117,7 @@ export async function getProfitByInvoice(
 export async function getProfitByProduct(
   filters?: GetProfitQuery,
 ): Promise<ProfitByProductItem[]> {
-  const response = await axios.get('/invoice-profit/by-product', {
+  const response = await axios.get('/invoice-profits/by-product', {
     params: filters,
   });
   return response.data;
@@ -129,7 +129,7 @@ export async function getProfitByProduct(
 export async function getProfitList(
   filters?: GetProfitQuery,
 ): Promise<ProfitListItem[]> {
-  const response = await axios.get('/invoice-profit/list', {
+  const response = await axios.get('/invoice-profits/list', {
     params: filters,
   });
   return response.data;
@@ -141,7 +141,7 @@ export async function getProfitList(
 export async function getProfitDetail(
   faturaId: string,
 ): Promise<ProfitDetailItem[]> {
-  const response = await axios.get(`/invoice-profit/detail/${faturaId}`);
+  const response = await axios.get(`/invoice-profits/detail/${faturaId}`);
   return response.data;
 }
 
@@ -151,6 +151,6 @@ export async function getProfitDetail(
 export async function recalculateProfit(
   faturaId: string,
 ): Promise<{ message: string }> {
-  const response = await axios.post(`/invoice-profit/recalculate/${faturaId}`);
+  const response = await axios.post(`/invoice-profits/recalculate/${faturaId}`);
   return response.data;
 }

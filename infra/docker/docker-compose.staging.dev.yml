@@ -1,0 +1,64 @@
+# HOT RELOAD / DEV (base + bu dosya; developer mod + panel volume)
+# Kullanım: docker compose -f docker-compose.base.yml -f docker-compose.staging.dev.yml up -d
+# Tercih: Tek dosya için docker-compose.dev.yml kullanın (Caddy/migrate yok).
+
+services:
+  backend-staging:
+    container_name: otomuhasebe_saas_backend
+    build:
+      context: ../../api-stage
+      dockerfile: server/Dockerfile.staging.prod
+    env_file:
+      - .env.staging
+    networks: [ app_net ]
+    ports:
+      - "3020:3000"
+    volumes:
+      - backend_uploads:/app/server/uploads
+    healthcheck:
+      test: [ "CMD", "wget", "-qO-", "http://0.0.0.0:3000/api/health" ]
+      interval: 30s
+      timeout: 3s
+      retries: 12
+      start_period: 30s
+    restart: unless-stopped
+
+  user-panel-staging:
+    container_name: otomuhasebe_saas_panel
+    image: node:20-alpine
+    working_dir: /app
+    ports:
+      - "3010:3000"
+    env_file:
+      - .env.staging
+    environment:
+      NODE_ENV: development
+      NEXT_PUBLIC_DEVELOPER_MODE: "true"
+      HOSTNAME: "0.0.0.0"
+      PORT: "3000"
+      NEXT_TELEMETRY_DISABLED: "1"
+      # Docker içinde dosya değişikliği algılansın diye polling zorunlu
+      CHOKIDAR_USEPOLLING: "true"
+      WATCHPACK_POLLING: "true"
+      # Panel /api/* isteklerini backend container'a yönlendirir (login vb.)
+      API_PROXY_TARGET: "http://backend-staging:3000"
+    volumes:
+      - ../../panel-stage/client:/app
+      - panel_stage_node_modules:/app/node_modules
+      - panel_stage_next_cache:/app/.next
+    command: sh -c "corepack enable && pnpm install && pnpm dev"
+    networks: [ app_net ]
+    depends_on:
+      - backend-staging
+    healthcheck:
+      test: [ "CMD", "wget", "-qO-", "http://localhost:3000/login" ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  api_stage_node_modules:
+  panel_stage_node_modules:
+  panel_stage_next_cache:
+  backend_uploads:

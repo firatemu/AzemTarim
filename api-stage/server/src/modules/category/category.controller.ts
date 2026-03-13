@@ -11,7 +11,7 @@ import { CategoryService } from './category.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 
 @UseGuards(JwtAuthGuard)
-@Controller('category')
+@Controller('categories')
 export class CategoryController {
     constructor(private readonly categoryService: CategoryService) { }
 

@@ -40,15 +40,15 @@ export class CashboxService {
             where.isActive = isActive;
         }
 
-        const cashboxes = await this.prisma.extended.cashbox.findMany({
+        const cashboxes = await this.prisma.cashbox.findMany({
             where,
             orderBy: { createdAt: 'desc' },
         });
 
         const cashboxesWithCount = await Promise.all(
             cashboxes.map(async (cashbox) => {
-                const movementCount = await this.prisma.extended.cashboxMovement.count({
-                    where: { cashboxId: cashbox.id },
+                const movementCount = await this.prisma.cashboxMovement.count({
+                    where: { cashboxId: cashbox.id, ...buildTenantWhereClause(tenantId ?? undefined) },
                 });
 
                 return {
@@ -65,7 +65,7 @@ export class CashboxService {
 
     async findOne(id: string) {
         const tenantId = await this.tenantResolver.resolveForQuery();
-        const cashbox = await this.prisma.extended.cashbox.findFirst({
+        const cashbox = await this.prisma.cashbox.findFirst({
             where: {
                 id,
                 ...buildTenantWhereClause(tenantId ?? undefined),
@@ -135,7 +135,7 @@ export class CashboxService {
             allowNull: true,
         });
 
-        const existing = await this.prisma.extended.cashbox.findFirst({
+        const existing = await this.prisma.cashbox.findFirst({
             where: {
                 code,
                 ...(tenantId != null && { tenantId }),
@@ -155,7 +155,7 @@ export class CashboxService {
             createdBy: userId,
         };
 
-        return this.prisma.extended.cashbox.create({
+        return this.prisma.cashbox.create({
             data,
         });
     }
@@ -168,24 +168,26 @@ export class CashboxService {
             updatedBy: userId,
         };
 
-        return this.prisma.extended.cashbox.update({
-            where: { id },
+        const tenantId = await this.tenantResolver.resolveForQuery();
+        return this.prisma.cashbox.update({
+            where: { id, ...buildTenantWhereClause(tenantId ?? undefined) },
             data,
         });
     }
 
     async remove(id: string) {
+        const tenantId = await this.tenantResolver.resolveForQuery();
         const cashbox = await this.findOne(id);
 
-        const movementCount = await this.prisma.extended.cashboxMovement.count({
-            where: { cashboxId: id },
+        const movementCount = await this.prisma.cashboxMovement.count({
+            where: { cashboxId: id, ...buildTenantWhereClause(tenantId ?? undefined) },
         });
 
         const isPosOrCard = cashbox.type === CashboxType.POS || cashbox.type === CashboxType.COMPANY_CREDIT_CARD;
         let extraCheck = 0;
         if (isPosOrCard) {
-            extraCheck = await this.prisma.extended.collection.count({
-                where: { cashboxId: id },
+            extraCheck = await this.prisma.collection.count({
+                where: { cashboxId: id, ...buildTenantWhereClause(tenantId ?? undefined) },
             });
         }
 
@@ -195,16 +197,17 @@ export class CashboxService {
             );
         }
 
-        return this.prisma.extended.cashbox.delete({
-            where: { id },
+        return this.prisma.cashbox.delete({
+            where: { id, ...buildTenantWhereClause(tenantId ?? undefined) },
         });
     }
 
     async createMovement(dto: CreateCashboxMovementDto, userId?: string) {
         const cashbox = await this.findOne(dto.cashboxId);
+        const tenantId = await this.tenantResolver.resolveForQuery();
         const allowNegativeBalance = await this.systemParameterService.getParameterAsBoolean('ALLOW_NEGATIVE_CASH_BALANCE', false);
-
-        return this.prisma.extended.$transaction(async (prisma) => {
+        return this.prisma.$transaction(async (prisma) => {
+            const createTenantId = await this.tenantResolver.resolveForCreate({ userId });
             let balanceChange = dto.amount;
 
             if (
@@ -239,6 +242,7 @@ export class CashboxService {
                     notes: dto.notes,
                     date: dto.date ? new Date(dto.date) : new Date(),
                     createdBy: userId,
+                    tenantId: createTenantId,
                 },
                 include: {
                     cashbox: true,
@@ -247,7 +251,7 @@ export class CashboxService {
             });
 
             await prisma.cashbox.update({
-                where: { id: dto.cashboxId },
+                where: { id: dto.cashboxId, ...buildTenantWhereClause(tenantId ?? undefined) },
                 data: { balance: movementBalance },
             });
 
@@ -256,8 +260,9 @@ export class CashboxService {
     }
 
     async deleteMovement(movementId: string) {
-        const movement = await this.prisma.extended.cashboxMovement.findUnique({
-            where: { id: movementId },
+        const tenantId = await this.tenantResolver.resolveForQuery();
+        const movement = await this.prisma.cashboxMovement.findFirst({
+            where: { id: movementId, ...buildTenantWhereClause(tenantId ?? undefined) },
             include: { cashbox: true },
         });
 
@@ -269,7 +274,7 @@ export class CashboxService {
             throw new BadRequestException('Transferred movement cannot be deleted');
         }
 
-        return this.prisma.extended.$transaction(async (prisma) => {
+        return this.prisma.$transaction(async (prisma) => {
             let balanceChange = 0;
             if (
                 ['COLLECTION', 'INCOMING_TRANSFER', 'CREDIT_CARD'].includes(
@@ -284,14 +289,14 @@ export class CashboxService {
             }
 
             await prisma.cashbox.update({
-                where: { id: movement.cashboxId },
+                where: { id: movement.cashboxId, ...buildTenantWhereClause(tenantId ?? undefined) },
                 data: {
                     balance: { increment: balanceChange },
                 },
             });
 
             return prisma.cashboxMovement.delete({
-                where: { id: movementId },
+                where: { id: movementId, ...buildTenantWhereClause(tenantId ?? undefined) },
             });
         });
     }
@@ -301,7 +306,8 @@ export class CashboxService {
         oneDayAgo.setDate(oneDayAgo.getDate() - 1);
         oneDayAgo.setHours(23, 59, 59, 999);
 
-        const pendingMovements = await this.prisma.extended.cashboxMovement.findMany({
+        const tenantId = await this.tenantResolver.resolveForQuery();
+        const pendingMovements = await this.prisma.cashboxMovement.findMany({
             where: {
                 cashboxId,
                 movementType: 'CREDIT_CARD',
@@ -309,6 +315,7 @@ export class CashboxService {
                 date: {
                     lte: oneDayAgo,
                 },
+                ...buildTenantWhereClause(tenantId ?? undefined),
             },
             include: {
                 account: {

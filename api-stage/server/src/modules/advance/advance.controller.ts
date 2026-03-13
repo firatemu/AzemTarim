@@ -12,7 +12,7 @@ import { CreateAdvanceDto } from './dto/create-advance.dto';
 import { MahsuplastirAdvanceDto } from './dto/mahsuplastir-advance.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 
-@Controller('advance')
+@Controller('advances')
 @UseGuards(JwtAuthGuard)
 export class AdvanceController {
     constructor(private readonly advanceService: AdvanceService) { }

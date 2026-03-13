@@ -255,37 +255,59 @@ async function main() {
   }
 
   // 4. Demo Admin User oluştur
-  const hashedPassword = await bcrypt.hash('Admin123!', 10);
-  const existingDemoAdmin = await prisma.user.findFirst({
+  const hashedDemoPassword = await bcrypt.hash('1212', 10);
+
+  // Eski e-postaya sahip kullanıcı varsa güncelle
+  await prisma.user.updateMany({
     where: { email: 'admin@demo.otomuhasebe.com' },
-  });
-  
-  const demoAdmin = existingDemoAdmin || await prisma.user.create({
     data: {
-      email: 'admin@demo.otomuhasebe.com',
-      username: 'demo-admin',
-      password: hashedPassword,
-      fullName: 'Demo Admin',
-      firstName: 'Demo',
-      lastName: 'Admin',
-      role: 'TENANT_ADMIN',
-      status: 'ACTIVE',
-      isActive: true,
-      tenantId: demoTenant.id,
-    },
+      email: 'info@azemyazilim.com',
+      username: 'azem-admin',
+      fullName: 'Azem Yazılım Admin',
+      firstName: 'Azem',
+      lastName: 'Yazılım',
+    }
   });
-  console.log(`✅ Demo admin user created: ${demoAdmin.email}`);
+
+  const existingDemoAdmin = await prisma.user.findFirst({
+    where: { email: 'info@azemyazilim.com' },
+  });
+
+  const demoAdmin = existingDemoAdmin ?
+    await prisma.user.update({
+      where: { id: existingDemoAdmin.id },
+      data: {
+        password: hashedDemoPassword,
+        username: 'azem-admin',
+        fullName: 'Azem Yazılım Admin',
+      }
+    }) :
+    await prisma.user.create({
+      data: {
+        email: 'info@azemyazilim.com',
+        username: 'azem-admin',
+        password: hashedDemoPassword,
+        fullName: 'Azem Yazılım Admin',
+        firstName: 'Azem',
+        lastName: 'Yazılım',
+        role: 'TENANT_ADMIN',
+        status: 'ACTIVE',
+        isActive: true,
+        tenantId: demoTenant.id,
+      },
+    });
+  console.log(`✅ Demo admin user created/updated: ${demoAdmin.email}`);
 
   // 5. Super Admin User (tenant olmadan)
   const existingSuperAdmin = await prisma.user.findFirst({
     where: { email: 'superadmin@otomuhasebe.com' },
   });
-  
+
   const superAdmin = existingSuperAdmin || await prisma.user.create({
     data: {
       email: 'superadmin@otomuhasebe.com',
       username: 'superadmin',
-      password: hashedPassword,
+      password: hashedDemoPassword,
       fullName: 'Super Admin',
       firstName: 'Super',
       lastName: 'Admin',
@@ -300,14 +322,14 @@ async function main() {
   console.log('🎉 Seeding completed!');
   console.log('');
   console.log('📝 Demo Login Bilgileri:');
-  console.log('   Email: admin@demo.otomuhasebe.com');
-  console.log('   Username: demo-admin');
-  console.log('   Password: Admin123!');
+  console.log('   Email: info@azemyazilim.com');
+  console.log('   Username: azem-admin');
+  console.log('   Password: 1212');
   console.log('');
   console.log('📝 Super Admin Bilgileri:');
   console.log('   Email: superadmin@otomuhasebe.com');
   console.log('   Username: superadmin');
-  console.log('   Password: Admin123!');
+  console.log('   Password: 1212'); // Super admin şifresini de güncellediği varsayılıyor
 }
 
 main()

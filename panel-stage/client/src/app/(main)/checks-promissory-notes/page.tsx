@@ -84,7 +84,7 @@ export default function CekSenetPage() {
     const fetchCekSenet = async () => {
         setLoading(true);
         try {
-            const response = await axios.get('/check-promissory-note');
+            const response = await axios.get('/checks-promissory-notes');
             const data = response.data?.data ?? response.data;
             setRows(Array.isArray(data) ? data : []);
         } catch (error) {
@@ -98,7 +98,7 @@ export default function CekSenetPage() {
         try {
             const [kasaRes, bankaRes] = await Promise.all([
                 axios.get('/cashbox'),
-                axios.get('/bank-hesap')
+                axios.get('/bank-accounts')
             ]);
             setKasalar(kasaRes.data);
             setBankalar(bankaRes.data);
@@ -194,7 +194,7 @@ export default function CekSenetPage() {
         }
 
         try {
-            await axios.post('/check-promissory-note/islem', {
+            await axios.post('/checks-promissory-notes/action', {
                 cekSenetId: selectedCek.id,
                 yeniDurum: 'TAHSIL_EDILDI', // Backend kalan tutara göre otomatik PORTFOY/TAHSIL_EDILDI ayarlar
                 tarih: tahsilatForm.tarih,

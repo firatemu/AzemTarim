@@ -6,7 +6,7 @@ export function usePartRequests(workOrderId: string | null) {
   return useQuery({
     queryKey: ['part-requests', workOrderId],
     queryFn: async () => {
-      const response = await axios.get('/part-request', {
+      const response = await axios.get('/part-requests', {
         params: { workOrderId },
       });
       const data = response.data?.data ?? response.data;
@@ -21,7 +21,7 @@ export function useCreatePartRequest() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (dto: CreatePartRequestDto) => {
-      const response = await axios.post('/part-request', dto);
+      const response = await axios.post('/part-requests', dto);
       return response.data;
     },
     onSuccess: (_, dto) => {
@@ -43,7 +43,7 @@ export function useSupplyPartRequest() {
       suppliedQty: number;
       warehouseId?: string;
     }) => {
-      const response = await axios.post(`/part-request/${id}/supply`, {
+      const response = await axios.post(`/part-requests/${id}/supply`, {
         suppliedQty,
         warehouseId,
       });
@@ -62,7 +62,7 @@ export function useMarkPartRequestAsUsed() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => {
-      const response = await axios.post(`/part-request/${id}/mark-as-used`);
+      const response = await axios.post(`/part-requests/${id}/mark-as-used`);
       return response.data;
     },
     onSuccess: (data: { workOrderId?: string }) => {
@@ -78,7 +78,7 @@ export function useCancelPartRequest() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => {
-      const response = await axios.post(`/part-request/${id}/cancel`);
+      const response = await axios.post(`/part-requests/${id}/cancel`);
       return response.data;
     },
     onSuccess: (data: { workOrderId?: string }) => {

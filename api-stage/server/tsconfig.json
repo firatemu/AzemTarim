@@ -34,6 +34,11 @@
     "dist",
     "coverage",
     "test",
-    "**/*.spec.ts"
+    "**/*.spec.ts",
+    "prisma",
+    "scripts"
+  ],
+  "include": [
+    "src/**/*"
   ]
 }

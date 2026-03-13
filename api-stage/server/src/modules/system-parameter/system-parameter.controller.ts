@@ -15,9 +15,9 @@ import { CreateParameterDto } from './dto/create-parameter.dto';
 import { UpdateParameterDto } from './dto/update-parameter.dto';
 
 @UseGuards(JwtAuthGuard)
-@Controller('system-parameter')
+@Controller('system-parameters')
 export class SystemParameterController {
-  constructor(private readonly systemParameterService: SystemParameterService) {}
+  constructor(private readonly systemParameterService: SystemParameterService) { }
 
   @Get()
   getAll(@Query('category') category?: string) {

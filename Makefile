@@ -1,9 +1,16 @@
 SHELL := /bin/bash
 
-BASE = docker/compose/docker-compose.base.yml
-STAGING = docker/compose/docker-compose.staging.yml
-STAGING_DEV = docker/compose/docker-compose.staging.dev.yml
-PROD = docker/compose/docker-compose.prod.yml
+# ═════════════════════════════════════════════════════════════════
+# DOCKER COMPOSE PATHS (after monorepo reorganization)
+# ═════════════════════════════════════════════════════════════════
+# OLD: docker/compose/docker-compose.base.yml
+# NEW: infra/docker/docker-compose.base.yml
+# ═════════════════════════════════════════════════════════════════
+
+BASE = infra/docker/docker-compose.base.yml
+STAGING = infra/docker/docker-compose.staging.yml
+STAGING_DEV = infra/docker/docker-compose.staging.dev.yml
+PROD = infra/docker/docker-compose.prod.yml
 COMPOSE ?= docker compose
 
 # Prod image tag (örn: 1.0.0) – terminalde export IMAGE_TAG yap

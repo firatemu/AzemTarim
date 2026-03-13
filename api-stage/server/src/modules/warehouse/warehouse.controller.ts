@@ -15,7 +15,7 @@ import { CreateWarehouseDto } from './dto/create-warehouse.dto';
 import { UpdateWarehouseDto } from './dto/update-warehouse.dto';
 
 @UseGuards(JwtAuthGuard)
-@Controller('warehouse')
+@Controller('warehouses')
 export class WarehouseController {
   constructor(private readonly warehouseService: WarehouseService) { }
 

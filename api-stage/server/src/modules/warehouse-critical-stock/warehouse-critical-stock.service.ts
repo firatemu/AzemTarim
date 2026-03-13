@@ -14,7 +14,7 @@ export class WarehouseCriticalStockService {
         const tenantId = await this.tenantResolver.resolveForQuery();
 
         // Get all active warehouses
-        const warehouses = await this.prisma.extended.warehouse.findMany({
+        const warehouses = await this.prisma.warehouse.findMany({
             where: {
                 active: true,
                 ...buildTenantWhereClause(tenantId ?? undefined),
@@ -23,7 +23,7 @@ export class WarehouseCriticalStockService {
 
         // Create critical stock records for all warehouses
         const createPromises = warehouses.map((warehouse) =>
-            this.prisma.extended.warehouseCriticalStock.upsert({
+            this.prisma.warehouseCriticalStock.upsert({
                 where: {
                     warehouseId_productId: {
                         warehouseId: warehouse.id,
@@ -45,7 +45,7 @@ export class WarehouseCriticalStockService {
     }
 
     async updateCriticalStock(warehouseId: string, productId: string, criticalQty: number) {
-        return this.prisma.extended.warehouseCriticalStock.upsert({
+        return this.prisma.warehouseCriticalStock.upsert({
             where: {
                 warehouseId_productId: {
                     warehouseId,
@@ -67,7 +67,7 @@ export class WarehouseCriticalStockService {
         const tenantId = await this.tenantResolver.resolveForQuery();
 
         // 1. Get all active warehouses
-        const warehouses = await this.prisma.extended.warehouse.findMany({
+        const warehouses = await this.prisma.warehouse.findMany({
             where: {
                 active: true,
                 ...buildTenantWhereClause(tenantId ?? undefined),
@@ -76,7 +76,7 @@ export class WarehouseCriticalStockService {
         });
 
         // 2. Get all products with their current stock levels
-        const currentStocks = await this.prisma.extended.productLocationStock.findMany({
+        const currentStocks = await this.prisma.productLocationStock.findMany({
             where: {
                 warehouse: {
                     ...buildTenantWhereClause(tenantId ?? undefined),
@@ -90,7 +90,7 @@ export class WarehouseCriticalStockService {
         });
 
         // 3. Get all critical stock settings
-        const criticalStocks = await this.prisma.extended.warehouseCriticalStock.findMany({
+        const criticalStocks = await this.prisma.warehouseCriticalStock.findMany({
             where: {
                 warehouse: {
                     ...buildTenantWhereClause(tenantId ?? undefined),
@@ -170,7 +170,7 @@ export class WarehouseCriticalStockService {
         const tenantWhere = buildTenantWhereClause(tenantId ?? undefined);
 
         // 1. Get all active warehouses to map codes to IDs
-        const warehouses = await this.prisma.extended.warehouse.findMany({
+        const warehouses = await this.prisma.warehouse.findMany({
             where: {
                 active: true,
                 ...tenantWhere,
@@ -198,7 +198,7 @@ export class WarehouseCriticalStockService {
         const stokKodlari = [...new Set(rawStokKodlari)];
 
         // Find products exactly matching provided codes
-        const products = await this.prisma.extended.product.findMany({
+        const products = await this.prisma.product.findMany({
             where: {
                 code: { in: stokKodlari },
                 ...tenantWhere,
@@ -245,7 +245,7 @@ export class WarehouseCriticalStockService {
             }
 
             try {
-                await this.prisma.extended.warehouseCriticalStock.upsert({
+                await this.prisma.warehouseCriticalStock.upsert({
                     where: {
                         warehouseId_productId: {
                             warehouseId: wId,

@@ -15,7 +15,7 @@ export class CompanyVehiclesService {
         const tenantId = await this.tenantResolver.resolveForCreate();
         const { registrationDate, ...rest } = createDto;
 
-        return this.prisma.extended.extended.companyVehicle.create({
+        return this.prisma.companyVehicle.create({
             data: {
                 ...rest,
                 registrationDate: registrationDate ? new Date(registrationDate) : undefined,
@@ -26,7 +26,7 @@ export class CompanyVehiclesService {
 
     async findAll() {
         const tenantId = await this.tenantResolver.resolveForQuery();
-        return this.prisma.extended.extended.companyVehicle.findMany({
+        return this.prisma.companyVehicle.findMany({
             where: { tenantId, deletedAt: null },
             include: {
                 assignedEmployee: {
@@ -45,7 +45,7 @@ export class CompanyVehiclesService {
 
     async findOne(id: string) {
         const tenantId = await this.tenantResolver.resolveForQuery();
-        const vehicle = await this.prisma.extended.extended.companyVehicle.findFirst({
+        const vehicle = await this.prisma.companyVehicle.findFirst({
             where: { id, tenantId, deletedAt: null },
             include: {
                 assignedEmployee: true,
@@ -67,7 +67,7 @@ export class CompanyVehiclesService {
 
         const { registrationDate, ...rest } = updateDto;
 
-        return this.prisma.extended.extended.companyVehicle.update({
+        return this.prisma.companyVehicle.update({
             where: { id },
             data: {
                 ...rest,
@@ -79,7 +79,7 @@ export class CompanyVehiclesService {
     async remove(id: string) {
         await this.findOne(id);
 
-        return this.prisma.extended.extended.companyVehicle.update({
+        return this.prisma.companyVehicle.update({
             where: { id },
             data: { deletedAt: new Date() }
         });

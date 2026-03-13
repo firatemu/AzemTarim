@@ -46,6 +46,8 @@ async function proxyToBackend(request: NextRequest, pathSegments: string[]) {
   try {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 25000);
+
+
     res = await fetch(url.toString(), {
       method: request.method,
       headers,
@@ -53,6 +55,8 @@ async function proxyToBackend(request: NextRequest, pathSegments: string[]) {
       signal: controller.signal,
       cache: 'no-store',
     });
+
+
     clearTimeout(timeoutId);
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Backend unreachable';

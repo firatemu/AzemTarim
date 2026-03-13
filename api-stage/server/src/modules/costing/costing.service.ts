@@ -1,3 +1,4 @@
+import { TenantResolverService } from '../../common/services/tenant-resolver.service';
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma, InvoiceStatus, InvoiceType, MovementType } from '@prisma/client';
 import { PrismaService } from '../../common/prisma.service';
@@ -18,7 +19,7 @@ type TimelineEvent =
 
 @Injectable()
 export class CostingService {
-  constructor(private readonly prisma: PrismaService) { }
+  constructor(private readonly prisma: PrismaService, private readonly tenantResolver: TenantResolverService) { }
 
   async getLatestCosts(query: GetCostingQueryDto) {
     const {
@@ -68,9 +69,9 @@ export class CostingService {
       productWhere.subCategory = { equals: subCategory };
     }
 
-    const [total, stocks] = await this.prisma.extended.$transaction([
-      this.prisma.extended.product.count({ where: productWhere }),
-      this.prisma.extended.product.findMany({
+    const [total, stocks] = await this.prisma.$transaction([
+      this.prisma.product.count({ where: productWhere }),
+      this.prisma.product.findMany({
         where: productWhere,
         select: {
           id: true,
@@ -97,7 +98,7 @@ export class CostingService {
 
     const productIds = stocks.map((stock) => stock.id);
 
-    const histories = await this.prisma.extended.productCostHistory.findMany({
+    const histories = await this.prisma.productCostHistory.findMany({
       where: {
         productId: { in: productIds },
       },
@@ -135,7 +136,7 @@ export class CostingService {
   }
 
   async calculateWeightedAverageCost(productId: string) {
-    const product = await this.prisma.extended.product.findUnique({
+    const product = await this.prisma.product.findUnique({
       where: { id: productId },
       select: {
         id: true,
@@ -153,7 +154,7 @@ export class CostingService {
 
     // Tüm geçmiş hareketleri al (sadece ONAYLANDI değil, tüm statuslar)
     // Ancak silinmemiş faturaları al (deletedAt null olanlar)
-    const purchaseLines = await this.prisma.extended.invoiceItem.findMany({
+    const purchaseLines = await this.prisma.invoiceItem.findMany({
       where: {
         productId: productId,
         invoice: {
@@ -181,7 +182,7 @@ export class CostingService {
       },
     });
 
-    const salesLines = await this.prisma.extended.invoiceItem.findMany({
+    const salesLines = await this.prisma.invoiceItem.findMany({
       where: {
         productId: productId,
         invoice: {
@@ -206,7 +207,7 @@ export class CostingService {
       },
     });
 
-    const salesReturnLines = await this.prisma.extended.invoiceItem.findMany({
+    const salesReturnLines = await this.prisma.invoiceItem.findMany({
       where: {
         productId: productId,
         invoice: {
@@ -237,7 +238,7 @@ export class CostingService {
     // Tüm geçmiş product hareketlerini al (onaylanmış tüm hareketler)
     // Stok hareketleri genellikle faturalardan otomatik oluşturulur,
     // ancak manuel girişler, sayımlar vb. de olabilir
-    const stockMovements = await this.prisma.extended.productMovement.findMany({
+    const stockMovements = await this.prisma.productMovement.findMany({
       where: {
         productId: productId,
       },
@@ -358,7 +359,7 @@ export class CostingService {
     }
 
     if (timeline.length === 0) {
-      await this.prisma.extended.productCostHistory.create({
+      await this.prisma.productCostHistory.create({
         data: {
           productId: productId,
           cost: new Prisma.Decimal(0),
@@ -417,7 +418,7 @@ export class CostingService {
     const roundedCost = averageCost > 0 ? Number(averageCost.toFixed(4)) : 0;
 
     try {
-      await this.prisma.extended.productCostHistory.create({
+      await this.prisma.productCostHistory.create({
         data: {
           productId: productId,
           cost: new Prisma.Decimal(roundedCost),
@@ -470,7 +471,7 @@ export class CostingService {
           status: 'success',
         });
       } catch (error: any) {
-        const product = await this.prisma.extended.product.findUnique({
+        const product = await this.prisma.product.findUnique({
           where: { id: productId },
           select: { code: true, name: true },
         });

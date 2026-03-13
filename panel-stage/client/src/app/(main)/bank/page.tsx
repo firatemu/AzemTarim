@@ -64,22 +64,22 @@ interface Banka {
 
 // Service
 const fetchBankalar = async () => {
-    const res = await axios.get('/bank');
+    const res = await axios.get('/banks');
     return res.data;
 };
 
 const createBanka = async (data: any) => {
-    const res = await axios.post('/bank', data);
+    const res = await axios.post('/banks', data);
     return res.data;
 };
 
 const updateBanka = async (id: string, data: any) => {
-    const res = await axios.put(`/banka/${id}`, data);
+    const res = await axios.put(`/banks/${id}`, data);
     return res.data;
 };
 
 const deleteBanka = async (id: string) => {
-    const res = await axios.delete(`/banka/${id}`);
+    const res = await axios.delete(`/banks/${id}`);
     return res.data;
 };
 
@@ -255,7 +255,7 @@ export default function BankaPage() {
                                 </TableHead>
                                 <TableBody>
                                     {filteredBankalar.map((banka) => (
-                                        <TableRow key={banka.id} hover sx={{ cursor: 'pointer' }} onClick={() => router.push(`/banka/${banka.id}`)}>
+                                        <TableRow key={banka.id} hover sx={{ cursor: 'pointer' }} onClick={() => router.push(`/bank/${banka.id}`)}>
                                             <TableCell>
                                                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                                                     <Box sx={{
@@ -313,7 +313,7 @@ export default function BankaPage() {
                                                     title="Hesapları İncele"
                                                     onClick={(e) => {
                                                         e.stopPropagation();
-                                                        router.push(`/banka/${banka.id}`);
+                                                        router.push(`/bank/${banka.id}`);
                                                     }}
                                                 >
                                                     <Visibility fontSize="small" />

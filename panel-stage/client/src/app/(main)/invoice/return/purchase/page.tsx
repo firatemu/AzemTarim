@@ -131,9 +131,9 @@ export default function AlisIadeFaturalariPage() {
   const fetchFaturalar = async () => {
     try {
       setLoading(true);
-      const response = await axios.get('/invoice', {
+      const response = await axios.get('/invoices', {
         params: {
-          faturaTipi: 'ALIS_IADE',
+          type: 'PURCHASE_RETURN',
           search: searchTerm,
         },
       });
@@ -167,7 +167,7 @@ export default function AlisIadeFaturalariPage() {
 
   const openViewDialog = async (fatura: Fatura) => {
     try {
-      const response = await axios.get(`/fatura/${fatura.id}`);
+      const response = await axios.get(`/invoices/${fatura.id}`);
       setSelectedFatura(response.data);
       setOpenView(true);
     } catch (error: any) {
@@ -189,7 +189,7 @@ export default function AlisIadeFaturalariPage() {
     if (!selectedFatura) return;
     try {
       setLoading(true);
-      await axios.delete(`/fatura/${selectedFatura.id}`);
+      await axios.delete(`/invoices/${selectedFatura.id}`);
       showSnackbar('İade faturası başarıyla silindi', 'success');
       setOpenDelete(false);
       fetchFaturalar();
@@ -203,8 +203,8 @@ export default function AlisIadeFaturalariPage() {
   const handleIptal = async () => {
     try {
       if (selectedFatura) {
-        await axios.put(`/fatura/${selectedFatura.id}/iptal`, {
-          irsaliyeIptal: irsaliyeIptal,
+        await axios.put(`/invoices/${selectedFatura.id}/cancel`, {
+          deliveryNoteIptal: irsaliyeIptal,
         });
         const mesaj = irsaliyeIptal
           ? 'Fatura ve bağlı irsaliye iptal edildi. Stok hareketleri geri alındı ve cari bakiye güncellendi.'
@@ -232,9 +232,9 @@ export default function AlisIadeFaturalariPage() {
   const handleDurumChangeConfirm = async () => {
     if (!pendingDurum) return;
     try {
-      await axios.put('/invoice/bulk/durum', {
+      await axios.put('/invoices/bulk/status', {
         ids: [pendingDurum.faturaId],
-        durum: pendingDurum.yeniDurum as any,
+        status: pendingDurum.yeniDurum as any,
       });
       let mesaj = 'Fatura durumu güncellendi';
       if (pendingDurum.yeniDurum === 'APPROVED') {
@@ -288,7 +288,7 @@ export default function AlisIadeFaturalariPage() {
         return 'info';
       case 'OPEN':
         return 'warning';
-      case 'KISMEN_ODENDI':
+      case 'PARTIALLY_PAID':
         return 'primary';
       case 'CANCELLED':
         return 'error';
@@ -305,7 +305,7 @@ export default function AlisIadeFaturalariPage() {
         return 'Onaylandı';
       case 'OPEN':
         return 'Beklemede';
-      case 'KISMEN_ODENDI':
+      case 'PARTIALLY_PAID':
         return 'Kısmen Ödendi';
       case 'CANCELLED':
         return 'İptal Edildi';
@@ -515,7 +515,7 @@ export default function AlisIadeFaturalariPage() {
               disabled={fatura.durum !== 'APPROVED'}
               sx={{ gap: 1.5, py: 1, '&:hover': { bgcolor: 'color-mix(in srgb, var(--destructive) 15%, transparent)' }, '&.Mui-disabled': { opacity: 0.5 } }}
             >
-              <Cancel fontSize="small" sx={{ color: fatura.durum === 'IPTAL' ? '#9ca3af' : '#ef4444' }} />
+              <Cancel fontSize="small" sx={{ color: fatura.durum === 'CANCELLED' ? '#9ca3af' : '#ef4444' }} />
               <Typography variant="body2">İptal Et</Typography>
             </MenuItem>,
             <MenuItem

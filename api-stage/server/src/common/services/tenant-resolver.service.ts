@@ -50,7 +50,7 @@ export class TenantResolverService {
 
     try {
       // Veritabanından oku
-      const parameter = await this.prisma.extended.systemParameter.findFirst({
+      const parameter = await this.prisma.systemParameter.findFirst({
         where: {
           key: 'STAGING_DEFAULT_TENANT_ID',
           tenantId: null, // Explicitly query global parameter
@@ -77,7 +77,7 @@ export class TenantResolverService {
     }
     // Fallback: veritabanında tek tenant varsa onu kullan (staging için)
     try {
-      const first = await this.prisma.extended.tenant.findFirst({
+      const first = await this.prisma.tenant.findFirst({
         where: { status: 'ACTIVE' },
         select: { id: true },
       });
@@ -98,7 +98,7 @@ export class TenantResolverService {
 
     // 2. Yoksa ve userId verilmişse: User.tenantId al; varsa context'e set et
     if (!tenantId && options.userId) {
-      const user = await this.prisma.extended.user.findUnique({
+      const user = await this.prisma.user.findUnique({
         where: { id: options.userId },
         select: { tenantId: true },
       });
@@ -112,7 +112,7 @@ export class TenantResolverService {
     if (!tenantId && isStagingEnvironment()) {
       const defaultId = await this.getStagingDefaultTenantId();
       if (defaultId) {
-        const exists = await this.prisma.extended.tenant.findUnique({
+        const exists = await this.prisma.tenant.findUnique({
           where: { id: defaultId },
           select: { id: true },
         });
@@ -128,7 +128,7 @@ export class TenantResolverService {
 
     // 4. Elde edilen tenantId null değilse DB'de varlık kontrolü
     if (tenantId) {
-      const tenant = await this.prisma.extended.tenant.findUnique({
+      const tenant = await this.prisma.tenant.findUnique({
         where: { id: tenantId },
         select: { id: true },
       });

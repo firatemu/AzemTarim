@@ -63,6 +63,8 @@ interface FaturaKalemi {
   kdvOrani: number;
   tutar?: number;
   kdvTutar?: number;
+  iskontoOrani?: number;
+  iskontoTutari?: number;
 }
 
 interface Fatura {
@@ -152,9 +154,9 @@ export default function SatisIadeFaturalariPage() {
   const fetchFaturalar = async () => {
     try {
       setLoading(true);
-      const response = await axios.get('/invoice', {
+      const response = await axios.get('/invoices', {
         params: {
-          faturaTipi: 'SATIS_IADE',
+          type: 'SALES_RETURN',
           search: searchTerm,
         },
       });
@@ -175,7 +177,7 @@ export default function SatisIadeFaturalariPage() {
 
   const fetchCariler = async () => {
     try {
-      const response = await axios.get('/account', {
+      const response = await axios.get('/accounts', {
         params: { limit: 1000 },
       });
       setCariler(response.data.data || []);
@@ -186,7 +188,7 @@ export default function SatisIadeFaturalariPage() {
 
   const fetchStoklar = async () => {
     try {
-      const response = await axios.get('/product', {
+      const response = await axios.get('/products', {
         params: { limit: 1000 },
       });
       setStoklar(response.data.data || []);
@@ -285,11 +287,11 @@ export default function SatisIadeFaturalariPage() {
       }
 
       if (selectedFatura) {
-        await axios.put(`/fatura/${selectedFatura.id}`, formData);
+        await axios.put(`/invoices/${selectedFatura.id}`, formData);
         showSnackbar('Fatura başarıyla güncellendi', 'success');
         setOpenEdit(false);
       } else {
-        await axios.post('/invoice', formData);
+        await axios.post('/invoices', formData);
         showSnackbar('Fatura başarıyla oluşturuldu', 'success');
         setOpenAdd(false);
       }
@@ -304,7 +306,7 @@ export default function SatisIadeFaturalariPage() {
   const handleDelete = async () => {
     try {
       if (selectedFatura) {
-        await axios.delete(`/fatura/${selectedFatura.id}`);
+        await axios.delete(`/invoices/${selectedFatura.id}`);
         showSnackbar('Fatura başarıyla silindi', 'success');
         setOpenDelete(false);
         fetchFaturalar();
@@ -329,7 +331,7 @@ export default function SatisIadeFaturalariPage() {
 
   const openEditDialog = async (fatura: Fatura) => {
     try {
-      const response = await axios.get(`/fatura/${fatura.id}`);
+      const response = await axios.get(`/invoices/${fatura.id}`);
       const fullFatura = response.data;
 
       setFormData({
@@ -357,7 +359,7 @@ export default function SatisIadeFaturalariPage() {
 
   const openViewDialog = async (fatura: Fatura) => {
     try {
-      const response = await axios.get(`/fatura/${fatura.id}`);
+      const response = await axios.get(`/invoices/${fatura.id}`);
       setSelectedFatura(response.data);
       setOpenView(true);
     } catch (error: any) {
@@ -378,7 +380,7 @@ export default function SatisIadeFaturalariPage() {
   const handleIptal = async () => {
     try {
       if (selectedFatura) {
-        await axios.put(`/fatura/${selectedFatura.id}/iptal`, {
+        await axios.put(`/invoices/${selectedFatura.id}/cancel`, {
           irsaliyeIptal: irsaliyeIptal,
         });
         const mesaj = irsaliyeIptal
@@ -421,7 +423,7 @@ export default function SatisIadeFaturalariPage() {
     }
 
     try {
-      await axios.put(`/fatura/${pendingDurum.faturaId}/durum`, { durum: pendingDurum.yeniDurum });
+      await axios.put(`/invoices/${pendingDurum.faturaId}/status`, { status: pendingDurum.yeniDurum });
 
       let mesaj = 'Fatura durumu güncellendi';
       if (pendingDurum.yeniDurum === 'APPROVED') {
@@ -477,7 +479,7 @@ export default function SatisIadeFaturalariPage() {
         return 'info'; // Mavi - Onaylandı
       case 'OPEN':
         return 'warning'; // Turuncu - Beklemede
-      case 'KISMEN_ODENDI':
+      case 'PARTIALLY_PAID':
         return 'primary'; // Mavi - Kısmen ödendi
       case 'CANCELLED':
         return 'error'; // Kırmızı - İptal
@@ -494,7 +496,7 @@ export default function SatisIadeFaturalariPage() {
         return 'Onaylandı';
       case 'OPEN':
         return 'Beklemede';
-      case 'KISMEN_ODENDI':
+      case 'PARTIALLY_PAID':
         return 'Kısmen Ödendi';
       case 'CANCELLED':
         return 'İptal Edildi';
@@ -513,7 +515,7 @@ export default function SatisIadeFaturalariPage() {
         maxWidth="lg"
         fullWidth
       >
-        <DialogTitle component="div" sx={{ fontWeight: 'bold' }} component="div">
+        <DialogTitle component="div" sx={{ fontWeight: 'bold' }}>
           {openAdd ? 'Yeni Satış İade Faturası' : 'Satış İade Faturası Düzenle'}
         </DialogTitle>
         <DialogContent>
@@ -996,7 +998,7 @@ export default function SatisIadeFaturalariPage() {
                 openDeleteDialog(fatura);
                 handleMenuClose();
               }}
-              disabled={fatura.durum === 'ONAYLANDI' || fatura.durum === 'CANCELLED'}
+              disabled={fatura.durum === 'APPROVED' || fatura.durum === 'CANCELLED'}
               sx={{
                 gap: 1.5,
                 py: 1,
@@ -1027,7 +1029,7 @@ export default function SatisIadeFaturalariPage() {
         maxWidth="md"
         fullWidth
       >
-        <DialogTitle component="div" sx={{ fontWeight: 'bold' }} component="div">
+        <DialogTitle component="div" sx={{ fontWeight: 'bold' }}>
           Fatura Detayı
         </DialogTitle>
         <DialogContent>
@@ -1223,7 +1225,7 @@ export default function SatisIadeFaturalariPage() {
 
       {/* Delete Dialog */}
       <Dialog open={openDelete} onClose={() => setOpenDelete(false)}>
-        <DialogTitle component="div" sx={{ fontWeight: 'bold' }} component="div">Fatura Sil</DialogTitle>
+        <DialogTitle component="div" sx={{ fontWeight: 'bold' }}>Fatura Sil</DialogTitle>
         <DialogContent>
           <Typography>
             <strong>{selectedFatura?.faturaNo}</strong> nolu faturayı silmek istediğinizden emin misiniz?

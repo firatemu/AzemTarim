@@ -19,7 +19,6 @@ export class FindAllProductDto {
     search?: string;
 
     @IsOptional()
-    @IsBoolean()
-    @Type(() => Boolean)
-    isActive?: boolean;
+    @IsString()
+    isActive?: string;
 }

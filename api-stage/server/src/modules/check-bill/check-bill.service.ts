@@ -1,18 +1,22 @@
+import { TenantResolverService } from '../../common/services/tenant-resolver.service';
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma.service';
 import { CreateCheckBillDto, UpdateCheckBillDto } from './dto/create-check-bill.dto';
 import { CheckBillActionDto } from './dto/check-bill-transaction.dto';
 import { CheckBillStatus, PortfolioType, CashboxMovementType, BankMovementType } from '@prisma/client';
+import { buildTenantWhereClause } from '../../common/utils/staging.util';
 
 @Injectable()
 export class CheckBillService {
-    constructor(private prisma: PrismaService) { }
+    constructor(private prisma: PrismaService, private readonly tenantResolver: TenantResolverService) { }
 
     async findAll(query: any) {
-        const { tenantId, ...where } = query;
-        return this.prisma.extended.extended.checkBill.findMany({
+        const tenantId = await this.tenantResolver.resolveForQuery();
+        const { ...where } = query;
+        return this.prisma.checkBill.findMany({
             where: {
                 ...where,
+                ...buildTenantWhereClause(tenantId ?? undefined),
                 deletedAt: null
             },
             include: {
@@ -29,8 +33,12 @@ export class CheckBillService {
     }
 
     async findOne(id: string) {
-        const checkBill = await this.prisma.extended.extended.checkBill.findUnique({
-            where: { id },
+        const tenantId = await this.tenantResolver.resolveForQuery();
+        const checkBill = await this.prisma.checkBill.findFirst({
+            where: {
+                id,
+                ...buildTenantWhereClause(tenantId ?? undefined),
+            },
             include: {
                 account: true,
                 journalItems: {
@@ -49,7 +57,8 @@ export class CheckBillService {
     }
 
     async getUpcomingChecks(startDate: Date, endDate: Date) {
-        return this.prisma.extended.extended.checkBill.findMany({
+        const tenantId = await this.tenantResolver.resolveForQuery();
+        return this.prisma.checkBill.findMany({
             where: {
                 dueDate: {
                     gte: startDate,
@@ -58,6 +67,7 @@ export class CheckBillService {
                 status: {
                     in: [CheckBillStatus.IN_PORTFOLIO, CheckBillStatus.GIVEN_TO_BANK]
                 },
+                ...buildTenantWhereClause(tenantId ?? undefined),
                 deletedAt: null
             },
             include: {
@@ -68,19 +78,33 @@ export class CheckBillService {
     }
 
     async processAction(dto: CheckBillActionDto, userId: string) {
-        return this.prisma.extended.extended.$transaction(async (tx) => {
-            const checkBill = await tx.checkBill.findUnique({
-                where: { id: dto.checkBillId }
+        const tenantId = await this.tenantResolver.resolveForQuery();
+        return this.prisma.$transaction(async (tx) => {
+            const checkBill = await tx.checkBill.findFirst({
+                where: {
+                    id: dto.checkBillId,
+                    ...buildTenantWhereClause(tenantId ?? undefined),
+                }
             });
 
             if (!checkBill) throw new NotFoundException('Document not found');
 
             // Update Status
-            const updated = await tx.checkBill.update({
-                where: { id: dto.checkBillId },
+            await tx.checkBill.updateMany({
+                where: {
+                    id: dto.checkBillId,
+                    ...buildTenantWhereClause(tenantId ?? undefined),
+                },
                 data: {
                     status: dto.newStatus,
                     updatedBy: userId
+                }
+            });
+
+            const updated = await tx.checkBill.findFirst({
+                where: {
+                    id: dto.checkBillId,
+                    ...buildTenantWhereClause(tenantId ?? undefined),
                 }
             });
 
@@ -89,6 +113,7 @@ export class CheckBillService {
                 if (dto.cashboxId) {
                     await tx.cashboxMovement.create({
                         data: {
+                            tenantId: checkBill.tenantId || tenantId,
                             cashboxId: dto.cashboxId,
                             movementType: CashboxMovementType.COLLECTION,
                             amount: dto.transactionAmount,
@@ -102,6 +127,7 @@ export class CheckBillService {
                 } else if (dto.bankAccountId) {
                     await tx.bankAccountMovement.create({
                         data: {
+                            tenantId: checkBill.tenantId || tenantId,
                             bankAccountId: dto.bankAccountId,
                             movementType: BankMovementType.INCOMING,
                             amount: dto.transactionAmount,
@@ -119,8 +145,10 @@ export class CheckBillService {
     }
 
     async create(dto: CreateCheckBillDto, checkBillJournalId?: string) {
-        return this.prisma.extended.extended.checkBill.create({
+        const tenantId = await this.tenantResolver.resolveForQuery();
+        return this.prisma.checkBill.create({
             data: {
+                tenantId: (dto as any).tenantId || tenantId,
                 type: dto.type,
                 portfolioType: PortfolioType.CREDIT, // Default
                 amount: dto.amount,
@@ -139,8 +167,12 @@ export class CheckBillService {
     }
 
     async update(id: string, dto: UpdateCheckBillDto) {
-        return this.prisma.extended.extended.checkBill.update({
-            where: { id },
+        const tenantId = await this.tenantResolver.resolveForQuery();
+        await this.prisma.checkBill.updateMany({
+            where: {
+                id,
+                ...buildTenantWhereClause(tenantId ?? undefined),
+            },
             data: {
                 checkNo: dto.checkNo,
                 dueDate: dto.dueDate ? new Date(dto.dueDate) : undefined,
@@ -150,11 +182,16 @@ export class CheckBillService {
                 notes: dto.notes
             }
         });
+        return this.findOne(id);
     }
 
     async remove(id: string) {
-        return this.prisma.extended.extended.checkBill.update({
-            where: { id },
+        const tenantId = await this.tenantResolver.resolveForQuery();
+        return this.prisma.checkBill.updateMany({
+            where: {
+                id,
+                ...buildTenantWhereClause(tenantId ?? undefined),
+            },
             data: { deletedAt: new Date() }
         });
     }

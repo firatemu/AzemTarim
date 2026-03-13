@@ -15,7 +15,7 @@ export class VehicleExpensesService {
         const tenantId = await this.tenantResolver.resolveForCreate();
 
         // Check if vehicle exists and belongs to tenant
-        const vehicle = await this.prisma.extended.extended.companyVehicle.findFirst({
+        const vehicle = await this.prisma.companyVehicle.findFirst({
             where: { id: createDto.vehicleId, tenantId },
         });
 
@@ -25,7 +25,7 @@ export class VehicleExpensesService {
 
         const { date, ...rest } = createDto;
 
-        return this.prisma.extended.extended.vehicleExpense.create({
+        return this.prisma.vehicleExpense.create({
             data: {
                 ...rest,
                 date: date ? new Date(date) : new Date(),
@@ -36,7 +36,7 @@ export class VehicleExpensesService {
 
     async findAll() {
         const tenantId = await this.tenantResolver.resolveForQuery();
-        return this.prisma.extended.extended.vehicleExpense.findMany({
+        return this.prisma.vehicleExpense.findMany({
             where: { tenantId, deletedAt: null },
             include: {
                 vehicle: true,
@@ -49,7 +49,7 @@ export class VehicleExpensesService {
 
     async findByVehicle(vehicleId: string) {
         const tenantId = await this.tenantResolver.resolveForQuery();
-        return this.prisma.extended.extended.vehicleExpense.findMany({
+        return this.prisma.vehicleExpense.findMany({
             where: { vehicleId, tenantId, deletedAt: null },
             orderBy: {
                 date: 'desc',
@@ -59,7 +59,7 @@ export class VehicleExpensesService {
 
     async findOne(id: string) {
         const tenantId = await this.tenantResolver.resolveForQuery();
-        const expense = await this.prisma.extended.extended.vehicleExpense.findFirst({
+        const expense = await this.prisma.vehicleExpense.findFirst({
             where: { id, tenantId, deletedAt: null },
             include: {
                 vehicle: true,
@@ -78,7 +78,7 @@ export class VehicleExpensesService {
 
         const { date, ...rest } = updateDto;
 
-        return this.prisma.extended.extended.vehicleExpense.update({
+        return this.prisma.vehicleExpense.update({
             where: { id },
             data: {
                 ...rest,
@@ -90,7 +90,7 @@ export class VehicleExpensesService {
     async remove(id: string) {
         await this.findOne(id);
 
-        return this.prisma.extended.extended.vehicleExpense.update({
+        return this.prisma.vehicleExpense.update({
             where: { id },
             data: { deletedAt: new Date() }
         });

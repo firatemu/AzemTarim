@@ -4,7 +4,7 @@ import { ApiProperty } from '@nestjs/swagger';
 
 import { LoanType } from '@prisma/client';
 
-export class CreateLoanKullanimDto {
+export class CreateLoanUsageDto {
     @IsNotEmpty()
     @IsNumber()
     @Min(0)

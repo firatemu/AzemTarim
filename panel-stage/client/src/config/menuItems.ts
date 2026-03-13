@@ -8,6 +8,7 @@ export const menuItems = [
     bgColor: '#ecfeff',
     subItems: [
       { id: 'stock-material-list', label: 'Malzeme Listesi', icon: 'Inventory', path: '/stock/material-list', color: '#06b6d4' },
+      { id: 'stock-price-cards', label: 'Fiyat Kartları', icon: 'LocalOffer', path: '/stock/price-cards', color: '#8b5cf6' },
       { id: 'stock-material-movements', label: 'Malzeme Hareketleri', icon: 'Assessment', path: '/stock/material-movements', color: '#06b6d4' },
       { id: 'stock-product-matching', label: 'Ürün Eşleştirme', icon: 'Settings', path: '/stock/product-matching', color: '#8b5cf6' },
       { id: 'stock-category-management', label: 'Kategori Yönetimi', icon: 'Assessment', path: '/stock/category-management', color: '#06b6d4' },

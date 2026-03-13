@@ -1,3 +1,4 @@
+import { TenantResolverService } from '../../common/services/tenant-resolver.service';
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma.service';
 import { CreateSalaryPaymentDto } from './dto/create-salary-payment.dto';
@@ -6,10 +7,10 @@ import { Decimal } from '@prisma/client/runtime/library';
 
 @Injectable()
 export class SalaryPaymentService {
-    constructor(private prisma: PrismaService) { }
+    constructor(private prisma: PrismaService, private readonly tenantResolver: TenantResolverService) { }
 
     async createOdeme(dto: CreateSalaryPaymentDto, userId: string) {
-        return this.prisma.extended.$transaction(async (tx) => {
+        return this.prisma.$transaction(async (tx) => {
             const plan = await tx.salaryPlan.findUnique({
                 where: { id: dto.salaryPlanId },
             });
@@ -86,7 +87,7 @@ export class SalaryPaymentService {
     }
 
     async getOdemelerByPlan(salaryPlanId: string) {
-        return this.prisma.extended.salaryPayment.findMany({
+        return this.prisma.salaryPayment.findMany({
             where: { salaryPlanId },
             include: {
                 paymentDetails: {
@@ -102,7 +103,7 @@ export class SalaryPaymentService {
     }
 
     async getOdemelerByPersonel(employeeId: string, year: number) {
-        return this.prisma.extended.salaryPayment.findMany({
+        return this.prisma.salaryPayment.findMany({
             where: { employeeId, year },
             include: {
                 paymentDetails: true,

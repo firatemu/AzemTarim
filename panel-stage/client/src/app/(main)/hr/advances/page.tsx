@@ -231,7 +231,7 @@ export default function AvansPage() {
 
     const fetchLists = async () => {
         const [pRes, kRes] = await Promise.all([
-            axios.get('/employee?aktif=true'),
+            axios.get('/employees?aktif=true'),
             axios.get('/cashbox?aktif=true')
         ]);
         setPersonelList(pRes.data);

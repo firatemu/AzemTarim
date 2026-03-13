@@ -22,7 +22,7 @@ export class ServiceInvoiceService {
     private tenantResolver: TenantResolverService,
     private codeTemplateService: CodeTemplateService,
     private systemParameterService: SystemParameterService,
-  ) {}
+  ) { }
 
   /**
    * Step 6: Invoice oluşturma + Muhasebe kaydı
@@ -37,9 +37,9 @@ export class ServiceInvoiceService {
 
     const finalTenantId = tenantId ?? undefined;
 
-    const invoiceNo = await this.codeTemplateService.getNextCode('SERVICE_INVOICE');
+    const invoiceNo = await this.codeTemplateService.getNextCode('SERVICE_INVOICE' as any);
 
-    return this.prisma.extended.$transaction(async (tx) => {
+    return this.prisma.$transaction(async (tx) => {
       const workOrder = await tx.workOrder.findFirst({
         where: {
           id: workOrderId,
@@ -103,7 +103,7 @@ export class ServiceInvoiceService {
           createdBy,
         },
         include: {
-          account: { select: { id: true, code: true, unvan: true } },
+          account: { select: { id: true, code: true, title: true } },
           workOrder: { select: { id: true, workOrderNo: true } },
         },
       });
@@ -149,25 +149,25 @@ export class ServiceInvoiceService {
               },
               ...(laborTotal > 0
                 ? [
-                    {
-                      accountCode: laborCode,
-                      accountName: 'Hizmet Geliri',
-                      debit: new Decimal(0),
-                      credit: new Decimal(laborTotal),
-                      description: 'İşçilik',
-                    },
-                  ]
+                  {
+                    accountCode: laborCode,
+                    accountName: 'Hizmet Geliri',
+                    debit: new Decimal(0),
+                    credit: new Decimal(laborTotal),
+                    description: 'İşçilik',
+                  },
+                ]
                 : []),
               ...(partsTotal > 0
                 ? [
-                    {
-                      accountCode: partsCode,
-                      accountName: 'Parça Satış Geliri',
-                      debit: new Decimal(0),
-                      credit: new Decimal(partsTotal),
-                      description: 'Parça satışı',
-                    },
-                  ]
+                  {
+                    accountCode: partsCode,
+                    accountName: 'Parça Satış Geliri',
+                    debit: new Decimal(0),
+                    credit: new Decimal(partsTotal),
+                    description: 'Parça satışı',
+                  },
+                ]
                 : []),
             ],
           },
@@ -209,17 +209,17 @@ export class ServiceInvoiceService {
     if (accountId) where.accountId = accountId;
 
     const [data, total] = await Promise.all([
-      this.prisma.extended.serviceInvoice.findMany({
+      this.prisma.serviceInvoice.findMany({
         where,
         skip,
         take: limit,
         orderBy: { issueDate: 'desc' },
         include: {
-          account: { select: { id: true, code: true, unvan: true } },
+          account: { select: { id: true, code: true, title: true } },
           workOrder: { select: { id: true, workOrderNo: true, status: true } },
         },
       }),
-      this.prisma.extended.serviceInvoice.count({ where }),
+      this.prisma.serviceInvoice.count({ where }),
     ]);
 
     return {
@@ -233,10 +233,10 @@ export class ServiceInvoiceService {
 
   async findOne(id: string) {
     const tenantId = await this.tenantResolver.resolveForQuery();
-    const invoice = await this.prisma.extended.serviceInvoice.findFirst({
+    const invoice = await this.prisma.serviceInvoice.findFirst({
       where: { id, ...buildTenantWhereClause(tenantId ?? undefined) },
       include: {
-        account: { select: { id: true, code: true, unvan: true } },
+        account: { select: { id: true, code: true, title: true } },
         workOrder: {
           include: {
             items: { include: { product: { select: { id: true, code: true, name: true } } } },

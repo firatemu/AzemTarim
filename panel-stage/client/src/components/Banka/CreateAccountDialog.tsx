@@ -31,40 +31,40 @@ interface CreateAccountDialogProps {
 
 // Validation Schema
 const accountSchema = z.object({
-    hesapAdi: z.string().min(1, 'Hesap adı zorunludur'),
-    hesapTipi: z.enum(['VADESIZ', 'POS', 'KREDI', 'FIRMA_KREDI_KARTI']),
-    hesapNo: z.string().optional(),
+    name: z.string().min(1, 'Hesap adı zorunludur'),
+    type: z.enum(['VADESIZ', 'POS', 'KREDI', 'FIRMA_KREDI_KARTI']),
+    accountNo: z.string().optional(),
     iban: z.string().optional(),
-    aktif: z.boolean().default(true),
+    isActive: z.boolean().default(true),
     // Type-specific fields
-    komisyonOrani: z.preprocess((val) => (val === '' || val === undefined || val === null) ? undefined : Number(val), z.number().min(0).max(100).optional()),
+    commissionRate: z.preprocess((val) => (val === '' || val === undefined || val === null) ? undefined : Number(val), z.number().min(0).max(100).optional()),
     terminalNo: z.string().optional(),
-    krediLimiti: z.preprocess((val) => (val === '' || val === undefined || val === null) ? undefined : Number(val), z.number().min(0).optional()),
-    kartLimiti: z.preprocess((val) => (val === '' || val === undefined || val === null) ? undefined : Number(val), z.number().min(0).optional()),
-    hesapKesimGunu: z.preprocess((val) => (val === '' || val === undefined || val === null) ? undefined : Number(val), z.number().min(1).max(31).optional()),
-    sonOdemeGunu: z.preprocess((val) => (val === '' || val === undefined || val === null) ? undefined : Number(val), z.number().min(1).max(31).optional()),
+    creditLimit: z.preprocess((val) => (val === '' || val === undefined || val === null) ? undefined : Number(val), z.number().min(0).optional()),
+    cardLimit: z.preprocess((val) => (val === '' || val === undefined || val === null) ? undefined : Number(val), z.number().min(0).optional()),
+    billingDay: z.preprocess((val) => (val === '' || val === undefined || val === null) ? undefined : Number(val), z.number().min(1).max(31).optional()),
+    dueDay: z.preprocess((val) => (val === '' || val === undefined || val === null) ? undefined : Number(val), z.number().min(1).max(31).optional()),
 }).superRefine((data, ctx) => {
 
-    if (data.hesapTipi === 'FIRMA_KREDI_KARTI') {
-        if (data.kartLimiti === undefined) {
+    if (data.type === 'FIRMA_KREDI_KARTI') {
+        if (data.cardLimit === undefined) {
             ctx.addIssue({
                 code: z.ZodIssueCode.custom,
                 message: 'Kart limiti zorunludur',
-                path: ['kartLimiti'],
+                path: ['cardLimit'],
             });
         }
-        if (data.hesapKesimGunu === undefined) {
+        if (data.billingDay === undefined) {
             ctx.addIssue({
                 code: z.ZodIssueCode.custom,
                 message: 'Hesap kesim günü zorunludur',
-                path: ['hesapKesimGunu'],
+                path: ['billingDay'],
             });
         }
-        if (data.sonOdemeGunu === undefined) {
+        if (data.dueDay === undefined) {
             ctx.addIssue({
                 code: z.ZodIssueCode.custom,
                 message: 'Son ödeme günü zorunludur',
-                path: ['sonOdemeGunu'],
+                path: ['dueDay'],
             });
         }
     }
@@ -81,12 +81,12 @@ export const accountTypes = [
 ];
 
 const updateAccount = async (hesapId: string, data: any) => {
-    const res = await axios.put(`/banka/hesap/${hesapId}`, data);
+    const res = await axios.put(`/banks/accounts/${hesapId}`, data);
     return res.data;
 };
 
 const createAccount = async (bankaId: string, data: any) => {
-    const res = await axios.post(`/banka/${bankaId}/hesap`, data);
+    const res = await axios.post(`/banks/${bankaId}/accounts`, data);
     return res.data;
 };
 
@@ -97,33 +97,33 @@ export default function CreateAccountDialog({ open, onClose, onSuccess, bankaId,
     const { control, handleSubmit, reset } = useForm<AccountFormValues>({
         resolver: zodResolver(accountSchema) as any,
         values: (initialData ? {
-            hesapAdi: initialData.hesapAdi || '',
-            hesapTipi: initialData.hesapTipi || 'VADESIZ',
-            hesapNo: initialData.hesapNo || '',
+            name: initialData.name || initialData.hesapAdi || '',
+            type: initialData.type || initialData.hesapTipi || 'VADESIZ',
+            accountNo: initialData.accountNo || initialData.hesapNo || '',
             iban: initialData.iban || '',
-            aktif: initialData.aktif ?? true,
-            komisyonOrani: initialData.komisyonOrani ?? undefined,
+            isActive: initialData.isActive ?? initialData.aktif ?? true,
+            commissionRate: initialData.commissionRate ?? initialData.komisyonOrani ?? undefined,
             terminalNo: initialData.terminalNo || '',
-            krediLimiti: initialData.krediLimiti ?? undefined,
-            kartLimiti: initialData.kartLimiti ?? undefined,
-            hesapKesimGunu: initialData.hesapKesimGunu ?? undefined,
-            sonOdemeGunu: initialData.sonOdemeGunu ?? undefined,
+            creditLimit: initialData.creditLimit ?? initialData.krediLimiti ?? undefined,
+            cardLimit: initialData.cardLimit ?? initialData.kartLimiti ?? undefined,
+            billingDay: initialData.billingDay ?? initialData.hesapKesimGunu ?? undefined,
+            dueDay: initialData.dueDay ?? initialData.sonOdemeGunu ?? undefined,
         } : {
-            hesapAdi: '',
-            hesapTipi: 'VADESIZ',
-            hesapNo: '',
+            name: '',
+            type: 'VADESIZ',
+            accountNo: '',
             iban: '',
-            aktif: true,
-            komisyonOrani: undefined,
+            isActive: true,
+            commissionRate: undefined,
             terminalNo: '',
-            krediLimiti: undefined,
-            kartLimiti: undefined,
-            hesapKesimGunu: undefined,
-            sonOdemeGunu: undefined,
+            creditLimit: undefined,
+            cardLimit: undefined,
+            billingDay: undefined,
+            dueDay: undefined,
         }) as AccountFormValues,
     });
 
-    const hesapTipi = useWatch({ control, name: 'hesapTipi' });
+    const type = useWatch({ control, name: 'type' });
 
     const onSubmit = async (values: AccountFormValues) => {
         try {
@@ -155,7 +155,7 @@ export default function CreateAccountDialog({ open, onClose, onSuccess, bankaId,
                 <DialogContent>
                     <Stack spacing={2.5}>
                         <Controller
-                            name="hesapTipi"
+                            name="type"
                             control={control}
                             render={({ field }) => (
                                 <TextField
@@ -173,7 +173,7 @@ export default function CreateAccountDialog({ open, onClose, onSuccess, bankaId,
                         />
 
                         <Controller
-                            name="hesapAdi"
+                            name="name"
                             control={control}
                             render={({ field, fieldState }) => (
                                 <TextField
@@ -188,7 +188,7 @@ export default function CreateAccountDialog({ open, onClose, onSuccess, bankaId,
                         />
 
                         {/* IBAN and Account No for VADESIZ, POS, KREDI */}
-                        {(hesapTipi === 'VADESIZ' || hesapTipi === 'POS' || hesapTipi === 'KREDI') && (
+                        {(type === 'VADESIZ' || type === 'POS' || type === 'KREDI') && (
                             <Grid container spacing={2}>
                                 <Grid size={{ xs: 12 }}>
                                     <Controller
@@ -201,7 +201,7 @@ export default function CreateAccountDialog({ open, onClose, onSuccess, bankaId,
                                 </Grid>
                                 <Grid size={{ xs: 12 }}>
                                     <Controller
-                                        name="hesapNo"
+                                        name="accountNo"
                                         control={control}
                                         render={({ field }) => (
                                             <TextField {...field} value={field.value ?? ''} fullWidth label="Hesap No" />
@@ -212,11 +212,11 @@ export default function CreateAccountDialog({ open, onClose, onSuccess, bankaId,
                         )}
 
                         {/* POS: Commission Rate and Terminal No */}
-                        {hesapTipi === 'POS' && (
+                        {type === 'POS' && (
                             <Grid container spacing={2}>
                                 <Grid size={{ xs: 6 }}>
                                     <Controller
-                                        name="komisyonOrani"
+                                        name="commissionRate"
                                         control={control}
                                         render={({ field, fieldState }) => (
                                             <TextField
@@ -253,16 +253,16 @@ export default function CreateAccountDialog({ open, onClose, onSuccess, bankaId,
                         )}
 
                         {/* KREDI: Credit Limit */}
-                        {hesapTipi === 'KREDI' && (
+                        {type === 'KREDI' && (
                             // Kredi Limiti input field removed
                             null
                         )}
 
                         {/* FIRMA_KREDI_KARTI: Card details */}
-                        {hesapTipi === 'FIRMA_KREDI_KARTI' && (
+                        {type === 'FIRMA_KREDI_KARTI' && (
                             <>
                                 <Controller
-                                    name="kartLimiti"
+                                    name="cardLimit"
                                     control={control}
                                     render={({ field, fieldState }) => (
                                         <TextField
@@ -279,7 +279,7 @@ export default function CreateAccountDialog({ open, onClose, onSuccess, bankaId,
                                 <Grid container spacing={2}>
                                     <Grid size={{ xs: 6 }}>
                                         <Controller
-                                            name="hesapKesimGunu"
+                                            name="billingDay"
                                             control={control}
                                             render={({ field, fieldState }) => (
                                                 <TextField
@@ -297,7 +297,7 @@ export default function CreateAccountDialog({ open, onClose, onSuccess, bankaId,
                                     </Grid>
                                     <Grid size={{ xs: 6 }}>
                                         <Controller
-                                            name="sonOdemeGunu"
+                                            name="dueDay"
                                             control={control}
                                             render={({ field, fieldState }) => (
                                                 <TextField

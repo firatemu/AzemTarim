@@ -1,19 +1,21 @@
+import { TenantResolverService } from '../../common/services/tenant-resolver.service';
 import {
     Injectable,
     NotFoundException,
     BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma.service';
+import { ClsService } from '../../common/services/cls.service';
 
 @Injectable()
 export class CategoryService {
-    constructor(private prisma: PrismaService) { }
+    constructor(private prisma: PrismaService, private readonly tenantResolver: TenantResolverService) { }
 
     /**
      * Fetch all main categories and their subcategories from products
      */
     async findAll() {
-        const products = await this.prisma.extended.product.findMany({
+        const products = await this.prisma.product.findMany({
             where: {
                 mainCategory: {
                     not: null,
@@ -57,7 +59,7 @@ export class CategoryService {
     async findSubCategories(mainCategory: string) {
         const decodedMainCategory = decodeURIComponent(mainCategory);
 
-        const products = await this.prisma.extended.product.findMany({
+        const products = await this.prisma.product.findMany({
             where: {
                 mainCategory: decodedMainCategory,
                 subCategory: {
@@ -88,7 +90,7 @@ export class CategoryService {
         const decodedMainCategory = decodeURIComponent(mainCategory);
         const decodedSubCategory = decodeURIComponent(subCategory);
 
-        const existingProduct = await this.prisma.extended.product.findFirst({
+        const existingProduct = await this.prisma.product.findFirst({
             where: {
                 mainCategory: decodedMainCategory,
                 subCategory: decodedSubCategory,
@@ -108,13 +110,28 @@ export class CategoryService {
             const timestamp = Date.now().toString().slice(-6);
             const code = `CAT-${decodedMainCategory.substring(0, 3).toUpperCase()}-${decodedSubCategory.substring(0, 3).toUpperCase()}-${timestamp}`;
 
-            await this.prisma.extended.product.create({
+            await this.prisma.product.create({
                 data: {
+                    tenantId: ClsService.getTenantId() || '',
                     code,
                     name: `[Category Definition] ${decodedMainCategory} - ${decodedSubCategory}`,
                     unit: 'Adet',
-                    purchasePrice: 0,
-                    salePrice: 0,
+                    priceCards: {
+                        create: [
+                            {
+                                tenantId: ClsService.getTenantId() || '',
+                                type: 'PURCHASE',
+                                price: 0,
+                                vatRate: 20,
+                            },
+                            {
+                                tenantId: ClsService.getTenantId() || '',
+                                type: 'SALE',
+                                price: 0,
+                                vatRate: 20,
+                            }
+                        ]
+                    },
                     mainCategory: decodedMainCategory,
                     subCategory: decodedSubCategory,
                     isCategoryOnly: true,
@@ -134,13 +151,28 @@ export class CategoryService {
                 const timestamp = Date.now().toString();
                 const code = `CAT-${decodedMainCategory.substring(0, 3).toUpperCase()}-${decodedSubCategory.substring(0, 3).toUpperCase()}-${timestamp}`;
 
-                await this.prisma.extended.product.create({
+                await this.prisma.product.create({
                     data: {
+                        tenantId: ClsService.getTenantId() || '',
                         code,
                         name: `[Category Definition] ${decodedMainCategory} - ${decodedSubCategory}`,
                         unit: 'Adet',
-                        purchasePrice: 0,
-                        salePrice: 0,
+                        priceCards: {
+                            create: [
+                                {
+                                    tenantId: ClsService.getTenantId() || '',
+                                    type: 'PURCHASE',
+                                    price: 0,
+                                    vatRate: 20,
+                                },
+                                {
+                                    tenantId: ClsService.getTenantId() || '',
+                                    type: 'SALE',
+                                    price: 0,
+                                    vatRate: 20,
+                                }
+                            ]
+                        },
                         mainCategory: decodedMainCategory,
                         subCategory: decodedSubCategory,
                         isCategoryOnly: true,
@@ -169,7 +201,7 @@ export class CategoryService {
     async addMainCategory(mainCategory: string) {
         const decodedMainCategory = decodeURIComponent(mainCategory);
 
-        const existingProduct = await this.prisma.extended.product.findFirst({
+        const existingProduct = await this.prisma.product.findFirst({
             where: {
                 mainCategory: decodedMainCategory,
             },
@@ -185,13 +217,28 @@ export class CategoryService {
             const timestamp = Date.now().toString().slice(-6);
             const code = `CAT-${decodedMainCategory.substring(0, 3).toUpperCase()}-${timestamp}`;
 
-            await this.prisma.extended.product.create({
+            await this.prisma.product.create({
                 data: {
+                    tenantId: ClsService.getTenantId() || '',
                     code,
                     name: `[Main Category Definition] ${decodedMainCategory}`,
                     unit: 'Adet',
-                    purchasePrice: 0,
-                    salePrice: 0,
+                    priceCards: {
+                        create: [
+                            {
+                                tenantId: ClsService.getTenantId() || '',
+                                type: 'PURCHASE',
+                                price: 0,
+                                vatRate: 20,
+                            },
+                            {
+                                tenantId: ClsService.getTenantId() || '',
+                                type: 'SALE',
+                                price: 0,
+                                vatRate: 20,
+                            }
+                        ]
+                    },
                     mainCategory: decodedMainCategory,
                     subCategory: null,
                     isCategoryOnly: true,
@@ -210,13 +257,28 @@ export class CategoryService {
                 const timestamp = Date.now().toString();
                 const code = `CAT-${decodedMainCategory.substring(0, 3).toUpperCase()}-${timestamp}`;
 
-                await this.prisma.extended.product.create({
+                await this.prisma.product.create({
                     data: {
+                        tenantId: ClsService.getTenantId() || '',
                         code,
                         name: `[Main Category Definition] ${decodedMainCategory}`,
                         unit: 'Adet',
-                        purchasePrice: 0,
-                        salePrice: 0,
+                        priceCards: {
+                            create: [
+                                {
+                                    tenantId: ClsService.getTenantId() || '',
+                                    type: 'PURCHASE',
+                                    price: 0,
+                                    vatRate: 20,
+                                },
+                                {
+                                    tenantId: ClsService.getTenantId() || '',
+                                    type: 'SALE',
+                                    price: 0,
+                                    vatRate: 20,
+                                }
+                            ]
+                        },
                         mainCategory: decodedMainCategory,
                         subCategory: null,
                         isCategoryOnly: true,
@@ -245,7 +307,7 @@ export class CategoryService {
         const decodedMainCategory = decodeURIComponent(mainCategory);
         const decodedSubCategory = decodeURIComponent(subCategory);
 
-        const productCount = await this.prisma.extended.product.count({
+        const productCount = await this.prisma.product.count({
             where: {
                 mainCategory: decodedMainCategory,
                 subCategory: decodedSubCategory,
@@ -258,7 +320,7 @@ export class CategoryService {
             );
         }
 
-        await this.prisma.extended.product.updateMany({
+        await this.prisma.product.updateMany({
             where: {
                 mainCategory: decodedMainCategory,
                 subCategory: decodedSubCategory,
@@ -282,7 +344,7 @@ export class CategoryService {
     async removeMainCategory(mainCategory: string) {
         const decodedMainCategory = decodeURIComponent(mainCategory);
 
-        const productCount = await this.prisma.extended.product.count({
+        const productCount = await this.prisma.product.count({
             where: {
                 mainCategory: decodedMainCategory,
             },
@@ -294,7 +356,7 @@ export class CategoryService {
             );
         }
 
-        await this.prisma.extended.product.updateMany({
+        await this.prisma.product.updateMany({
             where: {
                 mainCategory: decodedMainCategory,
             },

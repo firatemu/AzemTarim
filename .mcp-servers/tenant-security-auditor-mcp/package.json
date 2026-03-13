@@ -1,0 +1,18 @@
+{
+    "name": "@otomuhasebe/tenant-security-auditor-mcp",
+    "version": "1.0.0",
+    "description": "MCP server to audit multi-tenant isolation (Rule 1) in OtoMuhasebe project",
+    "main": "dist/index.js",
+    "type": "module",
+    "scripts": {
+        "build": "tsc && node -e \"require('fs').chmodSync('dist/index.js', '755')\"",
+        "start": "node dist/index.js"
+    },
+    "dependencies": {
+        "@modelcontextprotocol/sdk": "^1.0.4"
+    },
+    "devDependencies": {
+        "@types/node": "^22.10.2",
+        "typescript": "^5.7.2"
+    }
+}

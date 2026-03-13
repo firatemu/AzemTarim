@@ -62,9 +62,14 @@ interface SatisElemani {
 }
 
 interface Stok {
+  id: string;
+  stokKodu: string;
+  stokAdi: string;
+  birim: string;
   satisFiyati: number;
   kdvOrani: number;
   barkod?: string;
+  miktar: number;
 }
 
 const TEVKIFAT_KODLARI = [
@@ -390,7 +395,7 @@ export function SatisFaturaForm({ faturaId: editFaturaId, onBack }: { faturaId?:
     if (!editFaturaId) return;
     try {
       setLoadingFatura(true);
-      const response = await axios.get(`/fatura/${editFaturaId}`);
+      const response = await axios.get(`/invoices/${editFaturaId}`);
       const fatura = response.data;
       const durumValue = (fatura.durum || 'APPROVED') as DurumType;
       const warehouseId = fatura.warehouseId ?? fatura.irsaliye?.depoId ?? '';
@@ -477,7 +482,7 @@ export function SatisFaturaForm({ faturaId: editFaturaId, onBack }: { faturaId?:
 
   const fetchCariler = async () => {
     try {
-      const response = await axios.get('/account', {
+      const response = await axios.get('/accounts', {
         params: { limit: 1000 },
       });
       setCariler(response.data.data || []);
@@ -488,7 +493,7 @@ export function SatisFaturaForm({ faturaId: editFaturaId, onBack }: { faturaId?:
 
   const fetchWarehouses = async () => {
     try {
-      const response = await axios.get('/warehouse?active=true');
+      const response = await axios.get('/warehouses?active=true');
       const warehouseList = response.data || [];
       setWarehouses(warehouseList);
       setWarehousesFetched(true);
@@ -517,7 +522,7 @@ export function SatisFaturaForm({ faturaId: editFaturaId, onBack }: { faturaId?:
 
   const fetchSatisElemanlari = async () => {
     try {
-      const response = await axios.get('/sales-agent');
+      const response = await axios.get('/sales-agents');
       setSatisElemanlari(response.data || []);
     } catch (error) {
       console.error('Satış elemanları yüklenirken hata:', error);
@@ -526,7 +531,7 @@ export function SatisFaturaForm({ faturaId: editFaturaId, onBack }: { faturaId?:
 
   const fetchStoklar = async () => {
     try {
-      const response = await axios.get('/product', {
+      const response = await axios.get('/products', {
         params: { limit: 1000 },
       });
       setStoklar(response.data.data || []);
@@ -538,7 +543,7 @@ export function SatisFaturaForm({ faturaId: editFaturaId, onBack }: { faturaId?:
   const fetchSiparisBilgileri = async (id: string) => {
     try {
       setLoadingSiparis(true);
-      const response = await axios.get(`/siparis/${id}`);
+      const response = await axios.get(`/orders/${id}`);
       const siparis = response.data;
 
       console.log('Sipariş bilgileri yüklendi:', siparis);
@@ -634,7 +639,7 @@ export function SatisFaturaForm({ faturaId: editFaturaId, onBack }: { faturaId?:
   const fetchFaturaKopyala = async (faturaId: string) => {
     try {
       setLoadingSiparis(true);
-      const response = await axios.get(`/fatura/${faturaId}`);
+      const response = await axios.get(`/invoices/${faturaId}`);
       const fatura = response.data;
 
       const warehouseId = fatura.warehouseId ?? fatura.irsaliye?.depoId ?? '';
@@ -702,7 +707,7 @@ export function SatisFaturaForm({ faturaId: editFaturaId, onBack }: { faturaId?:
 
     try {
       setLoadingIrsaliyeler(true);
-      const response = await axios.get('/satis-irsaliyesi', {
+      const response = await axios.get('/sales-waybills', {
         params: {
           cariId,
           durum: 'FATURALANMADI',
@@ -750,7 +755,7 @@ export function SatisFaturaForm({ faturaId: editFaturaId, onBack }: { faturaId?:
 
       // Seçilen her irsaliye için kalemleri topla
       for (const irsaliyeId of selectedIrsaliyeler) {
-        const response = await axios.get(`/satis-irsaliyesi/${irsaliyeId}`);
+        const response = await axios.get(`/sales-waybills/${irsaliyeId}`);
         const irsaliye = response.data;
 
         if (irsaliye.kalemler && irsaliye.kalemler.length > 0) {
@@ -1374,27 +1379,27 @@ export function SatisFaturaForm({ faturaId: editFaturaId, onBack }: { faturaId?:
 
       if (isEdit) {
         setSaving(true);
-        const response = await axios.put(`/fatura/${editFaturaId}`, {
-          faturaNo: formData.faturaNo?.trim() || undefined,
-          tarih: new Date(formData.tarih).toISOString(),
-          vade: formData.vade ? new Date(formData.vade).toISOString() : null,
-          iskonto: Number(formData.genelIskontoTutar) || 0,
-          aciklama: formData.aciklama || null,
+        const response = await axios.put(`/invoices/${editFaturaId}`, {
+          invoiceNo: formData.faturaNo?.trim() || undefined,
+          date: new Date(formData.tarih).toISOString(),
+          dueDate: formData.vade ? new Date(formData.vade).toISOString() : null,
+          discount: Number(formData.genelIskontoTutar) || 0,
+          notes: formData.aciklama || null,
           warehouseId: formData.warehouseId || null,
-          satisElemaniId: formData.satisElemaniId || null,
-          dovizCinsi: formData.dovizCinsi,
-          dovizKuru: formData.dovizKuru,
-          kalemler: validKalemler.map(k => ({
-            stokId: k.stokId,
-            miktar: Number(k.miktar),
-            birimFiyat: Number(k.birimFiyat),
-            kdvOrani: (k.kdvOrani === 0 || k.kdvOrani === '0') ? 0 : Number(k.kdvOrani),
-            iskontoOrani: Number(k.iskontoOran) || 0,
-            iskontoTutari: Number(k.iskontoTutar) || 0,
-            tevkifatKodu: k.tevkifatKodu || null,
-            tevkifatOrani: Number(k.tevkifatOran) || 0,
-            otvOrani: Number(k.otvOran) || 0,
-            birim: k.birim || null,
+          salesAgentId: formData.satisElemaniId || null,
+          currency: formData.dovizCinsi,
+          exchangeRate: formData.dovizKuru,
+          items: validKalemler.map(k => ({
+            productId: k.stokId,
+            quantity: Number(k.miktar),
+            unitPrice: Number(k.birimFiyat),
+            vatRate: (Number(k.kdvOrani) === 0) ? 0 : Number(k.kdvOrani),
+            discountRate: Number(k.iskontoOran) || 0,
+            discountAmount: Number(k.iskontoTutar) || 0,
+            withholdingCode: k.tevkifatKodu || null,
+            withholdingRate: Number(k.tevkifatOran) || 0,
+            sctRate: Number(k.otvOran) || 0,
+            unit: k.birim || null,
           })),
         });
 
@@ -1403,7 +1408,7 @@ export function SatisFaturaForm({ faturaId: editFaturaId, onBack }: { faturaId?:
 
         // Eğer ödeme planı varsa kaydet
         if (faturaId && formData.odemePlani.length > 0) {
-          await axios.post(`/fatura/${faturaId}/odeme-plani`, formData.odemePlani);
+          await axios.post(`/invoices/${faturaId}/payment-plan`, formData.odemePlani);
         }
 
         showSnackbar('Fatura başarıyla güncellendi', 'success');
@@ -1412,37 +1417,37 @@ export function SatisFaturaForm({ faturaId: editFaturaId, onBack }: { faturaId?:
       }
 
       setLoading(true);
-      const response = await axios.post('/invoice', {
-        faturaNo: formData.faturaNo,
-        faturaTipi: formData.faturaTipi,
-        cariId: formData.cariId,
-        tarih: new Date(formData.tarih).toISOString(),
-        vade: formData.vade ? new Date(formData.vade).toISOString() : null,
-        iskonto: Number(formData.genelIskontoTutar) || 0,
-        aciklama: formData.aciklama || null,
-        satisElemaniId: formData.satisElemaniId || null,
-        durum: formData.durum,
-        dovizCinsi: formData.dovizCinsi,
-        dovizKuru: formData.dovizKuru,
-        ...(siparisId && { siparisId }),
-        ...(irsaliyeId && { irsaliyeId }),
+      const response = await axios.post('/invoices', {
+        invoiceNo: formData.faturaNo,
+        type: formData.faturaTipi,
+        accountId: formData.cariId,
+        date: new Date(formData.tarih).toISOString(),
+        dueDate: formData.vade ? new Date(formData.vade).toISOString() : null,
+        discount: Number(formData.genelIskontoTutar) || 0,
+        notes: formData.aciklama || null,
+        salesAgentId: formData.satisElemaniId || null,
+        status: formData.durum,
+        currency: formData.dovizCinsi,
+        exchangeRate: formData.dovizKuru,
+        ...(siparisId && { orderId: siparisId }),
+        ...(irsaliyeId && { deliveryNoteId: irsaliyeId }),
         warehouseId: formData.warehouseId || null,
         // e-Dönüşüm alanları
         eScenario: formData.eScenario || null,
         eInvoiceType: formData.eInvoiceType || null,
         gibAlias: formData.gibAlias || null,
-        gonderimSekli: formData.gonderimSekli || null,
-        kalemler: validKalemler.map(k => ({
-          stokId: k.stokId,
-          miktar: Number(k.miktar),
-          birimFiyat: Number(k.birimFiyat),
-          kdvOrani: Number(k.kdvOrani),
-          iskontoOrani: Number(k.iskontoOran) || 0,
-          iskontoTutari: Number(k.iskontoTutar) || 0,
-          tevkifatKodu: k.tevkifatKodu || null,
-          tevkifatOrani: Number(k.tevkifatOran) || 0,
-          otvOrani: Number(k.otvOran) || 0,
-          birim: k.birim || null,
+        shippingType: formData.gonderimSekli || null,
+        items: validKalemler.map(k => ({
+          productId: k.stokId,
+          quantity: Number(k.miktar),
+          unitPrice: Number(k.birimFiyat),
+          vatRate: Number(k.kdvOrani),
+          discountRate: Number(k.iskontoOran) || 0,
+          discountAmount: Number(k.iskontoTutar) || 0,
+          withholdingCode: k.tevkifatKodu || null,
+          withholdingRate: Number(k.tevkifatOran) || 0,
+          sctRate: Number(k.otvOran) || 0,
+          unit: k.birim || null,
         })),
       });
 
@@ -1451,7 +1456,7 @@ export function SatisFaturaForm({ faturaId: editFaturaId, onBack }: { faturaId?:
 
       // Eğer ödeme planı varsa kaydet
       if (faturaId && formData.odemePlani.length > 0) {
-        await axios.post(`/fatura/${faturaId}/odeme-plani`, formData.odemePlani);
+        await axios.post(`/invoices/${faturaId}/payment-plan`, formData.odemePlani);
       }
 
       showSnackbar('Fatura başarıyla oluşturuldu', 'success');

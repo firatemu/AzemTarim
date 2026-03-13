@@ -30,7 +30,7 @@ export class WarehouseService {
     };
     if (active !== undefined) where.active = active;
 
-    return this.prisma.extended.warehouse.findMany({
+    return this.prisma.warehouse.findMany({
       where,
       include: {
         _count: {
@@ -45,7 +45,7 @@ export class WarehouseService {
 
   async findOne(id: string) {
     const tenantId = await this.tenantResolver.resolveForQuery();
-    const warehouse = await this.prisma.extended.warehouse.findFirst({
+    const warehouse = await this.prisma.warehouse.findFirst({
       where: {
         id,
         ...buildTenantWhereClause(tenantId ?? undefined),
@@ -73,7 +73,7 @@ export class WarehouseService {
 
   async findByCode(code: string) {
     const tenantId = await this.tenantResolver.resolveForQuery();
-    const warehouse = await this.prisma.extended.warehouse.findFirst({
+    const warehouse = await this.prisma.warehouse.findFirst({
       where: {
         code,
         ...buildTenantWhereClause(tenantId ?? undefined),
@@ -107,7 +107,7 @@ export class WarehouseService {
       }
     }
 
-    const existing = await this.prisma.extended.warehouse.findFirst({
+    const existing = await this.prisma.warehouse.findFirst({
       where: {
         code,
         ...(tenantId != null ? { tenantId } : { tenantId: null }),
@@ -117,7 +117,7 @@ export class WarehouseService {
       throw new BadRequestException('This warehouse code is already in use');
     }
 
-    const created = await this.prisma.extended.warehouse.create({
+    const created = await this.prisma.warehouse.create({
       data: {
         code,
         ...(tenantId != null && { tenantId }),
@@ -138,7 +138,7 @@ export class WarehouseService {
   }
 
   private async setOtherWarehousesNotDefault(currentId: string, tenantId?: string) {
-    await this.prisma.extended.warehouse.updateMany({
+    await this.prisma.warehouse.updateMany({
       where: {
         id: { not: currentId },
         ...buildTenantWhereClause(tenantId),
@@ -149,7 +149,7 @@ export class WarehouseService {
 
   async update(id: string, updateDto: UpdateWarehouseDto) {
     const tenantId = await this.tenantResolver.resolveForQuery();
-    const warehouse = await this.prisma.extended.warehouse.findFirst({
+    const warehouse = await this.prisma.warehouse.findFirst({
       where: {
         id,
         ...(tenantId != null ? { tenantId } : { tenantId: null }),
@@ -160,7 +160,7 @@ export class WarehouseService {
     }
 
     if (updateDto.code && updateDto.code !== warehouse.code) {
-      const existing = await this.prisma.extended.warehouse.findFirst({
+      const existing = await this.prisma.warehouse.findFirst({
         where: {
           code: updateDto.code,
           ...(tenantId != null ? { tenantId } : { tenantId: null }),
@@ -171,7 +171,7 @@ export class WarehouseService {
       }
     }
 
-    const updated = await this.prisma.extended.warehouse.update({
+    const updated = await this.prisma.warehouse.update({
       where: { id },
       data: updateDto,
     });
@@ -185,7 +185,7 @@ export class WarehouseService {
 
   async remove(id: string) {
     const tenantId = await this.tenantResolver.resolveForQuery();
-    const warehouse = await this.prisma.extended.warehouse.findFirst({
+    const warehouse = await this.prisma.warehouse.findFirst({
       where: {
         id,
         ...(tenantId != null ? { tenantId } : { tenantId: null }),
@@ -216,7 +216,7 @@ export class WarehouseService {
       );
     }
 
-    return this.prisma.extended.warehouse.delete({
+    return this.prisma.warehouse.delete({
       where: { id },
     });
   }
@@ -224,7 +224,7 @@ export class WarehouseService {
   async getStockReport(warehouseId: string) {
     const tenantId = await this.tenantResolver.resolveForQuery();
 
-    const stocks = await this.prisma.extended.productLocationStock.findMany({
+    const stocks = await this.prisma.productLocationStock.findMany({
       where: {
         warehouseId,
         warehouse: {
@@ -270,7 +270,7 @@ export class WarehouseService {
     const tenantId = await this.tenantResolver.resolveForQuery();
 
     // Verify warehouse exists and belongs to tenant
-    const warehouse = await this.prisma.extended.warehouse.findFirst({
+    const warehouse = await this.prisma.warehouse.findFirst({
       where: {
         id: warehouseId,
         ...buildTenantWhereClause(tenantId ?? undefined),
@@ -288,7 +288,7 @@ export class WarehouseService {
     const locName = `Genel Depo Alanı (${warehouse.name})`;
 
     // Look for existing default location with NEW format
-    let defaultLocation = await this.prisma.extended.location.findFirst({
+    let defaultLocation = await this.prisma.location.findFirst({
       where: {
         warehouseId,
         code: locCode,
@@ -301,7 +301,7 @@ export class WarehouseService {
     // If we want to reuse the OLD one if it exists, uncomment below:
     /*
     if (!defaultLocation) {
-       defaultLocation = await this.prisma.extended.location.findFirst({
+       defaultLocation = await this.prisma.location.findFirst({
          where: { warehouseId, code: `DEF-${warehouseId}` }
        });
     }
@@ -309,7 +309,7 @@ export class WarehouseService {
 
     // Create if doesn't exist
     if (!defaultLocation) {
-      defaultLocation = await this.prisma.extended.location.create({
+      defaultLocation = await this.prisma.location.create({
         data: {
           warehouseId,
           code: locCode,
@@ -332,7 +332,7 @@ export class WarehouseService {
     const tenantId = await this.tenantResolver.resolveForQuery();
 
     // 1. Get all active warehouses for this tenant
-    const warehouses = await this.prisma.extended.warehouse.findMany({
+    const warehouses = await this.prisma.warehouse.findMany({
       where: {
         active: true,
         ...buildTenantWhereClause(tenantId ?? undefined),
@@ -351,7 +351,7 @@ export class WarehouseService {
     });
 
     // 2. Get current stock levels per warehouse for this product
-    const currentStocks = await this.prisma.extended.productLocationStock.findMany({
+    const currentStocks = await this.prisma.productLocationStock.findMany({
       where: {
         productId,
         warehouseId: { in: warehouses.map(w => w.id) },
@@ -370,7 +370,7 @@ export class WarehouseService {
     targetDateEnd.setHours(23, 59, 59, 999);
 
     // 4. Fetch all StockMove records for this product created AFTER the target date
-    const movesAfterDate = await this.prisma.extended.stockMove.findMany({
+    const movesAfterDate = await this.prisma.stockMove.findMany({
       where: {
         productId,
         createdAt: {
@@ -399,7 +399,7 @@ export class WarehouseService {
     const tenantId = await this.tenantResolver.resolveForQuery();
 
     // 1. Get all active warehouses
-    const warehouses = await this.prisma.extended.warehouse.findMany({
+    const warehouses = await this.prisma.warehouse.findMany({
       where: {
         active: true,
         ...buildTenantWhereClause(tenantId ?? undefined),
@@ -409,7 +409,7 @@ export class WarehouseService {
 
     // 2. Get all products that have or had stock movements/records
     // To keep it performant, we only get products that have ProductLocationStock records
-    const currentStocks = await this.prisma.extended.productLocationStock.findMany({
+    const currentStocks = await this.prisma.productLocationStock.findMany({
       where: {
         warehouse: {
           ...buildTenantWhereClause(tenantId ?? undefined),
@@ -451,7 +451,7 @@ export class WarehouseService {
 
     const now = new Date();
     if (targetDateEnd < now) {
-      const movesAfterDate = await this.prisma.extended.stockMove.findMany({
+      const movesAfterDate = await this.prisma.stockMove.findMany({
         where: {
           createdAt: { gt: targetDateEnd },
           product: {
@@ -494,7 +494,7 @@ export class WarehouseService {
   async getWarehouseStock(warehouseId: string) {
     const tenantId = await this.tenantResolver.resolveForQuery();
 
-    const warehouse = await this.prisma.extended.warehouse.findFirst({
+    const warehouse = await this.prisma.warehouse.findFirst({
       where: {
         id: warehouseId,
         ...buildTenantWhereClause(tenantId ?? undefined),
@@ -505,7 +505,7 @@ export class WarehouseService {
       throw new NotFoundException('Warehouse not found');
     }
 
-    const stocks = await this.prisma.extended.productLocationStock.groupBy({
+    const stocks = await this.prisma.productLocationStock.groupBy({
       by: ['productId'],
       where: { warehouseId },
       _sum: { qtyOnHand: true },
@@ -513,7 +513,7 @@ export class WarehouseService {
 
     const productsWithStock = await Promise.all(
       stocks.map(async (stock) => {
-        const product = await this.prisma.extended.product.findUnique({
+        const product = await this.prisma.product.findUnique({
           where: { id: stock.productId },
           select: {
             id: true,
@@ -542,7 +542,7 @@ export class WarehouseService {
 
   async getDefaultWarehouse() {
     const tenantId = await this.tenantResolver.resolveForQuery();
-    return this.prisma.extended.warehouse.findFirst({
+    return this.prisma.warehouse.findFirst({
       where: {
         ...buildTenantWhereClause(tenantId ?? undefined),
         active: true,

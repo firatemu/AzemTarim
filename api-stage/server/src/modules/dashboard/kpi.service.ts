@@ -1,3 +1,4 @@
+import { TenantResolverService } from '../../common/services/tenant-resolver.service';
 /**
  * KpiService — CEO Dashboard KPI Hesaplama ve SSE Yayını
  *
@@ -28,19 +29,16 @@ export class KpiService {
     private readonly logger = new Logger(KpiService.name);
     private readonly CACHE_TTL_SECONDS = 300; // 5 dakika
 
-    constructor(
-        private readonly prisma: PrismaService,
+    constructor(private readonly prisma: PrismaService,
         private readonly sseService: SseService,
-        private readonly redis: RedisService,
-    ) { }
+        private readonly redis: RedisService, private readonly tenantResolver: TenantResolverService) { }
 
     /**
      * KPI'ları Redis'ten oku (O(1), DB'ye gitme).
      * Cache yoksa hesapla.
      */
     async getKpis(tenantId: string): Promise<KpiSnapshot> {
-        const cacheKey = `kpi:${tenantId}`;
-        const cached = await this.redis.get(cacheKey);
+        const cached = await this.redis.getForTenant('kpi', tenantId);
         if (cached) return JSON.parse(cached);
 
         // Cache miss: hesapla ve cache'le
@@ -55,22 +53,22 @@ export class KpiService {
         try {
             const [receivables, payables, bankBalance, activeWO, readyWO] =
                 await Promise.all([
-                    this.prisma.extended.invoice.aggregate({
+                    this.prisma.invoice.aggregate({
                         where: { tenantId, invoiceType: 'SALE', status: { in: ['OPEN', 'PARTIALLY_PAID'] } },
                         _sum: { grandTotal: true },
                     }),
-                    this.prisma.extended.invoice.aggregate({
+                    this.prisma.invoice.aggregate({
                         where: { tenantId, invoiceType: 'PURCHASE', status: { in: ['OPEN', 'PARTIALLY_PAID'] } },
                         _sum: { grandTotal: true },
                     }),
-                    this.prisma.extended.bankAccount.aggregate({
+                    this.prisma.bankAccount.aggregate({
                         where: { bank: { tenantId }, isActive: true },
                         _sum: { balance: true },
                     }).catch(() => ({ _sum: { balance: 0 } })),
-                    this.prisma.extended.workOrder.count({
+                    this.prisma.workOrder.count({
                         where: { tenantId, status: { notIn: ['INVOICED_CLOSED', 'CLOSED_WITHOUT_INVOICE', 'CANCELLED'] } },
                     }),
-                    this.prisma.extended.workOrder.count({
+                    this.prisma.workOrder.count({
                         where: { tenantId, status: 'VEHICLE_READY' },
                     }),
                 ]);
@@ -90,8 +88,7 @@ export class KpiService {
             };
 
             // Redis'e yaz
-            const cacheKey = `kpi:${tenantId}`;
-            await this.redis.set(cacheKey, JSON.stringify(kpi), this.CACHE_TTL_SECONDS);
+            await this.redis.setForTenant('kpi', JSON.stringify(kpi), this.CACHE_TTL_SECONDS, tenantId);
 
             // SSE ile CEO'ya push et
             this.sseService.emit(tenantId, 'KPI_UPDATE', kpi as unknown as Record<string, unknown>);
@@ -108,7 +105,7 @@ export class KpiService {
      * Migration veya bulk işlemler sonrasında kullanılır.
      */
     async invalidateCache(tenantId: string) {
-        await this.redis.del(`kpi:${tenantId}`);
+        await this.redis.delForTenant('kpi', tenantId);
         this.logger.log(`[KpiService] Cache temizlendi: ${tenantId}`);
     }
 
@@ -117,8 +114,7 @@ export class KpiService {
      * Cache TTL 1 saat.
      */
     async getCashTrend(tenantId: string) {
-        const cacheKey = `cash-trend:${tenantId}`;
-        const cached = await this.redis.get(cacheKey);
+        const cached = await this.redis.getForTenant('cash-trend', tenantId);
         if (cached) return JSON.parse(cached);
 
         const today = new Date();
@@ -131,11 +127,11 @@ export class KpiService {
             const endDate = new Date(date.getFullYear(), date.getMonth() + 1, 0, 23, 59, 59);
 
             const [gelirRes, giderRes] = await Promise.all([
-                this.prisma.extended.invoice.aggregate({
+                this.prisma.invoice.aggregate({
                     where: { tenantId, invoiceType: 'SALE', status: { not: 'CANCELLED' as any }, date: { gte: startDate, lte: endDate } },
                     _sum: { grandTotal: true },
                 }),
-                this.prisma.extended.invoice.aggregate({
+                this.prisma.invoice.aggregate({
                     where: { tenantId, invoiceType: 'PURCHASE', status: { not: 'CANCELLED' as any }, date: { gte: startDate, lte: endDate } },
                     _sum: { grandTotal: true },
                 })
@@ -148,7 +144,7 @@ export class KpiService {
             });
         }
 
-        await this.redis.set(cacheKey, JSON.stringify(trend), 3600); // 1 saat
+        await this.redis.setForTenant('cash-trend', JSON.stringify(trend), 3600, tenantId); // 1 saat
         return trend;
     }
 }

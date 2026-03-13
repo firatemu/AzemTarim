@@ -15,10 +15,10 @@ export class SalesAgentService {
     async create(createDto: CreateSalesAgentDto, userId?: string) {
         const tenantId = await this.tenantResolver.resolveForCreate({ userId });
 
-        return this.prisma.extended.salesAgent.create({
+        return this.prisma.salesAgent.create({
             data: {
                 fullName: createDto.fullName,
-                phone: createDto.telefon,
+                phone: createDto.phone,
                 email: createDto.email,
                 isActive: createDto.isActive ?? true,
                 tenantId,
@@ -28,7 +28,7 @@ export class SalesAgentService {
 
     async findAll() {
         const tenantId = await this.tenantResolver.resolveForQuery();
-        const list = await this.prisma.extended.salesAgent.findMany({
+        const list = await this.prisma.salesAgent.findMany({
             where: buildTenantWhereClause(tenantId ?? undefined),
             orderBy: { fullName: 'asc' },
         });
@@ -45,7 +45,7 @@ export class SalesAgentService {
     }
 
     async findOne(id: string) {
-        const item = await this.prisma.extended.salesAgent.findUnique({
+        const item = await this.prisma.salesAgent.findUnique({
             where: { id },
         });
         if (!item) throw new NotFoundException('Sales agent not found');
@@ -63,11 +63,11 @@ export class SalesAgentService {
 
     async update(id: string, updateDto: UpdateSalesAgentDto) {
         await this.findOne(id);
-        return this.prisma.extended.salesAgent.update({
+        return this.prisma.salesAgent.update({
             where: { id },
             data: {
                 fullName: updateDto.fullName,
-                phone: updateDto.telefon,
+                phone: updateDto.phone,
                 email: updateDto.email,
                 isActive: updateDto.isActive,
             },
@@ -76,7 +76,7 @@ export class SalesAgentService {
 
     async remove(id: string) {
         await this.findOne(id);
-        return this.prisma.extended.salesAgent.delete({
+        return this.prisma.salesAgent.delete({
             where: { id },
         });
     }

@@ -239,8 +239,8 @@ Bu otomatik bir e-postadır. Lütfen bu e-postaya yanıt vermeyiniz.
 
     const itemsHtml = items.map(item => `
       <tr style="border-bottom: 1px solid #eee;">
-        <td style="padding: 10px;">${item.cekNo || item.seriNo}</td>
-        <td style="padding: 10px;">${item.account?.unvan}</td>
+        <td style="padding: 10px;">${item.checkNo || item.seriNo}</td>
+        <td style="padding: 10px;">${item.account?.title}</td>
         <td style="padding: 10px;">${new Date(item.vade).toLocaleDateString('tr-TR')}</td>
         <td style="padding: 10px; text-align: right;">₺${Number(item.remainingAmount).toLocaleString('tr-TR')}</td>
       </tr>

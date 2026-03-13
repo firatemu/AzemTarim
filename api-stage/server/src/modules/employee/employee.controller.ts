@@ -17,10 +17,10 @@ import { CreateEmployeeOdemeDto } from './dto/create-employee-payment.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 
 
-@Controller('employee')
+@Controller('employees')
 @UseGuards(JwtAuthGuard)
 export class EmployeeController {
-  constructor(private readonly employeeService: EmployeeService) {}
+  constructor(private readonly employeeService: EmployeeService) { }
 
   // Özel route'lar önce tanımlanmalı
 

@@ -1,12 +1,13 @@
-import { Body, Controller, Get, Param, Post, Query, Req } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, Req } from '@nestjs/common';
 import { PriceCardService } from './price-card.service';
-import { CreatePriceCardDto } from './dto/create-price-card.dto';
+import { CreatePriceCardDto, PriceType } from './dto/create-price-card.dto';
+import { UpdatePriceCardDto } from './dto/update-price-card.dto';
 import {
+  FindAllPriceCardsDto,
   FindPriceCardsDto,
   LatestPriceQueryDto,
 } from './dto/find-price-cards.dto';
 import { type Request } from 'express';
-import { PriceCardType } from './dto/create-price-card.dto';
 
 @Controller('price-cards')
 export class PriceCardController {
@@ -16,6 +17,31 @@ export class PriceCardController {
   create(@Body() createDto: CreatePriceCardDto, @Req() req: Request) {
     const userId = (req as any)?.user?.id as string | undefined;
     return this.priceCardService.create(createDto, userId);
+  }
+
+  @Get()
+  findAll(@Query() query: FindAllPriceCardsDto) {
+    return this.priceCardService.findAll(query);
+  }
+
+  @Get(':id')
+  findOne(@Param('id') id: string) {
+    return this.priceCardService.findOne(id);
+  }
+
+  @Patch(':id')
+  update(
+    @Param('id') id: string,
+    @Body() updateDto: UpdatePriceCardDto,
+    @Req() req: Request,
+  ) {
+    const userId = (req as any)?.user?.id as string | undefined;
+    return this.priceCardService.update(id, updateDto, userId);
+  }
+
+  @Delete(':id')
+  remove(@Param('id') id: string) {
+    return this.priceCardService.remove(id);
   }
 
   @Get('product/:productId')
@@ -31,7 +57,7 @@ export class PriceCardController {
     @Param('productId') productId: string,
     @Query() query: LatestPriceQueryDto,
   ) {
-    const type = query.type ?? PriceCardType.SALE;
+    const type = query.type ?? PriceType.SALE;
     return this.priceCardService.findLatest(productId, type);
   }
 }

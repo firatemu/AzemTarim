@@ -1,3 +1,4 @@
+import { TenantResolverService } from '../../common/services/tenant-resolver.service';
 import {
   Injectable,
   NotFoundException,
@@ -9,11 +10,11 @@ import { UpdateCompanyCreditCardDto } from './dto/update-company-credit-card.dto
 
 @Injectable()
 export class CompanyCreditCardService {
-  constructor(private prisma: PrismaService) { }
+  constructor(private prisma: PrismaService, private readonly tenantResolver: TenantResolverService) { }
 
   async create(createDto: CreateCompanyCreditCardDto) {
     // Cashbox kontrolü
-    const cashbox = await this.prisma.extended.cashbox.findUnique({
+    const cashbox = await this.prisma.cashbox.findUnique({
       where: { id: createDto.cashboxId },
     });
 
@@ -31,7 +32,7 @@ export class CompanyCreditCardService {
     let code = createDto.code;
     if (!code || code.trim() === '') {
       // Otomatik kod üret: KASA_KODU-001, KASA_KODU-002...
-      const kartSayisi = await this.prisma.extended.companyCreditCard.count({
+      const kartSayisi = await this.prisma.companyCreditCard.count({
         where: { cashboxId: createDto.cashboxId },
       });
       code = `${cashbox.code}-${String(kartSayisi + 1).padStart(3, '0')}`;
@@ -54,7 +55,7 @@ export class CompanyCreditCardService {
       isActive: createDto.isActive ?? true,
     };
 
-    const kart = await this.prisma.extended.companyCreditCard.create({
+    const kart = await this.prisma.companyCreditCard.create({
       data,
       include: {
         cashbox: true,
@@ -70,7 +71,7 @@ export class CompanyCreditCardService {
       where.cashboxId = cashboxId;
     }
 
-    return this.prisma.extended.companyCreditCard.findMany({
+    return this.prisma.companyCreditCard.findMany({
       where,
       include: {
         cashbox: {
@@ -86,7 +87,7 @@ export class CompanyCreditCardService {
   }
 
   async findOne(id: string) {
-    const kart = await this.prisma.extended.companyCreditCard.findUnique({
+    const kart = await this.prisma.companyCreditCard.findUnique({
       where: { id },
       include: {
         cashbox: true,
@@ -137,7 +138,7 @@ export class CompanyCreditCardService {
         : null;
     }
 
-    const kart = await this.prisma.extended.companyCreditCard.update({
+    const kart = await this.prisma.companyCreditCard.update({
       where: { id },
       data: dataToUpdate,
     });
@@ -149,7 +150,7 @@ export class CompanyCreditCardService {
     const kart = await this.findOne(id);
 
     // Hareket kontrolü
-    const hareketSayisi = await this.prisma.extended.companyCreditCardMovement.count({
+    const hareketSayisi = await this.prisma.companyCreditCardMovement.count({
       where: { cardId: id },
     });
 
@@ -157,7 +158,7 @@ export class CompanyCreditCardService {
       throw new BadRequestException('This card has movements, it cannot be deleted');
     }
 
-    return this.prisma.extended.companyCreditCard.delete({
+    return this.prisma.companyCreditCard.delete({
       where: { id },
     });
   }

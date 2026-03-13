@@ -24,7 +24,7 @@ const COLLECTION_TYPE_QUERY = ['COLLECTION', 'PAYMENT'] as const;
 const PAYMENT_METHOD_QUERY = ['CASH', 'CREDIT_CARD', 'BANK_TRANSFER', 'CHECK', 'PROMISSORY_NOTE'] as const;
 
 @UseGuards(JwtAuthGuard)
-@Controller('collection')
+@Controller('collections')
 export class CollectionController {
   constructor(
     private readonly collectionService: CollectionService,

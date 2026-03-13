@@ -1,3 +1,4 @@
+import { TenantResolverService } from '../../common/services/tenant-resolver.service';
 import {
     Injectable,
     NotFoundException,
@@ -7,24 +8,23 @@ import { PrismaService } from '../../common/prisma.service';
 import { BankAccountType, BankMovementType, BankMovementSubType, LoanType, LoanStatus, CreditPlanStatus } from '@prisma/client';
 import { CreateBankDto, UpdateBankDto } from './dto/create-bank.dto';
 import { BankAccountCreateDto, BankAccountUpdateDto } from './dto/create-account.dto';
-import { CreateBankHareketDto, CreatePosHareketDto } from './dto/create-movement.dto';
-import { CreateLoanKullanimDto } from './dto/create-loan.dto';
+import { CreateBankMovementDto, CreatePosMovementDto } from './dto/create-movement.dto';
+import { CreateLoanUsageDto } from './dto/create-loan.dto';
 import { PayCreditInstallmentDto, PaymentType } from './dto/pay-credit-installment.dto';
-import { TenantContextService } from '../../common/services/tenant-context.service';
 import { Decimal } from '@prisma/client/runtime/library';
 
 @Injectable()
 export class BankService {
     constructor(
         private readonly prisma: PrismaService,
-        private readonly tenantContext: TenantContextService,
+        private readonly tenantResolver: TenantResolverService
     ) { }
 
     // ============ BANK CRUD ============
 
     async create(createBankDto: CreateBankDto) {
-        const tenantId = this.tenantContext.getTenantId();
-        return this.prisma.extended.bank.create({
+        const tenantId = await this.tenantResolver.resolveForCreate();
+        return this.prisma.bank.create({
             data: {
                 ...createBankDto,
                 tenantId,
@@ -36,8 +36,8 @@ export class BankService {
     }
 
     async findAll() {
-        const tenantId = this.tenantContext.getTenantId();
-        return this.prisma.extended.bank.findMany({
+        const tenantId = await this.tenantResolver.resolveForQuery();
+        return this.prisma.bank.findMany({
             where: { tenantId },
             include: {
                 accounts: {
@@ -59,8 +59,8 @@ export class BankService {
     }
 
     async findOne(id: string) {
-        const tenantId = this.tenantContext.getTenantId();
-        const bank = await this.prisma.extended.bank.findFirst({
+        const tenantId = await this.tenantResolver.resolveForQuery();
+        const bank = await this.prisma.bank.findFirst({
             where: { id, tenantId },
             include: {
                 accounts: {
@@ -77,31 +77,33 @@ export class BankService {
         });
 
         if (!bank) {
-            throw new NotFoundException(`Bank #id not found`);
+            throw new NotFoundException(`Bank with ID ${id} not found`);
         }
 
         return bank;
     }
 
     async update(id: string, updateBankDto: UpdateBankDto) {
+        const tenantId = await this.tenantResolver.resolveForQuery();
         await this.findOne(id);
-        return this.prisma.extended.bank.update({
-            where: { id },
+        return this.prisma.bank.update({
+            where: { id, tenantId },
             data: updateBankDto,
         });
     }
 
     async remove(id: string) {
+        const tenantId = await this.tenantResolver.resolveForQuery();
         const bank = await this.findOne(id);
         const accountIds = bank.accounts.map(h => h.id);
 
         if (accountIds.length > 0) {
             const [hareketCount, havaleCount, tahsilatCount, salaryCount, loanCount] = await Promise.all([
-                this.prisma.extended.bankAccountMovement.count({ where: { bankAccountId: { in: accountIds } } }),
-                this.prisma.extended.bankTransfer.count({ where: { bankAccountId: { in: accountIds } } }), // CHECK FIELD NAME
-                this.prisma.extended.collection.count({ where: { bankAccountId: { in: accountIds } } }),
-                this.prisma.extended.salaryPaymentDetail.count({ where: { bankAccountId: { in: accountIds } } }),
-                this.prisma.extended.bankLoan.count({ where: { bankAccountId: { in: accountIds } } }),
+                this.prisma.bankAccountMovement.count({ where: { bankAccountId: { in: accountIds }, tenantId: tenantId ?? undefined } }),
+                this.prisma.bankTransfer.count({ where: { bankAccountId: { in: accountIds }, tenantId: tenantId ?? undefined } }),
+                this.prisma.collection.count({ where: { bankAccountId: { in: accountIds }, tenantId: tenantId ?? undefined } }),
+                this.prisma.salaryPaymentDetail.count({ where: { bankAccountId: { in: accountIds }, tenantId: tenantId ?? undefined } }),
+                this.prisma.bankLoan.count({ where: { bankAccountId: { in: accountIds }, tenantId: tenantId ?? undefined } }),
             ]);
 
             if (hareketCount > 0 || havaleCount > 0 || tahsilatCount > 0 || salaryCount > 0 || loanCount > 0) {
@@ -109,7 +111,7 @@ export class BankService {
             }
         }
 
-        return this.prisma.extended.bank.delete({ where: { id } });
+        return this.prisma.bank.delete({ where: { id, tenantId } });
     }
 
     // ============ HESAP İŞLEMLERİ ============
@@ -117,7 +119,7 @@ export class BankService {
     async createAccount(bankId: string, createHesapDto: BankAccountCreateDto) {
         await this.findOne(bankId);
 
-        return this.prisma.extended.bankAccount.create({
+        return this.prisma.bankAccount.create({
             data: {
                 bankId,
                 code: createHesapDto.code || `ACC-${Date.now()}`,
@@ -134,8 +136,8 @@ export class BankService {
     }
 
     async findAccount(accountId: string) {
-        const tenantId = this.tenantContext.getTenantId();
-        const hesap = await this.prisma.extended.bankAccount.findUnique({
+        const tenantId = await this.tenantResolver.resolveForQuery();
+        const hesap = await this.prisma.bankAccount.findUnique({
             where: { id: accountId },
             include: {
                 bank: true,
@@ -152,7 +154,7 @@ export class BankService {
     async updateAccount(accountId: string, updateHesapDto: BankAccountUpdateDto) {
         await this.findAccount(accountId);
 
-        return this.prisma.extended.bankAccount.update({
+        return this.prisma.bankAccount.update({
             where: { id: accountId },
             data: {
                 name: updateHesapDto.name,
@@ -167,26 +169,26 @@ export class BankService {
         const hesap = await this.findAccount(accountId);
 
         const [hareketCount, havaleCount, tahsilatCount, salaryCount, loanCount] = await Promise.all([
-            this.prisma.extended.bankAccountMovement.count({ where: { bankAccountId: accountId } }),
-            this.prisma.extended.bankTransfer.count({ where: { bankAccountId: accountId } }),
-            this.prisma.extended.collection.count({ where: { bankAccountId: accountId } }),
-            this.prisma.extended.salaryPaymentDetail.count({ where: { bankAccountId: accountId } }),
-            this.prisma.extended.bankLoan.count({ where: { bankAccountId: accountId } }),
+            this.prisma.bankAccountMovement.count({ where: { bankAccountId: accountId } }),
+            this.prisma.bankTransfer.count({ where: { bankAccountId: accountId } }),
+            this.prisma.collection.count({ where: { bankAccountId: accountId } }),
+            this.prisma.salaryPaymentDetail.count({ where: { bankAccountId: accountId } }),
+            this.prisma.bankLoan.count({ where: { bankAccountId: accountId } }),
         ]);
 
         if (hareketCount > 0 || havaleCount > 0 || tahsilatCount > 0 || salaryCount > 0 || loanCount > 0) {
-            return this.prisma.extended.bankAccount.update({
+            return this.prisma.bankAccount.update({
                 where: { id: accountId },
                 data: { isActive: false },
             });
         }
 
-        return this.prisma.extended.bankAccount.delete({ where: { id: accountId } });
+        return this.prisma.bankAccount.delete({ where: { id: accountId } });
     }
 
-    // ============ HAREKET İŞLEMLERİ ============
+    // ============ MOVEMENT OPERATIONS ============
 
-    async createHareket(accountId: string, dto: CreateBankHareketDto) {
+    async createMovement(accountId: string, dto: CreateBankMovementDto) {
         const hesap = await this.findAccount(accountId);
 
         const currentBalance = new Decimal(hesap.balance.toString());
@@ -195,7 +197,7 @@ export class BankService {
             ? currentBalance.add(amount)
             : currentBalance.sub(amount);
 
-        return this.prisma.extended.$transaction(async (tx) => {
+        return this.prisma.$transaction(async (tx) => {
             const hareket = await tx.bankAccountMovement.create({
                 data: {
                     bankAccountId: accountId,
@@ -218,7 +220,7 @@ export class BankService {
         });
     }
 
-    async createPosHareket(accountId: string, dto: CreatePosHareketDto) {
+    async createPosMovement(accountId: string, dto: CreatePosMovementDto) {
         const hesap = await this.findAccount(accountId);
 
         if (hesap.type !== BankAccountType.POS) {
@@ -232,7 +234,7 @@ export class BankService {
         const netTutar = amount.sub(komisyonTutar);
         const yeniBakiye = currentBalance.add(netTutar);
 
-        return this.prisma.extended.$transaction(async (tx) => {
+        return this.prisma.$transaction(async (tx) => {
             const hareket = await tx.bankAccountMovement.create({
                 data: {
                     bankAccountId: accountId,
@@ -258,26 +260,26 @@ export class BankService {
         });
     }
 
-    async getHareketler(accountId: string, options?: { baslangic?: Date; bitis?: Date; limit?: number }) {
+    async getMovements(accountId: string, options?: { startDate?: Date; endDate?: Date; limit?: number }) {
         await this.findAccount(accountId);
 
         const where: any = { bankAccountId: accountId };
-        if (options?.baslangic || options?.bitis) {
+        if (options?.startDate || options?.endDate) {
             where.date = {};
-            if (options.baslangic) where.date.gte = options.baslangic;
-            if (options.bitis) where.date.lte = options.bitis;
+            if (options.startDate) where.date.gte = options.startDate;
+            if (options.endDate) where.date.lte = options.endDate;
         }
 
-        return this.prisma.extended.bankAccountMovement.findMany({
+        return this.prisma.bankAccountMovement.findMany({
             where,
             orderBy: { date: 'desc' },
             take: options?.limit || 50,
         });
     }
 
-    // ============ KREDİ İŞLEMLERİ ============
+    // ============ LOAN OPERATIONS ============
 
-    async loanKullan(accountId: string, dto: CreateLoanKullanimDto) {
+    async useLoan(accountId: string, dto: CreateLoanUsageDto) {
         const hesap = await this.findAccount(accountId);
 
         if (hesap.type !== BankAccountType.LOAN) {
@@ -306,7 +308,7 @@ export class BankService {
             });
         }
 
-        return this.prisma.extended.$transaction(async (tx) => {
+        return this.prisma.$transaction(async (tx) => {
             const loan = await tx.bankLoan.create({
                 data: {
                     bankAccountId: accountId,
@@ -349,7 +351,7 @@ export class BankService {
     }
 
     async payInstallment(planId: string, dto: PayCreditInstallmentDto) {
-        return this.prisma.extended.$transaction(async (tx) => {
+        return this.prisma.$transaction(async (tx) => {
             const plan = await tx.bankLoanPlan.findUnique({
                 where: { id: planId },
                 include: { loan: { include: { bankAccount: true } } }
@@ -394,14 +396,14 @@ export class BankService {
         });
     }
 
-    async getBanklarOzet() {
+    async getBanksSummary() {
         // Implementation needed or dummy
         return [];
     }
 
     async findAllAccounts() {
-        const tenantId = this.tenantContext.getTenantId();
-        return this.prisma.extended.bankAccount.findMany({
+        const tenantId = await this.tenantResolver.resolveForQuery();
+        return this.prisma.bankAccount.findMany({
             where: {
                 bank: { tenantId }
             },
@@ -409,9 +411,9 @@ export class BankService {
         });
     }
 
-    async getAllLoanler() {
-        const tenantId = this.tenantContext.getTenantId();
-        return this.prisma.extended.bankLoan.findMany({
+    async getAllLoans() {
+        const tenantId = await this.tenantResolver.resolveForQuery();
+        return this.prisma.bankLoan.findMany({
             where: {
                 bankAccount: { bank: { tenantId } }
             },
@@ -419,25 +421,25 @@ export class BankService {
         });
     }
 
-    async getLoanler(accountId: string) {
-        return this.prisma.extended.bankLoan.findMany({
+    async getLoans(accountId: string) {
+        return this.prisma.bankLoan.findMany({
             where: { bankAccountId: accountId },
             include: { plans: true }
         });
     }
 
-    async getLoanDetay(loanId: string) {
-        return this.prisma.extended.bankLoan.findUnique({
+    async getLoanDetail(loanId: string) {
+        return this.prisma.bankLoan.findUnique({
             where: { id: loanId },
             include: { plans: true, bankAccount: { include: { bank: true } } }
         });
     }
 
-    async getYaklasanInstallmentler(baslangic: Date, bitis: Date) {
-        const tenantId = this.tenantContext.getTenantId();
-        return this.prisma.extended.bankLoanPlan.findMany({
+    async getUpcomingInstallments(startDate: Date, endDate: Date) {
+        const tenantId = await this.tenantResolver.resolveForQuery();
+        return this.prisma.bankLoanPlan.findMany({
             where: {
-                dueDate: { gte: baslangic, lte: bitis },
+                dueDate: { gte: startDate, lte: endDate },
                 status: { not: CreditPlanStatus.PAID },
                 loan: { bankAccount: { bank: { tenantId } } }
             },
@@ -445,11 +447,11 @@ export class BankService {
         });
     }
 
-    async getUpcomingCreditCardDates(baslangic: Date, bitis: Date) {
-        const tenantId = this.tenantContext.getTenantId();
-        return this.prisma.extended.companyCreditCard.findMany({
+    async getUpcomingCreditCardDates(startDate: Date, endDate: Date) {
+        const tenantId = await this.tenantResolver.resolveForQuery();
+        return this.prisma.companyCreditCard.findMany({
             where: {
-                paymentDueDate: { gte: baslangic, lte: bitis },
+                paymentDueDate: { gte: startDate, lte: endDate },
                 isActive: true,
                 cashbox: { tenantId }
             },
@@ -460,7 +462,7 @@ export class BankService {
     }
 
     async addLoanPlan(loanId: string, dto: { amount: number; dueDate: Date }) {
-        return this.prisma.extended.bankLoanPlan.create({
+        return this.prisma.bankLoanPlan.create({
             data: {
                 loanId,
                 amount: new Decimal(dto.amount),
@@ -472,7 +474,7 @@ export class BankService {
     }
 
     async updateLoanPlan(id: string, dto: { amount?: number; dueDate?: Date }) {
-        return this.prisma.extended.bankLoanPlan.update({
+        return this.prisma.bankLoanPlan.update({
             where: { id },
             data: {
                 amount: dto.amount ? new Decimal(dto.amount) : undefined,
@@ -482,6 +484,6 @@ export class BankService {
     }
 
     async deleteLoanPlan(id: string) {
-        return this.prisma.extended.bankLoanPlan.delete({ where: { id } });
+        return this.prisma.bankLoanPlan.delete({ where: { id } });
     }
 }

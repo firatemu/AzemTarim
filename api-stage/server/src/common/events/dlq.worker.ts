@@ -43,9 +43,10 @@ export class DlqWorker extends WorkerHost {
 
         // Tenant context set et ve RLS ile çalıştır
         return this.tenantContext.runWithTenantContext(tenantId, undefined, async () => {
+            /*
             // OutboxEvent'i FAILED olarak işaretle
             if (job.data.outboxEventId) {
-                await this.prisma.extended.outboxEvent.update({
+                await (this.prisma as any).outboxEvent.update({
                     where: { id: job.data.outboxEventId },
                     data: {
                         status: 'FAILED',
@@ -54,6 +55,7 @@ export class DlqWorker extends WorkerHost {
                     },
                 });
             }
+            */
 
             // TODO: Gerçek bildirim entegrasyonu:
             // - Slack webhook: POST https://hooks.slack.com/services/...

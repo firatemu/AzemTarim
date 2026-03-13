@@ -86,7 +86,7 @@ export class PurchaseWaybillService {
     }
 
     const [data, total] = await Promise.all([
-      this.prisma.extended.purchaseDeliveryNote.findMany({
+      this.prisma.purchaseDeliveryNote.findMany({
         where,
         skip,
         take: limit,
@@ -126,7 +126,7 @@ export class PurchaseWaybillService {
         },
         orderBy: { createdAt: 'desc' },
       }),
-      this.prisma.extended.purchaseDeliveryNote.count({ where }),
+      this.prisma.purchaseDeliveryNote.count({ where }),
     ]);
 
     return {
@@ -136,7 +136,7 @@ export class PurchaseWaybillService {
   }
 
   async findOne(id: string) {
-    const deliveryNote = await this.prisma.extended.purchaseDeliveryNote.findUnique({
+    const deliveryNote = await this.prisma.purchaseDeliveryNote.findUnique({
       where: { id },
       include: {
         account: true,
@@ -203,7 +203,7 @@ export class PurchaseWaybillService {
       throw new BadRequestException('At least one item must be added');
     }
 
-    const existingWaybill = await this.prisma.extended.purchaseDeliveryNote.findFirst({
+    const existingWaybill = await this.prisma.purchaseDeliveryNote.findFirst({
       where: {
         deliveryNoteNo: deliveryNoteData.deliveryNoteNo,
         ...buildTenantWhereClause(tenantId ?? undefined),
@@ -217,7 +217,7 @@ export class PurchaseWaybillService {
     }
 
     // Account check
-    const account = await this.prisma.extended.account.findUnique({
+    const account = await this.prisma.account.findUnique({
       where: { id: deliveryNoteData.accountId },
     });
 
@@ -227,7 +227,7 @@ export class PurchaseWaybillService {
 
     // Order check (if sourceType: ORDER)
     if (deliveryNoteData.sourceType === DeliveryNoteSourceType.ORDER && deliveryNoteData.sourceId) {
-      const order = await this.prisma.extended.procurementOrder.findUnique({
+      const order = await this.prisma.procurementOrder.findUnique({
         where: { id: deliveryNoteData.sourceId },
       });
 
@@ -262,7 +262,7 @@ export class PurchaseWaybillService {
     const grandTotal = subtotal + vatAmount;
 
     // Create deliveryNote and items with transaction
-    return this.prisma.extended.$transaction(async (prisma) => {
+    return this.prisma.$transaction(async (prisma) => {
       const deliveryNote = await prisma.purchaseDeliveryNote.create({
         data: {
           ...deliveryNoteData,
@@ -341,7 +341,7 @@ export class PurchaseWaybillService {
     ipAddress?: string,
     userAgent?: string,
   ) {
-    const existingWaybill = await this.prisma.extended.purchaseDeliveryNote.findUnique({
+    const existingWaybill = await this.prisma.purchaseDeliveryNote.findUnique({
       where: { id },
       include: {
         items: true,
@@ -366,7 +366,7 @@ export class PurchaseWaybillService {
     const { items, ...deliveryNoteData } = updateDto;
 
     // Update with transaction
-    return this.prisma.extended.$transaction(async (prisma) => {
+    return this.prisma.$transaction(async (prisma) => {
       // If items are being updated
       if (items && items.length > 0) {
         // Mevcut itemsi sil
@@ -481,7 +481,7 @@ export class PurchaseWaybillService {
     ipAddress?: string,
     userAgent?: string,
   ) {
-    const deliveryNote = await this.prisma.extended.purchaseDeliveryNote.findUnique({
+    const deliveryNote = await this.prisma.purchaseDeliveryNote.findUnique({
       where: { id },
       include: {
         invoice: true,
@@ -502,7 +502,7 @@ export class PurchaseWaybillService {
       throw new BadRequestException('Waybill linked to invoice cannot be deleted');
     }
 
-    return this.prisma.extended.$transaction(async (prisma) => {
+    return this.prisma.$transaction(async (prisma) => {
       // Soft delete
       await prisma.purchaseDeliveryNote.update({
         where: { id },

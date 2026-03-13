@@ -26,25 +26,25 @@ import axios from '@/lib/axios';
 import CreditPlanDialog from './CreditPlanDialog';
 
 // Interfaces
-export interface KrediPlan {
+export interface LoanPlan {
     id: string;
-    taksitNo: number;
-    vadeTarihi: string;
-    tutar: number;
-    odenen: number;
-    durum: 'BEKLIYOR' | 'ODENDI' | 'GECIKMEDE' | 'KISMI_ODENDI';
+    installmentNo: number;
+    dueDate: string;
+    amount: number;
+    paidAmount: number;
+    status: 'BEKLIYOR' | 'ODENDI' | 'GECIKMEDE' | 'KISMI_ODENDI';
 }
 
-export interface Kredi {
+export interface Loan {
     id: string;
-    tutar: number;
-    toplamGeriOdeme: number;
-    taksitSayisi: number;
-    baslangicTarihi: string;
-    aciklama?: string;
-    durum: 'AKTIF' | 'KAPANDI' | 'IPTAL';
+    amount: number;
+    totalRepayment: number;
+    installmentCount: number;
+    startDate: string;
+    notes?: string;
+    status: 'AKTIF' | 'KAPANDI' | 'IPTAL';
     createdAt: string;
-    planlar?: KrediPlan[];
+    plans?: LoanPlan[];
 }
 
 interface CreditLoanListProps {
@@ -52,16 +52,16 @@ interface CreditLoanListProps {
     refreshTrigger: number;
 }
 
-function Row({ row, onPlanClick }: { row: Kredi; onPlanClick: (kredi: Kredi) => void }) {
+function Row({ row, onPlanClick }: { row: Loan; onPlanClick: (loan: Loan) => void }) {
     const [open, setOpen] = useState(false);
     const [loading, setLoading] = useState(false);
-    const [details, setDetails] = useState<Kredi | null>(null);
+    const [details, setDetails] = useState<Loan | null>(null);
 
     const loadDetails = async () => {
         if (details || loading) return;
         try {
             setLoading(true);
-            const res = await axios.get(`/banka/kredi/${row.id}`);
+            const res = await axios.get(`/banks/loans/${row.id}`);
             setDetails(res.data);
         } catch (error) {
             console.error('Kredi detayları yüklenemedi', error);
@@ -101,15 +101,15 @@ function Row({ row, onPlanClick }: { row: Kredi; onPlanClick: (kredi: Kredi) => 
 
     // Calculate end date from plans if available, or fallback to start date + installments
     const calculateEndDate = () => {
-        if (row.planlar && row.planlar.length > 0) {
-            return row.planlar[row.planlar.length - 1].vadeTarihi;
+        if (row.plans && row.plans.length > 0) {
+            return row.plans[row.plans.length - 1].dueDate;
         }
 
-        // Fallback: Add (taksitSayisi - 1) months to start date
+        // Fallback: Add (installmentCount - 1) months to start date
         // Since first installment is usually 1 month after start date
         try {
-            const date = new Date(row.baslangicTarihi);
-            date.setMonth(date.getMonth() + (row.taksitSayisi || 1));
+            const date = new Date(row.startDate);
+            date.setMonth(date.getMonth() + (row.installmentCount || 1));
             return date.toISOString();
         } catch (e) {
             return null;
@@ -131,20 +131,20 @@ function Row({ row, onPlanClick }: { row: Kredi; onPlanClick: (kredi: Kredi) => 
                     </IconButton>
                 </TableCell>
                 <TableCell component="th" scope="row">
-                    {formatDate(row.baslangicTarihi)}
+                    {formatDate(row.startDate)}
                 </TableCell>
                 <TableCell>
                     {bitisTarihi ? formatDate(bitisTarihi) : '-'}
                 </TableCell>
-                <TableCell align="right">{formatCurrency(row.tutar)}</TableCell>
-                <TableCell align="right">{formatCurrency(row.toplamGeriOdeme)}</TableCell>
+                <TableCell align="right">{formatCurrency(row.amount)}</TableCell>
+                <TableCell align="right">{formatCurrency(row.totalRepayment)}</TableCell>
                 <TableCell align="right">
-                    {formatCurrency((row.planlar || []).reduce((sum, p) => sum + (Number(p.tutar) - Number(p.odenen || 0)), 0))}
+                    {formatCurrency((row.plans || []).reduce((sum, p) => sum + (Number(p.amount) - Number(p.paidAmount || 0)), 0))}
                 </TableCell>
-                <TableCell align="right">{row.taksitSayisi}</TableCell>
-                <TableCell>{row.aciklama || '-'}</TableCell>
+                <TableCell align="right">{row.installmentCount}</TableCell>
+                <TableCell>{row.notes || '-'}</TableCell>
                 <TableCell>
-                    <Chip label={row.durum} color={getStatusColor(row.durum) as any} size="small" />
+                    <Chip label={row.status} color={getStatusColor(row.status) as any} size="small" />
                 </TableCell>
                 <TableCell align="center">
                     <IconButton
@@ -178,16 +178,16 @@ function Row({ row, onPlanClick }: { row: Kredi; onPlanClick: (kredi: Kredi) => 
                                         </TableRow>
                                     </TableHead>
                                     <TableBody>
-                                        {details.planlar?.map((plan) => (
+                                        {details.plans?.map((plan) => (
                                             <TableRow key={plan.id}>
-                                                <TableCell>{plan.taksitNo}</TableCell>
-                                                <TableCell>{formatDate(plan.vadeTarihi)}</TableCell>
-                                                <TableCell align="right">{formatCurrency(plan.tutar)}</TableCell>
-                                                <TableCell align="right">{formatCurrency(plan.odenen)}</TableCell>
+                                                <TableCell>{plan.installmentNo}</TableCell>
+                                                <TableCell>{formatDate(plan.dueDate)}</TableCell>
+                                                <TableCell align="right">{formatCurrency(plan.amount)}</TableCell>
+                                                <TableCell align="right">{formatCurrency(plan.paidAmount)}</TableCell>
                                                 <TableCell align="center">
                                                     <Chip
-                                                        label={plan.durum}
-                                                        color={getPlanStatusColor(plan.durum) as any}
+                                                        label={plan.status}
+                                                        color={getPlanStatusColor(plan.status) as any}
                                                         size="small"
                                                         variant="outlined"
                                                     />
@@ -208,7 +208,7 @@ function Row({ row, onPlanClick }: { row: Kredi; onPlanClick: (kredi: Kredi) => 
 }
 
 export default function CreditLoanList({ hesapId, refreshTrigger }: CreditLoanListProps) {
-    const [krediler, setKrediler] = useState<Kredi[]>([]);
+    const [krediler, setKrediler] = useState<Loan[]>([]);
     const [loading, setLoading] = useState(true);
     const [selectedKrediId, setSelectedKrediId] = useState<string | null>(null);
 
@@ -220,7 +220,7 @@ export default function CreditLoanList({ hesapId, refreshTrigger }: CreditLoanLi
     const fetchKrediler = async () => {
         try {
             setLoading(true);
-            const res = await axios.get(`/banka/hesap/${hesapId}/krediler`);
+            const res = await axios.get(`/banks/accounts/${hesapId}/loans`);
             setKrediler(res.data);
         } catch (error) {
             console.error('Krediler yüklenemedi', error);
@@ -274,7 +274,7 @@ export default function CreditLoanList({ hesapId, refreshTrigger }: CreditLoanLi
                         open={true}
                         onClose={() => setSelectedKrediId(null)}
                         onUpdate={fetchKrediler}
-                        kredi={selectedKrediForPlan as any}
+                        loan={selectedKrediForPlan as any}
                     />
                 )}
             </CardContent>

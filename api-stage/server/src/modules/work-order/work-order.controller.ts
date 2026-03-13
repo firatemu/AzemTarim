@@ -25,7 +25,7 @@ import { UserRole } from '../../common/enums/user-role.enum';
 import { WorkOrderStatus, PartWorkflowStatus } from './work-order.enums';
 
 @UseGuards(JwtAuthGuard)
-@Controller('work-order')
+@Controller('work-orders')
 export class WorkOrderController {
   constructor(private readonly workOrderService: WorkOrderService) { }
 

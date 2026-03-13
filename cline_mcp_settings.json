@@ -44,6 +44,78 @@
         "-y",
         "@modelcontextprotocol/server-fetch"
       ]
+    },
+    "tsc-auto-fix": {
+      "command": "node",
+      "args": [
+        "/home/azem/projects/otomuhasebe/.mcp-servers/tsc-auto-fix-mcp/dist/index.js"
+      ]
+    },
+    "docker-ops": {
+      "command": "node",
+      "args": [
+        "/home/azem/projects/otomuhasebe/.mcp-servers/docker-ops-mcp/dist/index.js"
+      ]
+    },
+    "db-query": {
+      "command": "node",
+      "args": [
+        "/home/azem/projects/otomuhasebe/.mcp-servers/db-query-mcp/dist/index.js"
+      ]
+    },
+    "api-docs": {
+      "command": "node",
+      "args": [
+        "/home/azem/projects/otomuhasebe/.mcp-servers/api-docs-mcp/dist/index.js"
+      ]
+    },
+    "prisma-schema": {
+      "command": "node",
+      "args": [
+        "/home/azem/projects/otomuhasebe/.mcp-servers/prisma-schema-mcp/dist/index.js"
+      ]
+    },
+    "tenant-context": {
+      "command": "node",
+      "args": [
+        "/home/azem/projects/otomuhasebe/.mcp-servers/tenant-context-mcp/dist/index.js"
+      ]
+    },
+    "log-analyzer": {
+      "command": "node",
+      "args": [
+        "/home/azem/projects/otomuhasebe/.mcp-servers/log-analyzer-mcp/dist/index.js"
+      ]
+    },
+    "redis-cache": {
+      "command": "node",
+      "args": [
+        "/home/azem/projects/otomuhasebe/.mcp-servers/redis-cache-mcp/dist/index.js"
+      ]
+    },
+    "deployment": {
+      "command": "node",
+      "args": [
+        "/home/azem/projects/otomuhasebe/.mcp-servers/deployment-mcp/dist/index.js"
+      ]
+    },
+    "component-gen": {
+      "command": "node",
+      "args": [
+        "/home/azem/projects/otomuhasebe/.mcp-servers/component-gen-mcp/dist/index.js"
+      ]
+    },
+    "email-template": {
+      "command": "node",
+      "args": [
+        "/home/azem/projects/otomuhasebe/.mcp-servers/email-template-mcp/dist/index.js"
+      ]
+    },
+    "tenant-security-auditor": {
+      "command": "node",
+      "args": [
+        "/home/azem/projects/otomuhasebe/.mcp-servers/tenant-security-auditor-mcp/dist/index.js"
+      ]
     }
   }
 }

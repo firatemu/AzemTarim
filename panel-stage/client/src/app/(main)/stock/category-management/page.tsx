@@ -219,7 +219,10 @@ export default function KategoriYonetimiPage() {
       console.log('[KategoriYonetimiPage] Kategoriler yükleniyor...');
       const response = await axios.get('/category');
       console.log('[KategoriYonetimiPage] API yanıtı:', response.data);
-      const kategoriler = response.data || [];
+      const kategoriler = (response.data || []).map((kategori: any) => ({
+        anaKategori: kategori.mainCategory || '',
+        altKategoriler: kategori.subCategories || [],
+      }));
       console.log('[KategoriYonetimiPage] Yüklenen kategori sayısı:', kategoriler.length);
       setKategoriler(kategoriler);
     } catch (error: any) {
@@ -250,7 +253,7 @@ export default function KategoriYonetimiPage() {
   const handleSaveAnaKategori = useCallback(async (anaKategori: string) => {
     try {
       await axios.post('/category/main-category', {
-        anaKategori,
+        mainCategory: anaKategori,
       });
       
       // Başarı mesajı
@@ -281,8 +284,8 @@ export default function KategoriYonetimiPage() {
   const handleSaveAltKategori = useCallback(async (anaKategori: string, altKategori: string) => {
     try {
       const encodedAnaKategori = encodeURIComponent(anaKategori);
-      await axios.post(`/kategori/${encodedAnaKategori}/alt-kategori`, {
-        altKategori,
+      await axios.post(`/category/${encodedAnaKategori}/subcategory`, {
+        subCategory: altKategori,
       });
       
       // Başarı mesajı
@@ -310,7 +313,7 @@ export default function KategoriYonetimiPage() {
       setDeleting({ anaKategori, altKategori });
       const encodedAnaKategori = encodeURIComponent(anaKategori);
       const encodedAltKategori = encodeURIComponent(altKategori);
-      await axios.delete(`/kategori/${encodedAnaKategori}/alt-kategori/${encodedAltKategori}`);
+      await axios.delete(`/category/${encodedAnaKategori}/subcategory/${encodedAltKategori}`);
       
       // Başarı mesajı
       alert(`✅ Alt kategori "${altKategori}" başarıyla silindi.`);
@@ -339,22 +342,22 @@ export default function KategoriYonetimiPage() {
     const query = searchQuery.toLowerCase().trim();
     return kategoriler.filter((kategori) => {
       // Ana kategori adında arama
-      if (kategori.anaKategori.toLowerCase().includes(query)) {
+      if (kategori.anaKategori && kategori.anaKategori.toLowerCase().includes(query)) {
         return true;
       }
       // Alt kategorilerde arama
-      return kategori.altKategoriler.some((altKategori) =>
+      return kategori.altKategoriler && kategori.altKategoriler.some((altKategori) =>
         altKategori.toLowerCase().includes(query)
       );
     }).map((kategori) => {
       // Eğer arama alt kategoride yapıldıysa, sadece eşleşen alt kategorileri göster
-      if (kategori.anaKategori.toLowerCase().includes(query)) {
+      if (kategori.anaKategori && kategori.anaKategori.toLowerCase().includes(query)) {
         return kategori;
       }
       // Sadece eşleşen alt kategorileri filtrele
       return {
-        ...kategori,
-        altKategoriler: kategori.altKategoriler.filter((altKategori) =>
+        anaKategori: kategori.anaKategori,
+        altKategoriler: (kategori.altKategoriler || []).filter((altKategori) =>
           altKategori.toLowerCase().includes(query)
         ),
       };
@@ -480,7 +483,7 @@ export default function KategoriYonetimiPage() {
                     </Box>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                       <Chip 
-                        label={`${kategori.altKategoriler.length} alt kategori`}
+                        label={`${(kategori.altKategoriler || []).length} alt kategori`}
                         size="small"
                         color="primary"
                         variant="outlined"
@@ -515,7 +518,7 @@ export default function KategoriYonetimiPage() {
                         </TableRow>
                       </TableHead>
                       <TableBody>
-                        {kategori.altKategoriler.length === 0 ? (
+                        {(kategori.altKategoriler || []).length === 0 ? (
                           <TableRow>
                             <TableCell colSpan={2} align="center" sx={{ py: 3 }}>
                               <Typography variant="body2" color="text.secondary">
@@ -533,7 +536,7 @@ export default function KategoriYonetimiPage() {
                             </TableCell>
                           </TableRow>
                         ) : (
-                          kategori.altKategoriler.map((altKategori) => (
+                          (kategori.altKategoriler || []).map((altKategori) => (
                             <TableRow 
                               key={altKategori} 
                               hover

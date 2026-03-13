@@ -13,9 +13,9 @@ import { CreateWorkOrderItemDto, UpdateWorkOrderItemDto } from './dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 
 @UseGuards(JwtAuthGuard)
-@Controller('work-order-item')
+@Controller('work-order-items')
 export class WorkOrderItemController {
-  constructor(private readonly workOrderItemService: WorkOrderItemService) {}
+  constructor(private readonly workOrderItemService: WorkOrderItemService) { }
 
   @Post()
   create(@Body() dto: CreateWorkOrderItemDto) {

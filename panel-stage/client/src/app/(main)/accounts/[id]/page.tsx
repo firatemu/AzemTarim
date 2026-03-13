@@ -183,7 +183,7 @@ export default function CariDetayPage() {
 
   const fetchCari = async () => {
     try {
-      const response = await axios.get(`/cari/${cariId}`);
+      const response = await axios.get(`/account/${cariId}`);
       setCari(response.data);
     } catch (error) {
       console.error('Cari bilgisi alınamadı:', error);
@@ -195,7 +195,7 @@ export default function CariDetayPage() {
     try {
       setLoading(true);
       const response = await axios.get('/account-movement', {
-        params: { cariId, take: 1000 },
+        params: { accountId: cariId, take: 1000 },
       });
       setHareketler(response.data.data || []);
     } catch (error) {
@@ -219,9 +219,13 @@ export default function CariDetayPage() {
   const handleAdd = async () => {
     try {
       await axios.post('/account-movement', {
-        cariId,
-        ...formData,
-        tutar: parseFloat(formData.tutar),
+        accountId: cariId,
+        type: formData.tip === 'BORC' ? 'DEBIT' : formData.tip === 'ALACAK' ? 'CREDIT' : 'CARRY_FORWARD',
+        amount: parseFloat(formData.tutar),
+        documentType: formData.belgeTipi || undefined,
+        documentNo: formData.belgeNo || undefined,
+        date: formData.tarih || undefined,
+        notes: formData.aciklama || '',
       });
       showSnackbar('Hareket başarıyla eklendi', 'success');
       setOpenAdd(false);
@@ -241,7 +245,7 @@ export default function CariDetayPage() {
   const handleExportExcel = async () => {
     try {
       showSnackbar('Excel indiriliyor...', 'info');
-      const response = await axios.get(`/cari/${cariId}/ekstre/export/excel`, {
+      const response = await axios.get(`/account/${cariId}/statement/export/excel`, {
         params: { baslangicTarihi, bitisTarihi },
         responseType: 'blob',
       });
@@ -263,7 +267,7 @@ export default function CariDetayPage() {
   const handleExportPdf = async () => {
     try {
       showSnackbar('PDF hazırlanıyor...', 'info');
-      const response = await axios.get(`/cari/${cariId}/ekstre/export/pdf`, {
+      const response = await axios.get(`/account/${cariId}/statement/export/pdf`, {
         params: { baslangicTarihi, bitisTarihi },
         responseType: 'blob',
       });

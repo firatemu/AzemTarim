@@ -1,3 +1,4 @@
+import { TenantResolverService } from '../../common/services/tenant-resolver.service';
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma.service';
 import { CreateTenantDto } from './dto/create-tenant.dto';
@@ -8,19 +9,17 @@ import { CipherService } from '../../common/services/cipher.service';
 
 @Injectable()
 export class TenantsService {
-  constructor(
-    private prisma: PrismaService,
-    private cipherService: CipherService,
-  ) { }
+  constructor(private prisma: PrismaService,
+    private cipherService: CipherService, private readonly tenantResolver: TenantResolverService) { }
 
   async create(createTenantDto: CreateTenantDto) {
-    return this.prisma.extended.tenant.create({
+    return this.prisma.tenant.create({
       data: createTenantDto,
     });
   }
 
   async findAll() {
-    return this.prisma.extended.tenant.findMany({
+    return this.prisma.tenant.findMany({
       include: {
         users: true,
         subscription: true,
@@ -29,7 +28,7 @@ export class TenantsService {
   }
 
   async findOne(id: string) {
-    const tenant = await this.prisma.extended.tenant.findUnique({
+    const tenant = await this.prisma.tenant.findUnique({
       where: { id },
       include: {
         users: true,
@@ -45,14 +44,14 @@ export class TenantsService {
   }
 
   async update(id: string, updateTenantDto: UpdateTenantDto) {
-    return this.prisma.extended.tenant.update({
+    return this.prisma.tenant.update({
       where: { id },
       data: updateTenantDto,
     });
   }
 
   async remove(id: string) {
-    return this.prisma.extended.tenant.delete({
+    return this.prisma.tenant.delete({
       where: { id },
     });
   }
@@ -60,7 +59,7 @@ export class TenantsService {
   async getCurrent(id: string) {
     if (!id) return null;
 
-    const tenant = await this.prisma.extended.tenant.findUnique({
+    const tenant = await this.prisma.tenant.findUnique({
       where: { id },
       include: {
         settings: true,
@@ -76,7 +75,7 @@ export class TenantsService {
 
   async approveTrial(tenantId: string) {
     // Önce tenant'ı plan olmadan çek (Prisma null plan hatası vermesin)
-    const tenant = await this.prisma.extended.tenant.findUnique({
+    const tenant = await this.prisma.tenant.findUnique({
       where: { id: tenantId },
       include: {
         subscription: true, // Plan olmadan subscription'ı çek
@@ -98,7 +97,7 @@ export class TenantsService {
 
     // Plan'ı ayrı bir sorgu ile çek (null olabilir)
     const plan = tenant.subscription.planId
-      ? await this.prisma.extended.plan.findUnique({
+      ? await this.prisma.plan.findUnique({
         where: { id: tenant.subscription.planId },
       })
       : null;
@@ -118,7 +117,7 @@ export class TenantsService {
 
     // Tenant ve subscription'ı aktif yap
     // Plan'ı include etmeyelim (null olabilir, Prisma hatası verir)
-    const updatedTenant = await this.prisma.extended.tenant.update({
+    const updatedTenant = await this.prisma.tenant.update({
       where: { id: tenantId },
       data: {
         status: 'ACTIVE',
@@ -136,7 +135,7 @@ export class TenantsService {
 
     // Plan'ı ayrı çekip ekleyelim (eğer varsa)
     if (updatedTenant.subscription?.planId) {
-      const updatedPlan = await this.prisma.extended.plan.findUnique({
+      const updatedPlan = await this.prisma.plan.findUnique({
         where: { id: updatedTenant.subscription.planId },
       });
       if (updatedPlan && updatedTenant.subscription) {
@@ -152,13 +151,13 @@ export class TenantsService {
       return null;
     }
 
-    let settings = await this.prisma.extended.tenantSettings.findUnique({
+    let settings = await this.prisma.tenantSettings.findUnique({
       where: { tenantId },
     });
 
     // Eğer settings yoksa, boş bir kayıt oluştur
     if (!settings) {
-      settings = await this.prisma.extended.tenantSettings.create({
+      settings = await this.prisma.tenantSettings.create({
         data: {
           tenantId,
         },
@@ -184,13 +183,13 @@ export class TenantsService {
     }
 
     // Önce mevcut settings'i kontrol et
-    let settings = await this.prisma.extended.tenantSettings.findUnique({
+    let settings = await this.prisma.tenantSettings.findUnique({
       where: { tenantId },
     });
 
     // Eğer yoksa oluştur
     if (!settings) {
-      settings = await this.prisma.extended.tenantSettings.create({
+      settings = await this.prisma.tenantSettings.create({
         data: {
           tenantId,
           ...(data as any),
@@ -198,7 +197,7 @@ export class TenantsService {
       });
     } else {
       // Varsa güncelle
-      settings = await this.prisma.extended.tenantSettings.update({
+      settings = await this.prisma.tenantSettings.update({
         where: { tenantId },
         data: (data as any),
       });
@@ -213,19 +212,19 @@ export class TenantsService {
     }
 
     // Settings var mı kontrol et
-    let settings = await this.prisma.extended.tenantSettings.findUnique({
+    let settings = await this.prisma.tenantSettings.findUnique({
       where: { tenantId },
     });
 
     if (!settings) {
-      settings = await this.prisma.extended.tenantSettings.create({
+      settings = await this.prisma.tenantSettings.create({
         data: {
           tenantId,
           logoUrl,
         },
       });
     } else {
-      settings = await this.prisma.extended.tenantSettings.update({
+      settings = await this.prisma.tenantSettings.update({
         where: { tenantId },
         data: {
           logoUrl,

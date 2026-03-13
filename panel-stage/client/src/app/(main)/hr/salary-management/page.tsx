@@ -592,7 +592,7 @@ export default function MaasYonetimiPage() {
         try {
             const [kasaRes, bankaRes] = await Promise.all([
                 axios.get('/cashbox?aktif=true'),
-                axios.get('/bank-hesap?aktif=true')
+                axios.get('/bank-accounts?aktif=true')
             ]);
             setKasalar(kasaRes.data);
             setBankaHesaplari(bankaRes.data);
@@ -654,7 +654,7 @@ export default function MaasYonetimiPage() {
 
     const fetchPersonelList = async () => {
         try {
-            const response = await axios.get('/employee?aktif=true');
+            const response = await axios.get('/employees?aktif=true');
             setPersonelList(response.data);
         } catch (error) {
             console.error('Personel listesi yüklenemedi:', error);

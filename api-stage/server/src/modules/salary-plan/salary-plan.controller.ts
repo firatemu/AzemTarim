@@ -15,7 +15,7 @@ import { CreateSalaryPlanDto } from './dto/create-salary-plan.dto';
 import { UpdateSalaryPlanDto } from './dto/update-salary-plan.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 
-@Controller('salary-plan')
+@Controller('salary-plans')
 @UseGuards(JwtAuthGuard)
 export class SalaryPlanController {
     constructor(private readonly salaryPlanService: SalaryPlanService) { }

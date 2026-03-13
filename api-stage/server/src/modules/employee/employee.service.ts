@@ -28,7 +28,7 @@ export class EmployeeService {
     const tenantId = await this.tenantResolver.resolveForCreate({ userId });
 
     if (createDto.identityNumber && tenantId) {
-      const existingTc = await this.prisma.extended.employee.findFirst({
+      const existingTc = await this.prisma.employee.findFirst({
         where: {
           identityNumber: createDto.identityNumber,
           tenantId,
@@ -54,7 +54,7 @@ export class EmployeeService {
 
     const finalTenantId = (createDto as any).tenantId ?? tenantId;
     if (finalTenantId) {
-      const existingKod = await this.prisma.extended.employee.findFirst({
+      const existingKod = await this.prisma.employee.findFirst({
         where: {
           employeeCode: createDto.employeeCode,
           tenantId: finalTenantId,
@@ -96,7 +96,7 @@ export class EmployeeService {
       data.endDate = new Date(createDto.endDate);
     }
 
-    return this.prisma.extended.employee.create({
+    return this.prisma.employee.create({
       data,
       include: {
         createdByUser: {
@@ -119,7 +119,7 @@ export class EmployeeService {
       where.department = department;
     }
 
-    return this.prisma.extended.employee.findMany({
+    return this.prisma.employee.findMany({
       where,
       include: {
         _count: {
@@ -138,7 +138,7 @@ export class EmployeeService {
 
   async findOne(id: string) {
     const tenantId = await this.tenantResolver.resolveForQuery();
-    const employee = await this.prisma.extended.employee.findFirst({
+    const employee = await this.prisma.employee.findFirst({
       where: {
         id,
         ...buildTenantWhereClause(tenantId ?? undefined),
@@ -173,7 +173,7 @@ export class EmployeeService {
   }
 
   async update(id: string, updateDto: UpdateEmployeeDto, userId: string) {
-    const existing = await this.prisma.extended.employee.findUnique({
+    const existing = await this.prisma.employee.findUnique({
       where: { id },
     });
 
@@ -211,7 +211,7 @@ export class EmployeeService {
       updateData.endDate = new Date(updateDto.endDate);
     }
 
-    return this.prisma.extended.employee.update({
+    return this.prisma.employee.update({
       where: { id },
       data: updateData,
       include: {
@@ -226,7 +226,7 @@ export class EmployeeService {
   }
 
   async remove(id: string) {
-    const employee = await this.prisma.extended.employee.findUnique({
+    const employee = await this.prisma.employee.findUnique({
       where: { id },
       include: {
         _count: { select: { payments: true } },
@@ -243,14 +243,14 @@ export class EmployeeService {
       );
     }
 
-    return this.prisma.extended.employee.delete({
+    return this.prisma.employee.delete({
       where: { id },
     });
   }
 
   // Ödeme işlemleri
   async createOdeme(createOdemeDto: CreateEmployeeOdemeDto, userId: string) {
-    const employee = await this.prisma.extended.employee.findUnique({
+    const employee = await this.prisma.employee.findUnique({
       where: { id: createOdemeDto.employeeId },
     });
 
@@ -264,7 +264,7 @@ export class EmployeeService {
 
     // Kasa varsa kontrol et
     if (createOdemeDto.cashboxId) {
-      const cashbox = await this.prisma.extended.cashbox.findUnique({
+      const cashbox = await this.prisma.cashbox.findUnique({
         where: { id: createOdemeDto.cashboxId },
       });
 
@@ -273,7 +273,7 @@ export class EmployeeService {
       }
     }
 
-    return this.prisma.extended.$transaction(async (prisma) => {
+    return this.prisma.$transaction(async (prisma) => {
       const date = createOdemeDto.date
         ? new Date(createOdemeDto.date)
         : new Date();
@@ -368,7 +368,7 @@ export class EmployeeService {
   }
 
   async getOdemeler(employeeId: string) {
-    return this.prisma.extended.employeePayment.findMany({
+    return this.prisma.employeePayment.findMany({
       where: { employeeId: employeeId },
       include: {
         cashbox: {
@@ -394,12 +394,12 @@ export class EmployeeService {
     }
 
     const [employeeler, toplamMaas, departmentlar] = await Promise.all([
-      this.prisma.extended.employee.count({ where }),
-      this.prisma.extended.employee.aggregate({
+      this.prisma.employee.count({ where }),
+      this.prisma.employee.aggregate({
         where,
         _sum: { salary: true, balance: true },
       }),
-      this.prisma.extended.employee.groupBy({
+      this.prisma.employee.groupBy({
         by: ['department'],
         where,
         _count: true,
@@ -420,7 +420,7 @@ export class EmployeeService {
   }
 
   async getDepartmanlar() {
-    const result = await this.prisma.extended.employee.groupBy({
+    const result = await this.prisma.employee.groupBy({
       by: ['department'],
       _count: true,
     });

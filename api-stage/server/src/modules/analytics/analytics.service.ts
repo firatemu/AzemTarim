@@ -1,18 +1,19 @@
+import { TenantResolverService } from '../../common/services/tenant-resolver.service';
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma.service';
 
 @Injectable()
 export class AnalyticsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService, private readonly tenantResolver: TenantResolverService) {}
 
   async getDashboardMetrics() {
     const [totalUsers, totalTenants, activeSubscriptions, totalRevenue] = await Promise.all([
-      this.prisma.extended.user.count(),
-      this.prisma.extended.tenant.count(),
-      this.prisma.extended.subscription.count({
+      this.prisma.user.count(),
+      this.prisma.tenant.count(),
+      this.prisma.subscription.count({
         where: { status: 'ACTIVE' },
       }),
-      this.prisma.extended.payment.aggregate({
+      this.prisma.payment.aggregate({
         where: { status: 'SUCCESS' },
         _sum: { amount: true },
       }),
@@ -27,7 +28,7 @@ export class AnalyticsService {
   }
 
   async getRevenueOverTime(startDate: Date, endDate: Date) {
-    const payments = await this.prisma.extended.payment.findMany({
+    const payments = await this.prisma.payment.findMany({
       where: {
         status: 'SUCCESS',
         createdAt: {
@@ -55,7 +56,7 @@ export class AnalyticsService {
   }
 
   async getUserGrowth(startDate: Date, endDate: Date) {
-    const users = await this.prisma.extended.user.findMany({
+    const users = await this.prisma.user.findMany({
       where: {
         createdAt: {
           gte: startDate,
@@ -82,11 +83,11 @@ export class AnalyticsService {
   }
 
   async getChurnAnalysis() {
-    const cancelled = await this.prisma.extended.subscription.count({
+    const cancelled = await this.prisma.subscription.count({
       where: { status: 'CANCELED' },
     });
 
-    const total = await this.prisma.extended.subscription.count();
+    const total = await this.prisma.subscription.count();
 
     return {
       cancelled,
@@ -96,7 +97,7 @@ export class AnalyticsService {
   }
 
   async getSubscriptionDistribution() {
-    const subscriptions = await this.prisma.extended.subscription.groupBy({
+    const subscriptions = await this.prisma.subscription.groupBy({
       by: ['status'],
       _count: {
         id: true,
@@ -110,7 +111,7 @@ export class AnalyticsService {
   }
 
   async getPlanDistribution() {
-    const subscriptions = await this.prisma.extended.subscription.groupBy({
+    const subscriptions = await this.prisma.subscription.groupBy({
       by: ['planId'],
       _count: {
         id: true,
@@ -118,7 +119,7 @@ export class AnalyticsService {
     });
 
     const planIds = subscriptions.map((s) => s.planId);
-    const plans = await this.prisma.extended.plan.findMany({
+    const plans = await this.prisma.plan.findMany({
       where: { id: { in: planIds } },
       select: { id: true, name: true, slug: true },
     });
@@ -135,7 +136,7 @@ export class AnalyticsService {
   }
 
   async getRecentPayments(limit: number = 10) {
-    return this.prisma.extended.payment.findMany({
+    return this.prisma.payment.findMany({
       take: limit,
       orderBy: { createdAt: 'desc' },
       include: {

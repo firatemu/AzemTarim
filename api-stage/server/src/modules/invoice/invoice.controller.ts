@@ -9,8 +9,8 @@ import { UpdateInvoiceDto } from './dto/update-invoice.dto';
 import { InvoiceService } from './invoice.service';
 import { InvoiceExportService } from './invoice-export.service';
 
-@ApiTags('invoice')
-@Controller('invoice')
+@ApiTags('Invoices')
+@Controller('invoices')
 export class InvoiceController {
   constructor(
     private readonly invoiceService: InvoiceService,
@@ -24,9 +24,9 @@ export class InvoiceController {
     return this.invoiceService.getSalesStats(invoiceType as InvoiceType);
   }
 
-  @Get('vade-analiz')
+  @Get('due-date-analysis')
   @UseGuards(JwtAuthGuard)
-  async getVadeAnaliz(@Query('accountId') accountId?: string) {
+  async getDueDateAnalysis(@Query('accountId') accountId?: string) {
     return this.invoiceService.getDueDateAnalysis(accountId);
   }
 
@@ -49,21 +49,21 @@ export class InvoiceController {
   @Get('export/excel')
   @UseGuards(JwtAuthGuard)
   async exportExcel(
-    @Query('invoiceType') invoiceType: string,
+    @Query('invoiceType') type: string,
     @Query('startDate') startDate: string,
     @Query('endDate') endDate: string,
     @Query('status') status: string,
     @Query('search') search: string,
-    @Query('satisElemaniId') satisElemaniId: string,
+    @Query('salesAgentId') salesAgentId: string,
     @Res() res: Response,
   ) {
     const buffer = await this.invoiceExportService.generateSalesInvoiceExcel(
-      invoiceType as InvoiceType || undefined,
+      type as InvoiceType || undefined,
       startDate || undefined,
       endDate || undefined,
       status || undefined,
       search || undefined,
-      satisElemaniId || undefined,
+      salesAgentId || undefined,
     );
 
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
@@ -72,11 +72,11 @@ export class InvoiceController {
   }
 
   @Get()
-  @ApiQuery({ name: 'invoiceType', enum: InvoiceType, required: false })
+  @ApiQuery({ name: 'type', enum: InvoiceType, required: false })
   async findAll(
     @Query('page') page?: string,
     @Query('limit') limit?: string,
-    @Query('invoiceType') invoiceType?: string,
+    @Query('type') type?: string,
     @Query('search') search?: string,
     @Query('accountId') accountId?: string,
     @Query('sortBy') sortBy?: string,
@@ -84,7 +84,7 @@ export class InvoiceController {
     @Query('startDate') startDate?: string,
     @Query('endDate') endDate?: string,
     @Query('status') status?: string,
-    @Query('satisElemaniId') satisElemaniId?: string,
+    @Query('salesAgentId') salesAgentId?: string,
   ) {
     const pageNum = page ? parseInt(page, 10) : 1;
     const limitNum = limit ? parseInt(limit, 10) : 50;
@@ -93,7 +93,7 @@ export class InvoiceController {
       const result = await this.invoiceService.findAllAdvanced(
         pageNum,
         limitNum,
-        invoiceType as InvoiceType | undefined,
+        type as InvoiceType | undefined,
         search,
         accountId,
         sortBy,
@@ -101,15 +101,12 @@ export class InvoiceController {
         startDate,
         endDate,
         status as any,
-        satisElemaniId,
+        salesAgentId,
       );
 
       return {
-        success: true,
         data: result.data,
         meta: result.meta,
-        page: pageNum,
-        limit: limitNum,
       };
     } catch (error) {
       throw error;
@@ -175,8 +172,8 @@ export class InvoiceController {
   }
 
   @UseGuards(JwtAuthGuard)
-  @Put(':id/iptal')
-  async iptalEt(
+  @Put(':id/cancel')
+  async cancel(
     @Param('id') id: string,
     @Body() body: { deliveryNoteIptal?: boolean },
     @Request() req,
@@ -186,8 +183,14 @@ export class InvoiceController {
   }
 
   @UseGuards(JwtAuthGuard)
-  @Post(':id/odeme-plani')
-  async addOdemePlani(
+  @Get(':id/material-preparation')
+  async getMaterialPreparation(@Param('id') id: string) {
+    return this.invoiceService.getMaterialPreparationSlip(id);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post(':id/payment-plan')
+  async addPaymentPlan(
     @Param('id') id: string,
     @Body() body: CreateInvoicePaymentPlanDto[],
   ) {

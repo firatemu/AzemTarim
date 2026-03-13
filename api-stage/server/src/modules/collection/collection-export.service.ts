@@ -1,3 +1,4 @@
+import { TenantResolverService } from '../../common/services/tenant-resolver.service';
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma.service';
 import * as ExcelJS from 'exceljs';
@@ -7,7 +8,7 @@ import { CollectionType, PaymentMethod } from '@prisma/client';
 
 @Injectable()
 export class CollectionExportService {
-  constructor(private readonly prisma: PrismaService) { }
+  constructor(private readonly prisma: PrismaService, private readonly tenantResolver: TenantResolverService) { }
 
   async generateExcel(
     tip?: CollectionType,
@@ -61,7 +62,7 @@ export class CollectionExportService {
       }
     }
 
-    const collectionlar = await this.prisma.extended.collection.findMany({
+    const collectionlar = await this.prisma.collection.findMany({
       where,
       include: {
         account: true,
@@ -304,7 +305,7 @@ export class CollectionExportService {
       }
     }
 
-    const collectionlar = await this.prisma.extended.collection.findMany({
+    const collectionlar = await this.prisma.collection.findMany({
       where,
       include: {
         account: true,

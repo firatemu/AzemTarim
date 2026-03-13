@@ -253,7 +253,7 @@ export default function SatisFaturalariPage() {
     try {
       setLoading(true);
       const params: Record<string, any> = {
-        faturaTipi: 'SALE',
+        type: 'SALE',
         search: searchTerm,
         page: paginationModel.page + 1, // API uses 1-based indexing
         limit: paginationModel.pageSize,
@@ -263,10 +263,10 @@ export default function SatisFaturalariPage() {
 
       if (filterStartDate) params.startDate = filterStartDate;
       if (filterEndDate) params.endDate = filterEndDate;
-      if (filterDurum.length > 0) params.durum = filterDurum.join(',');
-      if (filterSatisElemaniId) params.satisElemaniId = filterSatisElemaniId;
+      if (filterDurum.length > 0) params.status = filterDurum.join(',');
+      if (filterSatisElemaniId) params.salesAgentId = filterSatisElemaniId;
 
-      const response = await axios.get('/invoice', { params });
+      const response = await axios.get('/invoices', { params });
 
       const faturaData = response.data?.data || [];
       const totalCount = response.data?.meta?.total || response.data?.total || faturaData.length; // Fallback
@@ -278,7 +278,7 @@ export default function SatisFaturalariPage() {
       faturaData.forEach((fatura: Fatura) => {
         durumMap[fatura.id] = fatura.durum;
       });
-      setInvoiceStatuses(durumMap);
+      setFaturaDurumlari(durumMap);
     } catch (error: any) {
       showSnackbar(error.response?.data?.message || 'Faturalar yüklenirken hata oluştu', 'error');
     } finally {
@@ -329,8 +329,8 @@ export default function SatisFaturalariPage() {
     setPriceHistoryAnchor(event.currentTarget);
     setLoadingPriceHistory(true);
     try {
-      const response = await axios.get('/invoice/price-history', {
-        params: { cariId, stokId },
+      const response = await axios.get('/invoices/price-history', {
+        params: { accountId: cariId, productId: stokId },
       });
       setPriceHistory(response.data);
     } catch (error) {
@@ -343,14 +343,14 @@ export default function SatisFaturalariPage() {
   // Excel Export
   const handleExportExcel = async () => {
     try {
-      const params: Record<string, string> = { faturaTipi: 'SALE' };
+      const params: Record<string, string> = { type: 'SALE' };
       if (searchTerm) params.search = searchTerm;
       if (filterStartDate) params.startDate = filterStartDate;
       if (filterEndDate) params.endDate = filterEndDate;
-      if (filterDurum.length > 0) params.durum = filterDurum.join(',');
-      if (filterSatisElemaniId) params.satisElemaniId = filterSatisElemaniId;
+      if (filterDurum.length > 0) params.status = filterDurum.join(',');
+      if (filterSatisElemaniId) params.salesAgentId = filterSatisElemaniId;
 
-      const response = await axios.get('/invoice/export/excel', {
+      const response = await axios.get('/invoices/export/excel', {
         params,
         responseType: 'blob',
       });
@@ -475,7 +475,7 @@ export default function SatisFaturalariPage() {
         showSnackbar('Fatura başarıyla güncellendi', 'success');
         setOpenEdit(false);
       } else {
-        await axios.post('/invoice', formData);
+        await axios.post('/invoices', formData);
         showSnackbar('Fatura başarıyla oluşturuldu', 'success');
         setOpenAdd(false);
       }
@@ -535,7 +535,7 @@ export default function SatisFaturalariPage() {
 
   const openEditDialog = async (fatura: Fatura) => {
     try {
-      const response = await axios.get(`/invoice/${fatura.id}`);
+      const response = await axios.get(`/invoices/${fatura.id}`);
       const fullFatura = response.data;
 
       setFormData({
@@ -702,7 +702,7 @@ export default function SatisFaturalariPage() {
 
   const fetchStats = async () => {
     try {
-      const response = await axios.get('/invoice/stats', {
+      const response = await axios.get('/invoices/stats', {
         params: { faturaTipi: 'SALE' }
       });
       setStats(response.data);
@@ -764,7 +764,7 @@ export default function SatisFaturalariPage() {
         maxWidth="lg"
         fullWidth
       >
-        <DialogTitle component="div" sx={{ fontWeight: 'bold' }} component="div">
+        <DialogTitle component="div" sx={{ fontWeight: 'bold' }}>
           {openAdd ? 'Yeni Satış Faturası' : 'Satış Faturası Düzenle'}
         </DialogTitle>
         <DialogContent>
@@ -805,7 +805,7 @@ export default function SatisFaturalariPage() {
                     setFormData(prev => ({ ...prev, cariId }));
                     // Cari seçildiğinde varsayılan satış elemanını getir
                     try {
-                      const response = await axios.get(`/cari/${cariId}`);
+                      const response = await axios.get(`/account/${cariId}`);
                       if (response.data?.satisElemaniId) {
                         setFormData(prev => ({ ...prev, satisElemaniId: response.data.satisElemaniId }));
                       }
@@ -1302,7 +1302,7 @@ export default function SatisFaturalariPage() {
         maxWidth="md"
         fullWidth
       >
-        <DialogTitle component="div" sx={{ fontWeight: 'bold' }} component="div">
+        <DialogTitle component="div" sx={{ fontWeight: 'bold' }}>
           Fatura Detayı
         </DialogTitle>
         <DialogContent>
@@ -1517,7 +1517,7 @@ export default function SatisFaturalariPage() {
 
       {/* Delete Dialog */}
       <Dialog open={openDelete} onClose={() => setOpenDelete(false)}>
-        <DialogTitle component="div" sx={{ fontWeight: 'bold' }} component="div">Fatura Sil</DialogTitle>
+        <DialogTitle component="div" sx={{ fontWeight: 'bold' }}>Fatura Sil</DialogTitle>
         <DialogContent>
           <Typography>
             <strong>{selectedFatura?.faturaNo}</strong> nolu faturayı silmek istediğinizden emin misiniz?

@@ -36,48 +36,48 @@ import PayInstallmentDialog from './PayInstallmentDialog';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 
-interface Plan {
+interface LoanPlan {
     id: string;
-    taksitNo: number;
-    vadeTarihi: string;
-    odenen: number;
-    durum: string;
-    tutar: number;
+    installmentNo: number;
+    dueDate: string;
+    paidAmount: number;
+    status: string;
+    amount: number;
 }
 
 interface CreditPlanDialogProps {
     open: boolean;
     onClose: () => void;
     onUpdate: () => void;
-    kredi: {
+    loan: {
         id: string;
-        tutar: number; // Ana para
-        toplamGeriOdeme: number;
-        planlar?: Plan[];
+        amount: number; // Ana para
+        totalRepayment: number;
+        plans?: LoanPlan[];
     };
 }
 
-export default function CreditPlanDialog({ open, onClose, onUpdate, kredi }: CreditPlanDialogProps) {
+export default function CreditPlanDialog({ open, onClose, onUpdate, loan }: CreditPlanDialogProps) {
     const { enqueueSnackbar } = useSnackbar();
     const [editingId, setEditingId] = useState<string | null>(null);
     const [isAdding, setIsAdding] = useState(false);
-    const [editValues, setEditValues] = useState<{ tutar: string; vadeTarihi: string }>({
-        tutar: '',
-        vadeTarihi: new Date().toISOString().split('T')[0]
+    const [editValues, setEditValues] = useState<{ amount: string; dueDate: string }>({
+        amount: '',
+        dueDate: new Date().toISOString().split('T')[0]
     });
     const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
-    const [selectedPlanForPayment, setSelectedPlanForPayment] = useState<Plan | null>(null);
+    const [selectedPlanForPayment, setSelectedPlanForPayment] = useState<LoanPlan | null>(null);
 
     // Mernis-style sorting: Closest date first
     const sortedPlans = useMemo(() => {
-        return [...(kredi.planlar || [])].sort((a, b) =>
-            new Date(a.vadeTarihi).getTime() - new Date(b.vadeTarihi).getTime()
+        return [...(loan.plans || [])].sort((a, b) =>
+            new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime()
         );
-    }, [kredi.planlar]);
+    }, [loan.plans]);
 
     const totalPlanned = useMemo(() => {
-        return (kredi.planlar || []).reduce((sum, p) => sum + Number(p.tutar), 0);
-    }, [kredi.planlar]);
+        return (loan.plans || []).reduce((sum, p) => sum + Number(p.amount), 0);
+    }, [loan.plans]);
 
     const formatCurrency = (amount: number) => {
         return new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY' }).format(amount);
@@ -91,20 +91,20 @@ export default function CreditPlanDialog({ open, onClose, onUpdate, kredi }: Cre
         });
     };
 
-    const handleEditClick = (plan: Plan) => {
+    const handleEditClick = (plan: LoanPlan) => {
         setEditingId(plan.id);
-        const date = new Date(plan.vadeTarihi);
+        const date = new Date(plan.dueDate);
         setEditValues({
-            tutar: plan.tutar.toString(),
-            vadeTarihi: date.toISOString().split('T')[0]
+            amount: plan.amount.toString(),
+            dueDate: date.toISOString().split('T')[0]
         });
     };
 
     const handleSave = async (id: string) => {
         try {
-            await axios.put(`/banka/kredi-plan/${id}`, {
-                tutar: parseFloat(editValues.tutar),
-                vadeTarihi: editValues.vadeTarihi
+            await axios.put(`/banks/loan-plans/${id}`, {
+                amount: parseFloat(editValues.amount),
+                dueDate: editValues.dueDate
             });
             enqueueSnackbar('Taksit güncellendi', { variant: 'success' });
             setEditingId(null);
@@ -116,13 +116,13 @@ export default function CreditPlanDialog({ open, onClose, onUpdate, kredi }: Cre
 
     const handleAdd = async () => {
         try {
-            await axios.post(`/banka/kredi/${kredi.id}/plan`, {
-                tutar: parseFloat(editValues.tutar),
-                vadeTarihi: editValues.vadeTarihi
+            await axios.post(`/banks/loans/${loan.id}/plans`, {
+                amount: parseFloat(editValues.amount),
+                dueDate: editValues.dueDate
             });
             enqueueSnackbar('Yeni taksit eklendi', { variant: 'success' });
             setIsAdding(false);
-            setEditValues({ tutar: '', vadeTarihi: new Date().toISOString().split('T')[0] });
+            setEditValues({ amount: '', dueDate: new Date().toISOString().split('T')[0] });
             onUpdate();
         } catch (error: any) {
             enqueueSnackbar(error.response?.data?.message || 'Taksit eklenemedi', { variant: 'error' });
@@ -132,7 +132,7 @@ export default function CreditPlanDialog({ open, onClose, onUpdate, kredi }: Cre
     const handleDelete = async (id: string) => {
         if (!window.confirm('Bu taksiti silmek istediğinize emin misiniz?')) return;
         try {
-            await axios.delete(`/banka/kredi-plan/${id}`);
+            await axios.delete(`/banks/loan-plans/${id}`);
             enqueueSnackbar('Taksit silindi', { variant: 'success' });
             onUpdate();
         } catch (error: any) {
@@ -144,18 +144,18 @@ export default function CreditPlanDialog({ open, onClose, onUpdate, kredi }: Cre
         if (!sortedPlans.length) return;
 
         const dataToExport = sortedPlans.map(p => ({
-            'Taksit No': p.taksitNo,
-            'Vade Tarihi': formatDate(p.vadeTarihi),
-            'Tutar': p.tutar,
-            'Ödenen': p.odenen,
-            'Kalan': p.tutar - p.odenen,
-            'Durum': p.durum
+            'Taksit No': p.installmentNo,
+            'Vade Tarihi': formatDate(p.dueDate),
+            'Tutar': p.amount,
+            'Ödenen': p.paidAmount,
+            'Kalan': p.amount - p.paidAmount,
+            'Durum': p.status
         }));
 
         const ws = XLSX.utils.json_to_sheet(dataToExport);
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "Ödeme Planı");
-        XLSX.writeFile(wb, `kredi_${kredi.id}_odeme_plani.xlsx`);
+        XLSX.writeFile(wb, `loan_${loan.id}_payment_plan.xlsx`);
     };
 
     const handlePdfExport = async () => {
@@ -263,7 +263,7 @@ export default function CreditPlanDialog({ open, onClose, onUpdate, kredi }: Cre
         doc.setFontSize(11);
         doc.setTextColor(textColor);
         doc.setFont('Roboto', 'bold');
-        doc.text(kredi.id.split('-')[0].toUpperCase(), margin + 5, infoY + 6);
+        doc.text(loan.id.split('-')[0].toUpperCase(), margin + 5, infoY + 6);
 
         // Orta Kolon: Taksit Sayısı
         const midX = pageWidth / 2;
@@ -289,7 +289,7 @@ export default function CreditPlanDialog({ open, onClose, onUpdate, kredi }: Cre
         doc.setFontSize(14);
         doc.setTextColor(primaryColor);
         doc.setFont('Roboto', 'bold');
-        const tutarStr = formatCurrency(kredi.toplamGeriOdeme);
+        const tutarStr = formatCurrency(loan.totalRepayment);
         const tutarW = doc.getTextWidth(tutarStr);
         doc.text(tutarStr, rightX - tutarW, infoY + 7);
 
@@ -356,21 +356,21 @@ export default function CreditPlanDialog({ open, onClose, onUpdate, kredi }: Cre
 
             const rowY = y + 2;
 
-            doc.text(plan.taksitNo.toString(), colX.no + 2, rowY);
-            doc.text(new Date(plan.vadeTarihi).toLocaleDateString('tr-TR'), colX.date + 2, rowY);
-            doc.text(formatCurrency(plan.tutar), colX.amount - 2, rowY, { align: 'right' });
+            doc.text(plan.installmentNo.toString(), colX.no + 2, rowY);
+            doc.text(new Date(plan.dueDate).toLocaleDateString('tr-TR'), colX.date + 2, rowY);
+            doc.text(formatCurrency(plan.amount), colX.amount - 2, rowY, { align: 'right' });
 
             // Ödenen Tutar (Varsa yeşil)
-            if (plan.odenen > 0) {
+            if (plan.paidAmount > 0) {
                 doc.setTextColor('#16a34a');
             }
-            doc.text(formatCurrency(plan.odenen), colX.paid - 2, rowY, { align: 'right' });
+            doc.text(formatCurrency(plan.paidAmount), colX.paid - 2, rowY, { align: 'right' });
             doc.setTextColor(textColor);
 
             // Durum
-            let durumText = plan.durum;
+            let durumText = plan.status;
             let durumColor = textColor;
-            switch (plan.durum) {
+            switch (plan.status) {
                 case 'ODENDI': durumText = 'ÖDENDİ'; durumColor = '#16a34a'; break;
                 case 'GECIKMEDE': durumText = 'GECİKTİ'; durumColor = '#dc2626'; break;
                 case 'KISMI_ODENDI': durumText = 'KISMI ÖDENDİ'; durumColor = '#ca8a04'; break;
@@ -397,7 +397,7 @@ export default function CreditPlanDialog({ open, onClose, onUpdate, kredi }: Cre
             doc.line(margin, pageHeight - 15, pageWidth - margin, pageHeight - 15);
         }
 
-        doc.save(`kredi_${kredi.id}_odeme_plani.pdf`);
+        doc.save(`loan_${loan.id}_payment_plan.pdf`);
     };
 
     return (
@@ -433,7 +433,7 @@ export default function CreditPlanDialog({ open, onClose, onUpdate, kredi }: Cre
                     <Box>
                         <Typography variant="h6" fontWeight="700">Ödeme Planı Yönetimi</Typography>
                         <Typography variant="caption" color="text.secondary">
-                            Kredi ID: {kredi.id.split('-')[0]}...
+                            Kredi ID: {loan.id.split('-')[0]}...
                         </Typography>
                     </Box>
                 </Box>
@@ -466,7 +466,7 @@ export default function CreditPlanDialog({ open, onClose, onUpdate, kredi }: Cre
                     <Grid size={{ xs: 12, md: 4 }}>
                         <Paper elevation={0} sx={{ p: 2, borderRadius: 2, border: '1px solid', borderColor: 'divider' }}>
                             <Typography variant="caption" color="text.secondary" fontWeight="600">ANA PARA</Typography>
-                            <Typography variant="h6" fontWeight="700" color="primary">{formatCurrency(kredi.tutar)}</Typography>
+                            <Typography variant="h6" fontWeight="700" color="primary">{formatCurrency(loan.amount)}</Typography>
                         </Paper>
                     </Grid>
                     <Grid size={{ xs: 12, md: 4 }}>
@@ -479,7 +479,7 @@ export default function CreditPlanDialog({ open, onClose, onUpdate, kredi }: Cre
                         <Paper elevation={0} sx={{ p: 2, borderRadius: 2, border: '1px solid', borderColor: 'divider', bgcolor: alpha('#f59e0b', 0.05) }}>
                             <Typography variant="caption" color="text.secondary" fontWeight="600">FAİZ YÜKÜ</Typography>
                             <Typography variant="h6" fontWeight="700" color="warning.main">
-                                {formatCurrency(totalPlanned - kredi.tutar)}
+                                {formatCurrency(totalPlanned - loan.amount)}
                             </Typography>
                         </Paper>
                     </Grid>
@@ -519,8 +519,8 @@ export default function CreditPlanDialog({ open, onClose, onUpdate, kredi }: Cre
                                         fullWidth
                                         size="small"
                                         InputLabelProps={{ shrink: true }}
-                                        value={editValues.vadeTarihi}
-                                        onChange={(e) => setEditValues({ ...editValues, vadeTarihi: e.target.value })}
+                                        value={editValues.dueDate}
+                                        onChange={(e) => setEditValues({ ...editValues, dueDate: e.target.value })}
                                     />
                                 </Grid>
                                 <Grid size={{ xs: 12, sm: 4 }}>
@@ -529,13 +529,16 @@ export default function CreditPlanDialog({ open, onClose, onUpdate, kredi }: Cre
                                         type="number"
                                         fullWidth
                                         size="small"
-                                        value={editValues.tutar}
-                                        onChange={(e) => setEditValues({ ...editValues, tutar: e.target.value })}
+                                        value={editValues.amount}
+                                        onChange={(e) => setEditValues({ ...editValues, amount: e.target.value })}
                                     />
                                 </Grid>
                                 <Grid size={{ xs: 12, sm: 3 }} sx={{ display: 'flex', gap: 1 }}>
                                     <Button fullWidth variant="contained" color="primary" onClick={handleAdd}>Ekle</Button>
-                                    <Button fullWidth variant="outlined" color="inherit" onClick={() => setIsAdding(false)}>İptal</Button>
+                                    <Button fullWidth variant="outlined" color="inherit" onClick={() => {
+                                        setIsAdding(false);
+                                        setEditValues({ amount: '', dueDate: new Date().toISOString().split('T')[0] });
+                                    }}>İptal</Button>
                                 </Grid>
                             </Grid>
                         </Paper>
@@ -571,13 +574,13 @@ export default function CreditPlanDialog({ open, onClose, onUpdate, kredi }: Cre
                                             type="date"
                                             size="small"
                                             fullWidth
-                                            value={editValues.vadeTarihi}
-                                            onChange={(e) => setEditValues({ ...editValues, vadeTarihi: e.target.value })}
+                                            value={editValues.dueDate}
+                                            onChange={(e) => setEditValues({ ...editValues, dueDate: e.target.value })}
                                         />
                                     ) : (
                                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                                             <CalendarMonth sx={{ color: 'text.secondary', fontSize: 20 }} />
-                                            <Typography fontWeight="600">{formatDate(plan.vadeTarihi)}</Typography>
+                                            <Typography fontWeight="600">{formatDate(plan.dueDate)}</Typography>
                                         </Box>
                                     )}
                                 </Grid>
@@ -587,24 +590,24 @@ export default function CreditPlanDialog({ open, onClose, onUpdate, kredi }: Cre
                                             type="number"
                                             size="small"
                                             fullWidth
-                                            value={editValues.tutar}
-                                            onChange={(e) => setEditValues({ ...editValues, tutar: e.target.value })}
+                                            value={editValues.amount}
+                                            onChange={(e) => setEditValues({ ...editValues, amount: e.target.value })}
                                         />
                                     ) : (
-                                        <Typography fontWeight="700" color="primary">{formatCurrency(plan.tutar)}</Typography>
+                                        <Typography fontWeight="700" color="primary">{formatCurrency(plan.amount)}</Typography>
                                     )}
                                 </Grid>
                                 <Grid size={{ xs: 6, sm: 2 }}>
                                     <Chip
-                                        label={plan.durum === 'ODENDI' ? 'Ödendi' : 'Bekliyor'}
+                                        label={plan.status === 'ODENDI' ? 'Ödendi' : 'Bekliyor'}
                                         size="small"
-                                        color={plan.durum === 'ODENDI' ? 'success' : 'warning'}
-                                        variant={plan.durum === 'ODENDI' ? 'filled' : 'outlined'}
+                                        color={plan.status === 'ODENDI' ? 'success' : 'warning'}
+                                        variant={plan.status === 'ODENDI' ? 'filled' : 'outlined'}
                                         sx={{ borderRadius: 1.5, fontWeight: 700, fontSize: '0.7rem' }}
                                     />
                                 </Grid>
                                 <Grid size={{ xs: 12, sm: 2 }} sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
-                                    {plan.durum !== 'ODENDI' && (
+                                    {plan.status !== 'ODENDI' && (
                                         editingId === plan.id ? (
                                             <>
                                                 <Tooltip title="Kaydet"><IconButton color="primary" onClick={() => handleSave(plan.id)}><Save /></IconButton></Tooltip>
@@ -664,7 +667,7 @@ export default function CreditPlanDialog({ open, onClose, onUpdate, kredi }: Cre
                     onSuccess={() => {
                         onUpdate();
                     }}
-                    plan={selectedPlanForPayment}
+                    plan={selectedPlanForPayment as any}
                 />
             )}
         </Dialog>

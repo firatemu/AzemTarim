@@ -166,7 +166,7 @@ export default function CekDetayPage() {
                                 fullWidth
                                 startIcon={<Payment />}
                                 disabled={Number(cek.kalanTutar) === 0}
-                                onClick={() => router.push('/check-promissory-note')} // Listeye dönüp ordan açsın şimdilik veya buraya dialog ekle
+                                onClick={() => router.push('/checks-promissory-notes')} // Listeye dönüp ordan açsın şimdilik veya buraya dialog ekle
                             >
                                 Tahsilat Yap
                             </Button>

@@ -24,7 +24,7 @@ export class JournalEntryService {
     if (referenceId) where.referenceId = referenceId;
 
     const [data, total] = await Promise.all([
-      this.prisma.extended.journalEntry.findMany({
+      this.prisma.journalEntry.findMany({
         where,
         skip,
         take: limit,
@@ -36,7 +36,7 @@ export class JournalEntryService {
           },
         },
       }),
-      this.prisma.extended.journalEntry.count({ where }),
+      this.prisma.journalEntry.count({ where }),
     ]);
 
     return {
@@ -50,7 +50,7 @@ export class JournalEntryService {
 
   async findOne(id: string) {
     const tenantId = await this.tenantResolver.resolveForQuery();
-    const entry = await this.prisma.extended.journalEntry.findFirst({
+    const entry = await this.prisma.journalEntry.findFirst({
       where: { id, ...buildTenantWhereClause(tenantId ?? undefined) },
       include: {
         lines: true,
@@ -72,7 +72,7 @@ export class JournalEntryService {
 
   async findByReference(referenceType: string, referenceId: string) {
     const tenantId = await this.tenantResolver.resolveForQuery();
-    const entry = await this.prisma.extended.journalEntry.findFirst({
+    const entry = await this.prisma.journalEntry.findFirst({
       where: {
         referenceType,
         referenceId,

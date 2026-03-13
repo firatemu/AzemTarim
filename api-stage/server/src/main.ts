@@ -6,10 +6,15 @@ import { AllExceptionsFilter } from './common/filters/http-exception.filter';
 import helmet from 'helmet';
 import compression = require('compression');
 
+import { NestExpressApplication } from '@nestjs/platform-express';
+
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule, {
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     logger: ['log', 'error', 'warn'],
   });
+
+  // Proxy arkasında gerçek IP'yi almak için (Rate limit için kritik)
+  app.set('trust proxy', 1);
 
   // Security Headers - Helmet
   app.use(
@@ -98,7 +103,7 @@ async function bootstrap() {
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
-      forbidNonWhitelisted: true,
+      forbidNonWhitelisted: false,
       transform: true,
       transformOptions: {
         enableImplicitConversion: true,
@@ -114,12 +119,14 @@ async function bootstrap() {
             field: err.property,
             constraints: err.constraints,
             value: err.value,
-            value_type: typeof err.value,
           };
         });
-        const message = `Validation failed: ${JSON.stringify(formattedErrors, null, 2)}`;
         console.error('[ValidationPipe] Validation error:', formattedErrors);
-        return new Error(message);
+        const { BadRequestException } = require('@nestjs/common');
+        return new BadRequestException({
+          message: 'Validation failed',
+          errors: formattedErrors,
+        });
       },
     }),
   );

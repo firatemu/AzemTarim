@@ -98,7 +98,7 @@ import { RlsModule } from './modules/rls/rls.module';
     ThrottlerModule.forRoot([
       {
         ttl: 60000, // 60 saniye
-        limit: 100, // 100 request per minute
+        limit: 1000, // 1000 request per minute (Staging/ERP için esnetildi)
       },
     ]),
     PrismaModule,

@@ -17,7 +17,7 @@ import { PartRequestStatus } from './dto/create-part-request.dto';
 import { UserRole } from '../../common/enums/user-role.enum';
 
 @UseGuards(JwtAuthGuard)
-@Controller('part-request')
+@Controller('part-requests')
 export class PartRequestController {
   constructor(private readonly partRequestService: PartRequestService) { }
 

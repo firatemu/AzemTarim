@@ -739,15 +739,15 @@ export default function NumaraSablonlariPage() {
           </Typography>
         </Alert>
 
-        <Paper sx={{ height: 600, width: '100%' }}>
+        <Paper sx={{ height: 1100, width: '100%' }}>
           <DataGrid
             rows={templates}
             columns={columns}
             loading={loading}
-            pageSizeOptions={[10, 25, 50]}
+            pageSizeOptions={[10, 20, 25, 50]}
             disableRowSelectionOnClick
             initialState={{
-              pagination: { paginationModel: { pageSize: 10 } },
+              pagination: { paginationModel: { pageSize: 20 } },
             }}
           />
         </Paper>

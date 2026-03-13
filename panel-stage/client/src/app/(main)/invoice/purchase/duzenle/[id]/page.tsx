@@ -76,11 +76,11 @@ export default function DuzenleAlisFaturasiPage() {
 
   const [formData, setFormData] = useState({
     faturaNo: '',
-    faturaTipi: 'ALIS' as 'SATIS' | 'ALIS',
+    faturaTipi: 'PURCHASE' as 'SALE' | 'PURCHASE',
     cariId: '',
     tarih: '',
     vade: '',
-    durum: 'ACIK' as 'ACIK' | 'ONAYLANDI' | 'IPTAL',
+    durum: 'OPEN' as 'OPEN' | 'APPROVED' | 'CANCELLED',
     genelIskontoOran: 0,
     genelIskontoTutar: 0,
     aciklama: '',
@@ -88,7 +88,7 @@ export default function DuzenleAlisFaturasiPage() {
     kalemler: [] as FaturaKalemi[],
   });
 
-  const [originalDurum, setOriginalDurum] = useState<'ACIK' | 'ONAYLANDI' | 'IPTAL'>('ACIK');
+  const [originalDurum, setOriginalDurum] = useState<'OPEN' | 'APPROVED' | 'CANCELLED'>('OPEN');
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' | 'info' });
 
   useEffect(() => {
@@ -108,7 +108,7 @@ export default function DuzenleAlisFaturasiPage() {
 
   const fetchWarehouses = async () => {
     try {
-      const response = await axios.get('/warehouse?active=true');
+      const response = await axios.get('/warehouses', { params: { active: true } });
       const warehouseList = response.data || [];
       setWarehouses(warehouseList);
       setWarehousesFetched(true);
@@ -125,22 +125,22 @@ export default function DuzenleAlisFaturasiPage() {
   const fetchFatura = async () => {
     try {
       setLoading(true);
-      const response = await axios.get(`/fatura/${faturaId}`);
+      const response = await axios.get(`/invoices/${faturaId}`);
       const fatura = response.data;
 
-      const durumValue = fatura.durum || 'ACIK';
+      const durumValue = fatura.durum || 'OPEN';
       const warehouseId = fatura.warehouseId ?? fatura.satinAlmaIrsaliye?.depoId ?? '';
       setOriginalDurum(durumValue);
       setFormData({
-        faturaNo: fatura.faturaNo,
-        faturaTipi: fatura.faturaTipi,
-        cariId: fatura.cariId,
-        tarih: new Date(fatura.tarih).toISOString().split('T')[0],
-        vade: fatura.vade ? new Date(fatura.vade).toISOString().split('T')[0] : '',
+        faturaNo: fatura.faturaNo || fatura.invoiceNo,
+        faturaTipi: fatura.faturaTipi || fatura.type,
+        cariId: fatura.cariId || fatura.accountId,
+        tarih: new Date(fatura.tarih || fatura.date).toISOString().split('T')[0],
+        vade: (fatura.vade || fatura.dueDate) ? new Date(fatura.vade || fatura.dueDate).toISOString().split('T')[0] : '',
         durum: durumValue,
         genelIskontoOran: 0,
-        genelIskontoTutar: toNum(fatura.iskonto),
-        aciklama: fatura.aciklama || '',
+        genelIskontoTutar: toNum(fatura.iskonto || fatura.discountTotal),
+        aciklama: fatura.aciklama || fatura.description || '',
         warehouseId: String(warehouseId || ''),
         kalemler: (fatura.kalemler || []).map((k: any) => {
           const miktar = toNum(k.miktar) || 1;
@@ -178,7 +178,7 @@ export default function DuzenleAlisFaturasiPage() {
 
   const fetchCariler = async () => {
     try {
-      const response = await axios.get('/account', {
+      const response = await axios.get('/accounts', {
         params: { limit: 1000 },
       });
       setCariler(response.data.data || []);
@@ -189,7 +189,7 @@ export default function DuzenleAlisFaturasiPage() {
 
   const fetchStoklar = async () => {
     try {
-      const response = await axios.get('/product', {
+      const response = await axios.get('/products', {
         params: { limit: 1000 },
       });
       setStoklar(response.data.data || []);
@@ -312,28 +312,24 @@ export default function DuzenleAlisFaturasiPage() {
 
       setSaving(true);
 
-      // Önce faturayı güncelle
-      await axios.put(`/fatura/${faturaId}`, {
-        faturaNo: formData.faturaNo?.trim() || undefined,
-        tarih: new Date(formData.tarih).toISOString(),
-        vade: formData.vade ? new Date(formData.vade).toISOString() : null,
-        iskonto: Number(formData.genelIskontoTutar) || 0,
-        aciklama: formData.aciklama || null,
+      // Faturayı güncelle
+      await axios.put(`/invoices/${faturaId}`, {
+        invoiceNo: formData.faturaNo?.trim() || undefined,
+        date: new Date(formData.tarih).toISOString(),
+        dueDate: formData.vade ? new Date(formData.vade).toISOString() : null,
+        discountTotal: Number(formData.genelIskontoTutar) || 0,
+        description: formData.aciklama || null,
         warehouseId: formData.warehouseId || null,
-        kalemler: formData.kalemler.map(k => ({
+        items: formData.kalemler.map(k => ({
           stokId: k.stokId,
-          miktar: Number(k.miktar),
-          birimFiyat: Number(k.birimFiyat),
-          kdvOrani: Number(k.kdvOrani),
-          iskontoOrani: Number(k.iskontoOran) || 0,
-          iskontoTutari: Number(k.iskontoTutar) || 0,
+          quantity: Number(k.miktar),
+          unitPrice: Number(k.birimFiyat),
+          taxRate: Number(k.kdvOrani),
+          discountRate: Number(k.iskontoOran) || 0,
+          discountAmount: Number(k.iskontoTutar) || 0,
         })),
+        status: formData.durum,
       });
-
-      // Durum değişikliği varsa SADECE O ZAMAN ayrı endpoint'e istek at
-      if (formData.durum !== originalDurum) {
-        await axios.put(`/fatura/${faturaId}/durum`, { durum: formData.durum });
-      }
 
       showSnackbar('Fatura başarıyla güncellendi', 'success');
       setTimeout(goBackToList, 1500);
@@ -449,12 +445,12 @@ export default function DuzenleAlisFaturasiPage() {
               <InputLabel>Durum</InputLabel>
               <Select
                 value={formData.durum}
-                onChange={(e) => setFormData(prev => ({ ...prev, durum: e.target.value as 'ACIK' | 'ONAYLANDI' | 'IPTAL' }))}
+                onChange={(e) => setFormData(prev => ({ ...prev, durum: e.target.value as 'OPEN' | 'APPROVED' | 'CANCELLED' }))}
                 label="Durum"
               >
-                <MenuItem value="ACIK">Beklemede</MenuItem>
-                <MenuItem value="ONAYLANDI">Onaylandı</MenuItem>
-                <MenuItem value="IPTAL">İptal</MenuItem>
+                <MenuItem value="OPEN">Beklemede</MenuItem>
+                <MenuItem value="APPROVED">Onaylandı</MenuItem>
+                <MenuItem value="CANCELLED">İptal</MenuItem>
               </Select>
             </FormControl>
           </Box>

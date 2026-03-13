@@ -84,7 +84,7 @@ function YeniSatisIadeFaturasiContent() {
     warehouseId: '',
     tarih: new Date().toISOString().split('T')[0],
     vade: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-    durum: 'ONAYLANDI' as 'ACIK' | 'ONAYLANDI',
+    durum: 'APPROVED' as 'OPEN' | 'APPROVED',
     genelIskontoOran: 0,
     genelIskontoTutar: 0,
     aciklama: '',
@@ -790,7 +790,7 @@ function YeniSatisIadeFaturasiContent() {
                 // Cari seçildiğinde varsayılan satış elemanını getir
                 if (cariId) {
                   try {
-                    const response = await axios.get(`/cari/${cariId}`);
+                    const response = await axios.get(`/account/${cariId}`);
                     if (response.data?.satisElemaniId) {
                       setFormData(prev => ({ ...prev, satisElemaniId: response.data.satisElemaniId }));
                     }

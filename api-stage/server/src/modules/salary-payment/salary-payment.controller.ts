@@ -13,7 +13,7 @@ import { SalaryPaymentService } from './salary-payment.service';
 import { CreateSalaryPaymentDto } from './dto/create-salary-payment.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 
-@Controller('salary-payment')
+@Controller('salary-payments')
 @UseGuards(JwtAuthGuard)
 export class SalaryPaymentController {
     constructor(private readonly salaryPaymentService: SalaryPaymentService) { }

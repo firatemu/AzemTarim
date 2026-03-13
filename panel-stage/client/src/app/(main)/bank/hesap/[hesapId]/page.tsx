@@ -49,104 +49,104 @@ import jsPDF from 'jspdf';
 import CreditLoanList from '@/components/Banka/CreditLoanList';
 
 // Interfaces
-interface Cari {
+interface Contact {
     id: string;
     unvan: string;
     cariKodu: string;
 }
 
-interface BankaHesapHareket {
+interface BankAccountMovement {
     id: string;
-    hareketTipi: 'GELEN' | 'GIDEN';
-    hareketAltTipi?: string;
-    tutar: number;
-    komisyonOrani?: number;
-    komisyonTutar?: number;
-    netTutar?: number;
-    bakiye: number;
-    aciklama?: string;
-    referansNo?: string;
-    cariId?: string;
-    cari?: Cari;
-    tarih: string;
+    movementType: 'INCOMING' | 'OUTGOING';
+    movementSubType?: string;
+    amount: number;
+    commissionRate?: number;
+    commissionAmount?: number;
+    netAmount?: number;
+    balance: number;
+    notes?: string;
+    referenceNo?: string;
+    accountId?: string;
+    account?: Contact;
+    date: string;
     createdAt: string;
 }
 
-interface Banka {
+interface Bank {
     id: string;
-    ad: string;
-    sube?: string;
+    name: string;
+    branch?: string;
 }
 
-interface BankaHesabi {
+interface BankAccount {
     id: string;
-    hesapAdi: string;
-    hesapKodu: string;
-    hesapTipi: 'VADESIZ' | 'POS' | 'KREDI' | 'FIRMA_KREDI_KARTI';
-    hesapNo?: string;
+    name: string;
+    code: string;
+    type: 'VADESIZ' | 'POS' | 'KREDI' | 'FIRMA_KREDI_KARTI';
+    accountNo?: string;
     iban?: string;
-    bakiye: number;
-    aktif: boolean;
-    komisyonOrani?: number;
-    krediLimiti?: number;
-    kartLimiti?: number;
-    hesapKesimGunu?: number;
-    sonOdemeGunu?: number;
-    banka: Banka;
-    hareketler: BankaHesapHareket[];
+    balance: number;
+    isActive: boolean;
+    commissionRate?: number;
+    creditLimit?: number;
+    cardLimit?: number;
+    billingDay?: number;
+    dueDay?: number;
+    bank: Bank;
+    movements: BankAccountMovement[];
 }
 
 // API
 const fetchHesapDetay = async (hesapId: string) => {
-    const res = await axios.get(`/banka/hesap/${hesapId}`);
+    const res = await axios.get(`/banks/accounts/${hesapId}`);
     return res.data;
 };
 
 const fetchHareketler = async (hesapId: string, params?: any) => {
-    const res = await axios.get(`/banka/hesap/${hesapId}/hareketler`, { params });
+    const res = await axios.get(`/banks/accounts/${hesapId}/movements`, { params });
     return res.data;
 };
 
 const createHareket = async (hesapId: string, data: any) => {
-    const res = await axios.post(`/banka/hesap/${hesapId}/hareket`, data);
+    const res = await axios.post(`/banks/accounts/${hesapId}/movements`, data);
     return res.data;
 };
 
 const createPosTahsilat = async (hesapId: string, data: any) => {
-    const res = await axios.post(`/banka/hesap/${hesapId}/pos-tahsilat`, data);
+    const res = await axios.post(`/banks/accounts/${hesapId}/pos-payments`, data);
     return res.data;
 };
 
 // Validation Schema
 // Validation Schema - Base types for form inputs (always strings/numbers from UI)
 const hareketSchema = z.object({
-    hareketTipi: z.enum(['GELEN', 'GIDEN']),
-    tutar: z.any().transform(val => Number(val)).pipe(z.number().positive('Tutar pozitif olmalı')),
-    aciklama: z.string().optional(),
-    referansNo: z.string().optional(),
-    tarih: z.string().optional(),
+    movementType: z.enum(['INCOMING', 'OUTGOING']),
+    amount: z.any().transform(val => Number(val)).pipe(z.number().positive('Tutar pozitif olmalı')),
+    notes: z.string().optional(),
+    referenceNo: z.string().optional(),
+    date: z.string().optional(),
 });
 
 type HareketFormValues = {
-    hareketTipi: 'GELEN' | 'GIDEN';
-    tutar: number;
-    aciklama?: string;
-    referansNo?: string;
-    tarih?: string;
+    movementType: 'INCOMING' | 'OUTGOING';
+    amount: number;
+    notes?: string;
+    referenceNo?: string;
+    date?: string;
 };
 
 const posHareketSchema = z.object({
-    tutar: z.any().transform(val => Number(val)).pipe(z.number().positive('Tutar pozitif olmalı')),
-    aciklama: z.string().optional(),
-    referansNo: z.string().optional(),
-    tarih: z.string().optional(),
+    amount: z.any().transform(val => Number(val)).pipe(z.number().positive('Tutar pozitif olmalı')),
+    notes: z.string().optional(),
+    referenceNo: z.string().optional(),
+    date: z.string().optional(),
 });
 
 type PosHareketFormValues = {
-    tutar: number;
-    aciklama?: string;
-    referansNo?: string;
-    tarih?: string;
+    amount: number;
+    notes?: string;
+    referenceNo?: string;
+    date?: string;
 };
 
 export default function HesapDetayPage() {
@@ -155,8 +155,8 @@ export default function HesapDetayPage() {
     const hesapId = params.hesapId as string;
     const { enqueueSnackbar } = useSnackbar();
 
-    const [hesap, setHesap] = useState<BankaHesabi | null>(null);
-    const [hareketler, setHareketler] = useState<BankaHesapHareket[]>([]);
+    const [hesap, setHesap] = useState<BankAccount | null>(null);
+    const [hareketler, setHareketler] = useState<BankAccountMovement[]>([]);
     const [loading, setLoading] = useState(true);
     const [dialogOpen, setDialogOpen] = useState(false);
     const [posDialogOpen, setPosDialogOpen] = useState(false);
@@ -167,36 +167,36 @@ export default function HesapDetayPage() {
     const { control, handleSubmit, reset, watch } = useForm<HareketFormValues>({
         resolver: zodResolver(hareketSchema),
         defaultValues: {
-            hareketTipi: 'GELEN',
-            tutar: 0,
-            aciklama: '',
-            referansNo: '',
-            tarih: new Date().toISOString().split('T')[0],
+            movementType: 'INCOMING',
+            amount: 0,
+            notes: '',
+            referenceNo: '',
+            date: new Date().toISOString().split('T')[0],
         },
     });
 
     const { control: posControl, handleSubmit: handlePosSubmit, reset: resetPos, watch: watchPos } = useForm<PosHareketFormValues>({
         resolver: zodResolver(posHareketSchema),
         defaultValues: {
-            tutar: 0,
-            aciklama: '',
-            referansNo: '',
-            tarih: new Date().toISOString().split('T')[0],
+            amount: 0,
+            notes: '',
+            referenceNo: '',
+            date: new Date().toISOString().split('T')[0],
         },
     });
 
-    const posTutar = watchPos('tutar');
+    const posTutar = watchPos('amount');
 
     // Calculate POS commission on amount change
     useEffect(() => {
-        if (hesap?.komisyonOrani && posTutar > 0) {
-            const komisyon = (posTutar * Number(hesap.komisyonOrani)) / 100;
+        if (hesap?.commissionRate && posTutar > 0) {
+            const komisyon = (posTutar * Number(hesap.commissionRate)) / 100;
             const net = posTutar - komisyon;
             setPosHesaplama({ komisyon, net });
         } else {
             setPosHesaplama(null);
         }
-    }, [posTutar, hesap?.komisyonOrani]);
+    }, [posTutar, hesap?.commissionRate]);
 
     const loadData = async () => {
         try {
@@ -245,7 +245,7 @@ export default function HesapDetayPage() {
 
     const handleCreditSubmit = async (data: any) => {
         try {
-            await axios.post(`/banka/hesap/${hesapId}/kredi-kullan`, data);
+            await axios.post(`/banks/accounts/${hesapId}/loans/use`, data);
             enqueueSnackbar('Kredi kullanımı başarıyla oluşturuldu', { variant: 'success' });
             setCreditDialogOpen(false);
             loadData();
@@ -260,21 +260,21 @@ export default function HesapDetayPage() {
         if (!hareketler.length) return;
 
         const dataToExport = hareketler.map(h => ({
-            'Tarih': formatDate(h.tarih),
-            'Tip': h.hareketTipi === 'GELEN' ? 'Gelen' : 'Giden',
-            'Alt Tip': h.hareketAltTipi || '-',
-            'Tutar': h.tutar,
-            'Komisyon': h.komisyonTutar || 0,
-            'Net Tutar': h.netTutar || h.tutar,
-            'Bakiye': h.bakiye,
-            'Açıklama': h.aciklama || '-',
-            'Referans': h.referansNo || '-'
+            'Tarih': formatDate(h.date),
+            'Tip': h.movementType === 'INCOMING' ? 'Gelen' : 'Giden',
+            'Alt Tip': h.movementSubType || '-',
+            'Tutar': h.amount,
+            'Komisyon': h.commissionAmount || 0,
+            'Net Tutar': h.netAmount || h.amount,
+            'Bakiye': h.balance,
+            'Açıklama': h.notes || '-',
+            'Referans': h.referenceNo || '-'
         }));
 
         const ws = XLSX.utils.json_to_sheet(dataToExport);
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "Hesap Hareketleri");
-        XLSX.writeFile(wb, `${hesap?.hesapAdi}_hareketler.xlsx`);
+        XLSX.writeFile(wb, `${hesap?.name}_hareketler.xlsx`);
     };
 
     const handlePdfExport = async () => {
@@ -383,7 +383,7 @@ export default function HesapDetayPage() {
         doc.setFontSize(11);
         doc.setTextColor(textColor);
         doc.setFont('Roboto', 'bold');
-        doc.text(`${hesap.banka.ad} ${hesap.banka.sube ? `/ ${hesap.banka.sube}` : ''}`, margin + 5, infoY + 6);
+        doc.text(`${hesap.bank.name} ${hesap.bank.branch ? `/ ${hesap.bank.branch}` : ''}`, margin + 5, infoY + 6);
 
         doc.setFontSize(8);
         doc.setTextColor(lightTextColor);
@@ -393,7 +393,7 @@ export default function HesapDetayPage() {
         doc.setFontSize(11);
         doc.setTextColor(textColor);
         doc.setFont('Roboto', 'bold');
-        doc.text(hesap.hesapAdi, margin + 5, infoY + 20);
+        doc.text(hesap.name, margin + 5, infoY + 20);
 
         // Orta Kolon: Hesap Detayları
         const midX = pageWidth / 2;
@@ -405,12 +405,13 @@ export default function HesapDetayPage() {
         doc.setFontSize(11);
         doc.setTextColor(textColor);
         doc.setFont('Roboto', 'bold');
-        const hesapTipiStr = {
+        const typeMap: Record<string, string> = {
             VADESIZ: 'Vadesiz Mevduat',
             POS: 'POS Hesabı',
             KREDI: 'Ticari Kredi',
             FIRMA_KREDI_KARTI: 'Kredi Kartı'
-        }[hesap.hesapTipi] || hesap.hesapTipi;
+        };
+        const hesapTipiStr = typeMap[hesap.type] || hesap.type;
         doc.text(hesapTipiStr, midX, infoY + 6);
 
         if (hesap.iban) {
@@ -437,7 +438,7 @@ export default function HesapDetayPage() {
         doc.setFontSize(16);
         doc.setTextColor(primaryColor); // Mavi renk
         doc.setFont('Roboto', 'bold');
-        const bakiyeStr = formatCurrency(Number(hesap.bakiye));
+        const bakiyeStr = formatCurrency(Number(hesap.balance));
         const bakiyeW = doc.getTextWidth(bakiyeStr);
         doc.text(bakiyeStr, rightX - bakiyeW, infoY + 8);
 
@@ -502,15 +503,15 @@ export default function HesapDetayPage() {
             const rowY = y + 2;
 
             // Tarih (Sadece gün.ay.yıl)
-            doc.text(new Date(h.tarih).toLocaleDateString('tr-TR'), colX.date + 2, rowY);
+            doc.text(new Date(h.date).toLocaleDateString('tr-TR'), colX.date + 2, rowY);
 
             // İşlem Tipi
-            const typeStr = h.hareketTipi === 'GELEN' ? (h.hareketAltTipi === 'HAVALE_GELEN' ? 'Gelen Havale' : 'Giriş') : (h.hareketAltTipi === 'HAVALE_GIDEN' ? 'Giden Havale' : 'Çıkış');
+            const typeStr = h.movementType === 'INCOMING' ? (h.movementSubType === 'HAVALE_GELEN' ? 'Gelen Havale' : 'Giriş') : (h.movementSubType === 'HAVALE_GIDEN' ? 'Giden Havale' : 'Çıkış');
             doc.text(typeStr, colX.type + 2, rowY);
 
             // Tutar
-            const tutarStr = formatCurrency(h.tutar);
-            if (h.hareketTipi === 'GELEN') {
+            const tutarStr = formatCurrency(h.amount);
+            if (h.movementType === 'INCOMING') {
                 doc.setTextColor('#16a34a'); // Yeşil
                 doc.text('+' + tutarStr, colX.amount - 2, rowY, { align: 'right' });
             } else {
@@ -520,11 +521,11 @@ export default function HesapDetayPage() {
             doc.setTextColor(textColor); // Siyaha dön
 
             // Bakiye
-            doc.text(formatCurrency(h.bakiye), colX.bal - 2, rowY, { align: 'right' });
+            doc.text(formatCurrency(h.balance), colX.bal - 2, rowY, { align: 'right' });
 
             // Açıklama (Wrap text)
-            const aciklama = h.aciklama || '-';
-            const splitDesc = doc.splitTextToSize(aciklama, colX.amount - colX.desc - 5);
+            const notes = h.notes || '-';
+            const splitDesc = doc.splitTextToSize(notes, colX.amount - colX.desc - 5);
             doc.text(splitDesc, colX.desc + 2, rowY);
 
             // Satır yüksekliğini hesapla
@@ -546,7 +547,7 @@ export default function HesapDetayPage() {
             doc.line(margin, pageHeight - 15, pageWidth - margin, pageHeight - 15);
         }
 
-        doc.save(`${hesap.hesapAdi}_ekstre_${new Date().toISOString().split('T')[0]}.pdf`);
+        doc.save(`${hesap.name}_ekstre_${new Date().toISOString().split('T')[0]}.pdf`);
     };
 
     const formatCurrency = (amount: number) => {
@@ -567,27 +568,27 @@ export default function HesapDetayPage() {
 
     const columns: GridColDef[] = [
         {
-            field: 'tarih',
+            field: 'date',
             headerName: 'Tarih',
             width: 160,
             valueFormatter: (value) => formatDate(value),
         },
         {
-            field: 'hareketTipi',
+            field: 'movementType',
             headerName: 'Tip',
             width: 100,
             renderCell: (params) => (
                 <Chip
-                    icon={params.value === 'GELEN' ? <TrendingUp /> : <TrendingDown />}
-                    label={params.value === 'GELEN' ? 'Gelen' : 'Giden'}
-                    color={params.value === 'GELEN' ? 'success' : 'error'}
+                    icon={params.value === 'INCOMING' ? <TrendingUp /> : <TrendingDown />}
+                    label={params.value === 'INCOMING' ? 'Gelen' : 'Giden'}
+                    color={params.value === 'INCOMING' ? 'success' : 'error'}
                     size="small"
                     variant="outlined"
                 />
             )
         },
         {
-            field: 'hareketAltTipi',
+            field: 'movementSubType',
             headerName: 'Alt Tip',
             width: 130,
             valueFormatter: (value) => {
@@ -604,19 +605,19 @@ export default function HesapDetayPage() {
             }
         },
         {
-            field: 'tutar',
+            field: 'amount',
             headerName: 'Tutar',
             width: 130,
             align: 'right',
             headerAlign: 'right',
             renderCell: (params) => (
-                <Typography fontWeight="600" color={params.row.hareketTipi === 'GELEN' ? 'success.main' : 'error.main'}>
-                    {params.row.hareketTipi === 'GELEN' ? '+' : '-'}{formatCurrency(Number(params.value))}
+                <Typography fontWeight="600" color={params.row.movementType === 'INCOMING' ? 'success.main' : 'error.main'}>
+                    {params.row.movementType === 'INCOMING' ? '+' : '-'}{formatCurrency(Number(params.value))}
                 </Typography>
             )
         },
         {
-            field: 'komisyonTutar',
+            field: 'commissionAmount',
             headerName: 'Komisyon',
             width: 110,
             align: 'right',
@@ -624,7 +625,7 @@ export default function HesapDetayPage() {
             valueFormatter: (value) => value ? formatCurrency(Number(value)) : '-',
         },
         {
-            field: 'netTutar',
+            field: 'netAmount',
             headerName: 'Net Tutar',
             width: 130,
             align: 'right',
@@ -636,7 +637,7 @@ export default function HesapDetayPage() {
             ) : '-'
         },
         {
-            field: 'bakiye',
+            field: 'balance',
             headerName: 'Bakiye',
             width: 130,
             align: 'right',
@@ -644,7 +645,7 @@ export default function HesapDetayPage() {
             valueFormatter: (value) => formatCurrency(Number(value)),
         },
         {
-            field: 'aciklama',
+            field: 'notes',
             headerName: 'Açıklama',
             flex: 1,
             minWidth: 200,
@@ -709,7 +710,7 @@ export default function HesapDetayPage() {
                     <Box sx={{ position: 'relative', zIndex: 1 }}>
                         <Button
                             startIcon={<ArrowBack />}
-                            onClick={() => router.push(`/banka/${hesap.banka.id}`)}
+                            onClick={() => router.push(`/banks/${hesap.bank.id}`)}
                             sx={{
                                 mb: 1,
                                 color: 'var(--muted-foreground)',
@@ -720,7 +721,7 @@ export default function HesapDetayPage() {
                                 py: 0.5
                             }}
                         >
-                            {hesap.banka.ad} Hesaplarına Dön
+                            {hesap.bank.name} Hesaplarına Dön
                         </Button>
 
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
@@ -731,11 +732,11 @@ export default function HesapDetayPage() {
                                     letterSpacing: '-0.02em',
                                     mb: 0.5
                                 }}>
-                                    {hesap.hesapAdi}
+                                    {hesap.name}
                                 </Typography>
                                 <Stack direction="row" spacing={1.5} alignItems="center">
                                     <Chip
-                                        label={hesapTipiLabels[hesap.hesapTipi]}
+                                        label={hesapTipiLabels[hesap.type]}
                                         sx={{
                                             bgcolor: 'color-mix(in srgb, var(--primary) 10%, transparent)',
                                             color: 'var(--primary)',
@@ -747,7 +748,7 @@ export default function HesapDetayPage() {
                                     />
                                     <Divider orientation="vertical" flexItem sx={{ height: 12, my: 'auto' }} />
                                     <Typography variant="caption" sx={{ color: 'var(--muted-foreground)', fontWeight: 500 }}>
-                                        Kod: <Box component="span" sx={{ color: 'var(--foreground)', fontWeight: 600 }}>{hesap.hesapKodu}</Box>
+                                        Kod: <Box component="span" sx={{ color: 'var(--foreground)', fontWeight: 600 }}>{hesap.code}</Box>
                                     </Typography>
                                     {hesap.iban && (
                                         <>
@@ -761,7 +762,7 @@ export default function HesapDetayPage() {
                             </Box>
 
                             <Box sx={{ display: 'flex', gap: 1.5 }}>
-                                {hesap.hesapTipi === 'POS' ? (
+                                {hesap.type === 'POS' ? (
                                     <Button
                                         variant="contained"
                                         size="medium"
@@ -784,7 +785,7 @@ export default function HesapDetayPage() {
                                     >
                                         POS Tahsilat
                                     </Button>
-                                ) : hesap.hesapTipi === 'KREDI' ? (
+                                ) : hesap.type === 'KREDI' ? (
                                     <Button
                                         variant="contained"
                                         size="medium"
@@ -806,7 +807,7 @@ export default function HesapDetayPage() {
                                     >
                                         Kredi Kullan
                                     </Button>
-                                ) : hesap.hesapTipi === 'FIRMA_KREDI_KARTI' ? null : (
+                                ) : hesap.type === 'FIRMA_KREDI_KARTI' ? null : (
                                     <Button
                                         variant="contained"
                                         size="medium"
@@ -848,12 +849,12 @@ export default function HesapDetayPage() {
                             <CardContent sx={{ p: 2 }}>
                                 <Typography variant="caption" sx={{ color: 'var(--muted-foreground)', fontWeight: 600, mb: 0.5, display: 'block' }}>Güncel Bakiye</Typography>
                                 <Typography variant="h5" sx={{ fontWeight: 800, color: 'var(--primary)', letterSpacing: '-0.02em' }}>
-                                    {formatCurrency(Number(hesap.bakiye))}
+                                    {formatCurrency(Number(hesap.balance))}
                                 </Typography>
                             </CardContent>
                         </Card>
                     </Grid>
-                    {hesap.hesapTipi === 'POS' && hesap.komisyonOrani && (
+                    {hesap.type === 'POS' && hesap.commissionRate && (
                         <Grid size={{ xs: 12, md: 4 }}>
                             <Card sx={{
                                 borderRadius: 'var(--radius-md)',
@@ -865,13 +866,13 @@ export default function HesapDetayPage() {
                                 <CardContent sx={{ p: 2 }}>
                                     <Typography variant="caption" sx={{ color: 'var(--muted-foreground)', fontWeight: 600, mb: 0.5, display: 'block' }}>Komisyon Oranı</Typography>
                                     <Typography variant="h5" sx={{ fontWeight: 800, color: 'var(--chart-3)', letterSpacing: '-0.02em' }}>
-                                        %{Number(hesap.komisyonOrani)}
+                                        %{Number(hesap.commissionRate)}
                                     </Typography>
                                 </CardContent>
                             </Card>
                         </Grid>
                     )}
-                    {hesap.hesapTipi === 'KREDI' && hesap.krediLimiti && (
+                    {hesap.type === 'KREDI' && hesap.creditLimit && (
                         <Grid size={{ xs: 12, md: 4 }}>
                             <Card sx={{
                                 borderRadius: 'var(--radius-md)',
@@ -883,15 +884,15 @@ export default function HesapDetayPage() {
                                 <CardContent sx={{ p: 2 }}>
                                     <Typography variant="caption" sx={{ color: 'var(--muted-foreground)', fontWeight: 600, mb: 0.5, display: 'block' }}>Kredi Limiti</Typography>
                                     <Typography variant="h5" sx={{ fontWeight: 800, color: 'var(--chart-4)', letterSpacing: '-0.02em' }}>
-                                        {formatCurrency(Number(hesap.krediLimiti))}
+                                        {formatCurrency(Number(hesap.creditLimit))}
                                     </Typography>
                                 </CardContent>
                             </Card>
                         </Grid>
                     )}
-                    {hesap.hesapTipi === 'FIRMA_KREDI_KARTI' && (
+                    {hesap.type === 'FIRMA_KREDI_KARTI' && (
                         <>
-                            {hesap.kartLimiti && (
+                            {hesap.cardLimit && (
                                 <Grid size={{ xs: 12, md: 4 }}>
                                     <Card sx={{
                                         borderRadius: 'var(--radius-md)',
@@ -903,7 +904,7 @@ export default function HesapDetayPage() {
                                         <CardContent sx={{ p: 2 }}>
                                             <Typography variant="caption" sx={{ color: 'var(--muted-foreground)', fontWeight: 600, mb: 0.5, display: 'block' }}>Kart Limiti</Typography>
                                             <Typography variant="h5" sx={{ fontWeight: 800, color: 'var(--chart-5)', letterSpacing: '-0.02em' }}>
-                                                {formatCurrency(Number(hesap.kartLimiti))}
+                                                {formatCurrency(Number(hesap.cardLimit))}
                                             </Typography>
                                         </CardContent>
                                     </Card>
@@ -920,7 +921,7 @@ export default function HesapDetayPage() {
                                     <CardContent sx={{ p: 2 }}>
                                         <Typography variant="caption" sx={{ color: 'var(--muted-foreground)', fontWeight: 600, mb: 0.5, display: 'block' }}>Hesap Kesim / Son Ödeme</Typography>
                                         <Typography variant="h5" sx={{ fontWeight: 800, color: 'var(--chart-1)', letterSpacing: '-0.02em' }}>
-                                            {hesap.hesapKesimGunu}. gün / {hesap.sonOdemeGunu}. gün
+                                            {hesap.billingDay}. gün / {hesap.dueDay}. gün
                                         </Typography>
                                     </CardContent>
                                 </Card>
@@ -930,7 +931,7 @@ export default function HesapDetayPage() {
                 </Grid>
 
                 {/* Credit Loan List */}
-                {hesap.hesapTipi === 'KREDI' && (
+                {hesap.type === 'KREDI' && (
                     <CreditLoanList hesapId={hesapId} refreshTrigger={refreshTrigger} />
                 )}
 
@@ -999,18 +1000,18 @@ export default function HesapDetayPage() {
                         <DialogContent>
                             <Stack spacing={2.5}>
                                 <Controller
-                                    name="hareketTipi"
+                                    name="movementType"
                                     control={control}
                                     render={({ field }) => (
                                         <TextField select fullWidth label="Hareket Tipi" {...field}>
-                                            <MenuItem value="GELEN">Gelen (Para Girişi)</MenuItem>
-                                            <MenuItem value="GIDEN">Giden (Para Çıkışı)</MenuItem>
+                                            <MenuItem value="INCOMING">Gelen (Para Girişi)</MenuItem>
+                                            <MenuItem value="OUTGOING">Giden (Para Çıkışı)</MenuItem>
                                         </TextField>
                                     )}
                                 />
 
                                 <Controller
-                                    name="tutar"
+                                    name="amount"
                                     control={control}
                                     render={({ field, fieldState }) => (
                                         <TextField
@@ -1028,7 +1029,7 @@ export default function HesapDetayPage() {
                                 />
 
                                 <Controller
-                                    name="aciklama"
+                                    name="notes"
                                     control={control}
                                     render={({ field }) => (
                                         <TextField {...field} fullWidth label="Açıklama" multiline rows={2} />
@@ -1038,7 +1039,7 @@ export default function HesapDetayPage() {
                                 <Grid container spacing={2}>
                                     <Grid size={{ xs: 6 }}>
                                         <Controller
-                                            name="referansNo"
+                                            name="referenceNo"
                                             control={control}
                                             render={({ field }) => (
                                                 <TextField {...field} fullWidth label="Referans No" />
@@ -1047,7 +1048,7 @@ export default function HesapDetayPage() {
                                     </Grid>
                                     <Grid size={{ xs: 6 }}>
                                         <Controller
-                                            name="tarih"
+                                            name="date"
                                             control={control}
                                             render={({ field }) => (
                                                 <TextField {...field} fullWidth type="date" label="Tarih" InputLabelProps={{ shrink: true }} />
@@ -1071,11 +1072,11 @@ export default function HesapDetayPage() {
                         <DialogContent>
                             <Stack spacing={2.5}>
                                 <Alert severity="info" sx={{ mb: 1 }}>
-                                    Komisyon oranı: <strong>%{hesap?.komisyonOrani || 0}</strong>. Komisyon tutarı brüt tutardan düşülerek hesaba net tutar eklenecektir.
+                                    Komisyon oranı: <strong>%{hesap?.commissionRate || 0}</strong>. Komisyon tutarı brüt tutardan düşülerek hesaba net tutar eklenecektir.
                                 </Alert>
 
                                 <Controller
-                                    name="tutar"
+                                    name="amount"
                                     control={posControl}
                                     render={({ field, fieldState }) => (
                                         <TextField
@@ -1116,7 +1117,7 @@ export default function HesapDetayPage() {
                                 )}
 
                                 <Controller
-                                    name="aciklama"
+                                    name="notes"
                                     control={posControl}
                                     render={({ field }) => (
                                         <TextField {...field} fullWidth label="Açıklama" multiline rows={2} />
@@ -1126,7 +1127,7 @@ export default function HesapDetayPage() {
                                 <Grid container spacing={2}>
                                     <Grid size={{ xs: 6 }}>
                                         <Controller
-                                            name="referansNo"
+                                            name="referenceNo"
                                             control={posControl}
                                             render={({ field }) => (
                                                 <TextField {...field} fullWidth label="Referans No" />
@@ -1135,7 +1136,7 @@ export default function HesapDetayPage() {
                                     </Grid>
                                     <Grid size={{ xs: 6 }}>
                                         <Controller
-                                            name="tarih"
+                                            name="date"
                                             control={posControl}
                                             render={({ field }) => (
                                                 <TextField {...field} fullWidth type="date" label="Tarih" InputLabelProps={{ shrink: true }} />

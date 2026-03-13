@@ -68,7 +68,7 @@ export class CreateAccountBankDto {
     @IsNotEmpty() @IsString() @ApiProperty() bankName: string;
     @IsOptional() @IsString() @ApiProperty({ required: false }) branchName?: string;
     @IsOptional() @IsString() @ApiProperty({ required: false }) branchCode?: string;
-    @IsOptional() @IsString() @ApiProperty({ required: false }) accountNo?: string;
+    @IsOptional() @IsString() @ApiProperty({ required: false }) accountNumber?: string;
     @IsNotEmpty() @IsString() @ApiProperty() iban: string;
     @IsOptional() @IsString() @ApiProperty({ required: false }) currency?: string;
     @IsOptional() @IsString() @ApiProperty({ required: false }) notes?: string;
@@ -149,7 +149,7 @@ export class CreateAccountDto {
     @IsOptional()
     @IsString()
     @ApiProperty({ required: false })
-    contactPerson?: string;
+    contactName?: string;
 
     @IsOptional()
     @IsInt()

@@ -25,7 +25,7 @@ export class RlsController {
     // Not: Public endpoint olduğu için tenantId undefined olabilir
     let productCount = 0;
     try {
-      productCount = await this.prisma.extended.product.count();
+      productCount = await this.prisma.product.count();
     } catch (e) {
       console.error('Prisma extended count error:', e);
     }
@@ -34,7 +34,7 @@ export class RlsController {
     let rawCount = 0;
     if (tenantId) {
       try {
-        const result = await this.prisma.extended.$queryRawUnsafe(`
+        const result = await this.prisma.$queryRawUnsafe(`
           BEGIN;
           SET LOCAL app.current_tenant_id = $1;
           SELECT COUNT(*) as count FROM "products";
@@ -64,7 +64,7 @@ export class RlsController {
   @Public()
   @Get('status')
   async getRlsStatus() {
-    const result = await this.prisma.extended.$queryRaw`
+    const result = await this.prisma.$queryRaw`
       SELECT 
         (SELECT COUNT(*) FROM pg_tables WHERE schemaname = 'public' AND rowsecurity = true) as rls_tables,
         (SELECT COUNT(*) FROM pg_policies WHERE schemaname = 'public' AND policyname LIKE '%_tenant_isolation') as policies_created
@@ -84,7 +84,7 @@ export class RlsController {
   async testRlsTransaction() {
     const tenantId = this.tenantContext.getTenantId();
     
-    const result = await this.prisma.extended.$transaction(async (tx) => {
+    const result = await this.prisma.$transaction(async (tx) => {
       // Transaction içinde tenant context otomatik set edilir
       const products = await tx.product.findMany({
         take: 5,

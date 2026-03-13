@@ -21,7 +21,7 @@ export class AdvanceService {
      * Advance ver
      */
     async createAdvance(createDto: CreateAdvanceDto, userId: string) {
-        const employee = await this.prisma.extended.employee.findUnique({
+        const employee = await this.prisma.employee.findUnique({
             where: { id: createDto.employeeId },
         });
 
@@ -35,7 +35,7 @@ export class AdvanceService {
 
         // Cashbox kontrolü
         if (createDto.cashboxId) {
-            const cashbox = await this.prisma.extended.cashbox.findUnique({
+            const cashbox = await this.prisma.cashbox.findUnique({
                 where: { id: createDto.cashboxId },
             });
 
@@ -44,7 +44,7 @@ export class AdvanceService {
             }
         }
 
-        return this.prisma.extended.$transaction(async (prisma) => {
+        return this.prisma.$transaction(async (prisma) => {
             const date = createDto.date ? new Date(createDto.date) : new Date();
 
             // Advance kaydı oluştur
@@ -106,7 +106,7 @@ export class AdvanceService {
      * Advance mahsuplaştır
      */
     async mahsuplastir(mahsupDto: MahsuplastirAdvanceDto) {
-        const advance = await this.prisma.extended.advance.findUnique({
+        const advance = await this.prisma.advance.findUnique({
             where: { id: mahsupDto.advanceId },
             include: {
                 employee: true,
@@ -135,7 +135,7 @@ export class AdvanceService {
 
         // Planları kontrol et
         for (const planDto of mahsupDto.planlar) {
-            const plan = await this.prisma.extended.salaryPlan.findUnique({
+            const plan = await this.prisma.salaryPlan.findUnique({
                 where: { id: planDto.planId },
             });
 
@@ -148,7 +148,7 @@ export class AdvanceService {
             }
         }
 
-        return this.prisma.extended.$transaction(async (prisma) => {
+        return this.prisma.$transaction(async (prisma) => {
             // Mahsuplaşmaları oluştur
             for (const planDto of mahsupDto.planlar) {
                 await prisma.advanceSettlement.create({
@@ -226,7 +226,7 @@ export class AdvanceService {
     async getAdvanceByEmployee(employeeId: string) {
         const tenantId = await this.tenantResolver.resolveForQuery();
 
-        const employee = await this.prisma.extended.employee.findFirst({
+        const employee = await this.prisma.employee.findFirst({
             where: {
                 id: employeeId,
                 ...buildTenantWhereClause(tenantId ?? undefined),
@@ -237,7 +237,7 @@ export class AdvanceService {
             throw new NotFoundException('Employee not found');
         }
 
-        return this.prisma.extended.advance.findMany({
+        return this.prisma.advance.findMany({
             where: { employeeId },
             include: {
                 cashbox: {
@@ -265,7 +265,7 @@ export class AdvanceService {
      * Advance detayı
      */
     async getAdvanceDetay(id: string) {
-        const advance = await this.prisma.extended.advance.findUnique({
+        const advance = await this.prisma.advance.findUnique({
             where: { id },
             include: {
                 employee: {

@@ -176,7 +176,7 @@ export class LocationService {
 
     try {
       
-      const result = await this.prisma.extended.location.findMany({
+      const result = await this.prisma.location.findMany({
         where,
         include: {
           warehouse: {
@@ -218,7 +218,7 @@ export class LocationService {
   }
 
   async findOne(id: string) {
-    const location = await this.prisma.extended.location.findUnique({
+    const location = await this.prisma.location.findUnique({
       where: { id },
       include: {
         warehouse: true,
@@ -255,7 +255,7 @@ export class LocationService {
   }
 
   async findByCode(code: string) {
-    const location = await this.prisma.extended.location.findUnique({
+    const location = await this.prisma.location.findUnique({
       where: { code },
       include: {
         warehouse: true,
@@ -287,7 +287,7 @@ export class LocationService {
   }
 
   async findByBarcode(barcode: string) {
-    const location = await this.prisma.extended.location.findUnique({
+    const location = await this.prisma.location.findUnique({
       where: { barcode },
       include: {
         warehouse: true,
@@ -303,7 +303,7 @@ export class LocationService {
 
   async create(createDto: CreateLocationDto) {
     // Warehouse kontrolü
-    const warehouse = await this.prisma.extended.warehouse.findUnique({
+    const warehouse = await this.prisma.warehouse.findUnique({
       where: { id: createDto.warehouseId },
     });
 
@@ -320,7 +320,7 @@ export class LocationService {
       this.extractLocationData(createDto);
 
     // Code benzersizliği kontrolü
-    const existingCode = await this.prisma.extended.location.findUnique({
+    const existingCode = await this.prisma.location.findUnique({
       where: { code },
     });
 
@@ -332,7 +332,7 @@ export class LocationService {
     const barcode = createDto.barcode || code;
 
     // Barcode benzersizliği kontrolü
-    const existingBarcode = await this.prisma.extended.location.findUnique({
+    const existingBarcode = await this.prisma.location.findUnique({
       where: { barcode },
     });
 
@@ -341,7 +341,7 @@ export class LocationService {
     }
 
     // Aynı warehouse'da aynı code kontrolü
-    const existingInWarehouse = await this.prisma.extended.location.findFirst({
+    const existingInWarehouse = await this.prisma.location.findFirst({
       where: {
         warehouseId: createDto.warehouseId,
         code,
@@ -352,7 +352,7 @@ export class LocationService {
       throw new BadRequestException('Bu depoda bu kodda bir raf zaten mevcut');
     }
 
-    return this.prisma.extended.location.create({
+    return this.prisma.location.create({
       data: {
         warehouseId: createDto.warehouseId,
         layer: layer || 0,
@@ -369,7 +369,7 @@ export class LocationService {
   }
 
   async update(id: string, updateDto: UpdateLocationDto) {
-    const location = await this.prisma.extended.location.findUnique({
+    const location = await this.prisma.location.findUnique({
       where: { id },
     });
 
@@ -391,7 +391,7 @@ export class LocationService {
 
       // Code değişiyorsa benzersizlik kontrolü
       if (code !== location.code) {
-        const existing = await this.prisma.extended.location.findUnique({
+        const existing = await this.prisma.location.findUnique({
           where: { code },
         });
 
@@ -404,7 +404,7 @@ export class LocationService {
       const barcode = updateDto.barcode || code;
 
       if (barcode !== location.barcode) {
-        const existingBarcode = await this.prisma.extended.location.findUnique({
+        const existingBarcode = await this.prisma.location.findUnique({
           where: { barcode },
         });
 
@@ -413,7 +413,7 @@ export class LocationService {
         }
       }
 
-      return this.prisma.extended.location.update({
+      return this.prisma.location.update({
         where: { id },
         data: {
           layer,
@@ -443,7 +443,7 @@ export class LocationService {
         updateDto.barcode !== undefined &&
         updateDto.barcode !== location.barcode
       ) {
-        const existingBarcode = await this.prisma.extended.location.findUnique({
+        const existingBarcode = await this.prisma.location.findUnique({
           where: { barcode: updateDto.barcode },
         });
 
@@ -454,7 +454,7 @@ export class LocationService {
         updateData.barcode = updateDto.barcode;
       }
 
-      return this.prisma.extended.location.update({
+      return this.prisma.location.update({
         where: { id },
         data: updateData,
       });
@@ -462,7 +462,7 @@ export class LocationService {
   }
 
   async remove(id: string) {
-    const location = await this.prisma.extended.location.findUnique({
+    const location = await this.prisma.location.findUnique({
       where: { id },
       include: {
         _count: {
@@ -484,13 +484,13 @@ export class LocationService {
       );
     }
 
-    return this.prisma.extended.location.delete({
+    return this.prisma.location.delete({
       where: { id },
     });
   }
 
   async deleteAll() {
-    const result = await this.prisma.extended.location.deleteMany({});
+    const result = await this.prisma.location.deleteMany({});
     return {
       message: `${result.count} adet raf/koridor/sütun kaydı silindi`,
       count: result.count,
@@ -528,7 +528,7 @@ export class LocationService {
       const barcode = code;
 
       // Aynı code var mı kontrol et
-      const existing = await this.prisma.extended.location.findUnique({
+      const existing = await this.prisma.location.findUnique({
         where: { code },
       });
       if (!existing) {
@@ -541,7 +541,7 @@ export class LocationService {
     }
 
     if (locationsToCreate.length > 0) {
-      await this.prisma.extended.location.createMany({ data: locationsToCreate });
+      await this.prisma.location.createMany({ data: locationsToCreate });
     }
 
     return {
@@ -565,7 +565,7 @@ export class LocationService {
       const barcode = code;
 
       // Aynı code var mı kontrol et
-      const existing = await this.prisma.extended.location.findUnique({
+      const existing = await this.prisma.location.findUnique({
         where: { code },
       });
       if (!existing) {
@@ -584,7 +584,7 @@ export class LocationService {
     }
 
     if (locations.length > 0) {
-      await this.prisma.extended.location.createMany({ data: locations });
+      await this.prisma.location.createMany({ data: locations });
     }
 
     return {
@@ -617,7 +617,7 @@ export class LocationService {
       const barcode = code;
 
       // Aynı code var mı kontrol et
-      const existing = await this.prisma.extended.location.findUnique({
+      const existing = await this.prisma.location.findUnique({
         where: { code },
       });
       if (!existing) {
@@ -636,7 +636,7 @@ export class LocationService {
     }
 
     if (locations.length > 0) {
-      await this.prisma.extended.location.createMany({ data: locations });
+      await this.prisma.location.createMany({ data: locations });
     }
 
     return {

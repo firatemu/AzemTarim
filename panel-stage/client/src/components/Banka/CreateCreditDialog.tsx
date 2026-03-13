@@ -21,22 +21,22 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Close as CloseIcon } from '@mui/icons-material';
 
-// Enum for Credit Types (Aligning with Backend)
-enum KrediTuru {
+// Enum for Loan Types (Aligning with Backend)
+enum LoanType {
     ESIT_TAKSITLI = 'ESIT_TAKSITLI',
     ROTATIF = 'ROTATIF'
 }
 
 const schema = z.object({
-    krediTuru: z.nativeEnum(KrediTuru),
-    tutar: z.number().min(1, 'Tutar 0 dan büyük olmalıdır'),
-    yillikFaizOrani: z.number().min(0, 'Faiz oranı 0 dan küçük olamaz'),
-    taksitSayisi: z.number().min(1, 'Taksit sayısı en az 1 olmalıdır'),
-    odemeSikligi: z.number().min(1).optional(), // Rotatif için
-    taksitTutari: z.number().min(1, 'Taksit tutarı zorunludur'),
-    kullanimTarihi: z.string(),
-    ilkTaksitTarihi: z.string(),
-    aciklama: z.string().optional(),
+    loanType: z.nativeEnum(LoanType),
+    amount: z.number().min(1, 'Tutar 0 dan büyük olmalıdır'),
+    interestRate: z.number().min(0, 'Faiz oranı 0 dan küçük olamaz'),
+    installmentCount: z.number().min(1, 'Taksit sayısı en az 1 olmalıdır'),
+    paymentFrequency: z.number().min(1).optional(), // Rotatif için
+    installmentAmount: z.number().min(1, 'Taksit tutarı zorunludur'),
+    usageDate: z.string(),
+    firstInstallmentDate: z.string(),
+    notes: z.string().optional(),
 });
 
 type FormData = z.infer<typeof schema>;
@@ -52,15 +52,15 @@ export default function CreateCreditDialog({ open, onClose, onSubmit, loading }:
     const { control, handleSubmit, formState: { errors }, reset, setValue } = useForm<FormData>({
         resolver: zodResolver(schema),
         defaultValues: {
-            krediTuru: KrediTuru.ESIT_TAKSITLI,
-            tutar: 0,
-            yillikFaizOrani: 0,
-            taksitSayisi: 12,
-            odemeSikligi: 3,
-            taksitTutari: 0,
-            kullanimTarihi: new Date().toISOString().split('T')[0],
-            ilkTaksitTarihi: new Date(new Date().setMonth(new Date().getMonth() + 1)).toISOString().split('T')[0],
-            aciklama: '',
+            loanType: LoanType.ESIT_TAKSITLI,
+            amount: 0,
+            interestRate: 0,
+            installmentCount: 12,
+            paymentFrequency: 3,
+            installmentAmount: 0,
+            usageDate: new Date().toISOString().split('T')[0],
+            firstInstallmentDate: new Date(new Date().setMonth(new Date().getMonth() + 1)).toISOString().split('T')[0],
+            notes: '',
         }
     });
 
@@ -68,20 +68,20 @@ export default function CreateCreditDialog({ open, onClose, onSubmit, loading }:
 
     // Live Calculation Logic (Installment * Count)
     const calculateSummary = () => {
-        const P = watchedValues.tutar || 0;
-        const installment = watchedValues.taksitTutari || 0;
-        const n = watchedValues.taksitSayisi || 1;
-        const type = watchedValues.krediTuru;
-        const freq = watchedValues.odemeSikligi || 1;
+        const P = watchedValues.amount || 0;
+        const installment = watchedValues.installmentAmount || 0;
+        const n = watchedValues.installmentCount || 1;
+        const type = watchedValues.loanType;
+        const freq = watchedValues.paymentFrequency || 1;
 
         let monthlyPayment = installment;
         let totalRepayment = 0;
         let totalInterest = 0;
 
         if (installment > 0) {
-            if (type === KrediTuru.ESIT_TAKSITLI) {
+            if (type === LoanType.ESIT_TAKSITLI) {
                 totalRepayment = installment * n;
-            } else if (type === KrediTuru.ROTATIF) {
+            } else if (type === LoanType.ROTATIF) {
                 // Rotatif: Tek bir ödeme (Taksit Tutarı kadar)
                 totalRepayment = installment;
             }
@@ -99,8 +99,8 @@ export default function CreateCreditDialog({ open, onClose, onSubmit, loading }:
 
     const handleFormSubmit = (data: FormData) => {
         // Rotatif kredide vade her zaman 1 (tek ödeme) olarak gönderilmeli
-        if (data.krediTuru === KrediTuru.ROTATIF) {
-            data.taksitSayisi = 1;
+        if (data.loanType === LoanType.ROTATIF) {
+            data.installmentCount = 1;
         }
         onSubmit(data);
     };
@@ -116,14 +116,14 @@ export default function CreateCreditDialog({ open, onClose, onSubmit, loading }:
 
     // Auto-calculate First Installment Date based on Payment Frequency for Rotatif
     useEffect(() => {
-        if (watchedValues.krediTuru === KrediTuru.ROTATIF && watchedValues.kullanimTarihi) {
-            const date = new Date(watchedValues.kullanimTarihi);
-            const monthsToAdd = watchedValues.odemeSikligi || 1;
+        if (watchedValues.loanType === LoanType.ROTATIF && watchedValues.usageDate) {
+            const date = new Date(watchedValues.usageDate);
+            const monthsToAdd = watchedValues.paymentFrequency || 1;
             date.setMonth(date.getMonth() + monthsToAdd);
             // Handle edge cases like month overflow (e.g. Jan 31 + 1 month -> Feb 28/29) automatically handled by setMonth but good to verify format
-            setValue('ilkTaksitTarihi', date.toISOString().split('T')[0]);
+            setValue('firstInstallmentDate', date.toISOString().split('T')[0]);
         }
-    }, [watchedValues.krediTuru, watchedValues.odemeSikligi, watchedValues.kullanimTarihi, setValue]);
+    }, [watchedValues.loanType, watchedValues.paymentFrequency, watchedValues.usageDate, setValue]);
 
     return (
         <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
@@ -141,7 +141,7 @@ export default function CreateCreditDialog({ open, onClose, onSubmit, loading }:
                             <Grid container spacing={2}>
                                 <Grid size={{ xs: 12 }}>
                                     <Controller
-                                        name="krediTuru"
+                                        name="loanType"
                                         control={control}
                                         render={({ field }) => (
                                             <TextField
@@ -149,11 +149,11 @@ export default function CreateCreditDialog({ open, onClose, onSubmit, loading }:
                                                 select
                                                 label="Kredi Türü"
                                                 fullWidth
-                                                error={!!errors.krediTuru}
-                                                helperText={errors.krediTuru?.message}
+                                                error={!!errors.loanType}
+                                                helperText={errors.loanType?.message}
                                             >
-                                                <MenuItem value={KrediTuru.ESIT_TAKSITLI}>Eşit Taksitli Kredi</MenuItem>
-                                                <MenuItem value={KrediTuru.ROTATIF}>Rotatif (Dönemsel Ödemeli) Kredi</MenuItem>
+                                                <MenuItem value={LoanType.ESIT_TAKSITLI}>Eşit Taksitli Kredi</MenuItem>
+                                                <MenuItem value={LoanType.ROTATIF}>Rotatif (Dönemsel Ödemeli) Kredi</MenuItem>
                                             </TextField>
                                         )}
                                     />
@@ -161,7 +161,7 @@ export default function CreateCreditDialog({ open, onClose, onSubmit, loading }:
 
                                 <Grid size={{ xs: 12 }}>
                                     <Controller
-                                        name="tutar"
+                                        name="amount"
                                         control={control}
                                         render={({ field }) => (
                                             <TextField
@@ -172,8 +172,8 @@ export default function CreateCreditDialog({ open, onClose, onSubmit, loading }:
                                                 InputProps={{
                                                     startAdornment: <InputAdornment position="start">₺</InputAdornment>,
                                                 }}
-                                                error={!!errors.tutar}
-                                                helperText={errors.tutar?.message}
+                                                error={!!errors.amount}
+                                                helperText={errors.amount?.message}
                                                 onChange={(e) => field.onChange(Number(e.target.value))}
                                                 value={field.value || ''}
                                             />
@@ -183,7 +183,7 @@ export default function CreateCreditDialog({ open, onClose, onSubmit, loading }:
 
                                 <Grid size={{ xs: 12 }}>
                                     <Controller
-                                        name="taksitTutari"
+                                        name="installmentAmount"
                                         control={control}
                                         render={({ field }) => (
                                             <TextField
@@ -194,7 +194,7 @@ export default function CreateCreditDialog({ open, onClose, onSubmit, loading }:
                                                 InputProps={{
                                                     startAdornment: <InputAdornment position="start">₺</InputAdornment>,
                                                 }}
-                                                error={!!errors.taksitTutari}
+                                                error={!!errors.installmentAmount}
                                                 helperText="Her bir taksitte ödenecek tutar"
                                                 onChange={(e) => field.onChange(Number(e.target.value))}
                                                 value={field.value || ''}
@@ -205,7 +205,7 @@ export default function CreateCreditDialog({ open, onClose, onSubmit, loading }:
 
                                 <Grid size={{ xs: 6 }}>
                                     <Controller
-                                        name="yillikFaizOrani"
+                                        name="interestRate"
                                         control={control}
                                         render={({ field }) => (
                                             <TextField
@@ -214,17 +214,17 @@ export default function CreateCreditDialog({ open, onClose, onSubmit, loading }:
                                                 fullWidth
                                                 type="number"
                                                 helperText="Sadece bilgi amaçlıdır"
-                                                error={!!errors.yillikFaizOrani}
+                                                error={!!errors.interestRate}
                                                 onChange={(e) => field.onChange(Number(e.target.value))}
                                             />
                                         )}
                                     />
                                 </Grid>
 
-                                {watchedValues.krediTuru !== KrediTuru.ROTATIF && (
+                                {watchedValues.loanType !== LoanType.ROTATIF && (
                                     <Grid size={{ xs: 6 }}>
                                         <Controller
-                                            name="taksitSayisi"
+                                            name="installmentCount"
                                             control={control}
                                             render={({ field }) => (
                                                 <TextField
@@ -232,8 +232,8 @@ export default function CreateCreditDialog({ open, onClose, onSubmit, loading }:
                                                     label="Vade (Ay)"
                                                     fullWidth
                                                     type="number"
-                                                    error={!!errors.taksitSayisi}
-                                                    helperText={errors.taksitSayisi?.message}
+                                                    error={!!errors.installmentCount}
+                                                    helperText={errors.installmentCount?.message}
                                                     onChange={(e) => field.onChange(Number(e.target.value))}
                                                 />
                                             )}
@@ -241,10 +241,10 @@ export default function CreateCreditDialog({ open, onClose, onSubmit, loading }:
                                     </Grid>
                                 )}
 
-                                {watchedValues.krediTuru === KrediTuru.ROTATIF && (
+                                {watchedValues.loanType === LoanType.ROTATIF && (
                                     <Grid size={{ xs: 12 }}>
                                         <Controller
-                                            name="odemeSikligi"
+                                            name="paymentFrequency"
                                             control={control}
                                             render={({ field }) => (
                                                 <TextField
@@ -266,7 +266,7 @@ export default function CreateCreditDialog({ open, onClose, onSubmit, loading }:
 
                                 <Grid size={{ xs: 6 }}>
                                     <Controller
-                                        name="kullanimTarihi"
+                                        name="usageDate"
                                         control={control}
                                         render={({ field }) => (
                                             <TextField
@@ -275,7 +275,7 @@ export default function CreateCreditDialog({ open, onClose, onSubmit, loading }:
                                                 fullWidth
                                                 type="date"
                                                 InputLabelProps={{ shrink: true }}
-                                                error={!!errors.kullanimTarihi}
+                                                error={!!errors.usageDate}
                                                 helperText="Paranın hesaba girdiği tarih"
                                             />
                                         )}
@@ -284,7 +284,7 @@ export default function CreateCreditDialog({ open, onClose, onSubmit, loading }:
 
                                 <Grid size={{ xs: 6 }}>
                                     <Controller
-                                        name="ilkTaksitTarihi"
+                                        name="firstInstallmentDate"
                                         control={control}
                                         render={({ field }) => (
                                             <TextField
@@ -293,7 +293,7 @@ export default function CreateCreditDialog({ open, onClose, onSubmit, loading }:
                                                 fullWidth
                                                 type="date"
                                                 InputLabelProps={{ shrink: true }}
-                                                error={!!errors.ilkTaksitTarihi}
+                                                error={!!errors.firstInstallmentDate}
                                                 helperText="Ödemenin başlayacağı tarih"
                                             />
                                         )}
@@ -302,7 +302,7 @@ export default function CreateCreditDialog({ open, onClose, onSubmit, loading }:
 
                                 <Grid size={{ xs: 12 }}>
                                     <Controller
-                                        name="aciklama"
+                                        name="notes"
                                         control={control}
                                         render={({ field }) => (
                                             <TextField
@@ -347,8 +347,8 @@ export default function CreateCreditDialog({ open, onClose, onSubmit, loading }:
 
                                     <Box sx={{ mb: 3, p: 2, bgcolor: 'primary.light', borderRadius: 1, color: 'primary.contrastText' }}>
                                         <Typography variant="caption" sx={{ opacity: 0.9 }}>
-                                            {watchedValues.krediTuru === KrediTuru.ROTATIF
-                                                ? `${watchedValues.odemeSikligi} Ayda Bir Ödenecek Tutar`
+                                            {watchedValues.loanType === LoanType.ROTATIF
+                                                ? `${watchedValues.paymentFrequency} Ayda Bir Ödenecek Tutar`
                                                 : "Aylık Taksit Tutarı"}
                                         </Typography>
                                         <Typography variant="h5" fontWeight="bold">

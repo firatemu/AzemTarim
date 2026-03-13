@@ -12,7 +12,7 @@ export function useWorkOrders(params?: {
   return useQuery({
     queryKey: ['work-orders', page, limit, status],
     queryFn: async () => {
-      const response = await axios.get('/work-order', {
+      const response = await axios.get('/work-orders', {
         params: { page, limit, status },
       });
       const data = response.data?.data ?? response.data;
@@ -26,7 +26,7 @@ export function useWorkOrder(id: string | null) {
   return useQuery({
     queryKey: ['work-order', id],
     queryFn: async () => {
-      const response = await axios.get(`/work-order/${id}`);
+      const response = await axios.get(`/work-orders/${id}`);
       return response.data as WorkOrder;
     },
     enabled: !!id,
@@ -37,7 +37,7 @@ export function useCreateWorkOrder() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (dto: CreateWorkOrderDto) => {
-      const response = await axios.post('/work-order', dto);
+      const response = await axios.post('/work-orders', dto);
       return response.data;
     },
     onSuccess: () => {
@@ -50,7 +50,7 @@ export function useUpdateWorkOrderStatus() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, status }: { id: string; status: WorkOrderStatus }) => {
-      const response = await axios.patch(`/work-order/${id}/status`, { status });
+      const response = await axios.patch(`/work-orders/${id}/status`, { status });
       return response.data;
     },
     onSuccess: (_, { id }) => {

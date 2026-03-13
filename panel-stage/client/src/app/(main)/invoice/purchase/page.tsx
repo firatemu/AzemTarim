@@ -83,7 +83,7 @@ interface Fatura {
   toplamTutar: number;
   kdvTutar: number;
   genelToplam: number;
-  durum: 'ACIK' | 'ONAYLANDI' | 'KISMEN_ODENDI' | 'KAPALI' | 'IPTAL';
+  durum: 'OPEN' | 'APPROVED' | 'PARTIALLY_PAID' | 'CLOSED' | 'CANCELLED';
   iskonto?: number;
   aciklama?: string;
   kalemler?: FaturaKalemi[];
@@ -180,7 +180,7 @@ export default function AlisFaturalariPage() {
     try {
       setLoading(true);
       const params: Record<string, any> = {
-        faturaTipi: 'ALIS',
+        type: 'ALIS',
         search: searchTerm,
         page: paginationModel.page + 1,
         limit: paginationModel.pageSize,
@@ -189,9 +189,9 @@ export default function AlisFaturalariPage() {
       };
       if (filterStartDate) params.startDate = filterStartDate;
       if (filterEndDate) params.endDate = filterEndDate;
-      if (filterDurum.length > 0) params.durum = filterDurum.join(',');
+      if (filterDurum.length > 0) params.status = filterDurum.join(',');
 
-      const response = await axios.get('/invoice', { params });
+      const response = await axios.get('/invoices', { params });
       const faturaData = response.data?.data || [];
       const totalCount = response.data?.meta?.total ?? response.data?.total ?? faturaData.length;
       setFaturalar(faturaData);
@@ -210,8 +210,8 @@ export default function AlisFaturalariPage() {
 
   const fetchStats = async () => {
     try {
-      const response = await axios.get('/invoice/stats', {
-        params: { faturaTipi: 'ALIS' },
+      const response = await axios.get('/invoices/stats', {
+        params: { type: 'ALIS' },
       });
       setStats(response.data);
     } catch (error) {
@@ -221,7 +221,7 @@ export default function AlisFaturalariPage() {
 
   const fetchCariler = async () => {
     try {
-      const response = await axios.get('/account', {
+      const response = await axios.get('/accounts', {
         params: { limit: 1000 },
       });
       setCariler(response.data.data || []);
@@ -232,7 +232,7 @@ export default function AlisFaturalariPage() {
 
   const fetchStoklar = async () => {
     try {
-      const response = await axios.get('/product', {
+      const response = await axios.get('/products', {
         params: { limit: 1000 },
       });
       setStoklar(response.data.data || []);
@@ -254,13 +254,13 @@ export default function AlisFaturalariPage() {
 
   const handleExportExcel = async () => {
     try {
-      const params: Record<string, string> = { faturaTipi: 'ALIS' };
+      const params: Record<string, string> = { type: 'ALIS' };
       if (searchTerm) params.search = searchTerm;
       if (filterStartDate) params.startDate = filterStartDate;
       if (filterEndDate) params.endDate = filterEndDate;
-      if (filterDurum.length > 0) params.durum = filterDurum.join(',');
+      if (filterDurum.length > 0) params.status = filterDurum.join(',');
 
-      const response = await axios.get('/invoice/export/excel', {
+      const response = await axios.get('/invoices/export/excel', {
         params,
         responseType: 'blob',
       });
@@ -369,11 +369,11 @@ export default function AlisFaturalariPage() {
       }
 
       if (selectedFatura) {
-        await axios.put(`/fatura/${selectedFatura.id}`, formData);
+        await axios.put(`/invoices/${selectedFatura.id}`, formData);
         showSnackbar('Fatura başarıyla güncellendi', 'success');
-        setOpenEdit(false);
+        setOpenAdd(false);
       } else {
-        await axios.post('/invoice', formData);
+        await axios.post('/invoices', formData);
         showSnackbar('Fatura başarıyla oluşturuldu', 'success');
         setOpenAdd(false);
       }
@@ -388,7 +388,7 @@ export default function AlisFaturalariPage() {
   const handleDelete = async () => {
     try {
       if (selectedFatura) {
-        await axios.delete(`/fatura/${selectedFatura.id}`);
+        await axios.delete(`/invoices/${selectedFatura.id}`);
         showSnackbar('Fatura başarıyla silindi', 'success');
         setOpenDelete(false);
         fetchFaturalar();
@@ -413,7 +413,7 @@ export default function AlisFaturalariPage() {
 
   const openViewDialog = async (fatura: Fatura) => {
     try {
-      const response = await axios.get(`/fatura/${fatura.id}`);
+      const response = await axios.get(`/invoices/${fatura.id}`);
       setSelectedFatura(response.data);
       setOpenView(true);
     } catch (error: any) {
@@ -434,8 +434,8 @@ export default function AlisFaturalariPage() {
   const handleIptal = async () => {
     try {
       if (selectedFatura) {
-        await axios.put(`/fatura/${selectedFatura.id}/iptal`, {
-          irsaliyeIptal: irsaliyeIptal,
+        await axios.put(`/invoices/${selectedFatura.id}/cancel`, {
+          deliveryNoteIptal: irsaliyeIptal,
         });
         const mesaj = irsaliyeIptal
           ? 'Fatura ve bağlı irsaliye başarıyla iptal edildi. Stoklar ve cari bakiye güncellendi.'
@@ -477,14 +477,14 @@ export default function AlisFaturalariPage() {
     }
 
     try {
-      await axios.put(`/fatura/${pendingDurum.faturaId}/durum`, { durum: pendingDurum.yeniDurum });
+      await axios.put(`/invoices/${pendingDurum.faturaId}/status`, { status: pendingDurum.yeniDurum });
 
       let mesaj = 'Fatura durumu güncellendi';
-      if (pendingDurum.yeniDurum === 'ONAYLANDI') {
+      if (pendingDurum.yeniDurum === 'APPROVED') {
         mesaj = 'Fatura onaylandı. Stoklar eklendi ve cari bakiye güncellendi.';
-      } else if (pendingDurum.yeniDurum === 'IPTAL') {
+      } else if (pendingDurum.yeniDurum === 'CANCELLED') {
         mesaj = 'Fatura iptal edildi. Cari bakiye düzeltildi. (İptal faturalar stok hesaplamasında dikkate alınmaz)';
-      } else if (pendingDurum.yeniDurum === 'ACIK') {
+      } else if (pendingDurum.yeniDurum === 'OPEN') {
         mesaj = 'Fatura beklemeye alındı. Stok ve cari işlemleri geri alındı.';
       }
 
@@ -527,15 +527,15 @@ export default function AlisFaturalariPage() {
 
   const getStatusColor = (status: string): 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning' => {
     switch (status) {
-      case 'KAPALI':
+      case 'CLOSED':
         return 'success'; // Yeşil - Tamamen ödendi
-      case 'ONAYLANDI':
+      case 'APPROVED':
         return 'info'; // Mavi - Onaylandı
-      case 'ACIK':
+      case 'OPEN':
         return 'warning'; // Turuncu - Beklemede
-      case 'KISMEN_ODENDI':
+      case 'PARTIALLY_PAID':
         return 'primary'; // Mavi - Kısmen ödendi
-      case 'IPTAL':
+      case 'CANCELLED':
         return 'error'; // Kırmızı - İptal
       default:
         return 'default';
@@ -544,15 +544,15 @@ export default function AlisFaturalariPage() {
 
   const getStatusLabel = (status: string) => {
     switch (status) {
-      case 'KAPALI':
+      case 'CLOSED':
         return 'Ödendi';
-      case 'ONAYLANDI':
+      case 'APPROVED':
         return 'Onaylandı';
-      case 'ACIK':
+      case 'OPEN':
         return 'Beklemede';
-      case 'KISMEN_ODENDI':
+      case 'PARTIALLY_PAID':
         return 'Kısmen Ödendi';
-      case 'IPTAL':
+      case 'CANCELLED':
         return 'İptal Edildi';
       default:
         return status;
@@ -915,7 +915,7 @@ export default function AlisFaturalariPage() {
           </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => { setOpenAdd(false); setOpenEdit(false); }}>
+          <Button onClick={() => setOpenAdd(false)}>
             İptal
           </Button>
           <Button
@@ -1034,7 +1034,7 @@ export default function AlisFaturalariPage() {
             <MenuItem
               key="cancel"
               onClick={() => { handleMenuClose(); openIptalDialog(fatura); }}
-              disabled={fatura.durum !== 'ONAYLANDI'}
+              disabled={fatura.durum !== 'APPROVED'}
               sx={{ color: 'error.main' }}
             >
               <ListItemIcon><Cancel fontSize="small" color="error" /></ListItemIcon>
@@ -1043,7 +1043,7 @@ export default function AlisFaturalariPage() {
             <MenuItem
               key="delete"
               onClick={() => { handleMenuClose(); openDeleteDialog(fatura); }}
-              disabled={fatura.durum === 'ONAYLANDI' || fatura.durum === 'IPTAL'}
+              disabled={fatura.durum === 'APPROVED' || fatura.durum === 'CANCELLED'}
               sx={{ color: 'error.main' }}
             >
               <ListItemIcon><Delete fontSize="small" color="error" /></ListItemIcon>
@@ -1063,7 +1063,7 @@ export default function AlisFaturalariPage() {
         maxWidth="md"
         fullWidth
       >
-        <DialogTitle component="div" sx={{ fontWeight: 'bold' }} component="div">
+        <DialogTitle component="div" sx={{ fontWeight: 'bold' }}>
           Fatura Detayı
         </DialogTitle>
         <DialogContent>
@@ -1260,7 +1260,7 @@ export default function AlisFaturalariPage() {
 
       {/* Delete Dialog */}
       <Dialog open={openDelete} onClose={() => setOpenDelete(false)}>
-        <DialogTitle component="div" sx={{ fontWeight: 'bold' }} component="div">Fatura Sil</DialogTitle>
+        <DialogTitle component="div" sx={{ fontWeight: 'bold' }}>Fatura Sil</DialogTitle>
         <DialogContent>
           <Typography>
             <strong>{selectedFatura?.faturaNo}</strong> nolu faturayı silmek istediğinizden emin misiniz?
@@ -1332,29 +1332,20 @@ export default function AlisFaturalariPage() {
                   </Box>
                 </Box>
               </Box>
-              {pendingDurum.yeniDurum === 'ONAYLANDI' && (
-                <Alert severity="info" sx={{ mb: 2 }}>
-                  <Typography variant="body2">
-                    • Stok hareketi oluşturulacak (giriş)<br />
-                    • Cari bakiye artacak
-                  </Typography>
-                </Alert>
+              {pendingDurum.yeniDurum === 'APPROVED' && (
+                <Typography variant="body2" sx={{ mb: 2 }}>
+                  Fatura onaylandığında stoklar güncellenecek ve cari bakiyeye yansıtılacaktır. Devam etmek istiyor musunuz?
+                </Typography>
               )}
-              {pendingDurum.yeniDurum === 'IPTAL' && (
-                <Alert severity="info" sx={{ mb: 2 }}>
-                  <Typography variant="body2">
-                    • Cari bakiye azalacak<br />
-                    • İptal faturalar stok hesaplamasında dikkate alınmaz
-                  </Typography>
-                </Alert>
+              {pendingDurum.yeniDurum === 'CANCELLED' && (
+                <Typography variant="body2" sx={{ mb: 2 }}>
+                  Fatura iptal edildiğinde stok hareketleri geri alınacak ve cari bakiye düzeltilecektir. Devam etmek istiyor musunuz?
+                </Typography>
               )}
-              {pendingDurum.yeniDurum === 'ACIK' && (
-                <Alert severity="info" sx={{ mb: 2 }}>
-                  <Typography variant="body2">
-                    • Önceki stok ve cari hareketleri geri alınacak<br />
-                    • Fatura tekrar beklemede durumuna dönecek
-                  </Typography>
-                </Alert>
+              {pendingDurum.yeniDurum === 'OPEN' && (
+                <Typography variant="body2" sx={{ mb: 2 }}>
+                  Fatura beklemeye alındığında stok ve cari işlemleri geri çekilecektir. Devam etmek istiyor musunuz?
+                </Typography>
               )}
             </Box>
           )}

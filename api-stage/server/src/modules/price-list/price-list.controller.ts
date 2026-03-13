@@ -2,7 +2,7 @@ import { Controller, Get, Post, Body, Param, Query } from '@nestjs/common';
 import { PriceListService } from './price-list.service';
 import { CreatePriceListDto } from './dto/create-price-list.dto';
 
-@Controller('price-list')
+@Controller('price-lists')
 export class PriceListController {
     constructor(private readonly priceListService: PriceListService) { }
 

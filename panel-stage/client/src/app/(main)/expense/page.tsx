@@ -348,7 +348,7 @@ export default function MasrafPage() {
   const { data: kategoriler = [], isLoading: kategorilerLoading } = useQuery<MasrafKategori[]>({
     queryKey: ['masraf-kategoriler'],
     queryFn: async () => {
-      const response = await axios.get('/expense/categories');
+      const response = await axios.get('/expense/categoryler');
       return response.data;
     },
     staleTime: 5 * 60 * 1000,
@@ -358,12 +358,26 @@ export default function MasrafPage() {
     queryKey: ['masraf-stats', filterKategori || null, filterBaslangic || null, filterBitis || null],
     queryFn: async () => {
       const params: Record<string, string> = {};
-      if (filterKategori) params.kategoriId = filterKategori;
-      if (filterBaslangic) params.baslangicTarihi = filterBaslangic;
-      if (filterBitis) params.bitisTarihi = filterBitis;
+      if (filterKategori) params.categoryId = filterKategori;
+      if (filterBaslangic) params.startDate = filterBaslangic;
+      if (filterBitis) params.endDate = filterBitis;
 
       const response = await axios.get('/expense/stats', { params });
-      return response.data ?? null;
+      // Transform backend response to match Stats interface
+      const data = response.data ?? null;
+      if (data && data.categoryler) {
+        return {
+          toplamMasraf: data.toplamExpense || 0,
+          toplamAdet: data.toplamAdet || 0,
+          kategoriler: (data.categoryler || []).map((cat: any) => ({
+            kategoriId: cat.categoryId || '',
+            kategoriAdi: cat.name || '',
+            adet: cat.adet || 0,
+            toplam: cat.toplam || 0,
+          })),
+        };
+      }
+      return null;
     },
   });
 
@@ -496,10 +510,10 @@ export default function MasrafPage() {
       setActionLoading(true);
 
       if (kategoriEditMode && selectedKategori) {
-        await axios.put(`/masraf/kategoriler/${selectedKategori.id}`, kategoriFormData);
+        await axios.put(`/expense/categoryler/${selectedKategori.id}`, kategoriFormData);
         showSnackbar('Kategori güncellendi', 'success');
       } else {
-        await axios.post('/expense/categories', kategoriFormData);
+        await axios.post('/expense/categoryler', kategoriFormData);
         showSnackbar('Kategori oluşturuldu', 'success');
       }
 
@@ -931,7 +945,7 @@ export default function MasrafPage() {
         </Paper>
 
         {/* Kategori Bazlı Özet */}
-        {stats && stats.kategoriler.length > 0 && (
+        {stats && stats.kategoriler && stats.kategoriler.length > 0 && (
           <Paper sx={{ p: 2, mt: 3, bgcolor: 'var(--card)', boxShadow: 'var(--shadow-sm)' }}>
             <Typography variant="h6" sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1, color: 'var(--foreground)', fontWeight: 700 }}>
               <Category sx={{ color: 'var(--muted-foreground)' }} />
