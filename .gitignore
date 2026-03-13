@@ -81,3 +81,7 @@ secrets/
 /.agent-work/*
 *.generated.js
 *.generated.sh
+pre-migration-backup.tar.gz
+legacy-archive.tar.gz
+/tmp/
+build.log
