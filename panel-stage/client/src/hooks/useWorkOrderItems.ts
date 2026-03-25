@@ -19,7 +19,7 @@ export function useCreateWorkOrderItem() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (dto: CreateWorkOrderItemDto) => {
-      const response = await axios.post('/work-order-items', dto);
+      const response = await axios.post('/work-orders-item', dto);
       return response.data;
     },
     onSuccess: (_, dto) => {

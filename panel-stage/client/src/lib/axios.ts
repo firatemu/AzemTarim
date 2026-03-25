@@ -48,8 +48,8 @@ const axiosInstance = axios.create({
   withCredentials: true, // CORS with credentials
 });
 
-// Staging ortamı için default tenant ID
-const STAGING_DEFAULT_TENANT_ID = 'cmi5of04z0000ksb3g5eyu6ts';
+// Staging ortamı için default tenant ID (seed ile oluşturulan tenant)
+const STAGING_DEFAULT_TENANT_ID = 'cmmxtj8x00007vmzfujppq1po';
 // Backend'in beklediği header formatı (küçük harf)
 const TENANT_HEADER_NAME = 'x-tenant-id';
 
@@ -67,6 +67,11 @@ axiosInstance.interceptors.request.use(
     if (typeof window !== 'undefined') {
       token = safeLocalStorage.getItem('accessToken');
       tenantIdToUse = safeLocalStorage.getItem('tenantId');
+
+      // ✅ SaaS Multi-Tenant: Staging fallback
+      if (!tenantIdToUse && typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname.includes('staging'))) {
+        tenantIdToUse = STAGING_DEFAULT_TENANT_ID;
+      }
     } else {
       // Optional fallback for server-side Axios usage to prevent desync
       try {
@@ -81,6 +86,10 @@ axiosInstance.interceptors.request.use(
           tenantIdToUse = cookiePromise.get('tenantId')?.value || null;
         }
       } catch (e) { } // Handle cases outside Next context safely
+
+      if (!tenantIdToUse) {
+        tenantIdToUse = STAGING_DEFAULT_TENANT_ID;
+      }
     }
 
     if (token) {
@@ -89,10 +98,11 @@ axiosInstance.interceptors.request.use(
     }
 
     // ✅ SaaS Multi-Tenant: Add tenant ID header
-    // Auth endpoint'lerinde tenant ID ekleme (login ve refresh hariç)
-    const isAuthEndpoint = config.url?.includes('/auth/login') || config.url?.includes('/auth/refresh');
+    // Auth endpoint'lerinde (refresh hariç) tenant ID ekle
+    // Not: Login sırasında da tenant ID gerekebilir (DB filtresi için)
+    const isRefreshEndpoint = config.url?.includes('/auth/refresh');
 
-    if (!isAuthEndpoint && tenantIdToUse) {
+    if (!isRefreshEndpoint && tenantIdToUse) {
       if (!config.headers) {
         config.headers = {} as any;
       }

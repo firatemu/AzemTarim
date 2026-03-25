@@ -2,30 +2,28 @@
 
 import React from 'react';
 import { Box, Typography, Paper } from '@mui/material';
-import MainLayout from '@/components/Layout/MainLayout';
+import { StandardPage } from '@/components/common';
 import { useRouter } from 'next/navigation';
-import { ShoppingCart } from '@mui/icons-material';
+import { ShoppingCart, Description } from '@mui/icons-material';
 
 export default function SiparisPage() {
   const router = useRouter();
 
   return (
-    <MainLayout>
-      <Box sx={{ p: 3 }}>
-        <Typography 
-          variant="h4" 
-          sx={{
-            fontWeight: 700,
-            fontSize: '1.875rem',
-            color: 'var(--foreground)',
-            letterSpacing: '-0.02em',
-            mb: 1,
-          }}
-        >
-          Sipariş Yönetimi
-        </Typography>
-        
-        <Box sx={{ display: 'flex', gap: 3, mt: 3, flexWrap: 'wrap' }}>
+    <StandardPage maxWidth={false}>
+      {/* Header */}
+      <Box sx={{ mb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1.5 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Box sx={{ width: 40, height: 40, borderRadius: 2, background: 'linear-gradient(135deg, var(--primary), var(--secondary))', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <ShoppingCart sx={{ color: 'var(--primary-foreground)', fontSize: 20 }} />
+          </Box>
+          <Typography variant="h6" fontWeight={700} color="var(--foreground)">
+            Sipariş Yönetimi
+          </Typography>
+        </Box>
+      </Box>
+
+      <Box sx={{ display: 'flex', gap: 3, mt: 3, flexWrap: 'wrap' }}>
           <Box sx={{ flex: '1 1 400px', minWidth: '300px' }}>
             <Paper 
               sx={{ 
@@ -44,7 +42,7 @@ export default function SiparisPage() {
                   transform: 'translateY(-2px)',
                 },
               }}
-              onClick={() => router.push('/order/satis')}
+              onClick={() => router.push('/orders/satis')}
             >
               <Box
                 sx={{
@@ -81,8 +79,7 @@ export default function SiparisPage() {
               </Typography>
             </Paper>
           </Box>
-        </Box>
       </Box>
-    </MainLayout>
+    </StandardPage>
   );
 }

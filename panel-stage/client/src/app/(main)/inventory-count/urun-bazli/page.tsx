@@ -56,7 +56,7 @@ export default function UrunBazliSayimPage() {
   const [barcodeInput, setBarcodeInput] = useState('');
   const [barcodeMode, setBarcodeMode] = useState(false); // Sürekli barkod okuma modu
   const [detayliOzetOpen, setDetayliOzetOpen] = useState(false);
-  
+
   // Manuel ürün ekleme için
   const [urunler, setUrunler] = useState<Stok[]>([]);
   const [manuelDialog, setManuelDialog] = useState(false);
@@ -74,7 +74,7 @@ export default function UrunBazliSayimPage() {
         return;
       }
     }
-    
+
     // Token varsa API çağrılarını yap
     generateSayimNo();
     fetchUrunler();
@@ -89,7 +89,7 @@ export default function UrunBazliSayimPage() {
 
   const fetchUrunler = async () => {
     try {
-      const response = await axios.get('/product', { params: { limit: 1000 } });
+      const response = await axios.get('/products', { params: { limit: 1000 } });
       setUrunler(Array.isArray(response.data.data) ? response.data.data : []);
     } catch (error) {
       console.error('Ürün listesi yüklenemedi:', error);
@@ -98,7 +98,7 @@ export default function UrunBazliSayimPage() {
 
   const generateSayimNo = async () => {
     try {
-      const response = await axios.get('/sayim', {
+      const response = await axios.get('/inventory-count', {
         params: { sayimTipi: 'URUN_BAZLI', limit: 1 },
       });
       const sayimlar = response.data || [];
@@ -113,15 +113,15 @@ export default function UrunBazliSayimPage() {
 
   const handleBarcodeSubmit = async () => {
     if (!barcodeInput.trim()) return;
-    
+
     try {
       // Barkod ile ürün ara
-      const response = await axios.get(`/sayim/barcode/product/${barcodeInput}`);
+      const response = await axios.get(`/inventory-count/barcode/products/${barcodeInput}`);
       const stok = response.data;
-      
+
       // Son kaydı kontrol et - aynı ürün mü?
       const lastKalem = kalemler.length > 0 ? kalemler[kalemler.length - 1] : null;
-      
+
       if (lastKalem && lastKalem.stokId === stok.id) {
         // Aynı ürün - son satırın miktarını artır
         const newKalemler = [...kalemler];
@@ -133,9 +133,9 @@ export default function UrunBazliSayimPage() {
         // Sistem miktarını getir (sadece ilk eklemede)
         let sistemMiktari = 0;
         const existingKalem = kalemler.find(k => k.stokId === stok.id);
-        
+
         if (!existingKalem) {
-          const hareketResponse = await axios.get(`/stok/${stok.id}/hareketler`);
+          const hareketResponse = await axios.get(`/products/${stok.id}/stock-movements`);
           const hareketler = hareketResponse.data.data || hareketResponse.data;
           hareketler.forEach((h: any) => {
             if (h.hareketTipi === 'GIRIS') sistemMiktari += h.miktar;
@@ -144,7 +144,7 @@ export default function UrunBazliSayimPage() {
         } else {
           sistemMiktari = existingKalem.sistemMiktari;
         }
-        
+
         // Yeni satır ekle (1 adet olarak)
         setKalemler([
           ...kalemler,
@@ -156,10 +156,10 @@ export default function UrunBazliSayimPage() {
             farkMiktari: 0, // Fark sonra hesaplanacak
           },
         ]);
-        
+
         showSnackbar(`${stok.stokAdi} eklendi`, 'success');
       }
-      
+
       setBarcodeInput('');
     } catch (error: any) {
       showSnackbar(error.response?.data?.message || 'Barkod bulunamadı', 'error');
@@ -172,25 +172,25 @@ export default function UrunBazliSayimPage() {
       showSnackbar('Lütfen ürün seçin', 'error');
       return;
     }
-    
+
     if (manuelMiktar <= 0) {
       showSnackbar('Miktar 0\'dan büyük olmalı', 'error');
       return;
     }
-    
+
     try {
       // Sistem miktarını getir
-      const hareketResponse = await axios.get(`/stok/${secilenUrun.id}/hareketler`);
+      const hareketResponse = await axios.get(`/products/${secilenUrun.id}/stock-movements`);
       let sistemMiktari = 0;
       const hareketler = hareketResponse.data.data || hareketResponse.data;
       hareketler.forEach((h: any) => {
         if (h.hareketTipi === 'GIRIS') sistemMiktari += h.miktar;
         else if (h.hareketTipi === 'CIKIS' || h.hareketTipi === 'SATIS') sistemMiktari -= h.miktar;
       });
-      
+
       // Mevcut kalemde var mı kontrol et
       const existingIndex = kalemler.findIndex(k => k.stokId === secilenUrun.id);
-      
+
       if (existingIndex >= 0) {
         // Varsa miktarı güncelle
         const newKalemler = [...kalemler];
@@ -212,7 +212,7 @@ export default function UrunBazliSayimPage() {
         ]);
         showSnackbar(`${secilenUrun.stokAdi} eklendi`, 'success');
       }
-      
+
       // Dialog'u kapat ve resetle
       setManuelDialog(false);
       setSecilenUrun(null);
@@ -238,15 +238,15 @@ export default function UrunBazliSayimPage() {
       showSnackbar('Sayım numarası gerekli', 'error');
       return;
     }
-    
+
     if (kalemler.length === 0) {
       showSnackbar('En az bir ürün saymalısınız', 'error');
       return;
     }
-    
+
     try {
       setLoading(true);
-      
+
       // Aynı ürünleri grupla ve topla
       const groupedKalemler = kalemler.reduce((acc: any[], kalem) => {
         const existing = acc.find(k => k.stokId === kalem.stokId);
@@ -261,26 +261,26 @@ export default function UrunBazliSayimPage() {
         }
         return acc;
       }, []);
-      
-      const response = await axios.post('/sayim', {
+
+      const response = await axios.post('/inventory-count', {
         sayimNo,
         sayimTipi: 'URUN_BAZLI',
         aciklama: aciklama || undefined,
         kalemler: groupedKalemler,
       });
-      
+
       // Eğer durumu TAMAMLANDI ise, oluşturulan sayımın durumunu güncelle
       if (durum === 'TAMAMLANDI' && response.data?.id) {
-        await axios.put(`/sayim/${response.data.id}/tamamla`);
+        await axios.put(`/inventory-count/${response.data.id}/complete`);
       }
-      
+
       showSnackbar(
-        durum === 'TAMAMLANDI' 
-          ? 'Sayım tamamlandı! Onay için listeye yönlendiriliyorsunuz...' 
-          : 'Sayım taslak olarak kaydedildi', 
+        durum === 'TAMAMLANDI'
+          ? 'Sayım tamamlandı! Onay için listeye yönlendiriliyorsunuz...'
+          : 'Sayım taslak olarak kaydedildi',
         'success'
       );
-      setTimeout(() => router.push('/sayim/liste'), 1500);
+      setTimeout(() => router.push('/inventory-count/liste'), 1500);
     } catch (error: any) {
       showSnackbar(error.response?.data?.message || 'Kaydetme hatası', 'error');
     } finally {
@@ -443,22 +443,22 @@ export default function UrunBazliSayimPage() {
               <Typography variant="subtitle1" sx={{ fontWeight: 600, color: '#059669' }}>
                 📦 Son Okutulan Ürün
               </Typography>
-              <Button 
-                size="small" 
+              <Button
+                size="small"
                 variant="outlined"
                 onClick={() => setDetayliOzetOpen(!detayliOzetOpen)}
               >
                 {detayliOzetOpen ? 'Özeti Gizle' : 'Detaylı Özet'}
               </Button>
             </Box>
-            
+
             {/* Son ürün bilgisi */}
             {kalemler.length > 0 && (() => {
               const sonKalem = kalemler[kalemler.length - 1];
               const ayniUrunSayisi = kalemler.filter(k => k.stokId === sonKalem.stokId).length;
               const toplamSayilan = kalemler.filter(k => k.stokId === sonKalem.stokId)
                 .reduce((sum, k) => sum + k.sayilanMiktar, 0);
-              
+
               return (
                 <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', p: 2, bgcolor: 'white', borderRadius: 1 }}>
                   <Box sx={{ flex: 1 }}>
@@ -470,8 +470,8 @@ export default function UrunBazliSayimPage() {
                     <Typography variant="h6">{sonKalem.stok?.stokAdi}</Typography>
                   </Box>
                   {ayniUrunSayisi > 1 && (
-                    <Chip 
-                      label={`${ayniUrunSayisi} sayım`} 
+                    <Chip
+                      label={`${ayniUrunSayisi} sayım`}
                       color="info"
                       size="small"
                     />
@@ -493,7 +493,7 @@ export default function UrunBazliSayimPage() {
                 </Box>
               );
             })()}
-            
+
             {/* Detaylı özet (collapse) */}
             {detayliOzetOpen && (
               <Box sx={{ mt: 2, pt: 2, borderTop: '1px solid #d1fae5' }}>
@@ -506,7 +506,7 @@ export default function UrunBazliSayimPage() {
                     const toplamSayilan = urunKalemleri.reduce((sum, k) => sum + k.sayilanMiktar, 0);
                     const sistemMiktar = urunKalemleri[0].sistemMiktari;
                     const fark = toplamSayilan - sistemMiktar;
-                    
+
                     return (
                       <Box key={stokId} sx={{ display: 'flex', alignItems: 'center', gap: 2, p: 1, bgcolor: 'white', borderRadius: 1 }}>
                         <Typography variant="body2" sx={{ minWidth: 120, fontFamily: 'monospace' }}>
@@ -516,9 +516,9 @@ export default function UrunBazliSayimPage() {
                           {urunKalemleri[0].stok?.stokAdi}
                         </Typography>
                         {urunKalemleri.length > 1 && (
-                          <Chip 
-                            label={`${urunKalemleri.length}x`} 
-                            size="small" 
+                          <Chip
+                            label={`${urunKalemleri.length}x`}
+                            size="small"
                             variant="outlined"
                             color="info"
                           />
@@ -600,7 +600,7 @@ export default function UrunBazliSayimPage() {
                   );
                 }}
               />
-              
+
               <TextField
                 type="number"
                 label="Sayılan Miktar *"

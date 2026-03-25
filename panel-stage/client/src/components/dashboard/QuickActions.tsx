@@ -17,7 +17,7 @@ export default function QuickActions() {
         {
             title: 'Yeni Satış Faturası',
             icon: ReceiptOutlined,
-            path: '/invoice/sales',
+            path: '/invoices/sales',
             color: 'var(--primary)',
         },
         {
@@ -29,7 +29,7 @@ export default function QuickActions() {
         {
             title: 'Stok Girişi',
             icon: Inventory2Outlined,
-            path: '/product',
+            path: '/products',
             color: 'var(--chart-3)',
         },
         {
@@ -41,7 +41,7 @@ export default function QuickActions() {
         {
             title: 'Teklif Hazırla',
             icon: DescriptionOutlined,
-            path: '/quote',
+            path: '/quotes',
             color: 'var(--chart-5)',
         },
     ];
@@ -97,7 +97,7 @@ export default function QuickActions() {
                     <Button
                         fullWidth
                         variant="contained"
-                        onClick={() => router.push('/invoice/sales')}
+                        onClick={() => router.push('/invoices/sales')}
                         startIcon={<AddOutlined />}
                         sx={{
                             mt: 1,

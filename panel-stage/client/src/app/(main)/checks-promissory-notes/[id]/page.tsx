@@ -24,7 +24,17 @@ import {
     Accordion,
     AccordionSummary,
     AccordionDetails,
+    Dialog,
+    DialogTitle,
+    DialogContent,
+    DialogActions,
+    FormControl,
+    InputLabel,
+    Select,
+    MenuItem,
+    TextField,
 } from '@mui/material';
+import { useSnackbar } from 'notistack';
 import {
     ArrowBack,
     Payment,
@@ -36,18 +46,81 @@ import axios from '@/lib/axios';
 import { useRouter, useParams } from 'next/navigation';
 import MainLayout from '@/components/Layout/MainLayout';
 
+const getDurumColor = (durum: string) => {
+    switch (durum) {
+        case 'IN_PORTFOLIO': return 'info';
+        case 'COLLECTED': return 'success';
+        case 'ENDORSED': return 'warning';
+        case 'PAID': return 'success';
+        case 'WITHOUT_COVERAGE': return 'error';
+        case 'IN_BANK_COLLECTION': return 'secondary';
+        case 'IN_BANK_GUARANTEE': return 'secondary';
+        case 'RETURNED': return 'default';
+        case 'GIVEN_TO_BANK': return 'primary';
+        case 'UNPAID': return 'error';
+        case 'PARTIAL_PAID': return 'warning';
+        default: return 'default';
+    }
+};
+
+const getDurumLabel = (durum: string | undefined | null) => {
+    if (!durum) return '—';
+    switch (durum) {
+        case 'IN_PORTFOLIO': return 'Portföyde';
+        case 'COLLECTED': return 'Tahsil Edildi';
+        case 'ENDORSED': return 'Ciro Edildi';
+        case 'PAID': return 'Ödendi';
+        case 'WITHOUT_COVERAGE': return 'Karşılıksız';
+        case 'IN_BANK_COLLECTION': return 'Bankada Tahsilde';
+        case 'IN_BANK_GUARANTEE': return 'Bankada Teminatta';
+        case 'RETURNED': return 'İade Edildi';
+        case 'GIVEN_TO_BANK': return 'Bankaya Verildi';
+        case 'UNPAID': return 'Ödenmedi';
+        case 'PARTIAL_PAID': return 'Kısmi Ödendi';
+        default: return durum?.replace(/_/g, ' ') || '—';
+    }
+};
+
+const getJournalTypeLabel = (type: string) => {
+    switch (type) {
+        case 'CUSTOMER_DOCUMENT_ENTRY': return 'Müşteri Evrak Girişi';
+        case 'RETURN_PAYROLL': return 'İade Bordrosu';
+        case 'OWN_DOCUMENT_EXIT': return 'Borç Evrak Çıkışı';
+        case 'ACCOUNT_DOCUMENT_ENDORSEMENT': return 'Cariye Evrak Cirosu';
+        case 'BANK_COLLECTION_ENDORSEMENT': return 'Bankaya Tahsil Cirosu';
+        case 'BANK_GUARANTEE_ENDORSEMENT': return 'Bankaya Teminat Cirosu';
+        default: return type?.replace(/_/g, ' ') || 'İşlem';
+    }
+};
+
 export default function CekDetayPage() {
     const router = useRouter();
     const params = useParams();
     const { id } = params as { id: string };
+    const { enqueueSnackbar } = useSnackbar();
 
     const [cek, setCek] = useState<any>(null);
     const [loading, setLoading] = useState(true);
 
+    // Tahsilat State
+    const [openTahsilat, setOpenTahsilat] = useState(false);
+    const [kasalar, setKasalar] = useState<any[]>([]);
+    const [bankalar, setBankalar] = useState<any[]>([]);
+    const [tahsilatForm, setTahsilatForm] = useState({
+        tarih: new Date().toISOString().split('T')[0],
+        tutar: 0,
+        hedef: 'KASA' as 'KASA' | 'BANKA',
+        kasaId: '',
+        bankaHesapId: '',
+        aciklama: '',
+    });
+
     const fetchCekDetay = async () => {
         try {
-            const response = await axios.get(`/cek-senet/${id}`);
-            setCek(response.data);
+            const response = await axios.get(`/checks-promissory-notes/${id}`);
+            const data = response.data;
+            setCek(data);
+            setTahsilatForm(prev => ({ ...prev, tutar: Number(data.remainingAmount) }));
         } catch (error) {
             console.error('Çek detay yüklenirken hata:', error);
         } finally {
@@ -55,8 +128,60 @@ export default function CekDetayPage() {
         }
     };
 
+    const fetchFinansData = async () => {
+        try {
+            const [kRes, bRes] = await Promise.all([
+                axios.get('/cashbox?isRetail=false'),
+                axios.get('/bank-accounts?type=DEMAND_DEPOSIT'),
+            ]);
+            setKasalar(kRes.data?.data ?? kRes.data);
+            setBankalar(bRes.data?.data ?? bRes.data);
+        } catch (error) {
+            console.error('Finans verileri yüklenirken hata:', error);
+        }
+    };
+
+    const handleTahsilatYap = async () => {
+        if (tahsilatForm.tutar <= 0) {
+            enqueueSnackbar('Tutar 0\'dan büyük olmalıdır', { variant: 'warning' });
+            return;
+        }
+        if (tahsilatForm.tutar > Number(cek.remainingAmount)) {
+            enqueueSnackbar('Tahsilat tutarı kalan tutardan fazla olamaz', { variant: 'warning' });
+            return;
+        }
+        if (tahsilatForm.hedef === 'KASA' && !tahsilatForm.kasaId) {
+            enqueueSnackbar('Lütfen kasa seçiniz', { variant: 'warning' });
+            return;
+        }
+        if (tahsilatForm.hedef === 'BANKA' && !tahsilatForm.bankaHesapId) {
+            enqueueSnackbar('Lütfen banka hesabı seçiniz', { variant: 'warning' });
+            return;
+        }
+
+        try {
+            await axios.post('/checks-promissory-notes/action', {
+                checkBillId: cek.id,
+                newStatus: 'COLLECTED',
+                date: tahsilatForm.tarih,
+                notes: tahsilatForm.aciklama,
+                transactionAmount: tahsilatForm.tutar,
+                cashboxId: tahsilatForm.hedef === 'KASA' ? tahsilatForm.kasaId : undefined,
+                bankAccountId: tahsilatForm.hedef === 'BANKA' ? tahsilatForm.bankaHesapId : undefined,
+            });
+            enqueueSnackbar('Tahsilat başarılı', { variant: 'success' });
+            setOpenTahsilat(false);
+            fetchCekDetay(); // Detayı yenile
+        } catch (error: any) {
+            enqueueSnackbar(error.response?.data?.message || 'Hata oluştu', { variant: 'error' });
+        }
+    };
+
     useEffect(() => {
-        if (id) fetchCekDetay();
+        if (id) {
+            fetchCekDetay();
+            fetchFinansData();
+        }
     }, [id]);
 
     if (loading || !cek) return <Box p={3}>Yükleniyor...</Box>;
@@ -69,9 +194,9 @@ export default function CekDetayPage() {
                         <ArrowBack />
                     </IconButton>
                     <Typography variant="h5" fontWeight="bold">
-                        Çek Detayı - {cek.evrakNo}
+                        Çek Detayı - {cek.checkNo}
                     </Typography>
-                    <Chip label={cek.durum} color="primary" />
+                    <Chip label={getDurumLabel(cek.status)} color={getDurumColor(cek.status) as any} />
                 </Box>
 
                 <Grid container spacing={3}>
@@ -81,39 +206,39 @@ export default function CekDetayPage() {
                             <Grid container spacing={2}>
                                 <Grid size={{ xs: 6, md: 4 }}>
                                     <Typography color="text.secondary">Evrak No</Typography>
-                                    <Typography fontWeight="bold">{cek.evrakNo}</Typography>
+                                    <Typography fontWeight="bold">{cek.checkNo}</Typography>
                                 </Grid>
                                 <Grid size={{ xs: 6, md: 4 }}>
                                     <Typography color="text.secondary">Vade Tarihi</Typography>
-                                    <Typography fontWeight="bold">{new Date(cek.vadeTarihi).toLocaleDateString()}</Typography>
+                                    <Typography fontWeight="bold">{cek.dueDate ? new Date(cek.dueDate).toLocaleDateString('tr-TR') : '—'}</Typography>
                                 </Grid>
                                 <Grid size={{ xs: 6, md: 4 }}>
                                     <Typography color="text.secondary">Tutar</Typography>
                                     <Typography fontWeight="bold" variant="h6">
-                                        {new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY' }).format(cek.tutar)}
+                                        {new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY' }).format(cek.amount)}
                                     </Typography>
                                 </Grid>
                                 <Grid size={{ xs: 6, md: 4 }}>
                                     <Typography color="text.secondary">Kalan Tutar</Typography>
                                     <Typography fontWeight="bold" color="error">
-                                        {new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY' }).format(cek.kalanTutar)}
+                                        {new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY' }).format(cek.remainingAmount)}
                                     </Typography>
                                 </Grid>
                                 <Grid size={{ xs: 6, md: 4 }}>
                                     <Typography color="text.secondary">Tip</Typography>
-                                    <Typography>{cek.tip?.replace('_', ' ')}</Typography>
+                                    <Typography>{cek.type === 'CHECK' ? 'Çek' : cek.type === 'PROMISSORY_NOTE' ? 'Senet' : (cek.type?.replace('_', ' ') || '—')}</Typography>
                                 </Grid>
                                 <Grid size={{ xs: 6, md: 4 }}>
                                     <Typography color="text.secondary">Çek Sahibi / Borçlu</Typography>
-                                    <Typography>{cek.borclu || '-'}</Typography>
+                                    <Typography>{cek.debtor || '-'}</Typography>
                                 </Grid>
                                 <Grid size={{ xs: 6, md: 4 }}>
                                     <Typography color="text.secondary">Banka</Typography>
-                                    <Typography>{cek.banka || '-'}</Typography>
+                                    <Typography>{cek.bank || '-'}</Typography>
                                 </Grid>
                                 <Grid size={{ xs: 6, md: 4 }}>
                                     <Typography color="text.secondary">Şube / Hesap</Typography>
-                                    <Typography>{cek.sube} / {cek.hesapNo}</Typography>
+                                    <Typography>{cek.branch} / {cek.accountNo}</Typography>
                                 </Grid>
                             </Grid>
                         </Card>
@@ -134,21 +259,21 @@ export default function CekDetayPage() {
                                         </TableRow>
                                     </TableHead>
                                     <TableBody>
-                                        {cek.islemler?.map((islem: any) => (
+                                        {cek.journalItems?.map((islem: any) => (
                                             <TableRow key={islem.id}>
-                                                <TableCell>{new Date(islem.tarih).toLocaleDateString()}</TableCell>
-                                                <TableCell>{islem.islemTipi}</TableCell>
+                                                <TableCell>{islem.journal?.date ? new Date(islem.journal.date).toLocaleDateString('tr-TR') : '-'}</TableCell>
+                                                <TableCell>{getJournalTypeLabel(islem.journal?.type)}</TableCell>
                                                 <TableCell>
-                                                    {islem.bordro ? (
-                                                        <Button size="small" onClick={() => router.push(`/payroll/${islem.bordroId}`)}>
-                                                            {islem.bordro.bordroNo}
+                                                    {islem.journal ? (
+                                                        <Button size="small" onClick={() => router.push(`/payroll/${islem.journalId}`)}>
+                                                            {islem.journal.journalNo}
                                                         </Button>
                                                     ) : '-'}
                                                 </TableCell>
                                                 <TableCell align="right">
-                                                    {new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY' }).format(islem.tutar)}
+                                                    {new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY' }).format(cek.amount)}
                                                 </TableCell>
-                                                <TableCell>{islem.aciklama}</TableCell>
+                                                <TableCell>{islem.journal?.notes || '-'}</TableCell>
                                             </TableRow>
                                         ))}
                                     </TableBody>
@@ -165,8 +290,8 @@ export default function CekDetayPage() {
                                 color="success"
                                 fullWidth
                                 startIcon={<Payment />}
-                                disabled={Number(cek.kalanTutar) === 0}
-                                onClick={() => router.push('/checks-promissory-notes')} // Listeye dönüp ordan açsın şimdilik veya buraya dialog ekle
+                                disabled={Number(cek.remainingAmount) === 0}
+                                onClick={() => setOpenTahsilat(true)}
                             >
                                 Tahsilat Yap
                             </Button>
@@ -216,6 +341,93 @@ export default function CekDetayPage() {
                         </AccordionDetails>
                     </Accordion>
                 </Card>
+
+                {/* Tahsilat Dialog */}
+                <Dialog open={openTahsilat} onClose={() => setOpenTahsilat(false)} maxWidth="sm" fullWidth>
+                    <DialogTitle component="div">Tahsilat İşlemi - {cek.checkNo}</DialogTitle>
+                    <DialogContent dividers>
+                        <Box display="flex" flexDirection="column" gap={2} pt={1}>
+                            <Typography variant="body2" color="text.secondary">
+                                Toplam Tutar: {new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY' }).format(cek.amount)} <br />
+                                Kalan Tutar: <b>{new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY' }).format(cek.remainingAmount)}</b>
+                            </Typography>
+
+                            <TextField
+                                label="İşlem Tarihi"
+                                type="date"
+                                value={tahsilatForm.tarih}
+                                onChange={(e) => setTahsilatForm({ ...tahsilatForm, tarih: e.target.value })}
+                                InputLabelProps={{ shrink: true }}
+                                fullWidth
+                            />
+
+                            <TextField
+                                label="Tahsil Edilecek Tutar"
+                                type="number"
+                                value={tahsilatForm.tutar}
+                                onChange={(e) => setTahsilatForm({ ...tahsilatForm, tutar: Number(e.target.value) })}
+                                fullWidth
+                            />
+
+                            <FormControl fullWidth>
+                                <InputLabel>Hedef Hesap</InputLabel>
+                                <Select
+                                    value={tahsilatForm.hedef}
+                                    label="Hedef Hesap"
+                                    onChange={(e) => setTahsilatForm({ ...tahsilatForm, hedef: e.target.value as any })}
+                                >
+                                    <MenuItem value="KASA">Kasa (Nakit)</MenuItem>
+                                    <MenuItem value="BANKA">Banka Hesabı</MenuItem>
+                                </Select>
+                            </FormControl>
+
+                            {tahsilatForm.hedef === 'KASA' && (
+                                <FormControl fullWidth>
+                                    <InputLabel>Kasa Seçiniz</InputLabel>
+                                    <Select
+                                        value={tahsilatForm.kasaId}
+                                        label="Kasa Seçiniz"
+                                        onChange={(e) => setTahsilatForm({ ...tahsilatForm, kasaId: e.target.value })}
+                                    >
+                                        {kasalar.map(k => (
+                                            <MenuItem key={k.id} value={k.id}>{k.name} ({new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY' }).format(k.balance)})</MenuItem>
+                                        ))}
+                                    </Select>
+                                </FormControl>
+                            )}
+
+                            {tahsilatForm.hedef === 'BANKA' && (
+                                <FormControl fullWidth>
+                                    <InputLabel>Banka Hesabı Seçiniz</InputLabel>
+                                    <Select
+                                        value={tahsilatForm.bankaHesapId}
+                                        label="Banka Hesabı Seçiniz"
+                                        onChange={(e) => setTahsilatForm({ ...tahsilatForm, bankaHesapId: e.target.value })}
+                                    >
+                                        {bankalar.map(b => (
+                                            <MenuItem key={b.id} value={b.id}>{b.name} - {b.bank?.name} ({new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY' }).format(b.balance)})</MenuItem>
+                                        ))}
+                                    </Select>
+                                </FormControl>
+                            )}
+
+                            <TextField
+                                label="Açıklama"
+                                value={tahsilatForm.aciklama}
+                                onChange={(e) => setTahsilatForm({ ...tahsilatForm, aciklama: e.target.value })}
+                                multiline
+                                rows={2}
+                                fullWidth
+                            />
+                        </Box>
+                    </DialogContent>
+                    <DialogActions>
+                        <Button onClick={() => setOpenTahsilat(false)}>İptal</Button>
+                        <Button onClick={handleTahsilatYap} variant="contained" color="success">
+                            Tahsilat Yap
+                        </Button>
+                    </DialogActions>
+                </Dialog>
             </Box>
         </MainLayout>
     );

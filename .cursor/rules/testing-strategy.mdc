@@ -1,0 +1,22 @@
+---
+description: "Rules for testing, TDD, and quality assurance"
+globs: ["**/*.test.ts", "**/*.spec.ts", "**/tests/**"]
+alwaysApply: true
+---
+
+# Testing Strategy
+
+## 1. Unit Testing
+- **Prisma Mocks**: Use `jest-mock-extended` or similar to mock the Prisma Client. NEVER hit the real database during unit tests.
+- **Isolation**: Each test should cover a single unit of logic (e.g., one service method).
+
+## 2. Integration Testing
+- **In-Memory/Docker DB**: Use a separate test database (PostgreSQL in Docker) for integration tests.
+- **E2E (End-to-End)**: Test critical user flows using Supertest for the API and Playwright for the frontend.
+
+## 3. ERP Logic Verification
+- **Double-Entry Check**: Verify that `AccountMovement` and `StockMovement` entries are correctly created for each financial transaction.
+- **Soft-Delete**: Test that "deleted" records are not returned in standard queries.
+
+## 4. TDD (Test-Driven Development)
+- **Workflow**: Red -> Green -> Refactor. Write the test BEFORE the implementation for new features.

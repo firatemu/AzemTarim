@@ -63,10 +63,7 @@ export class PrismaService
               // 1. SET LOCAL sadece transaction içinde çalışır
               // 2. Prisma'nın normal sorguları transaction içinde değil
               // 3. set_config session boyunca kalır ve transaction dışında da çalışır
-              await (prisma as any).$executeRawUnsafe(
-                `SELECT set_config('app.current_tenant_id', $1, false)`,
-                tenantId,
-              );
+              await prisma.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, false)`;
             }
 
             return query(args);

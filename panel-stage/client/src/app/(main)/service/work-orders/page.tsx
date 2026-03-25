@@ -79,7 +79,7 @@ export default function IsEmirleriPage() {
   const fetchWorkOrders = async () => {
     try {
       setLoading(true);
-      const res = await axios.get('/work-order', {
+      const res = await axios.get('/work-orders', {
         params: {
           search: debouncedSearch || undefined,
           status: statusFilter || undefined,
@@ -100,7 +100,7 @@ export default function IsEmirleriPage() {
 
   const handleExportExcel = async () => {
     try {
-      const res = await axios.get('/work-order', {
+      const res = await axios.get('/work-orders', {
         params: {
           search: debouncedSearch || undefined,
           status: statusFilter || undefined,

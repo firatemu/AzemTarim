@@ -102,7 +102,7 @@ export default function FaturaKarlilikPage() {
 
   const fetchCariler = async () => {
     try {
-      const response = await axios.get('/accounts', { params: { limit: 1000 } });
+      const response = await axios.get('/account', { params: { limit: 1000 } });
       setCariler(response.data.data || []);
     } catch (error) {
       console.error('Cariler yüklenirken hata:', error);
@@ -335,7 +335,8 @@ export default function FaturaKarlilikPage() {
                       <TableCell width="50px"></TableCell>
                       <TableCell>Fatura No</TableCell>
                       <TableCell>Tarih</TableCell>
-                      <TableCell>Cari</TableCell>
+                      <TableCell>Cari Kod</TableCell>
+                      <TableCell>Cari Ünvan</TableCell>
                       <TableCell align="right">Toplam Satış</TableCell>
                       <TableCell align="right">Toplam Maliyet</TableCell>
                       <TableCell align="right">Toplam Kar</TableCell>
@@ -365,6 +366,7 @@ export default function FaturaKarlilikPage() {
                             </Typography>
                           </TableCell>
                           <TableCell>{formatDate(item.fatura.tarih)}</TableCell>
+                          <TableCell>{item.fatura.cari.cariKodu}</TableCell>
                           <TableCell>{item.fatura.cari.unvan}</TableCell>
                           <TableCell align="right">
                             {formatCurrency(item.toplamSatisTutari)}
@@ -659,7 +661,8 @@ export default function FaturaKarlilikPage() {
                                     <TableRow>
                                       <TableCell>Fatura No</TableCell>
                                       <TableCell>Tarih</TableCell>
-                                      <TableCell>Cari</TableCell>
+                                      <TableCell>Cari Kod</TableCell>
+                                      <TableCell>Cari Ünvan</TableCell>
                                       <TableCell align="right">Miktar</TableCell>
                                       <TableCell align="right">Satış Tutarı</TableCell>
                                       <TableCell align="right">Maliyet</TableCell>
@@ -675,6 +678,7 @@ export default function FaturaKarlilikPage() {
                                           </Typography>
                                         </TableCell>
                                         <TableCell>{formatDate(fatura.tarih)}</TableCell>
+                                        <TableCell>{(fatura.cari as any).cariKodu || '-'}</TableCell>
                                         <TableCell>{fatura.cari.unvan}</TableCell>
                                         <TableCell align="right">{fatura.miktar}</TableCell>
                                         <TableCell align="right">

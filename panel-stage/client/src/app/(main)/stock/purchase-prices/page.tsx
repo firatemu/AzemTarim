@@ -60,7 +60,7 @@ export default function SatinAlmaFiyatlariPage() {
   const fetchStoklar = async () => {
     setLoading(true);
     try {
-      const response = await axios.get('/product', {
+      const response = await axios.get('/products', {
         params: {
           limit: 200,
           search: debouncedSearch || undefined,

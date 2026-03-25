@@ -97,13 +97,13 @@ export default function ParcaTedarikYonetimiPage() {
         prev.map((wo) =>
           wo.id === id
             ? {
-                ...wo,
-                ...res.data,
-                items: res.data.items ?? wo.items,
-                partRequests: res.data.partRequests ?? wo.partRequests,
-                vehicleWorkflowStatus: res.data.vehicleWorkflowStatus ?? wo.vehicleWorkflowStatus,
-                partWorkflowStatus: res.data.partWorkflowStatus ?? wo.partWorkflowStatus,
-              }
+              ...wo,
+              ...res.data,
+              items: res.data.items ?? wo.items,
+              partRequests: res.data.partRequests ?? wo.partRequests,
+              vehicleWorkflowStatus: res.data.vehicleWorkflowStatus ?? wo.vehicleWorkflowStatus,
+              partWorkflowStatus: res.data.partWorkflowStatus ?? wo.partWorkflowStatus,
+            }
             : wo
         )
       );
@@ -118,7 +118,7 @@ export default function ParcaTedarikYonetimiPage() {
       setLoading(true);
       setDetailLoadedIds(new Set());
       try {
-        const res = await axios.get('/work-order/for-parts-management', {
+        const res = await axios.get('/work-orders/for-parts-management', {
           params: {
             page,
             limit,
@@ -130,10 +130,10 @@ export default function ParcaTedarikYonetimiPage() {
         // Ensure vehicleWorkflowStatus is included in each work order
         const workOrdersWithStatus = Array.isArray(list)
           ? list.map((wo: any) => ({
-              ...wo,
-              vehicleWorkflowStatus: wo.vehicleWorkflowStatus ?? 'WAITING',
-              partWorkflowStatus: wo.partWorkflowStatus ?? 'NOT_STARTED',
-            }))
+            ...wo,
+            vehicleWorkflowStatus: wo.vehicleWorkflowStatus ?? 'WAITING',
+            partWorkflowStatus: wo.partWorkflowStatus ?? 'NOT_STARTED',
+          }))
           : [];
         setWorkOrders(workOrdersWithStatus);
         setTotal(res.data?.total ?? workOrdersWithStatus.length ?? 0);
@@ -143,7 +143,7 @@ export default function ParcaTedarikYonetimiPage() {
         if (err.response?.status === 404) {
           // Silently handle 404 - fallback will be used
           try {
-            const res = await axios.get('/work-order', {
+            const res = await axios.get('/work-orders', {
               params: {
                 page: 1,
                 limit: 500,
@@ -203,7 +203,7 @@ export default function ParcaTedarikYonetimiPage() {
   useEffect(() => {
     const fetchStok = async () => {
       try {
-        const res = await axios.get('/product', { params: { limit: 1000 } });
+        const res = await axios.get('/products', { params: { limit: 1000 } });
         const d = res.data?.data ?? res.data;
         setStoklar(Array.isArray(d) ? d : []);
       } catch {
@@ -241,7 +241,7 @@ export default function ParcaTedarikYonetimiPage() {
 
   const handleAddPartSubmit = async (data: CreateWorkOrderItemDto) => {
     try {
-      await axios.post('/work-order-item', data);
+      await axios.post('/work-orders-item', data);
       showSnackbar('Parça eklendi', 'success');
       setOpenAddPartDialog(false);
       setAddPartWorkOrder(null);
@@ -399,13 +399,13 @@ export default function ParcaTedarikYonetimiPage() {
                       </Typography>
                       <Chip
                         size="small"
-                        label={`Araç: ${VEHICLE_WORKFLOW_LABELS[(wo as any).vehicleWorkflowStatus ?? 'WAITING']}`}
+                        label={`Araç: ${VEHICLE_WORKFLOW_LABELS[(wo as any).vehicleWorkflowStatus as VehicleWorkflowStatus ?? 'WAITING']}`}
                         color={
                           (wo as any).vehicleWorkflowStatus === 'IN_PROGRESS'
                             ? 'info'
                             : (wo as any).vehicleWorkflowStatus === 'READY'
-                            ? 'success'
-                            : 'default'
+                              ? 'success'
+                              : 'default'
                         }
                         variant="outlined"
                       />
@@ -414,12 +414,12 @@ export default function ParcaTedarikYonetimiPage() {
                         label={`Parça: ${PART_WORKFLOW_LABELS[wo.partWorkflowStatus ?? 'NOT_STARTED']}`}
                         color={
                           pendingList.length > 0 ||
-                          wo.partWorkflowStatus === 'PARTS_PENDING' ||
-                          wo.partWorkflowStatus === 'PARTIALLY_SUPPLIED'
+                            wo.partWorkflowStatus === 'PARTS_PENDING' ||
+                            wo.partWorkflowStatus === 'PARTIALLY_SUPPLIED'
                             ? 'warning'
                             : wo.partWorkflowStatus === 'ALL_PARTS_SUPPLIED' || wo.partWorkflowStatus === 'PARTS_SUPPLIED_DIRECT'
-                            ? 'success'
-                            : 'default'
+                              ? 'success'
+                              : 'default'
                         }
                       />
                       {pendingList.length > 0 && (

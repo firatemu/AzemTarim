@@ -1,0 +1,148 @@
+---
+description: UI renk/layout/component bütünlüğü (POS hariç)
+globs: panel-stage/client/src/app/(main)/**
+alwaysApply: false
+---
+
+# Not: Ortak standart kaynağı
+Detaylı UI/Tablo standartları repo kökünde `AGENTS.md` dosyasında tutulur.
+
+# UI Standartları (POS hariç)
+
+Bu rule, `panel-stage/client/src/app/(main)/**` kapsamındaki **yeni** sayfa ve bileşenlerde renk token, layout scaffold, component bütünlüğü ve tablo/etkileşim standardını korumak için tasarlanmıştır.
+
+## İstisna (POS)
+
+- Dosya yolu `panel-stage/client/src/app/(main)/pos/**` ile eşleşiyorsa bu rule **uygulanmaz**.
+- Dokunmatik POS tasarımı kendi değişkenlerini ve layout mantığını kullanır.
+
+## 1) Responsive Bütünlük (Telefon/Tablet Tam Uyum)
+
+- POS dışındaki her sayfa `xs` ve `sm` dahil olmak üzere responsive olmalı; telefon/tablet tam uyum için elemanlar `flex`, `grid`, `wrap`, `fullWidth` ve MUI responsive props ile yönetilmeli.
+- Sabit `width`/`height` ile “kırılacak” layoutlardan kaçın:
+  - Tablolarda kolonlar için mümkünse `flex` + `minWidth` kullan.
+  - Modallar/dialoglar `fullWidth` olmalı; çok küçük ekranlarda `maxWidth="sm"` yaklaşımı tercih edilmeli.
+- `xs`’te kritik farklı bir yerleşim gerekiyorsa (ör: filtre paneli/toolbar), ayrı tasarım yapılmalı:
+  - `Stack` yönünü `xs` için `column`, daha büyük kırılımlarda `row` yap.
+  - Filtreleri `Collapse`/accordion mantığıyla (tıklanabilir) göster.
+
+## 2) Renk Bütünlüğü (Dark/Light Dahil)
+
+- Renklerde **token kullan**: `var(--background)`, `var(--foreground)`, `var(--card)`, `var(--border)`, `var(--primary)`, `var(--secondary)`, `var(--muted-foreground)`, `var(--destructive)`, `var(--chart-1..5)` vb.
+- Hex/rgb ile sabit değer yazma. (Örn: `color: '#0F172A'` yazma; bunun yerine `var(--foreground)` kullan.)
+- Global override yasağı: POS hariç `:root { ... }`, `.dark { ... }` gibi global değişken define etme.
+- Arka planlarda `'#fff'`, `'rgba(...,...)'` gibi sabit değerlerden kaçın; `var(--card)`, `var(--muted)` gibi tokenları kullan.
+
+## 3) Layout Bütünlüğü
+
+- Sayfa düzeyinde standart iskelet kullan:
+  - `StandardPage` (önerilen) veya en azından `PageContainer`
+  - Standard page wrapper: `panel-stage/client/src/components/common/StandardPage.tsx`
+- Sticky/overflow kullanırken:
+  - Yatay taşma için gereksiz `overflowX` ekleme.
+- Scroll gereken bölgelerde `overflowY: 'auto'` tercih et.
+
+## 3.1) Listing Sayfa Çerçevesi (Stock-like Teknik Şablon)
+`stock/material-list` benzeri “liste/tablolu sayfalar” için sayfa iskeleti (POS hariç) şu ölçülere uyacak şekilde uygulanır:
+
+- Sayfa dış wrapper:
+  - `return ( <Box sx={{ pb: 4 }}> ... </Box> )` (alt boşluk 32px)
+  - Yatay padding/yere göre düzen ayrıca `ClientMainLayout` üzerinden gelir (sayfa içinde tekrar ekleme).
+- Sayfa header (isim + aksiyonlar):
+  - `Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, py: 1 }}`
+  - Sol ikon kutusu: `width: 40`, `height: 40`, `borderRadius: 2`, `background: 'linear-gradient(135deg, var(--primary), var(--secondary))'`, `display: 'flex'`, `alignItems: 'center'`, `justifyContent: 'center'`
+  - Başlık: `Typography variant="h6"`, `fontWeight: 700`, `color: 'var(--foreground)'`, `lineHeight: 1.2`
+  - Sağ buton stack: `Box sx={{ display: 'flex', gap: 1 }}`
+  - Butonlar: `size="small"`, `borderRadius: 2`, `textTransform: 'none'`, `fontWeight: 600`, `boxShadow: 'none'`
+- KPI/Metrics strip:
+  - `Paper variant="outlined"`, `sx={{ mb: 2, p: 1.5, display: 'flex', flexWrap: 'wrap', gap: 0 }}`
+  - Metric item: `Box sx={{ flex: '1 1 120px', px: 1.5, borderRight: '1px solid var(--divider, var(--border))' }}` (son item borderRight kullanma)
+- Toolbar:
+  - `Paper variant="outlined"`, `sx={{ mb: 2 }}`
+  - İç wrapper: `Box sx={{ p: 2, display: 'flex', flexWrap: 'wrap', gap: 1.5, alignItems: 'center' }}`
+- Summary info bar (DataGrid üstü):
+  - `Box sx={{ py: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}`
+- DataGrid wrapper:
+  - `Paper variant="outlined"`, `sx={{ overflow: 'hidden' }}`
+
+## 4) Component Bütünlüğü
+
+- Form kontrollerinde mevcut tasarım sınıflarını kullan:
+  - Select wrapper: `className="form-control-select"`
+  - TextField wrapper: `className="form-control-textfield"`
+- Kart/surface yüzeyleri için:
+  - `StandardCard` kullan (`panel-stage/client/src/components/common/StandardCard.tsx`)
+  - Aksi durumda mutlaka `var(--card)`, `var(--border)`, `var(--radius)` tokenları kullanılmalı.
+
+## 5) Popup / Modal Sayfalar (Minimal Header + Scroll’suz Tasarım)
+
+Popup olarak açılan ekranlar (Dialog/Modal/Drawer içinde açılan “mini sayfalar”) şu kurala uyar:
+
+- Header **minimalist** olmalı:
+  - Tek satır başlık + sağda kapat (`X`) + (opsiyonel) tek bir birincil aksiyon
+  - Büyük ikonlar, hard-coded gradient header (hex/rgb ile) ve kalabalık buton grupları kullanılmaz
+  - Gradient/renk özel efekt istenecekse token + `color-mix(...)` ile yapılmalı (ör: `var(--primary)`)
+- İçerik “tek ekranda” görünecek şekilde tasarlanmalı:
+  - Amaç: kullanıcı **scroll yapmadan** tüm kritik alanları görebilmeli
+  - Gerekirse alanları 2 sütun yerine tek sütuna düşür (`xs` için)
+  - Zorunlu durumlarda (çok kalemli tablolar gibi) scroll sadece “kalem listesi” gibi tek bir bölgeye verilir; header/footer sabit kalır
+- Dialog ölçüleri:
+  - `fullWidth` + uygun `maxWidth` kullan
+  - Mobilde taşma yapmayacak şekilde `xs`/`sm` yerleşim düşün
+ - Popup yüzeyi/renk standardı:
+   - `Dialog`/`PaperProps` için `bgcolor: 'var(--card)'`, `borderRadius: 'var(--radius)'`, `border: '1px solid var(--border)'` gibi token değerler kullan
+  - Köşe formu (oval çerçeve):
+    - Popup yüzeyinde keskin köşe kullanma; `borderRadius` için genelde `var(--radius-xl)` veya daha büyük değer tercih et
+    - `DialogTitle` (üst) ve `DialogActions` (alt) arka planı kullanan yerlerde aynı radius’u koru (çerçeve “oval” görünmeli)
+    - `overflow: 'hidden'` ile popup içindeki arka planların radius dışına taşmasını engelle
+   - `DialogContent` dış katmanını çoğunlukla `display: 'flex'` + `overflowY: 'hidden'` yap; gerçek scroll’u içteki tek wrapper’a (`overflowY: 'auto'`, `maxHeight: 'calc(100vh - ...)'`) ver
+   - `DialogActions` alanı görünür kalmalı; `bgcolor: 'var(--muted)'` veya `var(--card)` + `borderTop: '1px solid var(--border)'` tercih et
+   - Primary/CTA butonlarda hard-coded `#...` kullanma; `var(--primary)` / `var(--primary-foreground)` ve `color-mix(...)` ile hover/active tonlarını üret
+ - (Opsiyonel) CSS module/class ile popup stili yazacaksan:
+   - Token tabanlı değerler (`var(--card)`, `var(--muted)`, `var(--border)`, `var(--ring)`) kullan
+   - Scrollbar/box-shadow gibi detaylarda da hex/rgb sabitleme yerine token kullan
+
+## 6) Tablo Bütünlüğü (Tablo Ekleme Standardı)
+
+Her yeni tablo/`DataGrid` eklenirken aşağıdaki standartlar uygulanmalı:
+
+1. Arama özelliği olmalı (`Search` ikonlu):
+   - “Fatura Ara (No, Cari vb.)” benzeri placeholder kullan.
+2. Hazır hızlı filtreler olmalı:
+   - `Bugün`, `Bu Hafta`, `Bu Ay` çipleri (veya eşdeğer arayüz).
+   - Çip seçimi tarih başlangıç/bitişini otomatik doldurmalı.
+3. Yenileme butonu olmalı:
+   - Aynı filtre/sort/search parametreleriyle tablo verisini yeniden çekmeli.
+4. Excel ile indirme olmalı:
+   - UI’da “Excel İndir” action’ı bulunmalı; backend’e uygun endpoint ile `xlsx` indirimi.
+5. Kolon sıralama (A-Z / Z-A) desteklenmeli:
+   - DataGrid’de sort modeli `sortModel` ile yönetilmeli.
+   - API tarafında `sortBy` + `sortOrder` desteklenmeli.
+6. Boyutlar otomatik uyumlu olmalı:
+   - Tablo container’ı sayfanın genişliğine göre akar; sabit genişlik toplamları kullanılmaz.
+   - Kolonlarda `flex` + `minWidth` ile alan dağıtımı sağlanır.
+7. Sayısal kolonlar için “footer sum” bilgisi olmalı:
+   - Örn: “`Tutar`” gibi numeric kolonlarda ek bir özet alanında (tablo altı) toplam göster.
+   - Özet değerler, aynı filtre setiyle tutarlı olmalı (tercihen “mevcut sayfa” veya “server toplam” stratejisi belirlenerek).
+8. Pagination standardı:
+   - Sayfa açıldığında varsayılan gösterim `25` olmalı.
+   - Kullanıcı `25 / 50 / 100` seçeneklerinden değiştirebilmeli.
+   - DataGrid’de `pageSizeOptions` mutlaka `[{25,50,100}]` mantığında olmalı.
+9. Dark/Light uyumu:
+   - Tablonun toolbar, header, satır hover ve borders değerleri tokenlar üzerinden tasarlanmalı.
+10. Dashboard bilgileri:
+  - Tablo ile ilişkili 3-4 adet KPI/özet kartı (örn: “Ay İşlem Tutarı”, “Bekleyen”, “Vadesi Geçmiş” vb.) sayfanın üst bölümüne eklenmeli.
+  - KPI’lar aynı filtre parametreleriyle güncellenmeli.
+
+## 7) Tablo Ekleme Kontrol Listesi
+
+- Arama var mı?
+- `Bugün/Hafta/Ay` çipleri var mı?
+- Yenileme action var mı?
+- Excel indir var mı?
+- Kolon sort (A-Z/Z-A) var mı?
+- Pagination default 25 + seçenek {25,50,100} var mı?
+- Sayısal kolonlarda tablo altı toplam/özet var mı?
+- Tüm renkler token ile mi (dark/light doğru)?
+- KPI kartları tabloyla uyumlu mu?
+

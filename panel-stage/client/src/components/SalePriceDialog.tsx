@@ -25,11 +25,11 @@ import axios from '@/lib/axios';
 
 interface PriceCard {
   id: string;
-  price: string;
+  price: number;
   currency: string;
   effectiveFrom?: string | null;
   effectiveTo?: string | null;
-  note?: string | null;
+  notes?: string | null;
   createdAt: string;
   createdByUser?: {
     id: string;
@@ -113,7 +113,7 @@ export function SalePriceDialog({ open, stok, onClose, onPriceCreated }: SalePri
     if (!stokId) return;
     setLoading(true);
     try {
-      const response = await axios.get(`/price-cards/stok/${stokId}`, {
+      const response = await axios.get(`/price-cards/product/${stokId}`, {
         params: { type: 'SALE' },
       });
       setPriceCards(response.data ?? []);
@@ -144,12 +144,12 @@ export function SalePriceDialog({ open, stok, onClose, onPriceCreated }: SalePri
     setSaving(true);
     try {
       await axios.post('/price-cards', {
-        stokId,
+        productId: stokId,
         type: 'SALE',
         price,
         effectiveFrom: form.effectiveFrom || undefined,
         effectiveTo: form.effectiveTo || undefined,
-        note: form.note || undefined,
+        notes: form.note || undefined,
       });
 
       setSnackbar({ open: true, severity: 'success', message: 'Yeni satış fiyatı kaydedildi.' });
@@ -169,16 +169,16 @@ export function SalePriceDialog({ open, stok, onClose, onPriceCreated }: SalePri
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
-      <DialogTitle component="div" sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }} component="div">
+      <DialogTitle component="div" sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <Box>
-          <Typography variant="h6" fontWeight={700}>
+          <Typography variant="h6" fontWeight={700} sx={{ color: 'var(--foreground)' }}>
             {stok ? `${stok.stokKodu} • ${stok.stokAdi}` : 'Satış Fiyatları'}
           </Typography>
-          <Typography variant="body2" color="text.secondary">
+          <Typography variant="body2" sx={{ color: 'var(--muted-foreground)' }}>
             Ürünün satış fiyat geçmişini görüntüleyin ve yeni fiyat ekleyin.
           </Typography>
         </Box>
-        <IconButton onClick={onClose}>
+        <IconButton onClick={onClose} sx={{ color: 'var(--muted-foreground)' }}>
           <Close />
         </IconButton>
       </DialogTitle>
@@ -234,13 +234,18 @@ export function SalePriceDialog({ open, stok, onClose, onPriceCreated }: SalePri
                 startIcon={<Save />}
                 onClick={handleSubmit}
                 disabled={saving}
-                sx={{ bgcolor: '#191970', '&:hover': { bgcolor: '#0f0f40' } }}
+                sx={{
+                  bgcolor: 'var(--primary)',
+                  color: 'var(--primary-foreground)',
+                  borderRadius: 'var(--radius-md)',
+                  '&:hover': { bgcolor: 'var(--primary-hover)' }
+                }}
               >
                 Kaydet
               </Button>
               <Tooltip title="Yenile">
                 <span>
-                  <IconButton onClick={fetchPriceCards} disabled={loading}>
+                  <IconButton onClick={fetchPriceCards} disabled={loading} sx={{ color: 'var(--muted-foreground)' }}>
                     <Refresh />
                   </IconButton>
                 </span>
@@ -255,9 +260,9 @@ export function SalePriceDialog({ open, stok, onClose, onPriceCreated }: SalePri
               Fiyat Geçmişi
             </Typography>
             {loading ? (
-              <Typography color="text.secondary">Fiyat geçmişi yükleniyor...</Typography>
+              <Typography sx={{ color: 'var(--muted-foreground)' }}>Fiyat geçmişi yükleniyor...</Typography>
             ) : priceCards.length === 0 ? (
-              <Typography color="text.secondary">Henüz fiyat kartı bulunmuyor.</Typography>
+              <Typography sx={{ color: 'var(--muted-foreground)' }}>Henüz fiyat kartı bulunmuyor.</Typography>
             ) : (
               <List sx={{ maxHeight: 320, overflowY: 'auto' }}>
                 {priceCards.map((card) => {
@@ -267,23 +272,23 @@ export function SalePriceDialog({ open, stok, onClose, onPriceCreated }: SalePri
                       key={card.id}
                       sx={{
                         border: '1px solid',
-                        borderColor: isLatest ? '#191970' : 'divider',
-                        borderRadius: 2,
+                        borderColor: isLatest ? 'var(--primary)' : 'var(--border)',
+                        borderRadius: 'var(--radius-md)',
                         mb: 1.5,
-                        backgroundColor: isLatest ? 'rgba(25, 25, 112, 0.05)' : 'transparent',
+                        backgroundColor: isLatest ? 'color-mix(in srgb, var(--primary) 8%, transparent)' : 'transparent',
                       }}
                     >
                       <ListItemText
                         primary={
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <Typography variant="h6" fontWeight={700}>
+                            <Typography variant="h6" fontWeight={700} sx={{ color: 'var(--foreground)' }}>
                               ₺{Number(card.price).toLocaleString('tr-TR', {
                                 minimumFractionDigits: 2,
                                 maximumFractionDigits: 2,
                               })}
                             </Typography>
                             {isLatest && (
-                              <Typography variant="caption" color="primary">
+                              <Typography variant="caption" sx={{ color: 'var(--primary)', fontWeight: 600 }}>
                                 (Aktif)
                               </Typography>
                             )}
@@ -292,11 +297,11 @@ export function SalePriceDialog({ open, stok, onClose, onPriceCreated }: SalePri
                         secondaryTypographyProps={{ component: 'div' }}
                         secondary={
                           <Stack spacing={0.4}>
-                            <Typography variant="caption">Geçerlilik: {formatDate(card.effectiveFrom)} → {formatDate(card.effectiveTo)}</Typography>
-                            <Typography variant="caption">Oluşturan: {card.createdByUser?.fullName || card.createdByUser?.username || 'Sistem'} • {formatDateTime(card.createdAt)}</Typography>
-                            {card.note && (
-                              <Typography variant="caption" color="text.secondary">
-                                Not: {card.note}
+                            <Typography variant="caption" sx={{ color: 'var(--muted-foreground)' }}>Geçerlilik: {formatDate(card.effectiveFrom)} → {formatDate(card.effectiveTo)}</Typography>
+                            <Typography variant="caption" sx={{ color: 'var(--muted-foreground)' }}>Oluşturan: {card.createdByUser?.fullName || card.createdByUser?.username || 'Sistem'} • {formatDateTime(card.createdAt)}</Typography>
+                            {card.notes && (
+                              <Typography variant="caption" sx={{ color: 'var(--muted-foreground)', fontStyle: 'italic' }}>
+                                Not: {card.notes}
                               </Typography>
                             )}
                           </Stack>

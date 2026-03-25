@@ -59,7 +59,7 @@ export default function WorkOrderTahsilatDialog({
     const fetch = async () => {
       try {
         const [kRes, bRes] = await Promise.all([
-          axios.get('/cashboxes', { params: { aktif: true } }),
+          axios.get('/cashbox', { params: { aktif: true } }),
           axios.get('/banks/ozet'),
         ]);
         const kData = kRes.data?.data ?? kRes.data ?? [];

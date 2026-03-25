@@ -31,7 +31,7 @@ import {
     Add,
     History,
 } from '@mui/icons-material';
-import MainLayout from '@/components/Layout/MainLayout';
+import { StandardPage } from '@/components/common';
 import axios from '@/lib/axios';
 
 // Tipler
@@ -293,7 +293,7 @@ export default function AvansPage() {
     // Ancak refresh için personelId kontrolü lazım, neyse şimdilik manuel refresh yaparız.
 
     return (
-        <MainLayout>
+        <StandardPage maxWidth={false}>
             <Box sx={{ p: 3 }}>
                 <Stack direction="row" justifyContent="space-between" alignItems="center" mb={3}>
                     <Typography variant="h4">Avans Yönetimi</Typography>
@@ -393,6 +393,6 @@ export default function AvansPage() {
                 />
 
             </Box>
-        </MainLayout>
+        </StandardPage>
     );
 }

@@ -54,7 +54,7 @@ export default function AmbarToplamlariPage() {
 
     const fetchProductInfo = useCallback(async () => {
         try {
-            const response = await axios.get(`/stok/${productId}`);
+            const response = await axios.get(`/products/${productId}`);
             setProduct(response.data);
         } catch (error) {
             console.error('Ürün bilgisi alınamadı:', error);
@@ -64,7 +64,7 @@ export default function AmbarToplamlariPage() {
     const fetchStockHistory = useCallback(async () => {
         setDataLoading(true);
         try {
-            const response = await axios.get(`/warehouse/product/${productId}/stock-history`, {
+            const response = await axios.get(`/warehouses/products/${productId}/stock-history`, {
                 params: { date }
             });
             setStockHistory(response.data);
@@ -99,7 +99,7 @@ export default function AmbarToplamlariPage() {
         <MainLayout>
             <Box sx={{ mb: 3 }}>
                 <Breadcrumbs sx={{ mb: 2 }}>
-                    <Link color="inherit" href="/stok/malzeme-listesi" sx={{ textDecoration: 'none', '&:hover': { color: 'var(--primary)' } }}>
+                    <Link color="inherit" href="/stock/material-list" sx={{ textDecoration: 'none', '&:hover': { color: 'var(--primary)' } }}>
                         Malzeme Listesi
                     </Link>
                     <Typography color="text.primary">Ambar Toplamları</Typography>

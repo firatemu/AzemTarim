@@ -28,6 +28,7 @@ export class QuoteService {
     tx?: Prisma.TransactionClient,
   ) {
     const prisma = tx || this.prisma;
+    const tenantId = await this.tenantResolver.resolveForQuery();
     await prisma.quoteLog.create({
       data: {
         quoteId,
@@ -36,6 +37,7 @@ export class QuoteService {
         changes: changes ? JSON.stringify(changes) : null,
         ipAddress,
         userAgent,
+        tenantId: tenantId!,
       },
     });
   }
@@ -44,6 +46,7 @@ export class QuoteService {
     prisma: Prisma.TransactionClient,
     prefix: string,
     year: number,
+    tenantId: string,
   ): Promise<string> {
     let currentNumber = 0;
 
@@ -52,6 +55,7 @@ export class QuoteService {
         orderNo: {
           startsWith: `${prefix}-${year}-`,
         },
+        ...buildTenantWhereClause(tenantId),
       },
       orderBy: {
         orderNo: 'desc',
@@ -70,9 +74,11 @@ export class QuoteService {
       currentNumber += 1;
       const candidate = `${prefix}-${year}-${currentNumber.toString().padStart(3, '0')}`;
 
-      // TODO: TenantContextService inject et ve tenantId kontrolü yap
       const exists = await prisma.salesOrder.findFirst({
-        where: { orderNo: candidate },
+        where: {
+          orderNo: candidate,
+          ...buildTenantWhereClause(tenantId),
+        },
         select: { id: true },
       });
 
@@ -616,6 +622,7 @@ export class QuoteService {
         prisma,
         prefix,
         year,
+        quote.tenantId!,
       );
 
       // Create order

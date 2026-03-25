@@ -40,7 +40,6 @@ import {
   ArrowBack,
   AccountBalance,
   CreditCard,
-  AttachMoney,
   TrendingUp,
   TrendingDown,
   Visibility,
@@ -54,59 +53,59 @@ import { DataGrid, GridColDef } from '@mui/x-data-grid';
 
 interface Kasa {
   id: string;
-  kasaKodu: string;
-  kasaAdi: string;
-  kasaTipi: 'NAKIT' | 'BANKA' | 'FIRMA_KREDI_KARTI';
-  bakiye: number;
-  aktif: boolean;
-  bankaHesaplari?: BankaHesabi[];
-  firmaKrediKartlari?: FirmaKrediKarti[];
+  code: string;
+  name: string;
+  type: 'CASH' | 'BANK' | 'COMPANY_CREDIT_CARD';
+  balance: number;
+  isActive: boolean;
+  bankAccounts?: BankAccount[];
+  companyCreditCards?: CompanyCreditCard[];
 }
 
-interface BankaHesabi {
+interface BankAccount {
   id: string;
-  hesapKodu: string;
-  hesapAdi: string;
-  bankaAdi: string;
-  subeKodu?: string;
-  subeAdi?: string;
-  hesapNo?: string;
+  code: string;
+  name: string;
+  bankName: string;
+  branchCode?: string;
+  branchName?: string;
+  accountNo?: string;
   iban?: string;
-  hesapTipi: 'VADESIZ' | 'POS';
-  bakiye: number;
-  aktif: boolean;
+  type: 'VADESIZ' | 'POS';
+  balance: number;
+  isActive: boolean;
 }
 
-interface FirmaKrediKarti {
+interface CompanyCreditCard {
   id: string;
-  kartKodu: string;
-  kartAdi: string;
-  bankaAdi: string;
-  kartTipi?: string;
-  sonDortHane?: string;
+  code: string;
+  name: string;
+  bankName: string;
+  cardType?: string;
+  lastFourDigits?: string;
   limit?: number;
-  bakiye: number;
-  hesapKesimTarihi?: string;
-  sonOdemeTarihi?: string;
-  aktif: boolean;
+  balance: number;
+  cutoffDate?: string;
+  dueDate?: string;
+  isActive: boolean;
 }
 
 interface Tahsilat {
   id: string;
-  tip: 'TAHSILAT' | 'ODEME';
-  tutar: number;
-  tarih: string;
-  odemeTipi: 'NAKIT' | 'KREDI_KARTI';
-  aciklama?: string;
+  type: 'COLLECTION' | 'PAYMENT';
+  amount: number;
+  date: string;
+  paymentMethod: 'CASH' | 'CREDIT_CARD';
+  notes?: string;
   createdAt?: string;
-  cari: {
-    cariKodu: string;
-    unvan: string;
+  account: {
+    code: string;
+    title: string;
   };
-  kasa: {
-    kasaKodu: string;
-    kasaAdi: string;
-    kasaTipi: string;
+  cashbox: {
+    code: string;
+    name: string;
+    type: string;
   } | null;
 }
 
@@ -129,14 +128,14 @@ interface KasaHareketi {
   id: string;
   hareketTipi: 'TAHSILAT' | 'ODEME' | 'GELEN_HAVALE' | 'GIDEN_HAVALE';
   tutar: number;
-  tarih: string;
+  tarih: string | Date;
   cari?: {
     cariKodu: string;
     unvan: string;
-  };
+  } | null;
   aciklama?: string;
+  odemeTipi?: 'CASH' | 'CREDIT_CARD';
   referansNo?: string;
-  odemeTipi?: 'NAKIT' | 'KREDI_KARTI';
 }
 
 interface BankaHesapHareket {
@@ -175,26 +174,26 @@ interface BankaHesabiHareketleriProps {
 
 const BankaHesabiHareketleri: React.FC<BankaHesabiHareketleriProps> = ({ bankaHesabiId }) => {
   // Önce banka hesabı bilgisini al (kasaId'yi öğrenmek için)
-  const { data: hesapData, isLoading: hesapLoading } = useQuery<BankaHesabiWithKasa>({
-    queryKey: ['banka-hesap', bankaHesabiId],
+  const { data: hesapData, isLoading: hesapLoading } = useQuery<any>({
+    queryKey: ['bank-account', bankaHesabiId],
     queryFn: async () => {
-      const response = await axios.get(`/banka-hesap/${bankaHesabiId}`);
+      const response = await axios.get(`/bank-accounts/${bankaHesabiId}`);
       return response.data;
     },
     enabled: !!bankaHesabiId,
   });
 
   // BankaHesapHareket kayıtlarını al (spesifik hesap için)
-  const { data: hareketlerData, isLoading: hareketlerLoading } = useQuery<{ hareketler: any[] }>({
-    queryKey: ['banka-hesap', 'hareketler', bankaHesabiId],
+  const { data: hareketlerData, isLoading: hareketlerLoading } = useQuery<{ movements: any[] }>({
+    queryKey: ['bank-account', 'movements', bankaHesabiId],
     queryFn: async () => {
-      const response = await axios.get(`/banka-hesap/${bankaHesabiId}`);
+      const response = await axios.get(`/bank-accounts/${bankaHesabiId}`);
       return response.data;
     },
     enabled: !!bankaHesabiId,
   });
 
-  const havaleHareketleri = hareketlerData?.hareketler || [];
+  const movements = hareketlerData?.movements || [];
 
   const isLoading = hesapLoading || hareketlerLoading;
 
@@ -234,15 +233,15 @@ const BankaHesabiHareketleri: React.FC<BankaHesabiHareketleriProps> = ({ bankaHe
     );
   }
 
-  if (!havaleHareketleri || havaleHareketleri.length === 0) {
+  if (!movements || movements.length === 0) {
     return (
       <Box sx={{ p: 3 }}>
         <Box sx={{ mb: 2, p: 2, bgcolor: 'var(--muted)', borderRadius: 1 }}>
           <Typography variant="body2" color="text.secondary">
             Toplam Bakiye
           </Typography>
-          <Typography variant="h6" fontWeight="bold" color={hesapData.bakiye >= 0 ? 'success.main' : 'error.main'}>
-            {formatMoney(hesapData.bakiye)}
+          <Typography variant="h6" fontWeight="bold" color={hesapData.balance >= 0 ? 'success.main' : 'error.main'}>
+            {formatMoney(hesapData.balance)}
           </Typography>
         </Box>
         <Typography variant="body2" color="text.secondary" align="center">
@@ -258,24 +257,22 @@ const BankaHesabiHareketleri: React.FC<BankaHesabiHareketleriProps> = ({ bankaHe
       headerName: 'Tarih',
       width: 120,
       renderCell: (params: any) => {
-        const row = params.row as BankaHesapHareket;
         return (
           <Typography variant="body2">
-            {formatDate(row?.tarih)}
+            {formatDate(params.row?.date)}
           </Typography>
         );
       },
       valueGetter: (params: any) => {
-        const row = params.row as BankaHesapHareket;
-        return row?.tarih ? new Date(row.tarih).getTime() : 0;
+        return params.row?.date ? new Date(params.row.date).getTime() : 0;
       },
     },
     {
-      field: 'hareketTipi',
+      field: 'type',
       headerName: 'Tip',
       width: 160,
       renderCell: (params: any) => {
-        const tip = params.row.hareketTipi;
+        const type = params.row.type;
         const labels: Record<string, string> = {
           HAVALE_GELEN: 'Gelen Havale',
           HAVALE_GIDEN: 'Giden Havale',
@@ -286,10 +283,10 @@ const BankaHesabiHareketleri: React.FC<BankaHesabiHareketleriProps> = ({ bankaHe
           HAVALE_GIDEN: { bg: '#fef3c7', color: '#f59e0b' },
           KREDI_KARTI_TAHSILAT: { bg: '#ecfdf5', color: '#10b981' },
         };
-        const color = colors[tip] || { bg: '#f3f4f6', color: '#6b7280' };
+        const color = colors[type] || { bg: '#f3f4f6', color: '#6b7280' };
         return (
           <Chip
-            label={labels[tip] || tip}
+            label={labels[type] || type}
             size="small"
             sx={{
               bgcolor: color.bg,
@@ -301,15 +298,15 @@ const BankaHesabiHareketleri: React.FC<BankaHesabiHareketleriProps> = ({ bankaHe
       },
     },
     {
-      field: 'cari',
+      field: 'account',
       headerName: 'Cari',
       width: 250,
       renderCell: (params: any) => {
-        const row = params.row as BankaHesapHareket;
-        if (row?.cari) {
+        const account = params.row.account;
+        if (account) {
           return (
             <Typography variant="body2">
-              {row.cari.cariKodu} - {row.cari.unvan}
+              {account.code} - {account.title}
             </Typography>
           );
         }
@@ -321,71 +318,65 @@ const BankaHesabiHareketleri: React.FC<BankaHesabiHareketleriProps> = ({ bankaHe
       },
     },
     {
-      field: 'tutar',
+      field: 'amount',
       headerName: 'Tutar',
       width: 150,
       align: 'right',
       headerAlign: 'right',
       renderCell: (params: any) => {
-        const row = params.row as BankaHesapHareket;
-        const tutar = row?.tutar || 0;
-        const tip = row?.hareketTipi;
-        const isPositive = tip === 'HAVALE_GELEN' || tip === 'KREDI_KARTI_TAHSILAT';
+        const amount = params.row.amount || 0;
+        const type = params.row.type;
+        const isPositive = type === 'HAVALE_GELEN' || type === 'KREDI_KARTI_TAHSILAT';
         return (
           <Typography
             variant="body2"
             fontWeight={600}
             color={isPositive ? 'success.main' : 'error.main'}
           >
-            {isPositive ? '+' : '-'}{formatMoney(tutar)}
+            {isPositive ? '+' : '-'}{formatMoney(amount)}
           </Typography>
         );
       },
-      valueGetter: (params: any) => params?.row?.tutar || 0,
     },
     {
-      field: 'bakiye',
+      field: 'balance',
       headerName: 'Bakiye',
       width: 150,
       align: 'right',
       headerAlign: 'right',
       renderCell: (params: any) => {
-        const row = params.row as BankaHesapHareket;
-        const bakiye = row?.bakiye || 0;
+        const balance = params.row.balance || 0;
         return (
           <Typography
             variant="body2"
             fontWeight={600}
-            color={bakiye >= 0 ? 'success.main' : 'error.main'}
+            color={balance >= 0 ? 'success.main' : 'error.main'}
           >
-            {formatMoney(bakiye)}
+            {formatMoney(balance)}
           </Typography>
         );
       },
-      valueGetter: (params: any) => params?.row?.bakiye || 0,
     },
     {
-      field: 'referansNo',
+      field: 'referenceNo',
       headerName: 'Referans No',
       width: 150,
       renderCell: (params: any) => {
-        const row = params.row as BankaHesapHareket;
         return (
           <Typography variant="body2">
-            {row?.referansNo || '-'}
+            {params.row?.referenceNo || '-'}
           </Typography>
         );
       },
     },
     {
-      field: 'aciklama',
+      field: 'notes',
       headerName: 'Açıklama',
       width: 250,
       renderCell: (params: any) => {
-        const row = params.row as BankaHesapHareket;
         return (
           <Typography variant="body2">
-            {row?.aciklama || '-'}
+            {params.row?.notes || '-'}
           </Typography>
         );
       },
@@ -398,13 +389,13 @@ const BankaHesabiHareketleri: React.FC<BankaHesabiHareketleriProps> = ({ bankaHe
         <Typography variant="body2" color="text.secondary">
           Toplam Bakiye
         </Typography>
-        <Typography variant="h6" fontWeight="bold" color={hesapData.bakiye >= 0 ? 'success.main' : 'error.main'}>
-          {formatMoney(hesapData.bakiye)}
+        <Typography variant="h6" fontWeight="bold" color={hesapData.balance >= 0 ? 'success.main' : 'error.main'}>
+          {formatMoney(hesapData.balance)}
         </Typography>
       </Box>
       <Paper>
         <DataGrid
-          rows={havaleHareketleri}
+          rows={movements}
           columns={columns}
           getRowId={(row) => row.id}
           autoHeight
@@ -432,19 +423,19 @@ const BankaHesabiHareketleri: React.FC<BankaHesabiHareketleriProps> = ({ bankaHe
 // Kasa Hareketleri Component
 interface KasaHareketleriProps {
   kasaId: string;
-  kasaTipi: 'NAKIT' | 'BANKA' | 'FIRMA_KREDI_KARTI';
+  kasaType: 'CASH' | 'BANK' | 'COMPANY_CREDIT_CARD';
 }
 
-const KasaHareketleri: React.FC<KasaHareketleriProps> = ({ kasaId, kasaTipi }) => {
+const KasaHareketleri: React.FC<KasaHareketleriProps> = ({ kasaId, kasaType }) => {
   // Tahsilat/Ödeme hareketleri
   const { data: tahsilatHareketleri, isLoading: tahsilatLoading } = useQuery<Tahsilat[]>({
     queryKey: ['tahsilat', 'kasa', kasaId],
     queryFn: async () => {
-      const response = await axios.get('/collection', {
+      const response = await axios.get('/collections', {
         params: {
           page: 1,
           limit: 1000,
-          kasaId: kasaId,
+          cashboxId: kasaId,
         },
       });
       return response.data?.data ?? [];
@@ -453,17 +444,17 @@ const KasaHareketleri: React.FC<KasaHareketleriProps> = ({ kasaId, kasaTipi }) =
   });
 
   // Banka havale hareketleri (sadece BANKA kasası için)
-  const { data: havaleHareketleri, isLoading: havaleLoading } = useQuery<BankaHavale[]>({
-    queryKey: ['banka-havale', 'kasa', kasaId],
+  const { data: havaleHareketleri, isLoading: havaleLoading } = useQuery<any[]>({
+    queryKey: ['bank-account-movement', 'kasa', kasaId],
     queryFn: async () => {
-      const response = await axios.get('/bank-havale', {
+      const response = await axios.get('/bank-accounts', {
         params: {
-          bankaHesabiId: kasaId,
+          cashboxId: kasaId,
         },
       });
       return response.data ?? [];
     },
-    enabled: !!kasaId && kasaTipi === 'BANKA',
+    enabled: !!kasaId && kasaType === 'BANK',
   });
 
   // Birleştirilmiş hareketler
@@ -475,27 +466,33 @@ const KasaHareketleri: React.FC<KasaHareketleriProps> = ({ kasaId, kasaTipi }) =
       tahsilatHareketleri.forEach((tahsilat) => {
         allHareketler.push({
           id: `tahsilat-${tahsilat.id}`,
-          hareketTipi: tahsilat.tip === 'TAHSILAT' ? 'TAHSILAT' : 'ODEME',
-          tutar: tahsilat.tutar,
-          tarih: tahsilat.tarih,
-          cari: tahsilat.cari,
-          aciklama: tahsilat.aciklama,
-          odemeTipi: tahsilat.odemeTipi,
+          hareketTipi: tahsilat.type === 'COLLECTION' ? 'TAHSILAT' : 'ODEME',
+          tutar: tahsilat.amount,
+          tarih: tahsilat.date,
+          cari: {
+            cariKodu: tahsilat.account.code,
+            unvan: tahsilat.account.title,
+          },
+          aciklama: tahsilat.notes,
+          odemeTipi: tahsilat.paymentMethod,
         });
       });
     }
 
     // Banka havale hareketlerini ekle (sadece BANKA kasası için)
-    if (kasaTipi === 'BANKA' && havaleHareketleri) {
+    if (kasaType === 'BANK' && havaleHareketleri) {
       havaleHareketleri.forEach((havale) => {
         allHareketler.push({
           id: `havale-${havale.id}`,
-          hareketTipi: havale.hareketTipi === 'GELEN' ? 'GELEN_HAVALE' : 'GIDEN_HAVALE',
-          tutar: havale.tutar,
-          tarih: havale.tarih,
-          cari: havale.cari,
-          aciklama: havale.aciklama,
-          referansNo: havale.referansNo,
+          hareketTipi: havale.type === 'GELEN' ? 'GELEN_HAVALE' : 'GIDEN_HAVALE',
+          tutar: havale.amount,
+          tarih: havale.date,
+          cari: havale.account ? {
+            cariKodu: havale.account.code,
+            unvan: havale.account.title,
+          } : null,
+          aciklama: havale.notes,
+          referansNo: havale.referenceNo,
         });
       });
     }
@@ -506,9 +503,9 @@ const KasaHareketleri: React.FC<KasaHareketleriProps> = ({ kasaId, kasaTipi }) =
       const dateB = new Date(b.tarih).getTime();
       return dateB - dateA;
     });
-  }, [tahsilatHareketleri, havaleHareketleri, kasaTipi]);
+  }, [tahsilatHareketleri, havaleHareketleri, kasaType]);
 
-  const isLoading = tahsilatLoading || (kasaTipi === 'BANKA' && havaleLoading);
+  const isLoading = tahsilatLoading || (kasaType === 'BANK' && havaleLoading);
 
   const formatMoney = (value: number) => {
     return new Intl.NumberFormat('tr-TR', {
@@ -537,7 +534,7 @@ const KasaHareketleri: React.FC<KasaHareketleriProps> = ({ kasaId, kasaTipi }) =
         const row = params.row as KasaHareketi;
         return (
           <Typography variant="body2">
-            {formatDate(row?.tarih)}
+            {formatDate(row?.tarih as string)}
           </Typography>
         );
       },
@@ -598,8 +595,7 @@ const KasaHareketleri: React.FC<KasaHareketleriProps> = ({ kasaId, kasaTipi }) =
         );
       },
       valueGetter: (params: any) => {
-        const row = params.row as KasaHareketi;
-        return row?.cari ? `${row.cari.cariKodu} - ${row.cari.unvan}` : '';
+        return params.row?.cari ? `${params.row.cari.cariKodu} - ${params.row.cari.unvan}` : '';
       },
     },
     {
@@ -635,7 +631,7 @@ const KasaHareketleri: React.FC<KasaHareketleriProps> = ({ kasaId, kasaTipi }) =
         if (!tip) return null;
         return (
           <Chip
-            label={tip === 'NAKIT' ? 'Nakit' : 'Kredi Kartı'}
+            label={tip === 'CASH' ? 'Nakit' : 'Kredi Kartı'}
             size="small"
             variant="outlined"
           />
@@ -682,7 +678,7 @@ const KasaHareketleri: React.FC<KasaHareketleriProps> = ({ kasaId, kasaTipi }) =
 
   if (!hareketler || hareketler.length === 0) {
     return (
-      <Paper sx={{ p: 3 }}>
+      <Paper sx={{ p: 4 }}>
         <Typography variant="body2" color="text.secondary" align="center">
           Bu kasa için henüz hareket bulunamadı
         </Typography>
@@ -727,35 +723,35 @@ export default function KasaDetayPage() {
   const [openDialog, setOpenDialog] = useState(false);
   const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
   const [openHareketlerDialog, setOpenHareketlerDialog] = useState(false);
-  const [selectedBankaHesabi, setSelectedBankaHesabi] = useState<BankaHesabi | null>(null);
+  const [selectedBankaHesabi, setSelectedBankaHesabi] = useState<BankAccount | null>(null);
   const [editingItem, setEditingItem] = useState<any>(null);
   const [deleteTarget, setDeleteTarget] = useState<any>(null);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as any });
 
   // Banka Hesabı Form
   const [bankaHesapForm, setBankaHesapForm] = useState({
-    hesapKodu: '',
-    hesapAdi: '',
-    bankaAdi: '',
-    subeKodu: '',
-    subeAdi: '',
-    hesapNo: '',
+    code: '',
+    name: '',
+    bankName: '',
+    branchCode: '',
+    branchName: '',
+    accountNo: '',
     iban: '',
-    hesapTipi: 'VADESIZ' as 'VADESIZ' | 'POS',
-    aktif: true,
+    type: 'VADESIZ' as 'VADESIZ' | 'POS',
+    isActive: true,
   });
 
   // Firma Kredi Kartı Form
   const [firmaKartForm, setFirmaKartForm] = useState({
-    kartKodu: '',
-    kartAdi: '',
-    bankaAdi: '',
-    kartTipi: '',
-    sonDortHane: '',
+    code: '',
+    name: '',
+    bankName: '',
+    cardType: '',
+    lastFourDigits: '',
     limit: 0,
-    hesapKesimTarihi: '',
-    sonOdemeTarihi: '',
-    aktif: true,
+    cutoffDate: '',
+    dueDate: '',
+    isActive: true,
   });
 
   useEffect(() => {
@@ -765,7 +761,7 @@ export default function KasaDetayPage() {
   const fetchKasa = async () => {
     try {
       setLoading(true);
-      const response = await axios.get(`/kasa/${kasaId}`);
+      const response = await axios.get(`/cashbox/${kasaId}`);
       setKasa(response.data);
     } catch (error: any) {
       showSnackbar(error.response?.data?.message || 'Kasa yüklenemedi', 'error');
@@ -787,32 +783,32 @@ export default function KasaDetayPage() {
 
   // ==================== BANKA HESAP YÖNETİMİ ====================
 
-  const handleOpenBankaHesapDialog = (hesap?: BankaHesabi) => {
+  const handleOpenBankaHesapDialog = (hesap?: BankAccount) => {
     if (hesap) {
       setEditingItem(hesap);
       setBankaHesapForm({
-        hesapKodu: hesap.hesapKodu || '',
-        hesapAdi: hesap.hesapAdi || '',
-        bankaAdi: hesap.bankaAdi || '',
-        subeKodu: hesap.subeKodu || '',
-        subeAdi: hesap.subeAdi || '',
-        hesapNo: hesap.hesapNo || '',
+        code: hesap.code || '',
+        name: hesap.name || '',
+        bankName: hesap.bankName || '',
+        branchCode: hesap.branchCode || '',
+        branchName: hesap.branchName || '',
+        accountNo: hesap.accountNo || '',
         iban: hesap.iban || '',
-        hesapTipi: hesap.hesapTipi,
-        aktif: hesap.aktif,
+        type: hesap.type,
+        isActive: hesap.isActive,
       });
     } else {
       setEditingItem(null);
       setBankaHesapForm({
-        hesapKodu: '',
-        hesapAdi: '',
-        bankaAdi: '',
-        subeKodu: '',
-        subeAdi: '',
-        hesapNo: '',
+        code: '',
+        name: '',
+        bankName: '',
+        branchCode: '',
+        branchName: '',
+        accountNo: '',
         iban: '',
-        hesapTipi: 'VADESIZ',
-        aktif: true,
+        type: 'VADESIZ',
+        isActive: true,
       });
     }
     setOpenDialog(true);
@@ -821,21 +817,10 @@ export default function KasaDetayPage() {
   const handleSaveBankaHesap = async () => {
     try {
       if (editingItem) {
-        // Update: kasaId gönderilmez
-        const dataToSend = {
-          ...bankaHesapForm,
-          hesapKodu: bankaHesapForm.hesapKodu.trim() || undefined,
-        };
-        await axios.put(`/banka-hesap/${editingItem.id}`, dataToSend);
+        await axios.put(`/bank-accounts/${editingItem.id}`, bankaHesapForm);
         showSnackbar('Banka hesabı güncellendi', 'success');
       } else {
-        // Create: kasaId gönderilir
-        const dataToSend = {
-          ...bankaHesapForm,
-          kasaId: kasaId,
-          hesapKodu: bankaHesapForm.hesapKodu.trim() || undefined,
-        };
-        await axios.post('/bank-accounts', dataToSend);
+        await axios.post('/bank-accounts', { ...bankaHesapForm, cashboxId: kasaId });
         showSnackbar('Banka hesabı eklendi', 'success');
       }
       setOpenDialog(false);
@@ -849,7 +834,7 @@ export default function KasaDetayPage() {
     if (!deleteTarget) return;
 
     try {
-      await axios.delete(`/banka-hesap/${deleteTarget.id}`);
+      await axios.delete(`/bank-accounts/${deleteTarget.id}`);
       showSnackbar('Banka hesabı silindi', 'success');
       setOpenDeleteDialog(false);
       setDeleteTarget(null);
@@ -861,32 +846,32 @@ export default function KasaDetayPage() {
 
   // ==================== FİRMA KREDİ KARTI YÖNETİMİ ====================
 
-  const handleOpenFirmaKartDialog = (kart?: FirmaKrediKarti) => {
+  const handleOpenFirmaKartDialog = (kart?: CompanyCreditCard) => {
     if (kart) {
       setEditingItem(kart);
       setFirmaKartForm({
-        kartKodu: kart.kartKodu || '',
-        kartAdi: kart.kartAdi || '',
-        bankaAdi: kart.bankaAdi || '',
-        kartTipi: kart.kartTipi || '',
-        sonDortHane: kart.sonDortHane || '',
+        code: kart.code || '',
+        name: kart.name || '',
+        bankName: kart.bankName || '',
+        cardType: kart.cardType || '',
+        lastFourDigits: kart.lastFourDigits || '',
         limit: kart.limit || 0,
-        hesapKesimTarihi: kart.hesapKesimTarihi ? new Date(kart.hesapKesimTarihi).toISOString().split('T')[0] : '',
-        sonOdemeTarihi: kart.sonOdemeTarihi ? new Date(kart.sonOdemeTarihi).toISOString().split('T')[0] : '',
-        aktif: kart.aktif,
+        cutoffDate: kart.cutoffDate ? new Date(kart.cutoffDate).toISOString().split('T')[0] : '',
+        dueDate: kart.dueDate ? new Date(kart.dueDate).toISOString().split('T')[0] : '',
+        isActive: kart.isActive,
       });
     } else {
       setEditingItem(null);
       setFirmaKartForm({
-        kartKodu: '',
-        kartAdi: '',
-        bankaAdi: '',
-        kartTipi: '',
-        sonDortHane: '',
+        code: '',
+        name: '',
+        bankName: '',
+        cardType: '',
+        lastFourDigits: '',
         limit: 0,
-        hesapKesimTarihi: '',
-        sonOdemeTarihi: '',
-        aktif: true,
+        cutoffDate: '',
+        dueDate: '',
+        isActive: true,
       });
     }
     setOpenDialog(true);
@@ -895,30 +880,10 @@ export default function KasaDetayPage() {
   const handleSaveFirmaKart = async () => {
     try {
       if (editingItem) {
-        // Update: kasaId gönderilmez, sadece form verileri gönderilir
-        const dataToSend = {
-          kartKodu: firmaKartForm.kartKodu.trim() || undefined,
-          kartAdi: firmaKartForm.kartAdi,
-          bankaAdi: firmaKartForm.bankaAdi,
-          kartTipi: firmaKartForm.kartTipi || undefined,
-          sonDortHane: firmaKartForm.sonDortHane || undefined,
-          limit: firmaKartForm.limit || 0,
-          hesapKesimTarihi: firmaKartForm.hesapKesimTarihi || undefined,
-          sonOdemeTarihi: firmaKartForm.sonOdemeTarihi || undefined,
-          aktif: firmaKartForm.aktif,
-        };
-        await axios.put(`/firma-kredi-karti/${editingItem.id}`, dataToSend);
+        await axios.put(`/company-credit-cards/${editingItem.id}`, firmaKartForm);
         showSnackbar('Firma kredi kartı güncellendi', 'success');
       } else {
-        // Create: kasaId gönderilir
-        const dataToSend = {
-          ...firmaKartForm,
-          kasaId: kasaId,
-          kartKodu: firmaKartForm.kartKodu.trim() || undefined,
-          hesapKesimTarihi: firmaKartForm.hesapKesimTarihi || undefined,
-          sonOdemeTarihi: firmaKartForm.sonOdemeTarihi || undefined,
-        };
-        await axios.post('/firma-kredi-karti', dataToSend);
+        await axios.post('/company-credit-cards', { ...firmaKartForm, cashboxId: kasaId });
         showSnackbar('Firma kredi kartı eklendi', 'success');
       }
       setOpenDialog(false);
@@ -932,7 +897,7 @@ export default function KasaDetayPage() {
     if (!deleteTarget) return;
 
     try {
-      await axios.delete(`/firma-kredi-karti/${deleteTarget.id}`);
+      await axios.delete(`/company-credit-cards/${deleteTarget.id}`);
       showSnackbar('Firma kredi kartı silindi', 'success');
       setOpenDeleteDialog(false);
       setDeleteTarget(null);
@@ -967,7 +932,7 @@ export default function KasaDetayPage() {
         <Box sx={{ mb: 3 }}>
           <Button
             startIcon={<ArrowBack />}
-            onClick={() => router.push('/cashbox')}
+            onClick={() => router.push('/cash')}
             sx={{ mb: 2 }}
           >
             Kasalara Dön
@@ -976,10 +941,10 @@ export default function KasaDetayPage() {
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <Box>
               <Typography variant="h4" fontWeight="bold">
-                {kasa.kasaAdi}
+                {kasa.name}
               </Typography>
               <Typography variant="body2" color="text.secondary">
-                {kasa.kasaKodu} - {kasa.kasaTipi}
+                {kasa.code} - {kasa.type === 'CASH' ? 'Nakit Kasa' : kasa.type}
               </Typography>
             </Box>
             <Card>
@@ -987,8 +952,8 @@ export default function KasaDetayPage() {
                 <Typography variant="body2" color="text.secondary">
                   Toplam Bakiye
                 </Typography>
-                <Typography variant="h4" fontWeight="bold" color={kasa.bakiye >= 0 ? 'success.main' : 'error.main'}>
-                  {formatMoney(kasa.bakiye)}
+                <Typography variant="h4" fontWeight="bold" color={kasa.balance >= 0 ? 'success.main' : 'error.main'}>
+                  {formatMoney(kasa.balance)}
                 </Typography>
               </CardContent>
             </Card>
@@ -996,7 +961,7 @@ export default function KasaDetayPage() {
         </Box>
 
         {/* NAKİT KASA */}
-        {kasa.kasaTipi === 'NAKIT' && (
+        {kasa.type === 'CASH' && (
           <Alert severity="info">
             💵 Nakit kasa için doğrudan tahsilat ve ödeme işlemleri yapılır.
             <br />
@@ -1011,11 +976,11 @@ export default function KasaDetayPage() {
           <Typography variant="h6" fontWeight="bold" sx={{ mb: 2 }}>
             💰 Kasa Hareketleri
           </Typography>
-          <KasaHareketleri kasaId={kasaId} kasaTipi={kasa.kasaTipi} />
+          <KasaHareketleri kasaId={kasaId} kasaType={kasa.type} />
         </Box>
 
         {/* BANKA KASASI - Banka Hesapları */}
-        {kasa.kasaTipi === 'BANKA' && (
+        {kasa.type === 'BANK' && (
           <>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
               <Typography variant="h6" fontWeight="bold">
@@ -1047,7 +1012,7 @@ export default function KasaDetayPage() {
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {(!kasa.bankaHesaplari || kasa.bankaHesaplari.length === 0) ? (
+                  {(!kasa.bankAccounts || kasa.bankAccounts.length === 0) ? (
                     <TableRow>
                       <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
                         <Typography color="text.secondary">
@@ -1056,35 +1021,35 @@ export default function KasaDetayPage() {
                       </TableCell>
                     </TableRow>
                   ) : (
-                    kasa.bankaHesaplari.map((hesap) => (
+                    kasa.bankAccounts.map((hesap: any) => (
                       <TableRow key={hesap.id} hover>
                         <TableCell>
                           <Chip
-                            label={hesap.hesapTipi}
+                            label={hesap.type}
                             size="small"
-                            color={hesap.hesapTipi === 'POS' ? 'warning' : 'info'}
+                            color={hesap.type === 'POS' ? 'warning' : 'info'}
                           />
                         </TableCell>
                         <TableCell>
                           <Typography variant="body2" fontWeight={600}>
-                            {hesap.hesapKodu}
+                            {hesap.code}
                           </Typography>
                         </TableCell>
-                        <TableCell>{hesap.hesapAdi}</TableCell>
+                        <TableCell>{hesap.name}</TableCell>
                         <TableCell>
                           <Box>
-                            <Typography variant="body2">{hesap.bankaAdi}</Typography>
-                            {hesap.subeAdi && (
+                            <Typography variant="body2">{hesap.bankName}</Typography>
+                            {hesap.branchName && (
                               <Typography variant="caption" color="text.secondary">
-                                {hesap.subeAdi}
+                                {hesap.branchName}
                               </Typography>
                             )}
                           </Box>
                         </TableCell>
                         <TableCell>
                           <Box>
-                            {hesap.hesapNo && (
-                              <Typography variant="body2">{hesap.hesapNo}</Typography>
+                            {hesap.accountNo && (
+                              <Typography variant="body2">{hesap.accountNo}</Typography>
                             )}
                             {hesap.iban && (
                               <Typography variant="caption" color="text.secondary">
@@ -1094,14 +1059,14 @@ export default function KasaDetayPage() {
                           </Box>
                         </TableCell>
                         <TableCell align="right">
-                          <Typography fontWeight="bold" color={hesap.bakiye >= 0 ? 'success.main' : 'error.main'}>
-                            {formatMoney(hesap.bakiye)}
+                          <Typography fontWeight="bold" color={hesap.balance >= 0 ? 'success.main' : 'error.main'}>
+                            {formatMoney(hesap.balance)}
                           </Typography>
                         </TableCell>
                         <TableCell align="center">
                           <IconButton
                             size="small"
-                            color="primary"
+                            color="info"
                             onClick={() => {
                               setSelectedBankaHesabi(hesap);
                               setOpenHareketlerDialog(true);
@@ -1140,7 +1105,7 @@ export default function KasaDetayPage() {
         )}
 
         {/* FİRMA KREDİ KARTI KASASI - Kredi Kartları */}
-        {kasa.kasaTipi === 'FIRMA_KREDI_KARTI' && (
+        {kasa.type === 'COMPANY_CREDIT_CARD' && (
           <>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
               <Typography variant="h6" fontWeight="bold">
@@ -1173,7 +1138,7 @@ export default function KasaDetayPage() {
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {(!kasa.firmaKrediKartlari || kasa.firmaKrediKartlari.length === 0) ? (
+                  {(!kasa.companyCreditCards || kasa.companyCreditCards.length === 0) ? (
                     <TableRow>
                       <TableCell colSpan={8} align="center" sx={{ py: 4 }}>
                         <Typography color="text.secondary">
@@ -1182,27 +1147,27 @@ export default function KasaDetayPage() {
                       </TableCell>
                     </TableRow>
                   ) : (
-                    kasa.firmaKrediKartlari.map((kart) => (
+                    kasa.companyCreditCards.map((kart: any) => (
                       <TableRow key={kart.id} hover>
                         <TableCell>
                           <Typography variant="body2" fontWeight={600}>
-                            {kart.kartKodu}
+                            {kart.code}
                           </Typography>
                         </TableCell>
-                        <TableCell>{kart.kartAdi}</TableCell>
+                        <TableCell>{kart.name}</TableCell>
                         <TableCell>
                           <Box>
-                            <Typography variant="body2">{kart.bankaAdi}</Typography>
-                            {kart.kartTipi && (
+                            <Typography variant="body2">{kart.bankName}</Typography>
+                            {kart.cardType && (
                               <Typography variant="caption" color="text.secondary">
-                                {kart.kartTipi}
+                                {kart.cardType}
                               </Typography>
                             )}
                           </Box>
                         </TableCell>
                         <TableCell>
-                          {kart.sonDortHane && (
-                            <Chip label={`****${kart.sonDortHane}`} size="small" />
+                          {kart.lastFourDigits && (
+                            <Chip label={`****${kart.lastFourDigits}`} size="small" />
                           )}
                         </TableCell>
                         <TableCell align="right">
@@ -1210,12 +1175,12 @@ export default function KasaDetayPage() {
                         </TableCell>
                         <TableCell align="right">
                           <Typography fontWeight="bold" color="error.main">
-                            {formatMoney(kart.bakiye)}
+                            {formatMoney(kart.balance)}
                           </Typography>
                         </TableCell>
                         <TableCell align="right">
                           <Typography fontWeight="bold" color={kart.limit ? 'success.main' : 'text.secondary'}>
-                            {kart.limit ? formatMoney(kart.limit - kart.bakiye) : '-'}
+                            {kart.limit ? formatMoney(kart.limit - kart.balance) : '-'}
                           </Typography>
                         </TableCell>
                         <TableCell align="center">
@@ -1247,7 +1212,7 @@ export default function KasaDetayPage() {
         )}
 
         {/* BANKA HESAP DIALOG */}
-        <Dialog open={openDialog && kasa.kasaTipi === 'BANKA'} onClose={() => setOpenDialog(false)} maxWidth="md" fullWidth>
+        <Dialog open={openDialog && kasa.type === 'BANK'} onClose={() => setOpenDialog(false)} maxWidth="md" fullWidth>
           <DialogTitle component="div" sx={{ bgcolor: '#3b82f6', color: 'white' }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               <AccountBalance />
@@ -1260,8 +1225,8 @@ export default function KasaDetayPage() {
                 <TextField
                   fullWidth
                   label="Hesap Kodu"
-                  value={bankaHesapForm.hesapKodu || ''}
-                  onChange={(e) => setBankaHesapForm({ ...bankaHesapForm, hesapKodu: e.target.value })}
+                  value={bankaHesapForm.code || ''}
+                  onChange={(e) => setBankaHesapForm({ ...bankaHesapForm, code: e.target.value })}
                   placeholder="Otomatik"
                   helperText="Boş bırakılırsa otomatik"
                   disabled={!!editingItem}
@@ -1271,8 +1236,8 @@ export default function KasaDetayPage() {
                 <TextField
                   fullWidth
                   label="Hesap Adı"
-                  value={bankaHesapForm.hesapAdi || ''}
-                  onChange={(e) => setBankaHesapForm({ ...bankaHesapForm, hesapAdi: e.target.value })}
+                  value={bankaHesapForm.name || ''}
+                  onChange={(e) => setBankaHesapForm({ ...bankaHesapForm, name: e.target.value })}
                   placeholder="Hesap adı (opsiyonel)"
                 />
               </Grid>
@@ -1281,8 +1246,8 @@ export default function KasaDetayPage() {
                 <Autocomplete
                   freeSolo
                   options={turkiyeBankalari}
-                  value={bankaHesapForm.bankaAdi || ''}
-                  onChange={(e, value) => setBankaHesapForm({ ...bankaHesapForm, bankaAdi: value || '' })}
+                  value={bankaHesapForm.bankName || ''}
+                  onChange={(e, value) => setBankaHesapForm({ ...bankaHesapForm, bankName: value || '' })}
                   renderInput={(params) => (
                     <TextField
                       {...params}
@@ -1297,9 +1262,9 @@ export default function KasaDetayPage() {
                 <FormControl fullWidth required>
                   <InputLabel>Hesap Tipi</InputLabel>
                   <Select
-                    value={bankaHesapForm.hesapTipi}
+                    value={bankaHesapForm.type}
                     label="Hesap Tipi"
-                    onChange={(e: any) => setBankaHesapForm({ ...bankaHesapForm, hesapTipi: e.target.value })}
+                    onChange={(e: any) => setBankaHesapForm({ ...bankaHesapForm, type: e.target.value })}
                     disabled={!!editingItem}
                   >
                     <MenuItem value="VADESIZ">
@@ -1326,8 +1291,8 @@ export default function KasaDetayPage() {
                 <TextField
                   fullWidth
                   label="Şube Kodu"
-                  value={bankaHesapForm.subeKodu || ''}
-                  onChange={(e) => setBankaHesapForm({ ...bankaHesapForm, subeKodu: e.target.value })}
+                  value={bankaHesapForm.branchCode || ''}
+                  onChange={(e) => setBankaHesapForm({ ...bankaHesapForm, branchCode: e.target.value })}
                 />
               </Grid>
 
@@ -1335,8 +1300,8 @@ export default function KasaDetayPage() {
                 <TextField
                   fullWidth
                   label="Şube Adı"
-                  value={bankaHesapForm.subeAdi || ''}
-                  onChange={(e) => setBankaHesapForm({ ...bankaHesapForm, subeAdi: e.target.value })}
+                  value={bankaHesapForm.branchName || ''}
+                  onChange={(e) => setBankaHesapForm({ ...bankaHesapForm, branchName: e.target.value })}
                 />
               </Grid>
 
@@ -1344,8 +1309,8 @@ export default function KasaDetayPage() {
                 <TextField
                   fullWidth
                   label="Hesap No"
-                  value={bankaHesapForm.hesapNo || ''}
-                  onChange={(e) => setBankaHesapForm({ ...bankaHesapForm, hesapNo: e.target.value })}
+                  value={bankaHesapForm.accountNo || ''}
+                  onChange={(e) => setBankaHesapForm({ ...bankaHesapForm, accountNo: e.target.value })}
                 />
               </Grid>
 
@@ -1362,14 +1327,14 @@ export default function KasaDetayPage() {
           </DialogContent>
           <DialogActions>
             <Button onClick={() => setOpenDialog(false)}>İptal</Button>
-            <Button variant="contained" onClick={handleSaveBankaHesap} disabled={!bankaHesapForm.bankaAdi}>
+            <Button variant="contained" onClick={handleSaveBankaHesap} disabled={!bankaHesapForm.bankName}>
               {editingItem ? 'Güncelle' : 'Kaydet'}
             </Button>
           </DialogActions>
         </Dialog>
 
         {/* FİRMA KREDİ KARTI DIALOG */}
-        <Dialog open={openDialog && kasa.kasaTipi === 'FIRMA_KREDI_KARTI'} onClose={() => setOpenDialog(false)} maxWidth="md" fullWidth>
+        <Dialog open={openDialog && kasa.type === 'COMPANY_CREDIT_CARD'} onClose={() => setOpenDialog(false)} maxWidth="md" fullWidth>
           <DialogTitle component="div" sx={{ bgcolor: '#ef4444', color: 'white' }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               <CreditCard />
@@ -1382,8 +1347,8 @@ export default function KasaDetayPage() {
                 <TextField
                   fullWidth
                   label="Kart Kodu"
-                  value={firmaKartForm.kartKodu || ''}
-                  onChange={(e) => setFirmaKartForm({ ...firmaKartForm, kartKodu: e.target.value })}
+                  value={firmaKartForm.code || ''}
+                  onChange={(e) => setFirmaKartForm({ ...firmaKartForm, code: e.target.value })}
                   placeholder="Otomatik"
                   helperText={editingItem ? "Kart kodu değiştirilemez" : "Boş bırakılırsa otomatik oluşturulur"}
                   disabled={!!editingItem}
@@ -1409,8 +1374,8 @@ export default function KasaDetayPage() {
                 <TextField
                   fullWidth
                   label="Kart Adı"
-                  value={firmaKartForm.kartAdi || ''}
-                  onChange={(e) => setFirmaKartForm({ ...firmaKartForm, kartAdi: e.target.value })}
+                  value={firmaKartForm.name || ''}
+                  onChange={(e) => setFirmaKartForm({ ...firmaKartForm, name: e.target.value })}
                   placeholder="Örn: Ziraat Visa - Ahmet Bey"
                   required
                   sx={{ mt: 1 }}
@@ -1432,8 +1397,8 @@ export default function KasaDetayPage() {
                       },
                     },
                   }}
-                  error={!firmaKartForm.kartAdi}
-                  helperText={!firmaKartForm.kartAdi ? "Kart adı zorunludur" : ""}
+                  error={!firmaKartForm.name}
+                  helperText={!firmaKartForm.name ? "Kart adı zorunludur" : ""}
                 />
               </Grid>
 
@@ -1441,8 +1406,8 @@ export default function KasaDetayPage() {
                 <Autocomplete
                   freeSolo
                   options={turkiyeBankalari}
-                  value={firmaKartForm.bankaAdi || ''}
-                  onChange={(e, value) => setFirmaKartForm({ ...firmaKartForm, bankaAdi: value || '' })}
+                  value={firmaKartForm.bankName || ''}
+                  onChange={(e, value) => setFirmaKartForm({ ...firmaKartForm, bankName: value || '' })}
                   renderInput={(params) => (
                     <TextField
                       {...params}
@@ -1466,8 +1431,8 @@ export default function KasaDetayPage() {
                           },
                         },
                       }}
-                      error={!firmaKartForm.bankaAdi}
-                      helperText={!firmaKartForm.bankaAdi ? "Banka adı zorunludur" : ""}
+                      error={!firmaKartForm.bankName}
+                      helperText={!firmaKartForm.bankName ? "Banka adı zorunludur" : ""}
                     />
                   )}
                 />
@@ -1477,8 +1442,8 @@ export default function KasaDetayPage() {
                 <Autocomplete
                   freeSolo
                   options={kartTipleri}
-                  value={firmaKartForm.kartTipi || ''}
-                  onChange={(e, value) => setFirmaKartForm({ ...firmaKartForm, kartTipi: value || '' })}
+                  value={firmaKartForm.cardType || ''}
+                  onChange={(e, value) => setFirmaKartForm({ ...firmaKartForm, cardType: value || '' })}
                   renderInput={(params) => (
                     <TextField
                       {...params}
@@ -1508,8 +1473,8 @@ export default function KasaDetayPage() {
                 <TextField
                   fullWidth
                   label="Son 4 Hane"
-                  value={firmaKartForm.sonDortHane || ''}
-                  onChange={(e) => setFirmaKartForm({ ...firmaKartForm, sonDortHane: e.target.value.replace(/\D/g, '').slice(0, 4) })}
+                  value={firmaKartForm.lastFourDigits || ''}
+                  onChange={(e) => setFirmaKartForm({ ...firmaKartForm, lastFourDigits: e.target.value.replace(/\D/g, '').slice(0, 4) })}
                   inputProps={{ maxLength: 4 }}
                   placeholder="1234"
                   InputLabelProps={{
@@ -1571,8 +1536,8 @@ export default function KasaDetayPage() {
                   fullWidth
                   type="date"
                   label="Hesap Kesim Tarihi"
-                  value={firmaKartForm.hesapKesimTarihi || ''}
-                  onChange={(e) => setFirmaKartForm({ ...firmaKartForm, hesapKesimTarihi: e.target.value })}
+                  value={firmaKartForm.cutoffDate || ''}
+                  onChange={(e) => setFirmaKartForm({ ...firmaKartForm, cutoffDate: e.target.value })}
                   InputLabelProps={{
                     shrink: true,
                     sx: {
@@ -1597,8 +1562,8 @@ export default function KasaDetayPage() {
                   fullWidth
                   type="date"
                   label="Son Ödeme Tarihi"
-                  value={firmaKartForm.sonOdemeTarihi || ''}
-                  onChange={(e) => setFirmaKartForm({ ...firmaKartForm, sonOdemeTarihi: e.target.value })}
+                  value={firmaKartForm.dueDate || ''}
+                  onChange={(e) => setFirmaKartForm({ ...firmaKartForm, dueDate: e.target.value })}
                   InputLabelProps={{
                     shrink: true,
                     sx: {
@@ -1614,14 +1579,14 @@ export default function KasaDetayPage() {
                       },
                     },
                   }}
-                  helperText="Son ödeme tarihi"
+                  helperText="Kredi kartı son ödeme tarihi"
                 />
               </Grid>
             </Grid>
           </DialogContent>
           <DialogActions>
             <Button onClick={() => setOpenDialog(false)}>İptal</Button>
-            <Button variant="contained" onClick={handleSaveFirmaKart} disabled={!firmaKartForm.kartAdi || !firmaKartForm.bankaAdi}>
+            <Button variant="contained" onClick={handleSaveFirmaKart} disabled={!firmaKartForm.name}>
               {editingItem ? 'Güncelle' : 'Kaydet'}
             </Button>
           </DialogActions>
@@ -1638,7 +1603,7 @@ export default function KasaDetayPage() {
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               <AccountBalance />
               {selectedBankaHesabi
-                ? `${selectedBankaHesabi.bankaAdi} - ${selectedBankaHesabi.hesapAdi || selectedBankaHesabi.hesapKodu} Hareketleri`
+                ? `${selectedBankaHesabi.bankName} - ${selectedBankaHesabi.name || selectedBankaHesabi.code} Hareketleri`
                 : 'Banka Hesabı Hareketleri'}
             </Box>
           </DialogTitle>
@@ -1660,14 +1625,14 @@ export default function KasaDetayPage() {
           <DialogContent>
             <Alert severity="warning">
               <Typography>
-                <strong>{deleteTarget?.hesapAdi || deleteTarget?.kartAdi}</strong> kaydını silmek istediğinizden emin misiniz?
+                <strong>{deleteTarget?.name}</strong> kaydını silmek istediğinizden emin misiniz?
               </Typography>
             </Alert>
           </DialogContent>
           <DialogActions>
             <Button onClick={() => setOpenDeleteDialog(false)}>İptal</Button>
             <Button
-              onClick={kasa.kasaTipi === 'BANKA' ? handleDeleteBankaHesap : handleDeleteFirmaKart}
+              onClick={kasa.type === 'BANK' ? handleDeleteBankaHesap : handleDeleteFirmaKart}
               color="error"
               variant="contained"
             >

@@ -1,0 +1,20 @@
+---
+description: "Rules for research-first development to ensure informed decision-making"
+globs: ["**/*"]
+alwaysApply: true
+---
+
+# Research-First Development
+
+## Core Principles
+
+- **No Assumption**: Never assume file paths, model structures, or business logic without verifying first.
+- **Deep Discovery**: Use `grep_search` and `list_dir` to understand the codebase before making any changes.
+- **Contextual Awareness**: Check `task.md`, `implementation_plan.md`, and previous conversation logs for context.
+
+## Workflow
+
+1. **Information Gathering**: Search for relevant files and existing implementations.
+2. **Analysis**: Understand the impact of the proposed changes.
+3. **Drafting**: Create an implementation plan if the change is complex.
+4. **Verification**: After implementation, verify the fix with tests or manual checks.

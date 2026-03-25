@@ -30,6 +30,12 @@ export class InvoiceController {
     return this.invoiceService.getDueDateAnalysis(accountId);
   }
 
+  @Get('vade-analiz')
+  @UseGuards(JwtAuthGuard)
+  async getVadeAnaliz(@Query('accountId') accountId?: string) {
+    return this.invoiceService.getVadeAnaliz(accountId);
+  }
+
   @Get('price-history')
   @UseGuards(JwtAuthGuard)
   async getPriceHistory(
@@ -195,5 +201,26 @@ export class InvoiceController {
     @Body() body: CreateInvoicePaymentPlanDto[],
   ) {
     return this.invoiceService.createPaymentPlan(id, body);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get(':id/payment-plan')
+  async getPaymentPlan(@Param('id') id: string) {
+    return this.invoiceService.getPaymentPlan(id);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Put('payment-plan/:planId')
+  async updatePaymentPlanItem(
+    @Param('planId') planId: string,
+    @Body() body: { isPaid: boolean },
+  ) {
+    return this.invoiceService.updatePaymentPlanItem(planId, body.isPaid);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('recalculate-balances')
+  async recalculateBalances(@Query('accountId') accountId?: string) {
+    return this.invoiceService.recalculateCariBakiyeler(accountId);
   }
 }

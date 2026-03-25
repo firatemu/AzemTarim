@@ -4,7 +4,7 @@ import MainLayout from '@/components/Layout/MainLayout';
 import axios from '@/lib/axios';
 import {
   Add,
-  AttachMoney,
+  CurrencyLira,
   Category,
   Delete,
   Edit,
@@ -746,7 +746,7 @@ export default function MasrafPage() {
                 mb: 0.5,
               }}
             >
-              <AttachMoney sx={{ fontSize: 40, color: 'var(--destructive)' }} />
+              <CurrencyLira sx={{ fontSize: 40, color: 'var(--destructive)' }} />
               Masraf Yönetimi
             </Typography>
           </Box>

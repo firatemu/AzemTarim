@@ -6,27 +6,31 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma.service';
 import { SystemParameterService } from '../system-parameter/system-parameter.service';
+import { AccountBalanceService } from '../account-balance/account-balance.service';
 import { CreateCollectionDto } from './dto/create-collection.dto';
 import { CreateCrossPaymentDto } from './dto/create-cross-payment.dto';
 import { CollectionType, PaymentMethod } from './collection.enums';
 import { CashboxMovementType } from '@prisma/client';
 import { buildTenantWhereClause } from '../../common/utils/staging.util';
 import { Prisma } from '@prisma/client';
+import { PaymentPlanHelperService } from '../invoice/services/payment-plan-helper.service';
 
 @Injectable()
 export class CollectionService {
   constructor(
     private prisma: PrismaService,
     private systemParameterService: SystemParameterService,
-    private readonly tenantResolver: TenantResolverService
+    private readonly tenantResolver: TenantResolverService,
+    private accountBalanceService: AccountBalanceService,
+    private paymentPlanHelper: PaymentPlanHelperService,
   ) { }
 
-  async create(dto: CreateCollectionDto, userId: string) {
+  async create(dto: CreateCollectionDto, userId: string, tx?: Prisma.TransactionClient) {
     const cashboxId = (!dto.cashboxId || dto.cashboxId === 'null' || dto.cashboxId === 'undefined' || dto.cashboxId.trim() === '') ? null : dto.cashboxId;
     const bankAccountId = (!dto.bankAccountId || dto.bankAccountId === 'null' || dto.bankAccountId === 'undefined' || dto.bankAccountId.trim() === '') ? null : dto.bankAccountId;
     const companyCreditCardId = (!dto.companyCreditCardId || dto.companyCreditCardId === 'null' || dto.companyCreditCardId === 'undefined' || dto.companyCreditCardId.trim() === '') ? null : dto.companyCreditCardId;
 
-    const tenantId = await this.tenantResolver.resolveForQuery();
+    const tenantId = await this.tenantResolver.resolveForQuery({ userId });
     const account = await this.prisma.account.findFirst({
       where: {
         id: dto.accountId,
@@ -113,32 +117,55 @@ export class CollectionService {
 
     const finalTenantId = account?.tenantId || tenantId || undefined;
 
-    return await this.prisma.$transaction(async (tx) => {
-      const collection = await tx.collection.create({
-        data: {
-          tenantId: finalTenantId!,
-          accountId: dto.accountId,
-          invoiceId: dto.invoiceId,
-          serviceInvoiceId: dto.serviceInvoiceId,
-          type: dto.type,
-          amount: dto.amount,
-          date: dto.date ? new Date(dto.date) : new Date(),
-          paymentType: dto.paymentMethod,
-          cashboxId: cashboxId,
-          bankAccountId: bankAccountId,
-          companyCreditCardId: companyCreditCardId,
-          notes: dto.notes,
-          createdBy: userId,
-          salesAgentId: dto.salesAgentId || account?.salesAgentId,
-        },
-        include: {
-          account: true,
-          cashbox: true,
-          invoice: true,
-          bankAccount: true,
-          companyCreditCard: true,
-        },
-      });
+    const executeWork = async (tx: Prisma.TransactionClient) => {
+      const collectionData: any = {
+        tenantId: finalTenantId!,
+        accountId: dto.accountId,
+        invoiceId: dto.invoiceId,
+        serviceInvoiceId: dto.serviceInvoiceId,
+        type: dto.type,
+        amount: dto.amount,
+        date: dto.date ? new Date(dto.date) : new Date(),
+        paymentType: dto.paymentMethod,
+        cashboxId: cashboxId,
+        bankAccountId: bankAccountId,
+        companyCreditCardId: companyCreditCardId,
+        notes: dto.notes,
+        createdBy: userId,
+        salesAgentId: dto.salesAgentId || account?.salesAgentId,
+      };
+      if (dto.installmentCount !== undefined && dto.installmentCount !== null) {
+        collectionData.installmentCount = dto.installmentCount;
+      }
+
+      let collection: any;
+      try {
+        collection = await tx.collection.create({
+          data: collectionData,
+          include: {
+            account: true,
+            cashbox: true,
+            invoice: true,
+            bankAccount: true,
+            companyCreditCard: true,
+          },
+        });
+      } catch (error) {
+        if (!this.isUnknownInstallmentCountError(error)) {
+          throw error;
+        }
+        delete collectionData.installmentCount;
+        collection = await tx.collection.create({
+          data: collectionData,
+          include: {
+            account: true,
+            cashbox: true,
+            invoice: true,
+            bankAccount: true,
+            companyCreditCard: true,
+          },
+        });
+      }
 
       if (!dto.serviceInvoiceId) {
         await this.applyFIFO(
@@ -147,6 +174,8 @@ export class CollectionService {
           dto.accountId,
           dto.type,
           dto.amount,
+          finalTenantId!,
+          dto.installmentCount,
         );
       }
 
@@ -221,7 +250,18 @@ export class CollectionService {
         });
       }
 
+      // Recalculate account balance after processing movements
+      await this.accountBalanceService.recalculateAccountBalance(dto.accountId, tx);
+
       return collection;
+    };
+
+    if (tx) {
+      return executeWork(tx);
+    }
+
+    return await this.prisma.$transaction(async (prisma) => {
+      return executeWork(prisma as Prisma.TransactionClient);
     });
   }
 
@@ -230,7 +270,7 @@ export class CollectionService {
       throw new BadRequestException('Collection and payment accounts must be different');
     }
 
-    const tenantId = await this.tenantResolver.resolveForQuery();
+    const tenantId = await this.tenantResolver.resolveForQuery({ userId });
     const collectionAccount = await this.prisma.account.findFirst({
       where: {
         id: dto.collectionAccountId,
@@ -286,8 +326,8 @@ export class CollectionService {
         },
       });
 
-      await this.applyFIFO(tx, collection.id, dto.collectionAccountId, CollectionType.COLLECTION, dto.amount);
-      await this.applyFIFO(tx, payment.id, dto.paymentAccountId, CollectionType.PAYMENT, dto.amount);
+      await this.applyFIFO(tx, collection.id, dto.collectionAccountId, CollectionType.COLLECTION, dto.amount, finalTenantId!);
+      await this.applyFIFO(tx, payment.id, dto.paymentAccountId, CollectionType.PAYMENT, dto.amount, finalTenantId!);
 
       const collectionAccountBefore = await tx.account.findFirst({
         where: {
@@ -349,6 +389,10 @@ export class CollectionService {
         },
       });
 
+      // Recalculate account balances for both accounts
+      await this.accountBalanceService.recalculateAccountBalance(dto.collectionAccountId, tx);
+      await this.accountBalanceService.recalculateAccountBalance(dto.paymentAccountId, tx);
+
       return { collection, payment };
     });
   }
@@ -386,7 +430,12 @@ export class CollectionService {
     if (startDate || endDate) {
       where.date = {};
       if (startDate) where.date.gte = new Date(startDate);
-      if (endDate) where.date.lte = new Date(endDate);
+      if (endDate) {
+        // Include the full end day (23:59:59.999) for date-only filters.
+        const endOfDay = new Date(endDate);
+        endOfDay.setHours(23, 59, 59, 999);
+        where.date.lte = endOfDay;
+      }
     }
 
     const [data, total] = await Promise.all([
@@ -407,9 +456,18 @@ export class CollectionService {
     ]);
 
     return {
-      data,
+      data: data.map(item => ({
+        ...item,
+        cari: item.account ? {
+          ...item.account,
+          cariKodu: item.account.code,
+          unvan: item.account.title,
+          bakiye: Number(item.account.balance || 0),
+        } : null,
+      })),
       meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
     };
+
   }
 
   async findOne(id: string) {
@@ -513,19 +571,32 @@ export class CollectionService {
         data: { deletedAt: new Date() },
       });
 
+      // Recalculate account balance after deletion
+      await this.accountBalanceService.recalculateAccountBalance(data.accountId, tx);
+
       return { message: 'Collection record deleted' };
     });
   }
 
-  private async applyFIFO(tx: any, collectionId: string, accountId: string, type: CollectionType, amount: number) {
+  private async applyFIFO(
+    tx: any,
+    collectionId: string,
+    accountId: string,
+    type: CollectionType,
+    amount: number,
+    tenantId: string,
+    installmentCount?: number,
+  ) {
     const invoiceType = type === 'COLLECTION' ? 'SALE' : 'PURCHASE';
-    const returnType = type === 'COLLECTION' ? 'SALES_RETURN' : 'PURCHASE_RETURN';
+    // const returnType = type === 'COLLECTION' ? 'SALES_RETURN' : 'PURCHASE_RETURN'; // İadeler borç gibi taranmamalı
+
     const invoices = await tx.invoice.findMany({
       where: {
         accountId,
-        invoiceType: { in: [invoiceType, returnType] },
-        status: 'APPROVED',
+        invoiceType: invoiceType, // Sadece ana borç faturaları
+        status: { in: ['APPROVED', 'PARTIALLY_PAID'] },
         deletedAt: null,
+        ...buildTenantWhereClause(tenantId ?? undefined),
       },
       orderBy: [{ date: 'asc' }, { createdAt: 'asc' }],
     });
@@ -537,16 +608,38 @@ export class CollectionService {
       if (remainingAmount <= 0) break;
       const invoiceTotal = invoice.grandTotal.toNumber();
       const invoicePaid = invoice.paidAmount?.toNumber() || 0;
-      const invoiceRemaining = invoiceTotal - invoicePaid;
+      const invoiceRemaining = Math.max(0, invoiceTotal - invoicePaid);
       if (invoiceRemaining <= 0) continue;
 
       const paymentAmount = Math.min(remainingAmount, invoiceRemaining);
-      await tx.invoiceCollection.create({ data: { tenantId: invoice.tenantId, invoiceId: invoice.id, collectionId: collectionId, amount: paymentAmount } });
+      const invoiceCollectionData: any = {
+        tenantId: invoice.tenantId,
+        invoiceId: invoice.id,
+        collectionId: collectionId,
+        amount: paymentAmount,
+      };
+      if (installmentCount !== undefined && installmentCount !== null) {
+        invoiceCollectionData.installmentCount = installmentCount;
+      }
+
+      try {
+        await tx.invoiceCollection.create({
+          data: invoiceCollectionData,
+        });
+      } catch (error) {
+        if (!this.isUnknownInstallmentCountError(error)) {
+          throw error;
+        }
+        delete invoiceCollectionData.installmentCount;
+        await tx.invoiceCollection.create({
+          data: invoiceCollectionData,
+        });
+      }
 
       const newPaid = invoicePaid + paymentAmount;
-      const newRemaining = invoiceTotal - newPaid;
+      const newPayable = Math.max(0, invoiceTotal - newPaid);
       let newStatus = invoice.status;
-      if (newRemaining <= 0.01) newStatus = 'CLOSED';
+      if (newPayable <= 0.01) newStatus = 'CLOSED';
       else if (newPaid > 0.01) newStatus = 'PARTIALLY_PAID';
       else newStatus = 'APPROVED';
 
@@ -555,9 +648,29 @@ export class CollectionService {
           id: invoice.id,
           ...buildTenantWhereClause(invoice.tenantId ?? undefined),
         },
-        data: { paidAmount: newPaid, status: newStatus },
+        data: {
+          paidAmount: newPaid,
+          payableAmount: newPayable,
+          status: newStatus
+        },
       });
+
+      // Payment plan taksitlerini güncelle
+      await this.paymentPlanHelper.markInstallmentsAsPaid(
+        invoice.id,
+        paymentAmount,
+        invoice.tenantId,
+        tx
+      );
+
       remainingAmount -= paymentAmount;
     }
+  }
+
+  private isUnknownInstallmentCountError(error: unknown): boolean {
+    if (!error || typeof error !== 'object') return false;
+    const msg = (error as any)?.message;
+    return typeof msg === 'string'
+      && msg.includes('Unknown argument `installmentCount`');
   }
 }

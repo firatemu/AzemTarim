@@ -58,7 +58,9 @@ export class CollectionExportService {
         where.date.gte = new Date(startDate);
       }
       if (endDate) {
-        where.date.lte = new Date(endDate);
+        const endOfDay = new Date(endDate);
+        endOfDay.setHours(23, 59, 59, 999);
+        where.date.lte = endOfDay;
       }
     }
 
@@ -301,7 +303,9 @@ export class CollectionExportService {
         where.date.gte = new Date(startDate);
       }
       if (endDate) {
-        where.date.lte = new Date(endDate);
+        const endOfDay = new Date(endDate);
+        endOfDay.setHours(23, 59, 59, 999);
+        where.date.lte = endOfDay;
       }
     }
 

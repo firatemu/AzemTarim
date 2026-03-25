@@ -50,7 +50,7 @@ interface BankAccount {
     id: string;
     name: string;
     code: string;
-    type: 'VADESIZ' | 'POS' | 'KREDI' | 'FIRMA_KREDI_KARTI';
+    type: 'DEMAND_DEPOSIT' | 'POS' | 'LOAN' | 'COMPANY_CREDIT_CARD';
     accountNo?: string;
     iban?: string;
     balance: number;
@@ -62,8 +62,8 @@ interface BankAccount {
     usedLimit?: number;
     // Credit card specific
     cardLimit?: number;
-    billingDay?: number;
-    dueDay?: number;
+    statementDay?: number;
+    paymentDueDay?: number;
     loans?: BankLoan[];
 }
 
@@ -90,7 +90,7 @@ interface Bank {
     name: string;
     branch?: string;
     city?: string;
-    authorizedPerson?: string;
+    contactName?: string;
     phone?: string;
     logo?: string;
     isActive: boolean;
@@ -357,7 +357,7 @@ export default function BankaDetayPage() {
                                         const typeInfo = getAccountTypeInfo(hesap.type);
                                         // Kredi hesabı ise kredilerin toplam geri ödeme tutarını göster
                                         let displayAmount = Number(hesap.balance);
-                                        const isCreditAccount = hesap.type === 'KREDI';
+                                        const isCreditAccount = hesap.type === 'LOAN';
 
                                         if (isCreditAccount && hesap.loans && hesap.loans.length > 0) {
                                             displayAmount = hesap.loans.reduce((sum: number, k: any) => sum + Number(k.totalRepayment), 0);

@@ -310,7 +310,7 @@ function YeniAlisIadeFaturasiContent() {
 
   const fetchStoklar = async () => {
     try {
-      const response = await axios.get('/product', {
+      const response = await axios.get('/products', {
         params: { limit: 1000 },
       });
       setStoklar(response.data.data || []);
@@ -321,7 +321,7 @@ function YeniAlisIadeFaturasiContent() {
 
   const fetchWarehouses = async () => {
     try {
-      const response = await axios.get('/warehouse?active=true');
+      const response = await axios.get('/warehouses?active=true');
       const warehouseList = response.data || [];
       setWarehouses(warehouseList);
 
@@ -344,7 +344,7 @@ function YeniAlisIadeFaturasiContent() {
 
   const generateFaturaNo = async () => {
     try {
-      const response = await axios.get('/invoice', {
+      const response = await axios.get('/invoices', {
         params: { faturaTipi: 'ALIS_IADE', page: 1, limit: 1 },
       });
       const faturalar = response.data?.data || [];
@@ -569,7 +569,7 @@ function YeniAlisIadeFaturasiContent() {
 
     try {
       setFormData(prev => ({ ...prev, dovizCinsi: currency }));
-      const response = await axios.get('/invoice/exchange-rate', {
+      const response = await axios.get('/invoices/exchange-rate', {
         params: { currency }
       });
 
@@ -610,7 +610,7 @@ function YeniAlisIadeFaturasiContent() {
       }
 
       setLoading(true);
-      await axios.post('/invoice', {
+      await axios.post('/invoices', {
         faturaNo: formData.faturaNo,
         faturaTipi: formData.faturaTipi,
         cariId: formData.cariId,
@@ -634,7 +634,7 @@ function YeniAlisIadeFaturasiContent() {
 
       showSnackbar('İade faturası başarıyla oluşturuldu', 'success');
       setTimeout(() => {
-        router.push('/invoice/iade/alis');
+        router.push('/invoices/iade/alis');
       }, 1500);
     } catch (error: any) {
       showSnackbar(error.response?.data?.message || 'İşlem sırasında hata oluştu', 'error');
@@ -663,7 +663,7 @@ function YeniAlisIadeFaturasiContent() {
           textAlign: isMobile ? 'center' : 'left'
         }}>
           <IconButton
-            onClick={() => router.push('/invoice/iade/alis')}
+            onClick={() => router.push('/invoices/iade/alis')}
             sx={{
               bgcolor: 'var(--slate-100)',
               '&:hover': { bgcolor: 'var(--slate-200)' },
@@ -1178,7 +1178,7 @@ function YeniAlisIadeFaturasiContent() {
                 variant="outlined"
                 fullWidth={isMobile}
                 size="large"
-                onClick={() => router.push('/invoice/iade/alis')}
+                onClick={() => router.push('/invoices/iade/alis')}
                 sx={{
                   borderRadius: 'var(--radius-md)',
                   textTransform: 'none',

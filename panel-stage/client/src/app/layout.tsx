@@ -59,3 +59,8 @@ export default async function RootLayout({
     </html>
   );
 }
+// HMR Test 
+// HMR Test Mon Mar 16 22:30:57 +03 2026
+// Container HMR Test
+// HMR Test 2
+// HMR Final Test Mon Mar 16 22:33:01 +03 2026

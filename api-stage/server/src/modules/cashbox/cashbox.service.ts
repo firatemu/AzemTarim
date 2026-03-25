@@ -26,10 +26,11 @@ export class CashboxService {
         private systemParameterService: SystemParameterService,
     ) { }
 
-    async findAll(type?: CashboxType, isActive?: boolean) {
+    async findAll(type?: CashboxType, isActive?: boolean, isRetail?: boolean) {
         const tenantId = await this.tenantResolver.resolveForQuery();
         const where: Prisma.CashboxWhereInput = {
             ...buildTenantWhereClause(tenantId ?? undefined),
+            deletedAt: null,
         };
 
         if (type) {
@@ -38,6 +39,10 @@ export class CashboxService {
 
         if (isActive !== undefined) {
             where.isActive = isActive;
+        }
+
+        if (isRetail !== undefined) {
+            where.isRetail = isRetail;
         }
 
         const cashboxes = await this.prisma.cashbox.findMany({
@@ -69,6 +74,7 @@ export class CashboxService {
             where: {
                 id,
                 ...buildTenantWhereClause(tenantId ?? undefined),
+                deletedAt: null,
             },
             include: {
                 movements: {
@@ -117,7 +123,56 @@ export class CashboxService {
         return cashbox;
     }
 
+    async getRetailCashbox() {
+        const tenantId = await this.tenantResolver.resolveForQuery();
+        const baseWhere: Prisma.CashboxWhereInput = {
+            deletedAt: null,
+            isActive: true,
+            type: CashboxType.CASH,
+        };
+
+        if (tenantId) {
+            // Legacy compatibility: some cashboxes may have null tenantId.
+            baseWhere.OR = [{ tenantId }, { tenantId: null }];
+        }
+
+        // 1) Preferred: explicitly flagged retail cashbox
+        const retailCashbox = await this.prisma.cashbox.findFirst({
+            where: {
+                AND: [baseWhere, { isRetail: true }],
+            },
+            orderBy: [{ createdAt: 'asc' }],
+        });
+        if (retailCashbox) return retailCashbox;
+
+        // 2) Fallback: cashbox name indicates retail
+        const namedRetailCashbox = await this.prisma.cashbox.findFirst({
+            where: {
+                AND: [
+                    baseWhere,
+                    {
+                        OR: [
+                            { name: { contains: 'perakende', mode: 'insensitive' } },
+                            { name: { contains: 'perakande', mode: 'insensitive' } },
+                            { name: { contains: 'retail', mode: 'insensitive' } },
+                        ],
+                    },
+                ],
+            },
+            orderBy: [{ createdAt: 'asc' }],
+        });
+        if (namedRetailCashbox) return namedRetailCashbox;
+
+        // 3) Last resort: any active CASH cashbox
+        return this.prisma.cashbox.findFirst({
+            where: baseWhere,
+            orderBy: [{ createdAt: 'asc' }],
+        });
+    }
+
     async create(dto: CreateCashboxDto, userId?: string) {
+        console.log('Cashbox create DTO:', JSON.stringify(dto, null, 2));
+
         let code = dto.code;
 
         if (!code || code.trim() === '') {
@@ -146,18 +201,36 @@ export class CashboxService {
             throw new BadRequestException('This cashbox code is already in use');
         }
 
+        if (dto.isRetail) {
+            await this.validateSingleRetailCashbox(tenantId);
+        }
+
         const data = {
             code,
             ...(tenantId != null && { tenantId }),
             name: dto.name,
-            type: dto.type,
+            type: CashboxType.CASH, // Her zaman Nakit Kasa olarak oluşturulur
             isActive: dto.isActive ?? true,
+            isRetail: dto.isRetail ?? false,
             createdBy: userId,
         };
 
-        return this.prisma.cashbox.create({
+        console.log('Cashbox create data:', JSON.stringify(data, null, 2));
+
+        const created = await this.prisma.cashbox.create({
             data,
         });
+
+        // Update code template counter only if code was auto-generated
+        if (!dto.code || dto.code.trim() === '') {
+            try {
+                await this.codeTemplateService.saveLastCode(ModuleType.CASHBOX, created.code);
+            } catch (error) {
+                console.error('Failed to update code template counter:', error);
+            }
+        }
+
+        return created;
     }
 
     async update(id: string, dto: UpdateCashboxDto, userId?: string) {
@@ -169,6 +242,10 @@ export class CashboxService {
         };
 
         const tenantId = await this.tenantResolver.resolveForQuery();
+
+        if (dto.isRetail) {
+            await this.validateSingleRetailCashbox(tenantId, id);
+        }
         return this.prisma.cashbox.update({
             where: { id, ...buildTenantWhereClause(tenantId ?? undefined) },
             data,
@@ -357,5 +434,20 @@ export class CashboxService {
                 totalNetAmount,
             },
         };
+    }
+
+    private async validateSingleRetailCashbox(tenantId: string | null, excludeId?: string) {
+        const existingRetail = await this.prisma.cashbox.findFirst({
+            where: {
+                isRetail: true,
+                ...buildTenantWhereClause(tenantId ?? undefined),
+                deletedAt: null,
+                ...(excludeId && { id: { not: excludeId } }),
+            },
+        });
+
+        if (existingRetail) {
+            throw new BadRequestException('Sistemde zaten bir adet perakende kasa bulunmaktadır. İkinci bir perakende kasa oluşturulamaz.');
+        }
     }
 }

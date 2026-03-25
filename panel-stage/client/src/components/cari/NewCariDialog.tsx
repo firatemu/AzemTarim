@@ -4,6 +4,7 @@ import {
     DialogTitle,
     DialogContent,
     DialogActions,
+    Box,
     Button,
     IconButton,
 } from '@mui/material';
@@ -33,7 +34,7 @@ export default function NewCariDialog({ open, onClose, onSuccess, showSnackbar }
     useEffect(() => {
         const fetchSatisElemanlari = async () => {
             try {
-                const response = await axios.get('/sales-agents');
+                const response = await axios.get('/sales-agent');
                 setSatisElemanlari(response.data || []);
             } catch (error) {
                 console.error('Satış elemanları yüklenirken hata:', error);
@@ -48,7 +49,7 @@ export default function NewCariDialog({ open, onClose, onSuccess, showSnackbar }
             const initForm = async () => {
                 let nextCode = '';
                 try {
-                    const response = await axios.get('/code-templates/next-code/CUSTOMER');
+                    const response = await axios.get('/code-templates/preview-code/CUSTOMER');
                     nextCode = response.data.nextCode || '';
                 } catch (error) {
                     console.log('Otomatik kod alınamadı, boş bırakılacak');
@@ -80,11 +81,15 @@ export default function NewCariDialog({ open, onClose, onSuccess, showSnackbar }
             return null; // Or throw error
         }
 
+        const typeMap: any = { MUSTERI: 'CUSTOMER', TEDARIKCI: 'SUPPLIER', HER_IKISI: 'BOTH' };
+        const companyTypeMap: any = { KURUMSAL: 'CORPORATE', SAHIS: 'INDIVIDUAL' };
+        const riskMap: any = { NORMAL: 'NORMAL', RISKLI: 'RISKY', BLOKELI: 'BLACK_LIST', TAKIPTE: 'IN_COLLECTION' };
+
         const dataToSend: any = {
             code: data.cariKodu?.trim() || undefined,
             title: data.unvan.trim(),
-            type: data.tip || 'MUSTERI',
-            companyType: data.sirketTipi || 'KURUMSAL',
+            type: typeMap[data.tip || 'MUSTERI'] || 'CUSTOMER',
+            companyType: companyTypeMap[data.sirketTipi || 'KURUMSAL'] || 'CORPORATE',
             taxNumber: data.vergiNo || undefined,
             taxOffice: data.vergiDairesi || undefined,
             nationalId: data.tcKimlikNo || undefined,
@@ -101,7 +106,7 @@ export default function NewCariDialog({ open, onClose, onSuccess, showSnackbar }
             district: data.ilce || undefined,
             address: data.adres || undefined,
             creditLimit: Number(data.riskLimiti) || 0,
-            creditStatus: data.riskDurumu || 'NORMAL',
+            creditStatus: riskMap[data.riskDurumu || 'NORMAL'] || 'NORMAL',
             collateralAmount: Number(data.teminatTutar) || 0,
             dueDays: Number(data.vadeGun) || 0,
             currency: data.paraBirimi || 'TRY',
@@ -153,14 +158,14 @@ export default function NewCariDialog({ open, onClose, onSuccess, showSnackbar }
         }
 
         if (data.ekAdresler) {
+            const addressTypeMap: any = { FATURA: 'INVOICE', SEVK: 'DELIVERY', DIGER: 'OTHER' };
             dataToSend.addresses = data.ekAdresler.map((a: any) => ({
-                title: a.baslik,
-                type: a.tip || 'OTHER',
+                type: addressTypeMap[a.tip] || 'OTHER',
                 address: a.adres,
                 city: a.il,
                 district: a.ilce,
                 postalCode: a.postaKodu,
-                isDefault: a.varsayilan,
+                isDefault: Boolean(a.varsayilan),
             }));
         }
 
@@ -189,7 +194,7 @@ export default function NewCariDialog({ open, onClose, onSuccess, showSnackbar }
             setLoading(true);
             const dataToSend = prepareDataToSend(formData);
 
-            await axios.post('/accounts', dataToSend);
+            await axios.post('/account', dataToSend);
             showSnackbar('Cari başarıyla eklendi', 'success');
             onSuccess();
             onClose();
@@ -208,7 +213,11 @@ export default function NewCariDialog({ open, onClose, onSuccess, showSnackbar }
             fullWidth
             PaperProps={{
                 sx: {
-                    borderRadius: 'var(--radius)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    maxHeight: '90dvh',
+                    overflow: 'hidden',
+            borderRadius: 'var(--radius-xl)',
                     border: '1px solid var(--border)',
                     bgcolor: 'var(--card)',
                     backgroundImage: 'none',
@@ -216,29 +225,62 @@ export default function NewCariDialog({ open, onClose, onSuccess, showSnackbar }
             }}
         >
             <DialogTitle component="div" sx={{
-                bgcolor: 'var(--secondary)',
-                color: 'var(--secondary-foreground)',
+                bgcolor: 'var(--primary)',
+                color: 'var(--primary-foreground)',
                 display: 'flex',
                 justifyContent: 'space-between',
                 alignItems: 'center',
-                fontWeight: 700,
-                fontSize: '1.125rem',
+                fontWeight: 600,
+                fontSize: '1.25rem',
+                p: '20px 24px',
+                borderBottom: 'none',
+                borderTopLeftRadius: 'var(--radius-xl)',
+                borderTopRightRadius: 'var(--radius-xl)',
             }}>
                 Yeni Cari Ekle
-                <IconButton size="small" onClick={onClose} sx={{ color: 'var(--secondary-foreground)' }}>
+                <IconButton size="small" onClick={onClose} sx={{ color: 'var(--primary-foreground)' }}>
                     <Close />
                 </IconButton>
             </DialogTitle>
-            <DialogContent sx={{ bgcolor: 'var(--background)' }}>
-                <CariForm
-                    data={formData}
-                    onChange={handleFormChange}
-                    onCityChange={handleCityChange}
-                    availableDistricts={availableDistricts}
-                    satisElemanlari={satisElemanlari}
-                />
+            <DialogContent
+                sx={{
+                    bgcolor: 'var(--background)',
+                    flex: 1,
+                    minHeight: 0,
+                    overflowY: 'hidden', // scroll sadece içeride tek bir wrapper üzerinden
+                    px: 0,
+                    py: 0,
+                    display: 'flex',
+                }}
+            >
+                <Box
+                    sx={{
+                        width: '100%',
+                        overflowY: 'auto',
+                        // Header + Actions yüksekliği değişken olabildiği için güvenli bir üst sınır
+                        maxHeight: 'calc(90dvh - 140px)',
+                        px: { xs: 1.5, sm: 3 },
+                        py: 2,
+                    }}
+                >
+                    <CariForm
+                        data={formData}
+                        onChange={handleFormChange}
+                        onCityChange={handleCityChange}
+                        availableDistricts={availableDistricts}
+                        satisElemanlari={satisElemanlari}
+                    />
+                </Box>
             </DialogContent>
-            <DialogActions sx={{ p: 2 }}>
+            <DialogActions
+                sx={{
+                    p: 2,
+                    bgcolor: 'var(--muted)',
+                    borderTop: '1px solid var(--border)',
+                    borderBottomLeftRadius: 'var(--radius-xl)',
+                    borderBottomRightRadius: 'var(--radius-xl)',
+                }}
+            >
                 <Button
                     onClick={onClose}
                     sx={{
@@ -257,12 +299,14 @@ export default function NewCariDialog({ open, onClose, onSuccess, showSnackbar }
                     onClick={handleAdd}
                     disabled={loading}
                     sx={{
-                        bgcolor: 'var(--secondary)',
-                        color: 'var(--secondary-foreground)',
+                        bgcolor: 'var(--primary)',
+                        color: 'var(--primary-foreground)',
                         textTransform: 'none',
                         fontWeight: 600,
+                        px: 3,
+                        borderRadius: 'var(--radius)',
                         '&:hover': {
-                            bgcolor: 'var(--secondary-hover)',
+                            bgcolor: 'color-mix(in srgb, var(--primary) 90%, var(--background))',
                         },
                     }}
                 >

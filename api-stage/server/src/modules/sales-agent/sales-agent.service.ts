@@ -35,7 +35,7 @@ export class SalesAgentService {
         return list.map((s) => ({
             id: s.id,
             fullName: s.fullName,
-            telefon: s.phone ?? undefined,
+            phone: s.phone ?? undefined,
             email: s.email ?? undefined,
             isActive: s.isActive,
             tenantId: s.tenantId ?? undefined,
@@ -52,7 +52,7 @@ export class SalesAgentService {
         return {
             id: item.id,
             fullName: item.fullName,
-            telefon: item.phone ?? undefined,
+            phone: item.phone ?? undefined,
             email: item.email ?? undefined,
             isActive: item.isActive,
             tenantId: item.tenantId ?? undefined,

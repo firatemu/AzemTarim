@@ -73,7 +73,7 @@ function ServisFaturalariContent() {
       setInvoiceStep(1);
       setSelectedWorkOrderId(woId);
       setCreateError(null);
-      axios.get('/work-order', { params: { readyForInvoice: true, limit: 50 } })
+      axios.get('/work-orders', { params: { readyForInvoice: true, limit: 50 } })
         .then((res) => {
           const data = res.data?.data ?? res.data;
           setWorkOrders(Array.isArray(data) ? data : []);
@@ -97,7 +97,7 @@ function ServisFaturalariContent() {
   const fetchInvoices = async () => {
     try {
       setLoading(true);
-      const res = await axios.get('/service-invoice', {
+      const res = await axios.get('/service-invoices', {
         params: { search: debouncedSearch || undefined, limit: 100 },
       });
       const data = res.data?.data ?? res.data;
@@ -117,7 +117,7 @@ function ServisFaturalariContent() {
     setItemPrices([]);
     setCreateError(null);
     try {
-      const res = await axios.get('/work-order', {
+      const res = await axios.get('/work-orders', {
         params: { readyForInvoice: true, limit: 50 },
       });
       const data = res.data?.data ?? res.data;

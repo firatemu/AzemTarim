@@ -21,7 +21,7 @@ export function useCariler(tip?: string, limit = 1000) {
   return useQuery({
     queryKey: ['cariler', tip, limit],
     queryFn: async () => {
-      const response = await axios.get('/accounts', {
+      const response = await axios.get('/account', {
         params: { tip, limit },
       });
       const data = response.data?.data || response.data;
@@ -36,7 +36,7 @@ export function useKasalar(aktif = true) {
   return useQuery({
     queryKey: ['kasalar', aktif],
     queryFn: async () => {
-      const response = await axios.get('/cashboxes', {
+      const response = await axios.get('/cashbox', {
         params: { aktif },
       });
       return response.data || [];
@@ -46,15 +46,24 @@ export function useKasalar(aktif = true) {
 }
 
 // Fatura hooks
-export function useFaturalar(faturaTipi?: string, page = 1, limit = 50) {
+export function useFaturalar(params: {
+  type?: string;
+  page?: number;
+  limit?: number;
+  search?: string;
+  startDate?: string;
+  endDate?: string;
+  status?: string;
+  accountId?: string;
+  salesAgentId?: string;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
+}) {
   return useQuery({
-    queryKey: ['faturalar', faturaTipi, page, limit],
+    queryKey: ['faturalar', params],
     queryFn: async () => {
-      const response = await axios.get('/invoices', {
-        params: { faturaTipi, page, limit },
-      });
-      const data = response.data?.data || response.data;
-      return Array.isArray(data) ? data : [];
+      const response = await axios.get('/invoices', { params });
+      return response.data;
     },
     staleTime: 60 * 1000, // 1 dakika
   });
@@ -91,14 +100,20 @@ export function useStokHareketler(stokId?: string, hareketTipi?: string, limit =
   return useQuery({
     queryKey: ['stok-hareketler', stokId, hareketTipi, limit],
     queryFn: async () => {
-      const response = await axios.get('/product-movements', {
-        params: { stokId, hareketTipi, limit },
+      if (!stokId) return [];
+      const response = await axios.get(`/products/${stokId}/stock-movements`, {
+        params: { limit },
       });
       const data = response.data?.data || response.data;
-      return Array.isArray(data) ? data : [];
+      // Hareket tipi filtresini client-side yap
+      const movements = Array.isArray(data) ? data : [];
+      if (hareketTipi) {
+        return movements.filter((m: any) => m.movementType === hareketTipi);
+      }
+      return movements;
     },
     staleTime: 60 * 1000,
-    enabled: enabled,
+    enabled: enabled && !!stokId,
   });
 }
 
@@ -136,7 +151,7 @@ export function useCreateCari() {
 
   return useMutation({
     mutationFn: async (data: any) => {
-      const response = await axios.post('/accounts', data);
+      const response = await axios.post('/account', data);
       return response.data;
     },
     onSuccess: () => {

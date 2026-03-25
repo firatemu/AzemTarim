@@ -54,7 +54,7 @@ export default function AmbarTransferFisiPage() {
       const params: any = {};
       if (filterDurum) params.durum = filterDurum;
 
-      const response = await axios.get('/warehouse-transfer', { params });
+      const response = await axios.get('/warehouses-transfers', { params });
       setTransfers(response.data);
     } catch (error) {
       console.error('Transfer fişleri yüklenirken hata:', error);
@@ -113,13 +113,13 @@ export default function AmbarTransferFisiPage() {
       field: 'driverName',
       headerName: 'Sürücü',
       width: 150,
-      valueGetter: (params) => params.value || '-',
+      valueGetter: (value) => value || '-',
     },
     {
       field: 'vehiclePlate',
       headerName: 'Plaka',
       width: 120,
-      valueGetter: (params) => params.value || '-',
+      valueGetter: (value) => value || '-',
     },
     {
       field: 'durum',

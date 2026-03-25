@@ -63,14 +63,14 @@ export default function AlisIadeFaturaPrintPage() {
   const params = useParams();
   const router = useRouter();
   const id = params.id as string;
-  
+
   const [fatura, setFatura] = useState<Fatura | null>(null);
   const [companyInfo, setCompanyInfo] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [paperSize, setPaperSize] = useState<'A4' | 'A5' | 'A5-landscape'>('A4');
   const [template, setTemplate] = useState<'classic' | 'modern'>('classic');
   const [zoom, setZoom] = useState(100);
-  
+
   const printRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -80,8 +80,47 @@ export default function AlisIadeFaturaPrintPage() {
   const fetchFatura = async () => {
     try {
       setLoading(true);
-      const response = await axios.get(`/fatura/${id}`);
-      setFatura(response.data);
+      const response = await axios.get(`/invoices/${id}`);
+      const data = response.data;
+
+      // Map backend fields to frontend interface
+      const mappedFatura: Fatura = {
+        id: data.id,
+        faturaNo: data.invoiceNo || data.faturaNo,
+        faturaTipi: data.invoiceType || data.faturaTipi,
+        durum: data.status || data.durum,
+        tarih: data.date || data.tarih,
+        vadeTarihi: data.dueDate || data.vadeTarihi || data.vade,
+        toplamTutar: Number(data.totalAmount || data.toplamTutar || 0),
+        kdvTutar: Number(data.vatAmount || data.kdvTutar || 0),
+        genelToplam: Number(data.grandTotal || data.genelToplam || 0),
+        iskonto: Number(data.discount || data.iskonto || 0),
+        aciklama: data.notes || data.aciklama,
+        cari: {
+          cariKodu: data.account?.code || data.cari?.cariKodu,
+          unvan: data.account?.title || data.cari?.unvan,
+          adres: data.account?.address || data.cari?.adres,
+          telefon: data.account?.phone || data.cari?.telefon,
+          vergiNo: data.account?.taxNo || data.cari?.vergiNo,
+          vergiDairesi: data.account?.taxOffice || data.cari?.vergiDairesi,
+        },
+        kalemler: (data.items || data.kalemler || []).map((item: any) => ({
+          id: item.id,
+          stokId: item.productId || item.stokId,
+          miktar: Number(item.quantity || item.miktar || 0),
+          birimFiyat: Number(item.unitPrice || item.birimFiyat || 0),
+          kdvOrani: Number(item.vatRate || item.kdvOrani || 0),
+          tutar: Number(item.amount || item.tutar || 0),
+          kdvTutar: Number(item.vatAmount || item.kdvTutar || 0),
+          stok: {
+            stokKodu: item.product?.code || item.stok?.stokKodu,
+            stokAdi: item.product?.name || item.stok?.stokAdi,
+            birim: item.product?.unit || item.stok?.birim,
+          },
+        })),
+      };
+
+      setFatura(mappedFatura);
 
       // Fetch company settings
       try {
@@ -207,10 +246,10 @@ export default function AlisIadeFaturaPrintPage() {
             <Typography variant="h6" sx={{ fontSize: { xs: '1rem', sm: '1.25rem' }, whiteSpace: 'nowrap' }}>
               İade Fatura Önizleme - {companyInfo?.companyName || 'Firma'}
             </Typography>
-            
-            <Stack 
-              direction={{ xs: 'column', sm: 'row' }} 
-              spacing={{ xs: 1, sm: 2 }} 
+
+            <Stack
+              direction={{ xs: 'column', sm: 'row' }}
+              spacing={{ xs: 1, sm: 2 }}
               alignItems={{ xs: 'stretch', sm: 'center' }}
               sx={{ flexWrap: 'wrap', gap: { xs: 1, sm: 0 } }}
             >
@@ -255,18 +294,18 @@ export default function AlisIadeFaturaPrintPage() {
                 </Button>
               </ButtonGroup>
 
-              <Divider 
-                orientation="vertical" 
-                flexItem 
+              <Divider
+                orientation="vertical"
+                flexItem
                 sx={{ display: { xs: 'none', sm: 'block' } }}
               />
 
               {/* Zoom Kontrolleri */}
-              <Stack 
-                direction="row" 
-                spacing={0.5} 
+              <Stack
+                direction="row"
+                spacing={0.5}
                 alignItems="center"
-                sx={{ 
+                sx={{
                   justifyContent: { xs: 'center', sm: 'flex-start' },
                   border: { xs: '1px solid #e0e0e0', sm: 'none' },
                   borderRadius: { xs: 1, sm: 0 },
@@ -275,18 +314,18 @@ export default function AlisIadeFaturaPrintPage() {
                 }}
               >
                 <Tooltip title="Uzaklaştır">
-                  <IconButton 
-                    size="small" 
+                  <IconButton
+                    size="small"
                     onClick={() => setZoom(z => Math.max(z - 10, 50))}
                     sx={{ p: { xs: 0.75, sm: 0.5 } }}
                   >
                     <ZoomOut fontSize="small" />
                   </IconButton>
                 </Tooltip>
-                <Typography 
-                  variant="body2" 
-                  sx={{ 
-                    minWidth: '45px', 
+                <Typography
+                  variant="body2"
+                  sx={{
+                    minWidth: '45px',
                     textAlign: 'center',
                     fontSize: { xs: '0.75rem', sm: '0.875rem' },
                   }}
@@ -294,8 +333,8 @@ export default function AlisIadeFaturaPrintPage() {
                   {zoom}%
                 </Typography>
                 <Tooltip title="Yakınlaştır">
-                  <IconButton 
-                    size="small" 
+                  <IconButton
+                    size="small"
                     onClick={() => setZoom(z => Math.min(z + 10, 150))}
                     sx={{ p: { xs: 0.75, sm: 0.5 } }}
                   >
@@ -307,10 +346,10 @@ export default function AlisIadeFaturaPrintPage() {
           </Stack>
 
           {/* Sağ Taraf - Aksiyon Butonları */}
-          <Stack 
-            direction={{ xs: 'column', sm: 'row' }} 
+          <Stack
+            direction={{ xs: 'column', sm: 'row' }}
             spacing={{ xs: 1, sm: 2 }}
-            sx={{ 
+            sx={{
               width: { xs: '100%', sm: 'auto' },
               '& > button': {
                 width: { xs: '100%', sm: 'auto' },
@@ -345,8 +384,8 @@ export default function AlisIadeFaturaPrintPage() {
       </Paper>
 
       {/* Fatura Önizleme */}
-      <Box sx={{ 
-        display: 'flex', 
+      <Box sx={{
+        display: 'flex',
         justifyContent: { xs: 'flex-start', sm: 'center' },
         transform: { xs: 'none', sm: `scale(${zoom / 100})` },
         transformOrigin: 'top center',
@@ -495,7 +534,7 @@ function ClassicTemplate({
       </Box>
 
       {/* Ürün Tablosu */}
-      <TableContainer sx={{ 
+      <TableContainer sx={{
         mb: 2,
         overflowX: 'auto',
         WebkitOverflowScrolling: 'touch',
@@ -510,7 +549,7 @@ function ClassicTemplate({
           background: '#f1f1f1',
         },
       }}>
-        <Table size="small" sx={{ 
+        <Table size="small" sx={{
           '& td, & th': { fontSize: 'inherit', py: 0.5 },
           minWidth: { xs: '600px', sm: 'auto' },
         }}>
@@ -713,7 +752,7 @@ function ModernTemplate({
         </Box>
 
         {/* Ürün Tablosu */}
-        <TableContainer sx={{ 
+        <TableContainer sx={{
           mb: 2,
           overflowX: 'auto',
           WebkitOverflowScrolling: 'touch',
@@ -728,7 +767,7 @@ function ModernTemplate({
             background: '#f1f1f1',
           },
         }}>
-          <Table size="small" sx={{ 
+          <Table size="small" sx={{
             '& td, & th': { fontSize: 'inherit', border: 'none', py: 1 },
             minWidth: { xs: '600px', sm: 'auto' },
           }}>

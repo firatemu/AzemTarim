@@ -12,7 +12,7 @@ export function useCustomerVehicles(params?: {
   return useQuery({
     queryKey: ['customer-vehicles', page, limit, search, cariId],
     queryFn: async () => {
-      const response = await axios.get('/customer-vehicle', {
+      const response = await axios.get('/customer-vehicles', {
         params: { page, limit, search, cariId },
       });
       const data = response.data?.data ?? response.data;
@@ -37,7 +37,7 @@ export function useCreateCustomerVehicle() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (dto: CreateCustomerVehicleDto) => {
-      const response = await axios.post('/customer-vehicle', dto);
+      const response = await axios.post('/customer-vehicles', dto);
       return response.data;
     },
     onSuccess: () => {

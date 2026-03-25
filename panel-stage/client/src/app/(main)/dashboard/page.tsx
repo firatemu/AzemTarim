@@ -1,6 +1,6 @@
 import { serverFetch } from '@/lib/serverFetch';
 import DashboardClientContent from '@/components/dashboard/DashboardClientContent';
-import MainLayout from '@/components/Layout/MainLayout';
+import { StandardPage } from '@/components/common';
 
 export default async function DashboardPage() {
   // 1. Initial Data Fetching (Server-Side)
@@ -32,7 +32,7 @@ export default async function DashboardPage() {
     const [settingsRes, stokRes, cariRes] = await Promise.all([
       serverFetch('/tenants/settings').catch(() => null),
       serverFetch('/products?page=1&limit=5').catch(() => ({ data: [], meta: { total: 0 } })),
-      serverFetch('/accounts?page=1&limit=1').catch(() => ({ data: [], meta: { total: 0 } })),
+      serverFetch('/account?page=1&limit=1').catch(() => ({ data: [], meta: { total: 0 } })),
     ]);
 
     initialTenantSettings = settingsRes;
@@ -56,11 +56,11 @@ export default async function DashboardPage() {
   }
 
   return (
-    <MainLayout>
+    <StandardPage maxWidth={false}>
       <DashboardClientContent
         initialData={initialData}
         initialTenantSettings={initialTenantSettings}
       />
-    </MainLayout>
+    </StandardPage>
   );
 }

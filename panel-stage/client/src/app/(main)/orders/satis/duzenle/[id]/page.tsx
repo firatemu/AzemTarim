@@ -82,7 +82,7 @@ export default function DuzenleSatisSiparisiPage() {
 
   const fetchSiparis = async () => {
     try {
-      const response = await axios.get(`/siparis/${params.id}`);
+      const response = await axios.get(`/orders/${params.id}`);
       const siparis = response.data;
 
       setFormData({
@@ -124,7 +124,7 @@ export default function DuzenleSatisSiparisiPage() {
 
   const fetchStoklar = async () => {
     try {
-      const response = await axios.get('/product', {
+      const response = await axios.get('/products', {
         params: { limit: 1000 },
       });
       setStoklar(response.data.data || []);
@@ -305,7 +305,7 @@ export default function DuzenleSatisSiparisiPage() {
       }
 
       setSaving(true);
-      await axios.put(`/siparis/${params.id}`, {
+      await axios.put(`/orders/${params.id}`, {
         siparisTipi: formData.siparisTipi,
         cariId: formData.cariId,
         tarih: new Date(formData.tarih).toISOString(),
@@ -322,7 +322,7 @@ export default function DuzenleSatisSiparisiPage() {
         })),
       });
       showSnackbar('Sipariş başarıyla güncellendi', 'success');
-      setTimeout(() => router.push('/order/satis'), 1000);
+      setTimeout(() => router.push('/orders/satis'), 1000);
     } catch (error: any) {
       showSnackbar(error.response?.data?.message || 'Sipariş güncellenirken hata oluştu', 'error');
     } finally {

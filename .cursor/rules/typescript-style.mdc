@@ -1,0 +1,28 @@
+---
+description: "TypeScript and React coding standards"
+globs: ["**/*.ts", "**/*.tsx", "**/*.js", "**/*.jsx"]
+alwaysApply: true
+---
+
+# TypeScript & React Coding Style
+
+## Core Principles
+
+- **Typing**: Use explicit types for public APIs, shared models, and component props.
+- **Immutability**: Use spread operator for immutable updates.
+- **Error Handling**: Use async/await with try-catch and narrow unknown errors safely.
+- **Validation**: Use Zod or class-validator for schema-based validation.
+
+## NestJS (Backend)
+
+- **Module Structure**: Module -> Controller -> Service -> DTOs.
+- **Tenant Isolation**: ALL queries must include `tenantId`. Use `TenantResolverService`.
+- **Soft Delete**: Always use `deletedAt: null` in Prisma queries.
+- **Transaction**: Use `$transaction` for multi-step financial operations.
+
+## Next.js & MUI (Frontend)
+
+- **Hydration**: Avoid SSR/CSR hydration mismatches by ensuring client-side only elements are wrapped in `useEffect` or `dynamic` imports.
+- **MUI 7+**: Use `Grid2` (Grid) with `size` prop instead of `item` and `xs/md` on individual components.
+- **State Management**: Use Zustand for global UI state, keep Auth in secure cookies.
+- **Data Fetching**: Use `serverFetch` for SSR and `Axios` for CSR.

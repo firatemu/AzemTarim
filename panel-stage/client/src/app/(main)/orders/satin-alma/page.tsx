@@ -158,14 +158,14 @@ export default function SatinAlmaSiparisleriPage() {
       setLoading(true);
       const page = paginationModel.page + 1;
       const limit = paginationModel.pageSize;
-      const params: Record<string, string | number> = {
+      const params: Record<string, string | number | undefined> = {
         page,
         limit,
         search: searchTerm || undefined,
       };
       if (filterDurum) params.durum = filterDurum;
 
-      const response = await axios.get('/purchase-order', { params });
+      const response = await axios.get('/purchase-orders', { params });
       const data = response.data?.data || [];
       const total = response.data?.meta?.total ?? data.length;
       setSiparisler(data);
@@ -187,9 +187,9 @@ export default function SatinAlmaSiparisleriPage() {
   };
 
   const handleCreate = () => {
-    addTab({ id: 'yeni-satin-alma-siparis', label: 'Yeni Satın Alma Siparişi', path: '/order/satin-alma/yeni' });
+    addTab({ id: 'yeni-satin-alma-siparis', label: 'Yeni Satın Alma Siparişi', path: '/orders/satin-alma/yeni' });
     setActiveTab('yeni-satin-alma-siparis');
-    router.push('/order/satin-alma/yeni');
+    router.push('/orders/satin-alma/yeni');
   };
 
   const handleMenuOpen = (event: React.MouseEvent<HTMLElement>, siparisId: string) => {
@@ -204,18 +204,18 @@ export default function SatinAlmaSiparisleriPage() {
   };
 
   const handleView = (row: SatinAlmaSiparisi) => {
-    router.push(`/siparis/satin-alma/detay/${row.id}`);
+    router.push(`/orders/satin-alma/detay/${row.id}`);
   };
 
   const handleEdit = (row: SatinAlmaSiparisi) => {
     const tabId = `siparis-satin-alma-duzenle-${row.id}`;
-    addTab({ id: tabId, label: `Düzenle: ${row.siparisNo}`, path: `/siparis/satin-alma/duzenle/${row.id}` });
+    addTab({ id: tabId, label: `Düzenle: ${row.siparisNo}`, path: `/orders/satin-alma/duzenle/${row.id}` });
     setActiveTab(tabId);
-    router.push(`/siparis/satin-alma/duzenle/${row.id}`);
+    router.push(`/orders/satin-alma/duzenle/${row.id}`);
   };
 
   const handlePrint = (row: SatinAlmaSiparisi) => {
-    window.open(`/siparis/satin-alma/print/${row.id}`, '_blank');
+    window.open(`/orders/satin-alma/print/${row.id}`, '_blank');
   };
 
   const handleDurumChange = async (yeniDurum: string) => {

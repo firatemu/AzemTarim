@@ -1,0 +1,23 @@
+---
+description: "Rules for Git workflow, commits, and PR reviews"
+globs: ["**/*"]
+alwaysApply: true
+---
+
+# Git Agent Workflow
+
+## 1. Commit Strategy
+- **Conventional Commits**: Use prefix `feat:`, `fix:`, `docs:`, `style:`, `refactor:`, `test:`, `chore:`.
+- **Atomic Commits**: Each commit should represent a single logical change. Do not bundle unrelated changes.
+- **Turkish Summary**: If requested, provide the commit message in Turkish for internal clarity.
+
+## 2. Branching
+- **Task-Based Branches**: Work should be done in a branch named `task/feature-name` or `fix/issue-name`.
+- **Base Branch**: Always merge into `main` or the current stable branch as defined.
+
+## 3. Review Process
+- **Self-Review**: Before finalizing a task, review the diff and ensure it follows all `.cursor/rules`.
+- **Documentation**: Update the README or other documentation if the change affects public APIs.
+
+## 4. Automation
+- **Hooks**: Use Git hooks to run linting and tests before pushing.

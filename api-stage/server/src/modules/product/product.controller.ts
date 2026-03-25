@@ -81,7 +81,15 @@ export class ProductController {
   findAll(@Query() query: FindAllProductDto) {
     try {
       console.log('🔍 [Stok Controller] findAll çağrıldı', query);
-      return this.productService.findAll(query.page, query.limit, query.search, query.isActive);
+      return this.productService.findAll(
+        query.page,
+        query.limit,
+        query.search,
+        query.isActive,
+        query.brand,
+        query.mainCategory,
+        query.subCategory,
+      );
     } catch (error: any) {
       console.error('❌ [Stok Controller] findAll hatası:', error);
       throw error;
@@ -104,7 +112,7 @@ export class ProductController {
     return this.productService.canDelete(id);
   }
 
-  @Get(':id/hareketler')
+  @Get(':id/stock-movements')
   getHareketler(
     @Param('id') id: string,
     @Query('page') page?: string,
@@ -141,6 +149,11 @@ export class ProductController {
   @Delete(':id/match')
   matchmeKaldir(@Param('id') id: string) {
     return this.productService.matchmeKaldir(id);
+  }
+
+  @Get(':id/last-purchase-price')
+  getLastPurchasePrice(@Param('id') id: string) {
+    return this.productService.getLastPurchasePrice(id);
   }
 
   // Genel route'lar - EN SONDA tanımlanmalı

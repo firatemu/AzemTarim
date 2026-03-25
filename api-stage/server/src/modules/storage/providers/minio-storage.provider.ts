@@ -10,10 +10,14 @@ export class MinIOStorageProvider implements IStorageService, OnModuleInit {
     private readonly bucketName = process.env.MINIO_BUCKET || 'otomuhasebe';
 
     constructor(private readonly tenantContext: TenantContextService) {
+        const port = parseInt(process.env.MINIO_PORT || '9000');
+        const endpoint = process.env.MINIO_ENDPOINT || 'localhost';
+        const useSSL = process.env.MINIO_USE_SSL === 'true';
+
         this.client = new Minio.Client({
-            endPoint: process.env.MINIO_ENDPOINT || 'minio',
-            port: parseInt(process.env.MINIO_PORT || '9000'),
-            useSSL: process.env.MINIO_USE_SSL === 'true',
+            endPoint: endpoint,
+            port: port,
+            useSSL: useSSL,
             accessKey: process.env.MINIO_ACCESS_KEY,
             secretKey: process.env.MINIO_SECRET_KEY,
             region: process.env.MINIO_REGION || 'us-east-1',
@@ -37,9 +41,9 @@ export class MinIOStorageProvider implements IStorageService, OnModuleInit {
             });
             this.logger.log(`✅ Versioning enabled for '${this.bucketName}'`);
         } catch (error) {
-            // Don't crash the app in development if MinIO is not available
-            if (process.env.NODE_ENV === 'development') {
-                this.logger.warn(`⚠️  MinIO initialization failed in development mode: ${error.message}`);
+            // Don't crash the app in development or staging if MinIO is not available
+            if (process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'staging') {
+                this.logger.warn(`⚠️  MinIO initialization failed in ${process.env.NODE_ENV} mode: ${error.message}`);
                 this.logger.warn('⚠️  Storage operations will fail until MinIO is available');
             } else {
                 this.logger.error(`❌ MinIO initialization failed: ${error.message}`);

@@ -43,6 +43,21 @@ export class BankAccountCreateDto {
   @ApiProperty({ required: false })
   cardLimit?: number;
 
+  @IsNumber()
+  @IsOptional()
+  @ApiProperty({ required: false })
+  statementDay?: number;
+
+  @IsNumber()
+  @IsOptional()
+  @ApiProperty({ required: false })
+  paymentDueDay?: number;
+
+  @IsString()
+  @IsOptional()
+  @ApiProperty({ required: false })
+  terminalNo?: string;
+
   @IsBoolean()
   @IsOptional()
   @ApiProperty({ required: false, default: true })
@@ -50,6 +65,8 @@ export class BankAccountCreateDto {
 }
 
 export class BankAccountUpdateDto {
+  @IsString()
+  @IsOptional()
   @IsString()
   @IsOptional()
   name?: string;
@@ -65,4 +82,28 @@ export class BankAccountUpdateDto {
   @IsBoolean()
   @IsOptional()
   isActive?: boolean;
+
+  @IsNumber()
+  @IsOptional()
+  commissionRate?: number;
+
+  @IsNumber()
+  @IsOptional()
+  creditLimit?: number;
+
+  @IsNumber()
+  @IsOptional()
+  cardLimit?: number;
+
+  @IsNumber()
+  @IsOptional()
+  statementDay?: number;
+
+  @IsNumber()
+  @IsOptional()
+  paymentDueDay?: number;
+
+  @IsString()
+  @IsOptional()
+  terminalNo?: string;
 }

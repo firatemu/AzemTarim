@@ -3,6 +3,7 @@
 import { useAuthStore } from '@/stores/authStore';
 import { Alert, Snackbar } from '@mui/material';
 import { usePathname, useRouter } from 'next/navigation';
+import { clearServerAuthCookies } from '@/lib/clearServerAuthCookies';
 import {
   useCallback,
   useEffect,
@@ -109,8 +110,11 @@ export default function InactivityTracker() {
         events.forEach(({ name, handler }) => {
           window.removeEventListener(name, handler);
         });
-        clearAuth();
-        router.push('/login');
+        void (async () => {
+          await clearServerAuthCookies();
+          clearAuth();
+          router.push('/login');
+        })();
         return;
       }
 

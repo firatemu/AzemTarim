@@ -67,14 +67,14 @@ export default function SiparisHazirlamaListesiPage() {
       
       // Hem satış hem satın alma siparişlerini getir, sadece HAZIRLANIYOR durumundakileri
       const [satisSiparisler, satinAlmaSiparisler] = await Promise.all([
-        axios.get('/order', {
+        axios.get('/orders', {
           params: {
             siparisTipi: 'SATIS',
             search: searchTerm,
             limit: 100,
           },
         }),
-        axios.get('/order', {
+        axios.get('/orders', {
           params: {
             siparisTipi: 'SATIN_ALMA',
             search: searchTerm,
@@ -112,9 +112,9 @@ export default function SiparisHazirlamaListesiPage() {
   const handleHazirlama = (siparis: Siparis) => {
     // Sipariş tipine göre doğru route'a yönlendir
     if (siparis.siparisTipi === 'SATIS') {
-      router.push(`/siparis/satis/hazirlama/${siparis.id}`);
+      router.push(`/orders/satis/hazirlama/${siparis.id}`);
     } else {
-      router.push(`/siparis/satin-alma/hazirlama/${siparis.id}`);
+      router.push(`/orders/satin-alma/hazirlama/${siparis.id}`);
     }
   };
 
@@ -245,7 +245,7 @@ export default function SiparisHazirlamaListesiPage() {
                           <Button
                             variant="contained"
                             size="small"
-                            onClick={() => router.push(`/siparis/hazirla/${siparis.id}`)}
+                            onClick={() => router.push(`/orders/hazirla/${siparis.id}`)}
                             sx={{ 
                               background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
                             }}

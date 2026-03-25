@@ -59,19 +59,19 @@ export default function RafBazliSayimPage() {
   const router = useRouter();
   const rafBarcodeRef = useRef<HTMLInputElement>(null);
   const urunBarcodeRef = useRef<HTMLInputElement>(null);
-  
+
   const [sayimNo, setSayimNo] = useState('');
   const [aciklama, setAciklama] = useState('');
   const [kalemler, setKalemler] = useState<SayimKalemi[]>([]);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' });
   const [loading, setLoading] = useState(false);
-  
+
   // Barkod okuma için state'ler
   const [currentLocation, setCurrentLocation] = useState<Location | null>(null);
   const [rafBarcodeInput, setRafBarcodeInput] = useState('');
   const [urunBarcodeInput, setUrunBarcodeInput] = useState('');
   const [barcodeMode, setBarcodeMode] = useState(false);
-  
+
   // Manuel ekleme için
   const [urunler, setUrunler] = useState<Stok[]>([]);
   const [lokasyonlar, setLokasyonlar] = useState<Location[]>([]);
@@ -96,7 +96,7 @@ export default function RafBazliSayimPage() {
 
   const fetchUrunler = async () => {
     try {
-      const response = await axios.get('/product', { params: { limit: 1000 } });
+      const response = await axios.get('/products', { params: { limit: 1000 } });
       setUrunler(Array.isArray(response.data.data) ? response.data.data : []);
     } catch (error) {
       console.error('Ürün listesi yüklenemedi:', error);
@@ -114,7 +114,7 @@ export default function RafBazliSayimPage() {
 
   const generateSayimNo = async () => {
     try {
-      const response = await axios.get('/sayim', {
+      const response = await axios.get('/inventory-count', {
         params: { sayimTipi: 'RAF_BAZLI', limit: 1 },
       });
       const sayimlar = response.data || [];
@@ -129,9 +129,9 @@ export default function RafBazliSayimPage() {
 
   const handleRafBarcodeSubmit = async () => {
     if (!rafBarcodeInput.trim()) return;
-    
+
     try {
-      const response = await axios.get(`/sayim/barcode/location/${rafBarcodeInput}`);
+      const response = await axios.get(`/inventory-count/barcode/location/${rafBarcodeInput}`);
       setCurrentLocation(response.data);
       setRafBarcodeInput('');
       showSnackbar(`Raf: ${response.data.code} - Ürün okutmaya başlayın`, 'success');
@@ -143,16 +143,16 @@ export default function RafBazliSayimPage() {
 
   const handleUrunBarcodeSubmit = async () => {
     if (!urunBarcodeInput.trim() || !currentLocation) return;
-    
+
     try {
-      const response = await axios.get(`/sayim/barcode/product/${urunBarcodeInput}`);
+      const response = await axios.get(`/inventory-count/barcode/products/${urunBarcodeInput}`);
       const stok = response.data;
-      
+
       // Bu rafta bu ürün için kalem var mı?
       const existingIndex = kalemler.findIndex(
         k => k.stokId === stok.id && k.locationId === currentLocation.id
       );
-      
+
       if (existingIndex >= 0) {
         // Varsa miktarı artır
         const newKalemler = [...kalemler];
@@ -167,7 +167,7 @@ export default function RafBazliSayimPage() {
           const locationData = locationStockResponse.data;
           const productStock = locationData.productLocationStocks?.find((pls: any) => pls.productId === stok.id);
           const sistemMiktari = productStock?.qtyOnHand || 0;
-          
+
           setKalemler([
             ...kalemler,
             {
@@ -198,7 +198,7 @@ export default function RafBazliSayimPage() {
           showSnackbar(`${stok.stokAdi} - ${currentLocation.code} eklendi`, 'success');
         }
       }
-      
+
       setUrunBarcodeInput('');
     } catch (error: any) {
       showSnackbar(error.response?.data?.message || 'Ürün barkodu bulunamadı', 'error');
@@ -211,29 +211,29 @@ export default function RafBazliSayimPage() {
       showSnackbar('Lütfen ürün seçin', 'error');
       return;
     }
-    
+
     if (!secilenLokasyon) {
       showSnackbar('Lütfen lokasyon seçin', 'error');
       return;
     }
-    
+
     if (manuelMiktar <= 0) {
       showSnackbar('Miktar 0\'dan büyük olmalı', 'error');
       return;
     }
-    
+
     try {
       // Sistem miktarını getir
       const locationStockResponse = await axios.get(`/location/${secilenLokasyon.id}`);
       const locationData = locationStockResponse.data;
       const productStock = locationData.productLocationStocks?.find((pls: any) => pls.productId === secilenUrun.id);
       const sistemMiktari = productStock?.qtyOnHand || 0;
-      
+
       // Mevcut kalemde var mı kontrol et
       const existingIndex = kalemler.findIndex(
         k => k.stokId === secilenUrun.id && k.locationId === secilenLokasyon.id
       );
-      
+
       if (existingIndex >= 0) {
         // Varsa miktarı güncelle
         const newKalemler = [...kalemler];
@@ -257,7 +257,7 @@ export default function RafBazliSayimPage() {
         ]);
         showSnackbar(`${secilenUrun.stokAdi} - ${secilenLokasyon.code} eklendi`, 'success');
       }
-      
+
       // Dialog'u kapat ve resetle
       setManuelDialog(false);
       setSecilenUrun(null);
@@ -284,15 +284,15 @@ export default function RafBazliSayimPage() {
       showSnackbar('Sayım numarası gerekli', 'error');
       return;
     }
-    
+
     if (kalemler.length === 0) {
       showSnackbar('En az bir ürün saymalısınız', 'error');
       return;
     }
-    
+
     try {
       setLoading(true);
-      await axios.post('/sayim', {
+      await axios.post('/inventory-count', {
         sayimNo,
         sayimTipi: 'RAF_BAZLI',
         aciklama,
@@ -302,9 +302,9 @@ export default function RafBazliSayimPage() {
           sayilanMiktar: k.sayilanMiktar,
         })),
       });
-      
+
       showSnackbar('Raf bazlı sayım başarıyla kaydedildi', 'success');
-      setTimeout(() => router.push('/sayim/liste'), 1500);
+      setTimeout(() => router.push('/inventory-count/liste'), 1500);
     } catch (error: any) {
       showSnackbar(error.response?.data?.message || 'Kaydetme hatası', 'error');
     } finally {
@@ -413,7 +413,7 @@ export default function RafBazliSayimPage() {
                   <Box>
                     <Typography variant="h6">2. Adım: Ürün Barkodlarını Okutun</Typography>
                     <Typography variant="body2" color="text.secondary">
-                      Seçili Raf: <Chip label={currentLocation.code} size="small" color="primary" /> 
+                      Seçili Raf: <Chip label={currentLocation.code} size="small" color="primary" />
                       {currentLocation.warehouse.name}
                     </Typography>
                   </Box>
@@ -581,7 +581,7 @@ export default function RafBazliSayimPage() {
                   );
                 }}
               />
-              
+
               <Autocomplete
                 options={urunler}
                 getOptionLabel={(option) => `${option.stokKodu} - ${option.stokAdi}`}
@@ -610,7 +610,7 @@ export default function RafBazliSayimPage() {
                   );
                 }}
               />
-              
+
               <TextField
                 type="number"
                 label="Sayılan Miktar *"

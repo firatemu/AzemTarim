@@ -127,9 +127,9 @@ export default function IncomingGrid({ onViewXml, startDate, endDate }: Incoming
         senderVkn: targetIdentifier, // TargetIdentifier = Gönderen VKN
         senderTitle: targetTitle, // TargetTitle = Gönderen Ünvan
         invoiceNo: documentId, // DocumentId = Fatura No
-        invoiceDate: issueDate ? (typeof issueDate === 'string' ? issueDate : new Date(issueDate).toISOString()) : null,
+        invoiceDate: issueDate ? (typeof issueDate === 'string' ? issueDate : new Date(issueDate).toISOString()) : undefined,
         rawXml: doc.rawXml || doc.RawXml || doc.xml || doc.XML || null,
-        createdAt: createdDate ? (typeof createdDate === 'string' ? createdDate : new Date(createdDate).toISOString()) : null,
+        createdAt: createdDate ? (typeof createdDate === 'string' ? createdDate : new Date(createdDate).toISOString()) : undefined,
         payableAmount: payableAmount ? parseFloat(String(payableAmount)) : undefined,
         status: status ? String(status) : undefined,
         statusExp: statusExp ? String(statusExp) : undefined,
@@ -145,35 +145,35 @@ export default function IncomingGrid({ onViewXml, startDate, endDate }: Incoming
     }
   };
 
-  const handleDownloadXml = async (document: IncomingDocument) => {
-    if (!document.rawXml) {
+  const handleDownloadXml = async (doc: IncomingDocument) => {
+    if (!doc.rawXml) {
       alert('XML içeriği bulunamadı');
       return;
     }
 
-    const blob = new Blob([document.rawXml], { type: 'application/xml' });
+    const blob = new Blob([doc.rawXml], { type: 'application/xml' });
     const url = window.URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `${document.ettn || 'document'}.xml`;
+    link.download = `${doc.ettn || 'document'}.xml`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
     window.URL.revokeObjectURL(url);
   };
 
-  const handleDownloadPdf = async (doc: IncomingDocument) => {
+  const handleDownloadPdf = async (docInfo: IncomingDocument) => {
     // Client-side kontrolü - SSR sırasında çalışmamalı
     if (typeof window === 'undefined' || typeof document === 'undefined') {
       // #region agent log
-      fetch('http://localhost:7244/ingest/fde0823c-7edc-4232-a192-3b97a49bcd3d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'IncomingGrid.tsx:163',message:'handleDownloadPdf called on server side',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'run7',hypothesisId:'I'})}).catch(()=>{});
+      fetch('http://localhost:7244/ingest/fde0823c-7edc-4232-a192-3b97a49bcd3d', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'IncomingGrid.tsx:163', message: 'handleDownloadPdf called on server side', data: {}, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run7', hypothesisId: 'I' }) }).catch(() => { });
       // #endregion
       return;
     }
 
-    if (!doc.uuid && !doc.ettn) {
+    if (!docInfo.uuid && !docInfo.ettn) {
       // #region agent log
-      fetch('http://localhost:7244/ingest/fde0823c-7edc-4232-a192-3b97a49bcd3d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'IncomingGrid.tsx:168',message:'UUID/ETTN missing for PDF download',data:{uuid:doc.uuid,ettn:doc.ettn},timestamp:Date.now(),sessionId:'debug-session',runId:'run7',hypothesisId:'I'})}).catch(()=>{});
+      fetch('http://localhost:7244/ingest/fde0823c-7edc-4232-a192-3b97a49bcd3d', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'IncomingGrid.tsx:168', message: 'UUID/ETTN missing for PDF download', data: { uuid: docInfo.uuid, ettn: docInfo.ettn }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run7', hypothesisId: 'I' }) }).catch(() => { });
       // #endregion
       alert('UUID veya ETTN bulunamadı');
       return;
@@ -181,16 +181,16 @@ export default function IncomingGrid({ onViewXml, startDate, endDate }: Incoming
 
     try {
       // #region agent log
-      fetch('http://localhost:7244/ingest/fde0823c-7edc-4232-a192-3b97a49bcd3d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'IncomingGrid.tsx:175',message:'Downloading PDF',data:{uuid:doc.uuid,ettn:doc.ettn},timestamp:Date.now(),sessionId:'debug-session',runId:'run7',hypothesisId:'I'})}).catch(()=>{});
+      fetch('http://localhost:7244/ingest/fde0823c-7edc-4232-a192-3b97a49bcd3d', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'IncomingGrid.tsx:175', message: 'Downloading PDF', data: { uuid: docInfo.uuid, ettn: docInfo.ettn }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run7', hypothesisId: 'I' }) }).catch(() => { });
       // #endregion
 
-      const uuid = doc.uuid || doc.ettn;
+      const uuid = docInfo.uuid || docInfo.ettn;
       const response = await axios.get(`/hizli/document-content?uuid=${uuid}&type=PDF`, {
         responseType: 'json',
       });
 
       // #region agent log
-      fetch('http://localhost:7244/ingest/fde0823c-7edc-4232-a192-3b97a49bcd3d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'IncomingGrid.tsx:183',message:'PDF response received',data:{hasContent:!!response.data?.content,contentLength:response.data?.content?.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run7',hypothesisId:'I'})}).catch(()=>{});
+      fetch('http://localhost:7244/ingest/fde0823c-7edc-4232-a192-3b97a49bcd3d', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'IncomingGrid.tsx:183', message: 'PDF response received', data: { hasContent: !!response.data?.content, contentLength: response.data?.content?.length }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run7', hypothesisId: 'I' }) }).catch(() => { });
       // #endregion
 
       if (!response.data?.content) {
@@ -209,18 +209,18 @@ export default function IncomingGrid({ onViewXml, startDate, endDate }: Incoming
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `${doc.invoiceNo || doc.ettn || 'invoice'}.pdf`;
+      link.download = `${docInfo.invoiceNo || docInfo.ettn || 'invoice'}.pdf`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
 
       // #region agent log
-      fetch('http://localhost:7244/ingest/fde0823c-7edc-4232-a192-3b97a49bcd3d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'IncomingGrid.tsx:202',message:'PDF downloaded successfully',data:{fileName:`${doc.invoiceNo || doc.ettn || 'invoice'}.pdf`},timestamp:Date.now(),sessionId:'debug-session',runId:'run7',hypothesisId:'I'})}).catch(()=>{});
+      fetch('http://localhost:7244/ingest/fde0823c-7edc-4232-a192-3b97a49bcd3d', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'IncomingGrid.tsx:202', message: 'PDF downloaded successfully', data: { fileName: `${docInfo.invoiceNo || docInfo.ettn || 'invoice'}.pdf` }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run7', hypothesisId: 'I' }) }).catch(() => { });
       // #endregion
     } catch (error: any) {
       // #region agent log
-      fetch('http://localhost:7244/ingest/fde0823c-7edc-4232-a192-3b97a49bcd3d',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'IncomingGrid.tsx:205',message:'PDF download error',data:{error:error?.message || String(error)},timestamp:Date.now(),sessionId:'debug-session',runId:'run7',hypothesisId:'I'})}).catch(()=>{});
+      fetch('http://localhost:7244/ingest/fde0823c-7edc-4232-a192-3b97a49bcd3d', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'IncomingGrid.tsx:205', message: 'PDF download error', data: { error: error?.message || String(error) }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run7', hypothesisId: 'I' }) }).catch(() => { });
       // #endregion
       console.error('PDF indirme hatası:', error);
       alert('PDF indirilemedi: ' + (error?.message || 'Bilinmeyen hata'));

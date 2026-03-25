@@ -32,7 +32,7 @@ interface CreateAccountDialogProps {
 // Validation Schema
 const accountSchema = z.object({
     name: z.string().min(1, 'Hesap adı zorunludur'),
-    type: z.enum(['VADESIZ', 'POS', 'KREDI', 'FIRMA_KREDI_KARTI']),
+    type: z.enum(['DEMAND_DEPOSIT', 'POS', 'LOAN', 'COMPANY_CREDIT_CARD']),
     accountNo: z.string().optional(),
     iban: z.string().optional(),
     isActive: z.boolean().default(true),
@@ -41,11 +41,11 @@ const accountSchema = z.object({
     terminalNo: z.string().optional(),
     creditLimit: z.preprocess((val) => (val === '' || val === undefined || val === null) ? undefined : Number(val), z.number().min(0).optional()),
     cardLimit: z.preprocess((val) => (val === '' || val === undefined || val === null) ? undefined : Number(val), z.number().min(0).optional()),
-    billingDay: z.preprocess((val) => (val === '' || val === undefined || val === null) ? undefined : Number(val), z.number().min(1).max(31).optional()),
-    dueDay: z.preprocess((val) => (val === '' || val === undefined || val === null) ? undefined : Number(val), z.number().min(1).max(31).optional()),
+    statementDay: z.preprocess((val) => (val === '' || val === undefined || val === null) ? undefined : Number(val), z.number().min(1).max(31).optional()),
+    paymentDueDay: z.preprocess((val) => (val === '' || val === undefined || val === null) ? undefined : Number(val), z.number().min(1).max(31).optional()),
 }).superRefine((data, ctx) => {
 
-    if (data.type === 'FIRMA_KREDI_KARTI') {
+    if (data.type === 'COMPANY_CREDIT_CARD') {
         if (data.cardLimit === undefined) {
             ctx.addIssue({
                 code: z.ZodIssueCode.custom,
@@ -53,18 +53,18 @@ const accountSchema = z.object({
                 path: ['cardLimit'],
             });
         }
-        if (data.billingDay === undefined) {
+        if (data.statementDay === undefined) {
             ctx.addIssue({
                 code: z.ZodIssueCode.custom,
                 message: 'Hesap kesim günü zorunludur',
-                path: ['billingDay'],
+                path: ['statementDay'],
             });
         }
-        if (data.dueDay === undefined) {
+        if (data.paymentDueDay === undefined) {
             ctx.addIssue({
                 code: z.ZodIssueCode.custom,
                 message: 'Son ödeme günü zorunludur',
-                path: ['dueDay'],
+                path: ['paymentDueDay'],
             });
         }
     }
@@ -74,10 +74,10 @@ const accountSchema = z.object({
 type AccountFormValues = z.infer<typeof accountSchema>;
 
 export const accountTypes = [
-    { value: 'VADESIZ', label: 'Vadesiz Hesap', icon: AccountBalance, color: 'primary' },
+    { value: 'DEMAND_DEPOSIT', label: 'Vadesiz Hesap', icon: AccountBalance, color: 'primary' },
     { value: 'POS', label: 'POS Hesabı', icon: CreditCard, color: 'success' },
-    { value: 'KREDI', label: 'Ticari Kredi', icon: BusinessCenter, color: 'warning' },
-    { value: 'FIRMA_KREDI_KARTI', label: 'Firma Kredi Kartı', icon: Payment, color: 'error' },
+    { value: 'LOAN', label: 'Ticari Kredi', icon: BusinessCenter, color: 'warning' },
+    { value: 'COMPANY_CREDIT_CARD', label: 'Firma Kredi Kartı', icon: Payment, color: 'error' },
 ];
 
 const updateAccount = async (hesapId: string, data: any) => {
@@ -98,7 +98,7 @@ export default function CreateAccountDialog({ open, onClose, onSuccess, bankaId,
         resolver: zodResolver(accountSchema) as any,
         values: (initialData ? {
             name: initialData.name || initialData.hesapAdi || '',
-            type: initialData.type || initialData.hesapTipi || 'VADESIZ',
+            type: initialData.type || initialData.hesapTipi || 'DEMAND_DEPOSIT',
             accountNo: initialData.accountNo || initialData.hesapNo || '',
             iban: initialData.iban || '',
             isActive: initialData.isActive ?? initialData.aktif ?? true,
@@ -106,11 +106,11 @@ export default function CreateAccountDialog({ open, onClose, onSuccess, bankaId,
             terminalNo: initialData.terminalNo || '',
             creditLimit: initialData.creditLimit ?? initialData.krediLimiti ?? undefined,
             cardLimit: initialData.cardLimit ?? initialData.kartLimiti ?? undefined,
-            billingDay: initialData.billingDay ?? initialData.hesapKesimGunu ?? undefined,
-            dueDay: initialData.dueDay ?? initialData.sonOdemeGunu ?? undefined,
+            statementDay: initialData.statementDay || initialData.billingDay || initialData.hesapKesimGunu || undefined,
+            paymentDueDay: initialData.paymentDueDay || initialData.dueDay || initialData.sonOdemeGunu || undefined,
         } : {
             name: '',
-            type: 'VADESIZ',
+            type: 'DEMAND_DEPOSIT',
             accountNo: '',
             iban: '',
             isActive: true,
@@ -118,8 +118,8 @@ export default function CreateAccountDialog({ open, onClose, onSuccess, bankaId,
             terminalNo: '',
             creditLimit: undefined,
             cardLimit: undefined,
-            billingDay: undefined,
-            dueDay: undefined,
+            statementDay: undefined,
+            paymentDueDay: undefined,
         }) as AccountFormValues,
     });
 
@@ -187,8 +187,8 @@ export default function CreateAccountDialog({ open, onClose, onSuccess, bankaId,
                             )}
                         />
 
-                        {/* IBAN and Account No for VADESIZ, POS, KREDI */}
-                        {(type === 'VADESIZ' || type === 'POS' || type === 'KREDI') && (
+                        {/* IBAN and Account No for DEMAND_DEPOSIT, POS, LOAN */}
+                        {(type === 'DEMAND_DEPOSIT' || type === 'POS' || type === 'LOAN') && (
                             <Grid container spacing={2}>
                                 <Grid size={{ xs: 12 }}>
                                     <Controller
@@ -252,14 +252,14 @@ export default function CreateAccountDialog({ open, onClose, onSuccess, bankaId,
                             </Grid>
                         )}
 
-                        {/* KREDI: Credit Limit */}
-                        {type === 'KREDI' && (
+                        {/* LOAN: Credit Limit */}
+                        {type === 'LOAN' && (
                             // Kredi Limiti input field removed
                             null
                         )}
 
-                        {/* FIRMA_KREDI_KARTI: Card details */}
-                        {type === 'FIRMA_KREDI_KARTI' && (
+                        {/* COMPANY_CREDIT_CARD: Card details */}
+                        {type === 'COMPANY_CREDIT_CARD' && (
                             <>
                                 <Controller
                                     name="cardLimit"
@@ -279,7 +279,7 @@ export default function CreateAccountDialog({ open, onClose, onSuccess, bankaId,
                                 <Grid container spacing={2}>
                                     <Grid size={{ xs: 6 }}>
                                         <Controller
-                                            name="billingDay"
+                                            name="statementDay"
                                             control={control}
                                             render={({ field, fieldState }) => (
                                                 <TextField
@@ -297,7 +297,7 @@ export default function CreateAccountDialog({ open, onClose, onSuccess, bankaId,
                                     </Grid>
                                     <Grid size={{ xs: 6 }}>
                                         <Controller
-                                            name="dueDay"
+                                            name="paymentDueDay"
                                             control={control}
                                             render={({ field, fieldState }) => (
                                                 <TextField

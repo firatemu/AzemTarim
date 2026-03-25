@@ -92,7 +92,7 @@ export default function YeniSatinAlmaSiparisiPage() {
 
   const fetchStoklar = async () => {
     try {
-      const response = await axios.get('/product', {
+      const response = await axios.get('/products', {
         params: { limit: 1000 },
       });
       setStoklar(response.data.data || []);
@@ -103,7 +103,7 @@ export default function YeniSatinAlmaSiparisiPage() {
 
   const generateSiparisNo = async () => {
     try {
-      const response = await axios.get('/purchase-order', {
+      const response = await axios.get('/purchase-orders', {
         params: { limit: 1 },
       });
       const siparisler = response.data.data || [];
@@ -297,7 +297,7 @@ export default function YeniSatinAlmaSiparisiPage() {
       }
 
       setLoading(true);
-      const response = await axios.post('/purchase-order', {
+      const response = await axios.post('/purchase-orders', {
         siparisNo: formData.siparisNo,
         cariId: formData.cariId,
         tarih: new Date(formData.tarih).toISOString(),
@@ -321,11 +321,11 @@ export default function YeniSatinAlmaSiparisiPage() {
       const siparisId = response.data?.id || response.data?.data?.id;
       if (siparisId) {
         setTimeout(() => {
-          router.push(`/siparis/satin-alma/detay/${siparisId}`);
+          router.push(`/orders/satin-alma/detay/${siparisId}`);
         }, 1500);
       } else {
         setTimeout(() => {
-          router.push('/order/satin-alma');
+          router.push('/orders/satin-alma');
         }, 1500);
       }
     } catch (error: any) {
@@ -352,7 +352,7 @@ export default function YeniSatinAlmaSiparisiPage() {
       <Box sx={{ mb: 3 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
           <IconButton
-            onClick={() => router.push('/order/satin-alma')}
+            onClick={() => router.push('/orders/satin-alma')}
             sx={{
               bgcolor: '#f3f4f6',
               '&:hover': { bgcolor: '#e5e7eb' }
@@ -751,7 +751,7 @@ export default function YeniSatinAlmaSiparisiPage() {
               <Button
                 variant="outlined"
                 size="large"
-                onClick={() => router.push('/order/satin-alma')}
+                onClick={() => router.push('/orders/satin-alma')}
               >
                 İptal
               </Button>

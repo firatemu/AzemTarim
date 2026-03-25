@@ -47,7 +47,7 @@ export default function AmbarStokRaporuPage() {
   const fetchReport = async () => {
     try {
       setLoading(true);
-      const response = await axios.get('/warehouse/all/universal-stock-report', {
+      const response = await axios.get('/warehouses/all/universal-stock-report', {
         params: { date }
       });
       setReportData(response.data.report);
@@ -173,7 +173,7 @@ export default function AmbarStokRaporuPage() {
             Ambar Stok Raporu
           </Typography>
           <Button
-            variant="outline"
+            variant="outlined"
             startIcon={<Download />}
             onClick={handleExport}
             sx={{

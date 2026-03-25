@@ -78,6 +78,7 @@ export class WorkOrderService {
       where: {
         id,
         ...buildTenantWhereClause(tenantId ?? undefined),
+        deletedAt: null,
       },
       include: {
         customerVehicle: true,
@@ -205,6 +206,7 @@ export class WorkOrderService {
       where: {
         id: workOrderId,
         ...buildTenantWhereClause(tenantId ?? undefined),
+        deletedAt: null,
       },
       data: {
         totalLaborCost: new Decimal(labor),
@@ -309,6 +311,7 @@ export class WorkOrderService {
         where: {
           id: workOrderId,
           ...buildTenantWhereClause(tenantId ?? undefined),
+          deletedAt: null,
         },
         data: { status: dto.status },
       });
@@ -454,6 +457,7 @@ export class WorkOrderService {
         where: {
           id,
           ...buildTenantWhereClause(tenantId ?? undefined),
+          deletedAt: null,
         },
         data: {
           status: 'PENDING_APPROVAL',
@@ -482,6 +486,7 @@ export class WorkOrderService {
         where: {
           id,
           ...buildTenantWhereClause(tenantId ?? undefined),
+          deletedAt: null,
         },
         data: {
           ...dto,
@@ -513,6 +518,7 @@ export class WorkOrderService {
         where: {
           id,
           ...buildTenantWhereClause(tenantId ?? undefined),
+          deletedAt: null,
         },
         data: {
           vehicleWorkflowStatus: dto.status
@@ -547,6 +553,7 @@ export class WorkOrderService {
     const tenantId = await this.tenantResolver.resolveForQuery();
     const where: Prisma.WorkOrderWhereInput = {
       ...buildTenantWhereClause(tenantId ?? undefined),
+      deletedAt: null,
     };
     return this.prisma.workOrder.findMany({
       where,

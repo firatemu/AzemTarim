@@ -15,6 +15,7 @@ import {
     IconButton,
 } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
+// @ts-ignore
 import { FixedSizeList as List } from 'react-window';
 import Timeline from '@mui/lab/Timeline';
 import TimelineItem from '@mui/lab/TimelineItem';
@@ -41,7 +42,7 @@ import { DiffViewer } from './DiffViewer';
 // ─── Aksiyon konfigürasyonu ───
 const ACTION_CONFIG: Record<
     string,
-    { icon: React.ReactNode; color: 'success' | 'primary' | 'error' | 'warning' | 'grey' | 'inherit'; label: string }
+    { icon: React.ReactNode; color: 'success' | 'primary' | 'error' | 'warning' | 'info' | 'secondary' | 'default'; label: string }
 > = {
     CREATE: { icon: <AddIcon fontSize="small" />, color: 'success', label: 'Oluşturuldu' },
     UPDATE: { icon: <EditIcon fontSize="small" />, color: 'primary', label: 'Güncellendi' },
@@ -52,7 +53,7 @@ const ACTION_CONFIG: Record<
     REJECT: { icon: <CancelIcon fontSize="small" />, color: 'error', label: 'Reddedildi' },
     LOCK: { icon: <LockIcon fontSize="small" />, color: 'warning', label: 'Kilitlendi' },
     UNLOCK: { icon: <LockIcon fontSize="small" />, color: 'success', label: 'Kilit Açıldı' },
-    VIEW: { icon: <VisibilityIcon fontSize="small" />, color: 'grey', label: 'Görüntülendi' },
+    VIEW: { icon: <VisibilityIcon fontSize="small" />, color: 'default', label: 'Görüntülendi' },
     EXPORT: { icon: <DownloadIcon fontSize="small" />, color: 'primary', label: 'Dışa Aktarıldı' },
 };
 
@@ -126,7 +127,7 @@ export function AuditTimeline({
                     {/* Orta: Dot + Connector */}
                     <TimelineSeparator>
                         <TimelineDot
-                            color={config.color === 'grey' ? 'inherit' : config.color}
+                            color={config.color === 'default' ? 'grey' : config.color}
                             variant="outlined"
                             sx={{ p: 0.5, my: 1 }}
                         >
@@ -141,7 +142,7 @@ export function AuditTimeline({
                             <Chip
                                 label={config.label}
                                 size="small"
-                                color={config.color === 'grey' ? 'default' : config.color}
+                                color={config.color}
                                 sx={{ height: 20, fontSize: 11 }}
                             />
                             {hasChanges && log.changedFields?.length > 0 && (

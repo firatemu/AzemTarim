@@ -82,7 +82,7 @@ function PutAwayPageContent() {
 
   const fetchProducts = async () => {
     try {
-      const response = await axios.get('/product', {
+      const response = await axios.get('/products', {
         params: { limit: 1000 }
       });
       setProducts(Array.isArray(response.data.data) ? response.data.data : []);
@@ -94,7 +94,7 @@ function PutAwayPageContent() {
 
   const fetchWarehouses = async () => {
     try {
-      const response = await axios.get('/warehouse', { params: { active: true } });
+      const response = await axios.get('/warehouses', { params: { active: true } });
       setWarehouses(Array.isArray(response.data) ? response.data : []);
     } catch (error) {
       console.error('Depo listesi alınamadı:', error);
@@ -187,7 +187,7 @@ function PutAwayPageContent() {
         note: formData.note || undefined,
       };
 
-      await axios.post('/stock-move/assign-location', payload);
+      await axios.post('/stock-movements/assign-location', payload);
       
       const message = 'Raf adresi başarıyla tanımlandı';
       

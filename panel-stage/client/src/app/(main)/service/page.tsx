@@ -5,6 +5,7 @@ import { Box, Typography, Grid, Card, CardContent, CardActionArea, CircularProgr
 import { Build, DirectionsCar, Assignment, Receipt, AccountBalance, Inventory, Engineering, TrendingUp, Schedule } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/stores/authStore';
+import { StandardPage } from '@/components/common';
 import axios from '@/lib/axios';
 
 type ServisStats = {
@@ -79,7 +80,7 @@ export default function ServisHubPage() {
 
   useEffect(() => {
     axios
-      .get('/work-order/stats')
+      .get('/work-orders/stats')
       .then((res) => setStats(res.data))
       .catch(() => setStats(null))
       .finally(() => setStatsLoading(false));
@@ -89,7 +90,7 @@ export default function ServisHubPage() {
     new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY', maximumFractionDigits: 0 }).format(n);
 
   return (
-    <>
+    <StandardPage maxWidth={false}>
       <Typography
         variant="h4"
         sx={{
@@ -283,6 +284,6 @@ export default function ServisHubPage() {
           );
         })}
       </Grid>
-    </>
+    </StandardPage>
   );
 }

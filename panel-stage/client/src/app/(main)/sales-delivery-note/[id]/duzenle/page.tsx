@@ -109,7 +109,7 @@ export default function DuzenleSatisIrsaliyesiPage() {
 
   const fetchStoklar = async () => {
     try {
-      const response = await axios.get('/product', {
+      const response = await axios.get('/products', {
         params: { limit: 1000 },
       });
       setStoklar(response.data.data || []);
@@ -120,7 +120,7 @@ export default function DuzenleSatisIrsaliyesiPage() {
 
   const fetchWarehouses = async () => {
     try {
-      const response = await axios.get('/warehouse?active=true');
+      const response = await axios.get('/warehouses?active=true');
       const warehouseList = response.data || [];
       setWarehouses(warehouseList);
 
@@ -135,7 +135,7 @@ export default function DuzenleSatisIrsaliyesiPage() {
   const fetchIrsaliye = async () => {
     try {
       setLoading(true);
-      const response = await axios.get(`/satis-irsaliyesi/${irsaliyeId}`);
+      const response = await axios.get(`/sales-waybills/${irsaliyeId}`);
       const irsaliye = response.data;
 
       setFormData({
@@ -359,7 +359,7 @@ export default function DuzenleSatisIrsaliyesiPage() {
       }, 0);
       const toplamIskonto = toplamKalemIskontosu + (formData.genelIskontoTutar || 0);
 
-      await axios.put(`/satis-irsaliyesi/${irsaliyeId}`, {
+      await axios.put(`/sales-waybills/${irsaliyeId}`, {
         irsaliyeNo: formData.irsaliyeNo,
         irsaliyeTarihi: new Date(formData.irsaliyeTarihi).toISOString(),
         cariId: formData.cariId,
@@ -381,7 +381,7 @@ export default function DuzenleSatisIrsaliyesiPage() {
 
       showSnackbar('İrsaliye başarıyla güncellendi', 'success');
       setTimeout(() => {
-        router.push(`/satis-irsaliyesi/${irsaliyeId}`);
+        router.push(`/sales-waybills/${irsaliyeId}`);
       }, 1500);
     } catch (error: any) {
       showSnackbar(error.response?.data?.message || 'İşlem sırasında hata oluştu', 'error');

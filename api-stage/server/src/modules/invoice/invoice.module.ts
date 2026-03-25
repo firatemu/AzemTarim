@@ -12,6 +12,16 @@ import { CostingModule } from '../costing/costing.module';
 import { SystemParameterModule } from '../system-parameter/system-parameter.module';
 import { WarehouseModule } from '../warehouse/warehouse.module';
 import { DeletionProtectionModule } from '../../common/services/deletion-protection.module';
+import { AccountBalanceModule } from '../account-balance/account-balance.module';
+import { UnitSetModule } from '../unit-set/unit-set.module';
+
+import { BullModule } from '@nestjs/bullmq';
+import { StockEffectService } from './services/stock-effect.service';
+import { AccountEffectService } from './services/account-effect.service';
+import { InvoiceOrchestratorService } from './services/invoice-orchestrator.service';
+import { ReconciliationService } from './services/reconciliation.service';
+import { InvoiceEffectsProcessor } from './processors/invoice-effects.processor';
+import { InvoiceOrchestratorController } from './controllers/invoice-orchestrator.controller';
 
 @Module({
   imports: [
@@ -24,9 +34,23 @@ import { DeletionProtectionModule } from '../../common/services/deletion-protect
     SystemParameterModule,
     WarehouseModule,
     DeletionProtectionModule,
+    AccountBalanceModule,
+    UnitSetModule,
+    BullModule.registerQueue({
+      name: 'invoice-effects',
+    }),
   ],
-  controllers: [InvoiceController],
-  providers: [InvoiceService, InvoiceExportService, TcmbService],
-  exports: [InvoiceService],
+  controllers: [InvoiceController, InvoiceOrchestratorController],
+  providers: [
+    InvoiceService,
+    InvoiceExportService,
+    TcmbService,
+    StockEffectService,
+    AccountEffectService,
+    InvoiceOrchestratorService,
+    ReconciliationService,
+    InvoiceEffectsProcessor,
+  ],
+  exports: [InvoiceService, InvoiceOrchestratorService, ReconciliationService],
 })
 export class InvoiceModule { }

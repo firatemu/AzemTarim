@@ -541,9 +541,9 @@ export default function InvoiceViewModal({ open, onClose, document }: InvoiceVie
                         <TableRow key={line.id || index}>
                           <TableCell>{line.id}</TableCell>
                           <TableCell>{line.name || '-'}</TableCell>
-                          <TableCell align="right">{line.quantity.toFixed(2)}</TableCell>
+                          <TableCell align="right">{(line.quantity || 0).toFixed(2)}</TableCell>
                           <TableCell align="right">
-                            {formatCurrency(line.unitPrice, invoiceData.currency)}
+                            {formatCurrency(line.unitPrice || 0, invoiceData.currency)}
                           </TableCell>
                           <TableCell align="right">
                             {formatCurrency(line.lineExtensionAmount || 0, invoiceData.currency)}

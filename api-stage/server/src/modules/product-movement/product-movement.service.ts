@@ -82,40 +82,7 @@ export class ProductMovementService {
     ]);
 
     return {
-      data: data.map((row: any) => ({
-        ...row,
-        product: row.product
-          ? {
-            id: row.product.id,
-            code: row.product.code,
-            name: row.product.name,
-            brand: row.product.brand,
-            unit: row.product.unit,
-          }
-          : null,
-        invoiceItem: row.invoiceItem
-          ? {
-            id: row.invoiceItem.id,
-            unitPrice: row.invoiceItem.unitPrice,
-            discountRate: row.invoiceItem.discountRate,
-            discountAmount: row.invoiceItem.discountAmount,
-            amount: row.invoiceItem.amount,
-            invoice: row.invoiceItem.invoice
-              ? {
-                invoiceNo: row.invoiceItem.invoice.invoiceNo,
-                invoiceType: row.invoiceItem.invoice.invoiceType,
-                status: row.invoiceItem.invoice.status,
-                account: row.invoiceItem.invoice.account
-                  ? {
-                    title: row.invoiceItem.invoice.account.title,
-                    code: row.invoiceItem.invoice.account.code,
-                  }
-                  : null,
-              }
-              : null,
-          }
-          : null,
-      })),
+      data,
       meta: {
         total,
         page,

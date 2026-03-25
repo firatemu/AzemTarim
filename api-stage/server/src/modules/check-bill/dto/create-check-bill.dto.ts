@@ -1,5 +1,5 @@
 import { IsEnum, IsNotEmpty, IsNumber, IsOptional, IsString, IsDateString, Min } from 'class-validator';
-import { CheckBillType } from '@prisma/client';
+import { CheckBillType, PortfolioType } from '@prisma/client';
 
 export class CreateCheckBillDto {
     @IsEnum(CheckBillType)
@@ -11,6 +11,14 @@ export class CreateCheckBillDto {
 
     @IsDateString()
     dueDate: string;
+
+    @IsString()
+    @IsOptional()
+    serialNo?: string;
+
+    @IsEnum(PortfolioType)
+    portfolioType: PortfolioType;
+
 
     @IsNumber()
     @Min(0)
@@ -65,4 +73,9 @@ export class UpdateCheckBillDto {
     @IsString()
     @IsOptional()
     notes?: string;
+
+    @IsNumber()
+    @Min(0)
+    @IsOptional()
+    amount?: number;
 }

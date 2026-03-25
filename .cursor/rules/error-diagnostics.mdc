@@ -1,0 +1,25 @@
+---
+description: "Rules for diagnosing 500 errors, logging, and troubleshooting workflows"
+globs: ["**/*"]
+alwaysApply: true
+---
+
+# Error Diagnostics & Troubleshooting
+
+## 1. Internal Server Error (500) Handling
+- **Root Cause Analysis**: Use `docker logs` or NestJS logger to identify the exact line and message of the error.
+- **Prisma Failures**: If the error is related to Prisma, check if the client is synchronized with the latest schema changes.
+- **Row Mapping**: Verify if any `findMany` or `update` operations are hitting records that don't match the new schema.
+
+## 2. Standard Exceptions
+- **Domain Errors**: Use custom NestJS exceptions (e.g., `BadRequestException`, `NotFoundException`, `ConflictException`).
+- **Forbidden Error**: Return `ForbiddenException` for tenant isolation breaches.
+
+## 3. Logging Strategy
+- **Tracing**: Every error log MUST include `tenant_id` and `user_id` for traceability.
+- **Sanitization**: Never log sensitive data like passwords or full JWT tokens.
+
+## 4. Diagnostic Checklist
+1. Check backend logs for the stack trace.
+2. Verify frontend request payload via network tab.
+3. Use raw SQL to inspect the database state if Prisma Client is suspected.

@@ -65,11 +65,25 @@ export default function LoginPage() {
       const { user, accessToken, refreshToken } = response.data;
       setAuth(user, accessToken, refreshToken);
 
+      const slimUser = {
+        id: user?.id,
+        email: user?.email,
+        username: user?.username,
+        fullName: user?.fullName,
+        role: user?.role != null ? String(user.role) : undefined,
+        tenantId: user?.tenantId ?? null,
+      };
+
       // Set cookies via API Route instead of Server Action to avoid 404/EAI errors
       await fetch('/api/auth/cookies', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ accessToken, refreshToken, tenantId: user.tenantId }),
+        body: JSON.stringify({
+          accessToken,
+          refreshToken,
+          tenantId: user.tenantId,
+          user: slimUser,
+        }),
       });
 
       router.push('/dashboard');
@@ -181,10 +195,10 @@ export default function LoginPage() {
             {/* Header Section */}
             <Box
               sx={{
-                background: 'linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%)',
+                background: 'linear-gradient(135deg, #ff9800 0%, #f57c00 100%)',
                 p: 4,
                 textAlign: 'center',
-                color: 'var(--primary-foreground)',
+                color: 'white',
                 position: 'relative',
                 overflow: 'hidden',
               }}
@@ -311,23 +325,23 @@ export default function LoginPage() {
                         '&:hover': {
                           backgroundColor: 'var(--card)',
                           '& fieldset': {
-                            borderColor: 'var(--primary)',
+                            borderColor: '#f57c00',
                             borderWidth: 2,
                           },
                         },
                         '&.Mui-focused': {
                           backgroundColor: 'var(--card)',
                           '& fieldset': {
-                            borderColor: 'var(--primary)',
+                            borderColor: '#f57c00',
                             borderWidth: 2,
                           },
                         },
                         '& fieldset': {
-                          borderColor: 'color-mix(in srgb, var(--primary) 30%, transparent)',
+                          borderColor: 'color-mix(in srgb, #f57c00 30%, transparent)',
                         },
                       },
                       '& .MuiInputLabel-root.Mui-focused': {
-                        color: 'var(--primary)',
+                        color: '#f57c00',
                       },
                     }}
                   />
@@ -373,23 +387,23 @@ export default function LoginPage() {
                         '&:hover': {
                           backgroundColor: 'var(--card)',
                           '& fieldset': {
-                            borderColor: 'var(--secondary)',
+                            borderColor: '#f57c00',
                             borderWidth: 2,
                           },
                         },
                         '&.Mui-focused': {
                           backgroundColor: 'var(--card)',
                           '& fieldset': {
-                            borderColor: 'var(--secondary)',
+                            borderColor: '#f57c00',
                             borderWidth: 2,
                           },
                         },
                         '& fieldset': {
-                          borderColor: 'color-mix(in srgb, var(--secondary) 30%, transparent)',
+                          borderColor: 'color-mix(in srgb, #f57c00 30%, transparent)',
                         },
                       },
                       '& .MuiInputLabel-root.Mui-focused': {
-                        color: 'var(--secondary)',
+                        color: '#f57c00',
                       },
                     }}
                   />

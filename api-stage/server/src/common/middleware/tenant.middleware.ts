@@ -13,6 +13,12 @@ declare global {
       tenantId?: string;
       userId?: string;
       jwtPayload?: JwtPayload & { user?: any };
+      /** B2B Portal (x-b2b-domain + guard) */
+      b2bTenantId?: string;
+      b2bDomainId?: string;
+      b2bDomainHost?: string;
+      /** B2bEffectiveCustomerGuard */
+      effectiveB2bCustomerId?: string;
     }
   }
 }
@@ -86,6 +92,12 @@ export class TenantMiddleware implements NestMiddleware {
       return next();
     }
 
+    // B2B Portal: tenant ERP JWT + staging fallback ile belirlenmez; domain + B2B JWT guard kullanılır
+    // B2B Admin için normal tenant akışını kullan (admin normal ERP tenant'ı kullanır)
+    if (req.originalUrl?.startsWith('/api/b2b/portal')) {
+      return next();
+    }
+
     // CLS context başlat ve middleware mantığını içine al
     ClsService.run(async () => {
       try {
@@ -135,6 +147,18 @@ export class TenantMiddleware implements NestMiddleware {
         req.user = jwtPayload as any;
       } catch (error) {
         // Token geçersizse misafir olarak devam et
+      }
+    }
+
+    // 2.5. Staging'de tenantId doğrulaması (JWT'den gelen ID veritabanında yoksa fallback için temizle)
+    if (req.tenantId && isStaging) {
+      const tenantExists = await this.prisma.tenant.findUnique({
+        where: { id: req.tenantId },
+        select: { id: true },
+      });
+      if (!tenantExists) {
+        console.warn(`[TenantMiddleware] Invalid tenantId in JWT/Header: ${req.tenantId}, clearing for fallback.`);
+        req.tenantId = undefined;
       }
     }
 

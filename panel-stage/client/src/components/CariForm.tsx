@@ -47,8 +47,6 @@ const CariForm = React.memo(({ data, onChange, onCityChange, availableDistricts,
         <CariGenelForm
           data={data}
           onChange={onChange}
-          onCityChange={onCityChange}
-          availableDistricts={availableDistricts}
           satisElemanlari={satisElemanlari}
           loadingSalespersons={false}
         />
@@ -63,7 +61,12 @@ const CariForm = React.memo(({ data, onChange, onCityChange, availableDistricts,
       </Box>
 
       <Box sx={{ display: activeTab === 3 ? 'block' : 'none' }}>
-        <CariAdresForm data={data} onChange={onChange} />
+        <CariAdresForm
+          data={data}
+          onChange={onChange}
+          onCityChange={onCityChange}
+          availableDistricts={availableDistricts}
+        />
       </Box>
 
       <Box sx={{ display: activeTab === 4 ? 'block' : 'none' }}>

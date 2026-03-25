@@ -80,9 +80,49 @@ export default function FaturaPrintPage() {
   const fetchFatura = async () => {
     try {
       setLoading(true);
-      const response = await axios.get(`/fatura/${id}`);
-      setFatura(response.data);
+      const response = await axios.get(`/invoices/${id}`);
+      const data = response.data;
 
+      // Map backend fields to frontend interface
+      const mappedFatura: Fatura = {
+        id: data.id,
+        faturaNo: data.invoiceNo || data.faturaNo,
+        faturaTipi: data.invoiceType || data.faturaTipi,
+        durum: data.status || data.durum,
+        tarih: data.date || data.tarih,
+        vadeTarihi: data.dueDate || data.vadeTarihi || data.vade,
+        toplamTutar: Number(data.totalAmount || data.toplamTutar || 0),
+        kdvTutar: Number(data.vatAmount || data.kdvTutar || 0),
+        genelToplam: Number(data.grandTotal || data.genelToplam || 0),
+        iskonto: Number(data.discount || data.iskonto || 0),
+        aciklama: data.notes || data.aciklama,
+        cari: {
+          cariKodu: data.account?.code || data.cari?.cariKodu,
+          unvan: data.account?.title || data.cari?.unvan,
+          adres: data.account?.address || data.cari?.adres,
+          telefon: data.account?.phone || data.cari?.telefon,
+          vergiNo: data.account?.taxNo || data.cari?.vergiNo,
+          vergiDairesi: data.account?.taxOffice || data.cari?.vergiDairesi,
+        },
+        kalemler: (data.items || data.kalemler || []).map((item: any) => ({
+          id: item.id,
+          stokId: item.productId || item.stokId,
+          miktar: Number(item.quantity || item.miktar || 0),
+          birimFiyat: Number(item.unitPrice || item.birimFiyat || 0),
+          kdvOrani: Number(item.vatRate || item.kdvOrani || 0),
+          tutar: Number(item.amount || item.tutar || 0),
+          kdvTutar: Number(item.vatAmount || item.kdvTutar || 0),
+          stok: {
+            stokKodu: item.product?.code || item.stok?.stokKodu,
+            stokAdi: item.product?.name || item.stok?.stokAdi,
+            birim: item.product?.unit || item.stok?.birim,
+          },
+        })),
+      };
+
+      setFatura(mappedFatura);
+
+      // Fetch company settings
       try {
         const settingsRes = await axios.get('/tenants/settings');
         setCompanyInfo(settingsRes.data);

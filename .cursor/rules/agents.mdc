@@ -1,0 +1,31 @@
+---
+description: "Agent orchestration and coordination rules for complex tasks"
+globs: ["**/*"]
+alwaysApply: true
+---
+
+# Agent Orchestration
+
+## Available Agents Categories
+
+| Category | Purpose | When to Use |
+|----------|---------|-------------|
+| **Planner** | Implementation planning | Complex features, refactoring |
+| **Architect** | System design | Architectural decisions |
+| **Reviewer** | Code/Security review | After writing code, before commits |
+| **Researcher** | Information gathering | New technologies, complex bug analysis |
+| **Executor** | Code implementation | Small tasks, bug fixes |
+
+## Implementation Strategy
+
+1. **Research First**: ALWAYS perform research using `list_dir`, `grep_search`, or `browser` BEFORE proposing changes.
+2. **Plan Before Action**: For any change affecting more than 2 files, create or update `implementation_plan.md`.
+3. **Parallel Task Execution**: If tasks are independent, execute them in parallel tool calls.
+
+## Multi-Perspective Analysis
+
+For complex problems, simulate these roles:
+- **Senior Backend Engineer**: Focus on architecture and database integrity.
+- **Frontend Architect**: Focus on UI/UX, MUI standards, and hydration.
+- **Security Auditor**: Focus on tenant isolation and JWT safety.
+- **Quality Assurance**: Focus on edge cases and error handling.

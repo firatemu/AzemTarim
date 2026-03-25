@@ -31,7 +31,7 @@ export default function KPIHeader({ loading, data, type }: StatsProps) {
             value: data?.aylikSatis?.tutar || 0,
             count: data?.aylikSatis?.adet || 0,
             icon: isSatis ? <TrendingUp /> : <TrendingDown />,
-            color: isSatis ? '#10b981' : '#f59e0b', // emerald-500 : amber-500
+            color: isSatis ? 'var(--chart-3)' : 'var(--chart-2)',
             bgColor: isSatis ? 'color-mix(in srgb, var(--chart-3) 15%, transparent)' : 'color-mix(in srgb, var(--chart-2) 15%, transparent)',
         },
         {
@@ -39,7 +39,7 @@ export default function KPIHeader({ loading, data, type }: StatsProps) {
             value: data?.tahsilatBekleyen?.tutar || 0,
             count: data?.tahsilatBekleyen?.adet || 0,
             icon: <HourglassEmpty />,
-            color: '#3b82f6', // blue-500
+            color: 'var(--chart-1)',
             bgColor: 'color-mix(in srgb, var(--chart-1) 15%, transparent)',
         },
         {
@@ -47,7 +47,7 @@ export default function KPIHeader({ loading, data, type }: StatsProps) {
             value: data?.vadesiGecmis?.tutar || 0,
             count: data?.vadesiGecmis?.adet || 0,
             icon: <Dangerous />,
-            color: '#ef4444', // red-500
+            color: 'var(--destructive)',
             bgColor: 'color-mix(in srgb, var(--destructive) 15%, transparent)',
         },
     ];

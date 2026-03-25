@@ -81,6 +81,7 @@ export class ProductService {
         internalNote: dto.internalNote ?? undefined,
         minOrderQty: dto.minOrderQty != null ? dto.minOrderQty : undefined,
         leadTimeDays: dto.leadTimeDays != null ? dto.leadTimeDays : undefined,
+        isB2B: dto.isB2B ?? false,
       };
       const createdStok = await this.prisma.$transaction(async (tx) => {
         const product = await tx.product.create({
@@ -115,6 +116,9 @@ export class ProductService {
         return product;
       });
 
+      // Update code template counter
+      await this.codeTemplateService.saveLastCode(ModuleType.PRODUCT, createdStok.code);
+
       return createdStok;
     } catch (error: any) {
       console.error('❌ [Stok Service] create hatası:', error);
@@ -126,7 +130,7 @@ export class ProductService {
     }
   }
 
-  async findAll(page = 1, limit = 50, search?: string, isActive?: any) {
+  async findAll(page = 1, limit = 50, search?: string, isActive?: any, brand?: string, mainCategory?: string, subCategory?: string) {
     const tenantId = await this.tenantResolver.resolveForQuery();
     const skip = (page - 1) * limit;
     const where: any = {
@@ -144,6 +148,18 @@ export class ProductService {
         { barcode: { contains: search, mode: 'insensitive' as const } },
         { oem: { contains: search, mode: 'insensitive' as const } },
       ];
+    }
+
+    if (brand) {
+      where.brand = brand;
+    }
+
+    if (mainCategory) {
+      where.mainCategory = mainCategory;
+    }
+
+    if (subCategory) {
+      where.subCategory = subCategory;
     }
 
     try {
@@ -164,7 +180,15 @@ export class ProductService {
                 location: true,
               },
             },
-            unitRef: true,
+            unitRef: {
+              include: {
+                unitSet: {
+                  include: {
+                    units: true
+                  }
+                }
+              }
+            },
           },
         }),
         this.prisma.product.count({ where }),
@@ -283,6 +307,8 @@ export class ProductService {
             name: product.name,
             birim: product.unit,
             marka: product.brand ?? undefined,
+            anaKategori: product.mainCategory ?? undefined,
+            altKategori: product.subCategory ?? undefined,
             raf: rafValue,
             alisFiyati: Number(latestPurchasePriceCard?.price ?? 0),
             satisFiyati: Number(latestSalePriceCard?.price ?? 0),
@@ -315,8 +341,12 @@ export class ProductService {
   }
 
   async findOne(id: string) {
-    const product = await this.prisma.product.findUnique({
-      where: { id },
+    const tenantId = await this.tenantResolver.resolveForQuery();
+    const product = await this.prisma.product.findFirst({
+      where: {
+        id,
+        ...buildTenantWhereClause(tenantId ?? undefined),
+      },
       include: {
         priceCards: {
           where: { isActive: true } as any,
@@ -335,7 +365,15 @@ export class ProductService {
             },
           },
         },
-        unitRef: true,
+        unitRef: {
+          include: {
+            unitSet: {
+              include: {
+                units: true
+              }
+            }
+          }
+        },
       },
     });
 
@@ -424,113 +462,147 @@ export class ProductService {
   }
 
   async update(id: string, dto: UpdateProductDto) {
-    await this.findOne(id);
+    console.log('[DEBUG product.service.update] Gelen DTO:', JSON.stringify(dto, null, 2));
+
+    const existing = await this.findOne(id);
+
+    // Birim değişikliği kontrolü (İş Kuralı: Hareket görmüş ürünlerin birimi değiştirilemez)
+    const unitChanged = (dto.unit != null && dto.unit !== existing.unit) ||
+      (dto.unitId != null && dto.unitId !== existing.unitId);
+
+    if (unitChanged) {
+      const { toplamHareketSayisi } = await this.canDelete(id);
+      if (toplamHareketSayisi > 0) {
+        throw new BadRequestException('Hareket görmüş ürünlerin birimi değiştirilemez. (Fatura, hareket veya sipariş kaydı mevcut)');
+      }
+    }
 
     const data: Record<string, unknown> = {};
-    if (dto.code != null) data.code = dto.code;
-    if (dto.name != null) data.name = dto.name;
-    if (dto.description != null) data.description = dto.description;
-    if (dto.unit != null) data.unit = dto.unit;
-    if (dto.unitId != null) data.unitId = dto.unitId;
-
+    if (dto.code != null && dto.code !== '') data.code = dto.code;
+    if (dto.name != null && dto.name !== '') data.name = dto.name;
+    if (dto.description != null && dto.description !== '') data.description = dto.description;
+    if (dto.unit != null && dto.unit !== '') data.unit = dto.unit;
+    if (dto.unitId != null && dto.unitId !== '') data.unitId = dto.unitId;
     if (dto.vatRate != null) data.vatRate = dto.vatRate;
-
-    const updatedProduct = await this.prisma.$transaction(async (tx) => {
-      const product = await tx.product.update({
-        where: { id },
-        data: data as any,
-      });
-
-      // Fiyat Kartlarını Güncelle (Yeni Kart Oluştur)
-      if (dto.salePrice != null) {
-        await tx.priceCard.create({
-          data: {
-            tenantId: product.tenantId,
-            productId: product.id,
-            type: 'SALE',
-            price: dto.salePrice,
-            currency: 'TRY',
-          } as any
-        });
-      }
-
-      if (dto.purchasePrice != null) {
-        await tx.priceCard.create({
-          data: {
-            tenantId: product.tenantId,
-            productId: product.id,
-            type: 'PURCHASE',
-            price: dto.purchasePrice,
-            currency: 'TRY',
-          } as any
-        });
-      }
-
-      return product;
-    });
-
-    if (dto.category != null) data.category = dto.category;
-    if (dto.mainCategory != null) data.mainCategory = dto.mainCategory;
-    if (dto.subCategory != null) data.subCategory = dto.subCategory;
-    if (dto.brand != null) data.brand = dto.brand;
-    if (dto.model != null) data.model = dto.model;
-    if (dto.oem != null) data.oem = dto.oem;
-    if (dto.size != null) data.size = dto.size;
-    if (dto.shelf != null) data.shelf = dto.shelf;
-    if (dto.barcode != null) data.barcode = dto.barcode;
-    if (dto.supplierCode != null) data.supplierCode = dto.supplierCode;
-    if (dto.vehicleBrand != null) data.vehicleBrand = dto.vehicleBrand;
-    if (dto.vehicleModel != null) data.vehicleModel = dto.vehicleModel;
-    if (dto.vehicleEngineSize != null) data.vehicleEngineSize = dto.vehicleEngineSize;
-    if (dto.vehicleFuelType != null) data.vehicleFuelType = dto.vehicleFuelType;
+    if (dto.category != null && dto.category !== '') data.category = dto.category;
+    if (dto.mainCategory != null && dto.mainCategory !== '') data.mainCategory = dto.mainCategory;
+    if (dto.subCategory != null && dto.subCategory !== '') data.subCategory = dto.subCategory;
+    if (dto.brand != null && dto.brand !== '') data.brand = dto.brand;
+    if (dto.model != null && dto.model !== '') data.model = dto.model;
+    if (dto.oem != null && dto.oem !== '') data.oem = dto.oem;
+    if (dto.size != null && dto.size !== '') data.size = dto.size;
+    if (dto.shelf != null && dto.shelf !== '') data.shelf = dto.shelf;
+    if (dto.barcode != null && dto.barcode !== '') data.barcode = dto.barcode;
+    if (dto.supplierCode != null && dto.supplierCode !== '') data.supplierCode = dto.supplierCode;
+    if (dto.vehicleBrand != null && dto.vehicleBrand !== '') data.vehicleBrand = dto.vehicleBrand;
+    if (dto.vehicleModel != null && dto.vehicleModel !== '') data.vehicleModel = dto.vehicleModel;
+    if (dto.vehicleEngineSize != null && dto.vehicleEngineSize !== '') data.vehicleEngineSize = dto.vehicleEngineSize;
+    if (dto.vehicleFuelType != null && dto.vehicleFuelType !== '') data.vehicleFuelType = dto.vehicleFuelType;
     if (dto.weight != null) data.weight = dto.weight;
-    if (dto.weightUnit != null) data.weightUnit = dto.weightUnit;
-    if (dto.dimensions != null) data.dimensions = dto.dimensions;
-    if (dto.countryOfOrigin != null) data.countryOfOrigin = dto.countryOfOrigin;
+    if (dto.weightUnit != null && dto.weightUnit !== '') data.weightUnit = dto.weightUnit;
+    if (dto.dimensions != null && dto.dimensions !== '') data.dimensions = dto.dimensions;
+    if (dto.countryOfOrigin != null && dto.countryOfOrigin !== '') data.countryOfOrigin = dto.countryOfOrigin;
     if (dto.warrantyMonths != null) data.warrantyMonths = dto.warrantyMonths;
-    if (dto.internalNote != null) data.internalNote = dto.internalNote;
+    if (dto.internalNote != null && dto.internalNote !== '') data.internalNote = dto.internalNote;
     if (dto.minOrderQty != null) data.minOrderQty = dto.minOrderQty;
     if (dto.leadTimeDays != null) data.leadTimeDays = dto.leadTimeDays;
+    if (dto.isB2B != null) {
+      data.isB2B = dto.isB2B;
+      // isB2B değiştiğinde updatedAt'ı güncelle (delta sync için)
+      if (dto.isB2B !== existing.isB2B) {
+        data.updatedAt = new Date();
+      }
+    }
 
-    return this.prisma.product.update({
-      where: { id },
-      data,
-    });
+    console.log('[DEBUG product.service.update] Güncellenecek data:', JSON.stringify(data, null, 2));
+
+    let updatedProduct: any;
+
+    try {
+      updatedProduct = await this.prisma.$transaction(async (tx) => {
+        console.log('[DEBUG product.service.update] Prisma güncelleme başlıyor, data:', JSON.stringify(data, null, 2));
+
+        // Ürün bilgilerini güncelle
+        const product = await tx.product.update({
+          where: { id },
+          data: data as any,
+        });
+
+        console.log('[DEBUG product.service.update] Ürün güncellendi:', JSON.stringify(product, null, 2));
+
+        // Fiyat Kartlarını Güncelle (Yeni Kart Oluştur)
+        if (dto.salePrice != null) {
+          await tx.priceCard.create({
+            data: {
+              tenantId: existing.tenantId,
+              productId: product.id,
+              type: 'SALE',
+              price: dto.salePrice,
+              currency: 'TRY',
+            } as any
+          });
+        }
+
+        if (dto.purchasePrice != null) {
+          await tx.priceCard.create({
+            data: {
+              tenantId: existing.tenantId,
+              productId: product.id,
+              type: 'PURCHASE',
+              price: dto.purchasePrice,
+              currency: 'TRY',
+            } as any
+          });
+        }
+
+        return product;
+      });
+    } catch (error: any) {
+      console.error('❌ [ProductService] update hatası:', error);
+      if (error?.code === 'P2002') {
+        const field = error?.meta?.target?.[0] || 'alan';
+        throw new BadRequestException(`${field} zaten kullanılıyor`);
+      }
+      throw error;
+    }
+
+    return updatedProduct;
   }
 
   async canDelete(id: string) {
+    const existing = await this.findOne(id);
     // Stok hareketi var mı kontrol et
     const hareketSayisi = await this.prisma.productMovement.count({
-      where: { productId: id },
+      where: { productId: id, ...buildTenantWhereClause(existing.tenantId || undefined) },
     });
 
     // Invoice kalemi var mı kontrol et
     const faturaKalemSayisi = await this.prisma.invoiceItem.count({
-      where: { productId: id },
+      where: { productId: id, ...buildTenantWhereClause(existing.tenantId) },
     });
 
     // Sipariş kalemi var mı kontrol et (Satış ve Satınalma)
     const satisSiparisKalemSayisi = await this.prisma.salesOrderItem.count({
-      where: { productId: id },
+      where: { productId: id, ...buildTenantWhereClause(existing.tenantId) },
     });
     const satinAlmaSiparisKalemSayisi = await this.prisma.purchaseOrderItem.count({
-      where: { productId: id },
+      where: { productId: id, ...buildTenantWhereClause(existing.tenantId) },
     });
     const siparisKalemSayisi = satisSiparisKalemSayisi + satinAlmaSiparisKalemSayisi;
 
     // Teklif kalemi var mı kontrol et
     const quoteKalemSayisi = await this.prisma.quoteItem.count({
-      where: { productId: id },
+      where: { productId: id, ...buildTenantWhereClause(existing.tenantId) },
     });
 
     // Sayım kalemi var mı kontrol et
     const sayimKalemSayisi = await this.prisma.stocktakeItem.count({
-      where: { productId: id },
+      where: { productId: id, ...buildTenantWhereClause(existing.tenantId) },
     });
 
     // Stock move var mı kontrol et
     const stockMoveSayisi = await this.prisma.stockMove.count({
-      where: { productId: id },
+      where: { productId: id, ...buildTenantWhereClause(existing.tenantId) },
     });
 
     // Toplam hareket sayısı
@@ -576,15 +648,48 @@ export class ProductService {
 
   async getStockMovements(productId: string, page = 1, limit = 50) {
     const skip = (page - 1) * limit;
-
+    const tenantId = await this.tenantResolver.resolveForQuery();
     const [data, total] = await Promise.all([
       this.prisma.productMovement.findMany({
-        where: { productId },
+        where: { productId, ...buildTenantWhereClause(tenantId ?? undefined) },
         skip,
         take: limit,
         orderBy: { createdAt: 'desc' },
+        include: {
+          product: {
+            select: {
+              code: true,
+              name: true,
+              unit: true,
+            },
+          },
+          invoiceItem: {
+            include: {
+              invoice: {
+                select: {
+                  id: true,
+                  invoiceNo: true,
+                  invoiceType: true,
+                  status: true,
+                  account: {
+                    select: {
+                      title: true,
+                    },
+                  },
+                },
+              },
+            },
+          },
+          warehouse: {
+            select: {
+              id: true,
+              code: true,
+              name: true,
+            },
+          },
+        },
       }),
-      this.prisma.productMovement.count({ where: { productId } }),
+      this.prisma.productMovement.count({ where: { productId, ...buildTenantWhereClause(tenantId ?? undefined) } }),
     ]);
 
     return {
@@ -979,6 +1084,67 @@ export class ProductService {
     return {
       message: 'Eşleştirme başarıyla kaldırıldı',
       kalanUrunler,
+    };
+  }
+
+  async getLastPurchasePrice(productId: string) {
+    console.log('[getLastPurchasePrice] Fetching last purchase price for product:', productId);
+
+    const tenantId = await this.tenantResolver.resolveForQuery();
+
+    const lastPurchase = await this.prisma.invoiceItem.findFirst({
+      where: {
+        productId,
+        invoice: {
+          invoiceType: 'PURCHASE',
+          tenantId: tenantId ?? undefined,
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+      include: {
+        invoice: {
+          select: {
+            invoiceNo: true,
+            createdAt: true,
+            currency: true,
+            account: {
+              select: {
+                title: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!lastPurchase) {
+      console.log('[getLastPurchasePrice] No purchase history found');
+      return {
+        lastPurchasePrice: null,
+        lastPurchaseDate: null,
+        lastPurchaseInvoiceNo: null,
+        supplierName: null,
+        currency: 'TRY',
+      };
+    }
+
+    const netUnitPrice = lastPurchase.amount
+      ? Number(lastPurchase.amount) / Number(lastPurchase.quantity)
+      : Number(lastPurchase.unitPrice);
+
+    console.log('[getLastPurchasePrice] Last purchase found:', {
+      price: netUnitPrice,
+      date: lastPurchase.invoice.createdAt,
+      invoiceNo: lastPurchase.invoice.invoiceNo,
+      supplier: (lastPurchase as any).invoice.account?.title,
+    });
+
+    return {
+      lastPurchasePrice: netUnitPrice,
+      lastPurchaseDate: (lastPurchase as any).invoice.createdAt,
+      lastPurchaseInvoiceNo: (lastPurchase as any).invoice.invoiceNo,
+      supplierName: (lastPurchase as any).invoice.account?.title || null,
+      currency: (lastPurchase as any).invoice.currency,
     };
   }
 

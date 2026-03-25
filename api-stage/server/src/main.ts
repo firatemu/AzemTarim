@@ -2,7 +2,12 @@ import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { AppModule } from './app.module';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
-import { AllExceptionsFilter } from './common/filters/http-exception.filter';
+import {
+  AllExceptionsFilter,
+  PrismaExceptionFilter,
+  HttpExceptionFilter,
+} from './common/filters';
+import { LoggingInterceptor, TimeoutInterceptor } from './common/interceptors';
 import helmet from 'helmet';
 import compression = require('compression');
 
@@ -53,13 +58,17 @@ async function bootstrap() {
       'http://localhost:3000',
       'http://localhost:3001',
       'http://localhost:3010',
+      'http://localhost:3011',
       'http://localhost:3020',
       'http://localhost:3021',
+      'http://localhost:3022',
       'http://127.0.0.1:3000',
       'http://127.0.0.1:3001',
       'http://127.0.0.1:3010',
+      'http://127.0.0.1:3011',
       'http://127.0.0.1:3020',
       'http://127.0.0.1:3021',
+      'http://127.0.0.1:3022',
     ];
 
   app.enableCors({
@@ -96,10 +105,41 @@ async function bootstrap() {
     maxAge: 86400, // ✅ FIX: 24 hours preflight cache
   });
 
-  // Global exception filter - Tüm hataları yakala ve log'la
-  app.useGlobalFilters(new AllExceptionsFilter());
+  // ═══════════════════════════════════════════════════════════════
+  // GLOBAL INTERCEPTORS
+  // ═══════════════════════════════════════════════════════════════
+  // Order matters: Interceptors are executed in LIFO order (Last In First Out)
+  // So first registered interceptor runs first
+  app.useGlobalInterceptors(
+    new LoggingInterceptor(), // First: Log incoming requests
+    // new TimeoutInterceptor(), // Second: Enforce timeout (TEMPORARILY DISABLED)
+  );
 
-  // Global validation pipe
+  // ═══════════════════════════════════════════════════════════════
+  // GLOBAL EXCEPTION FILTERS
+  // ═══════════════════════════════════════════════════════════════
+  // IMPORTANT: Filter registration order is OPPOSITE of interceptor order
+  // Last registered filter = Outermost = First to catch exceptions
+  // 
+  // Execution flow:
+  // 1. LoggingInterceptor (request)
+  // 2. TimeoutInterceptor (request)
+  // 3. Controller → Service → Database
+  // 4. Exception thrown
+  // 5. HttpExceptionFilter (most specific - catches 4xx/5xx)
+  // 6. PrismaExceptionFilter (catches Prisma errors)
+  // 7. AllExceptionsFilter (catch-all - last line of defense)
+  // 8. TimeoutInterceptor (response)
+  // 9. LoggingInterceptor (response)
+  app.useGlobalFilters(
+    new AllExceptionsFilter(),     // Outermost (last registered) - catches everything
+    new PrismaExceptionFilter(),   // Catches Prisma before catch-all
+    new HttpExceptionFilter(),     // Innermost (first registered) - most specific
+  );
+
+  // ═══════════════════════════════════════════════════════════════
+  // GLOBAL VALIDATION PIPE
+  // ═══════════════════════════════════════════════════════════════
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,

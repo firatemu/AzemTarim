@@ -13,6 +13,7 @@ import { PurchaseWaybillService } from '../purchase-waybill/purchase-waybill.ser
 import { CreatePurchaseOrderDto } from './dto/create-purchase-order.dto';
 import { UpdatePurchaseOrderDto } from './dto/update-purchase-order.dto';
 import { QueryPurchaseOrderDto } from './dto/query-purchase-order.dto';
+import { UnitSetService } from '../unit-set/unit-set.service';
 import { DeliveryNoteStatus, DeliveryNoteSourceType } from '../sales-waybill/sales-waybill.enums';
 import { Prisma, LogAction, PurchaseOrderLocalStatus, InvoiceType, InvoiceStatus } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
@@ -26,6 +27,7 @@ export class PurchaseOrdersService {
     @Inject(forwardRef(() => PurchaseWaybillService))
     private purchaseWaybillService: PurchaseWaybillService,
     private codeTemplateService: CodeTemplateService,
+    private unitSetService: UnitSetService,
   ) { }
 
   private async createLog(
@@ -197,6 +199,19 @@ export class PurchaseOrdersService {
       throw new NotFoundException(`Account not found: ${orderData.accountId}`);
     }
 
+    // Validate quantities for unit divisibility
+    const products = await this.prisma.product.findMany({
+      where: { id: { in: items.map((i) => i.productId) } },
+      select: { id: true, unitId: true },
+    });
+
+    for (const item of items) {
+      const product = products.find((p) => p.id === item.productId);
+      if (product?.unitId) {
+        await this.unitSetService.validateQuantity(product.unitId, item.quantity);
+      }
+    }
+
     // Calculations
     let subTotal = new Decimal(0);
     let totalTax = new Decimal(0);
@@ -302,6 +317,19 @@ export class PurchaseOrdersService {
             ...buildTenantWhereClause(existingOrder.tenantId ?? undefined),
           },
         });
+
+        // Validate quantities for unit divisibility
+        const products = await this.prisma.product.findMany({
+          where: { id: { in: items.map((i) => i.productId) } },
+          select: { id: true, unitId: true },
+        });
+
+        for (const item of items) {
+          const product = products.find((p) => p.id === item.productId);
+          if (product?.unitId) {
+            await this.unitSetService.validateQuantity(product.unitId, item.quantity);
+          }
+        }
 
         // Calculations
         let subTotal = new Decimal(0);

@@ -75,21 +75,21 @@ export default function VirtualNumpad({
         <Box sx={{ p: 2 }}>
           <Grid container spacing={1} sx={{ maxWidth: 280 }}>
             {/* First row: 7-8-9, Clear */}
-            <Grid item xs={3}>
+            <Grid size={3}>
               <Button fullWidth size="large" variant="contained" onClick={() => handleDigitClick('7')}>7</Button>
             </Grid>
-            <Grid item xs={3}>
+            <Grid size={3}>
               <Button fullWidth size="large" variant="contained" onClick={() => handleDigitClick('8')}>8</Button>
             </Grid>
-            <Grid item xs={3}>
+            <Grid size={3}>
               <Button fullWidth size="large" variant="contained" onClick={() => handleDigitClick('9')}>9</Button>
             </Grid>
-            <Grid item xs={3}>
+            <Grid size={3}>
               <Button fullWidth size="large" variant="outlined" color="error" onClick={handleClear}><Clear /></Button>
             </Grid>
 
             {/* Display */}
-            <Grid item xs={12}>
+            <Grid size={12}>
               <Box
                 sx={{
                   p: 2,
@@ -111,97 +111,36 @@ export default function VirtualNumpad({
             </Grid>
 
             {/* Second row: 4-5-6, Backspace, Decimal */}
-            <Grid item xs={4}>
-              <Button
-                fullWidth
-                size="large"
-                variant="contained"
-                onClick={() => handleDigitClick('4')}
-              >
-                4
-              </Button>
+            <Grid size={{ xs: 3 }}>
+              <Button fullWidth size="large" variant="contained" onClick={() => handleDigitClick('4')}>4</Button>
             </Grid>
-            <Grid item xs={4}>
-              <Button
-                fullWidth
-                size="large"
-                variant="contained"
-                onClick={() => handleDigitClick('5')}
-              >
-                5
-              </Button>
+            <Grid size={{ xs: 3 }}>
+              <Button fullWidth size="large" variant="contained" onClick={() => handleDigitClick('5')}>5</Button>
             </Grid>
-            <Grid item xs={4}>
-              <Button
-                fullWidth
-                size="large"
-                variant="contained"
-                onClick={() => handleDigitClick('6')}
-              >
-                6
-              </Button>
+            <Grid size={{ xs: 3 }}>
+              <Button fullWidth size="large" variant="contained" onClick={() => handleDigitClick('6')}>6</Button>
             </Grid>
-            <Grid item xs={4}>
-              <Button
-                fullWidth
-                size="large"
-                variant="contained"
-                onClick={handleBackspace}
-              >
-                <Backspace />
-              </Button>
-            </Grid>
-            <Grid item xs={4}>
-              <Button
-                fullWidth
-                size="large"
-                variant="contained"
-                onClick={handleDecimal}
-              >
-                ,
-              </Button>
+            <Grid size={{ xs: 3 }}>
+              <Button fullWidth size="large" variant="contained" onClick={handleBackspace}><Backspace /></Button>
             </Grid>
 
-            {/* Third row: 1-2-3, 0 */}
-            <Grid item xs={4}>
-              <Button
-                fullWidth
-                size="large"
-                variant="contained"
-                onClick={() => handleDigitClick('1')}
-              >
-                1
-              </Button>
+            {/* Third row: 1-2-3, Decimal */}
+            <Grid size={{ xs: 3 }}>
+              <Button fullWidth size="large" variant="contained" onClick={() => handleDigitClick('1')}>1</Button>
             </Grid>
-            <Grid item xs={4}>
-              <Button
-                fullWidth
-                size="large"
-                variant="contained"
-                onClick={() => handleDigitClick('2')}
-              >
-                2
-              </Button>
+            <Grid size={{ xs: 3 }}>
+              <Button fullWidth size="large" variant="contained" onClick={() => handleDigitClick('2')}>2</Button>
             </Grid>
-            <Grid item xs={4}>
-              <Button
-                fullWidth
-                size="large"
-                variant="contained"
-                onClick={() => handleDigitClick('3')}
-              >
-                3
-              </Button>
+            <Grid size={{ xs: 3 }}>
+              <Button fullWidth size="large" variant="contained" onClick={() => handleDigitClick('3')}>3</Button>
             </Grid>
-            <Grid item xs={4}>
-              <Button
-                fullWidth
-                size="large"
-                variant="contained"
-                onClick={() => handleDigitClick('0')}
-              >
-                0
-              </Button>
+            <Grid size={{ xs: 3 }}>
+              <Button fullWidth size="large" variant="contained" onClick={handleDecimal}>,</Button>
+            </Grid>
+
+            {/* Fourth row: 0 */}
+            <Grid size={{ xs: 12 }}>
+              <Button fullWidth size="large" variant="contained" onClick={() => handleDigitClick('0')}>0</Button>
             </Grid>
           </Grid>
         </Box>

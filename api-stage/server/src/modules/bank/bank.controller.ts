@@ -46,6 +46,12 @@ export class BankController {
         return this.bankService.getBanksSummary();
     }
 
+    @Get('ozet')
+    getBanksOzet() {
+        return this.bankService.getBanksSummary();
+    }
+
+
     // ============ HAREKET ENDPOINTS ============
 
     @Get('accounts/:accountId/movements')

@@ -12,6 +12,7 @@ import { PrismaModule } from './common/prisma.module';
 import { LicenseModule } from './common/services/license.module';
 import { RedisModule } from './common/services/redis.module';
 import { TenantContextModule } from './common/services/tenant-context.module';
+import { B2BPrismaModule } from './common/services/b2b-prisma.module';
 import { DeletionProtectionModule } from './common/services/deletion-protection.module';
 import { SecurityModule } from './common/services/security.module';
 import { TenantSecurityExceptionFilter } from './common/filters/tenant-security-exception.filter';
@@ -86,6 +87,10 @@ import { QueueModule } from './common/modules/queue.module';
 import { CompanyVehiclesModule } from './modules/company-vehicles/company-vehicles.module';
 import { VehicleExpensesModule } from './modules/vehicle-expenses/vehicle-expenses.module';
 import { RlsModule } from './modules/rls/rls.module';
+import { B2bSyncModule } from './modules/b2b-sync/b2b-sync.module';
+import { B2bAdminModule } from './modules/b2b-admin/b2b-admin.module';
+import { B2bPortalModule } from './modules/b2b-portal/b2b-portal.module';
+import { InternalModule } from './modules/internal/internal.module';
 
 @Module({
   imports: [
@@ -106,6 +111,7 @@ import { RlsModule } from './modules/rls/rls.module';
     DeletionProtectionModule,
     SecurityModule,
     RedisModule,
+    B2BPrismaModule,
     LicenseModule,
     JwtModule.register({}),
     AuthModule,
@@ -151,6 +157,7 @@ import { RlsModule } from './modules/rls/rls.module';
     StockMoveModule,
     CodeTemplateModule,
     PriceCardModule,
+    PriceListModule,
     CostingModule,
     InvoiceProfitModule,
     ReportingModule,
@@ -177,6 +184,10 @@ import { RlsModule } from './modules/rls/rls.module';
     CompanyVehiclesModule,
     VehicleExpensesModule,
     RlsModule,
+    B2bSyncModule,
+    B2bAdminModule,
+    B2bPortalModule,
+    InternalModule,
   ],
   controllers: [AppController],
   providers: [

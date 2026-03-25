@@ -140,9 +140,9 @@ export default function SatisSiparisleriPage() {
   const fetchStats = async () => {
     try {
       const [allRes, faturalandiRes, iptalRes] = await Promise.all([
-        axios.get('/order', { params: { siparisTipi: 'SATIS', limit: 1 } }),
-        axios.get('/order', { params: { siparisTipi: 'SATIS', limit: 1, durum: 'FATURALANDI' } }).catch(() => ({ data: { meta: { total: 0 } } })),
-        axios.get('/order', { params: { siparisTipi: 'SATIS', limit: 1, durum: 'IPTAL' } }).catch(() => ({ data: { meta: { total: 0 } } })),
+        axios.get('/orders', { params: { siparisTipi: 'SATIS', limit: 1 } }),
+        axios.get('/orders', { params: { siparisTipi: 'SATIS', limit: 1, durum: 'FATURALANDI' } }).catch(() => ({ data: { meta: { total: 0 } } })),
+        axios.get('/orders', { params: { siparisTipi: 'SATIS', limit: 1, durum: 'IPTAL' } }).catch(() => ({ data: { meta: { total: 0 } } })),
       ]);
       const total = allRes.data?.meta?.total ?? 0;
       const faturalandi = faturalandiRes.data?.meta?.total ?? 0;
@@ -164,7 +164,7 @@ export default function SatisSiparisleriPage() {
         limit: paginationModel.pageSize,
       };
       if (filterDurum) params.durum = filterDurum;
-      const response = await axios.get('/order', { params });
+      const response = await axios.get('/orders', { params });
       const data = response.data?.data || [];
       const total = response.data?.meta?.total ?? data.length;
       setSiparisler(data);
@@ -192,20 +192,20 @@ export default function SatisSiparisleriPage() {
 
   const handleEdit = (row: Siparis) => {
     const tabId = `siparis-satis-duzenle-${row.id}`;
-    addTab({ id: tabId, label: `Düzenle: ${row.siparisNo}`, path: `/siparis/satis/duzenle/${row.id}` });
+    addTab({ id: tabId, label: `Düzenle: ${row.siparisNo}`, path: `/orders/satis/duzenle/${row.id}` });
     setActiveTab(tabId);
-    router.push(`/siparis/satis/duzenle/${row.id}`);
+    router.push(`/orders/satis/duzenle/${row.id}`);
   };
 
   const handleCreate = () => {
-    addTab({ id: 'siparis-satis-yeni', label: 'Yeni Satış Siparişi', path: '/order/satis/yeni' });
+    addTab({ id: 'siparis-satis-yeni', label: 'Yeni Satış Siparişi', path: '/orders/satis/yeni' });
     setActiveTab('siparis-satis-yeni');
-    router.push('/order/satis/yeni');
+    router.push('/orders/satis/yeni');
   };
 
   const handleView = async (row: Siparis) => {
     try {
-      const response = await axios.get(`/siparis/${row.id}`);
+      const response = await axios.get(`/orders/${row.id}`);
       setSelectedSiparis(response.data);
       setOpenView(true);
     } catch (error: any) {
@@ -214,17 +214,17 @@ export default function SatisSiparisleriPage() {
   };
 
   const handlePrint = (siparis: Siparis) => {
-    window.open(`/siparis/satis/print/${siparis.id}`, '_blank');
+    window.open(`/orders/satis/print/${siparis.id}`, '_blank');
   };
 
   const handleHazirlama = (siparis: Siparis) => {
-    router.push(`/siparis/satis/hazirlama/${siparis.id}`);
+    router.push(`/orders/satis/hazirlama/${siparis.id}`);
   };
 
   const handleSevkClick = async (siparis: Siparis) => {
     try {
       setLoading(true);
-      const response = await axios.get(`/siparis/${siparis.id}`);
+      const response = await axios.get(`/orders/${siparis.id}`);
       const siparisDetay = response.data;
       setFullSiparis(siparisDetay);
       setSevkKalemler((siparisDetay.kalemler || []).map((k: SiparisKalemi) => ({
@@ -260,7 +260,7 @@ export default function SatisSiparisleriPage() {
     }
     try {
       setLoading(true);
-      await axios.post(`/siparis/${fullSiparis.id}/sevk-et`, {
+      await axios.post(`/orders/${fullSiparis.id}/sevk-et`, {
         kalemler: sevkKalemler.filter(k => k.sevkMiktar > 0),
       });
       showSnackbar('Sipariş başarıyla sevk edildi', 'success');
@@ -283,9 +283,9 @@ export default function SatisSiparisleriPage() {
   const handleCreateIrsaliye = async (siparis: Siparis) => {
     try {
       setLoading(true);
-      const response = await axios.post(`/siparis/${siparis.id}/irsaliye-olustur`);
+      const response = await axios.post(`/orders/${siparis.id}/irsaliye-olustur`);
       showSnackbar('İrsaliye başarıyla oluşturuldu', 'success');
-      router.push(`/satis-irsaliyesi/${response.data.id}`);
+      router.push(`/sales-waybills/${response.data.id}`);
     } catch (error: any) {
       showSnackbar(error.response?.data?.message || 'İrsaliye oluşturulurken hata oluştu', 'error');
     } finally {
@@ -297,7 +297,7 @@ export default function SatisSiparisleriPage() {
   const handleDurumChange = async (yeniDurum: string) => {
     if (!selectedSiparis) return;
     try {
-      await axios.put(`/siparis/${selectedSiparis.id}/durum`, { durum: yeniDurum });
+      await axios.put(`/orders/${selectedSiparis.id}/durum`, { durum: yeniDurum });
       showSnackbar(`Sipariş durumu "${durumMetinleri[yeniDurum]}" olarak güncellendi`, 'success');
       fetchSiparisler();
       fetchStats();
@@ -310,7 +310,7 @@ export default function SatisSiparisleriPage() {
   const handleDelete = async () => {
     if (!selectedSiparis) return;
     try {
-      await axios.delete(`/siparis/${selectedSiparis.id}`);
+      await axios.delete(`/orders/${selectedSiparis.id}`);
       showSnackbar('Sipariş başarıyla silindi', 'success');
       fetchSiparisler();
       fetchStats();
@@ -579,7 +579,7 @@ export default function SatisSiparisleriPage() {
               <MenuItem onClick={() => handleDurumChange('HAZIRLANIYOR')}>Hazırlanıyor Olarak İşaretle</MenuItem>
             )}
             {selectedSiparis.durum === 'HAZIRLANIYOR' && (
-              <MenuItem onClick={() => { handleMenuClose(); router.push(`/siparis/satis/hazirlama/${selectedSiparis.id}`); }}>
+              <MenuItem onClick={() => { handleMenuClose(); router.push(`/orders/satis/hazirlama/${selectedSiparis.id}`); }}>
                 <ListItemIcon><Inventory fontSize="small" /></ListItemIcon>
                 Sipariş Hazırla
               </MenuItem>

@@ -34,9 +34,9 @@ export default function RecentTransactions({ invoices, payments, loading }: Rece
             field: 'tarih',
             headerName: 'Tarih',
             width: 100,
-            valueFormatter: (params) => {
-                if (!params.value) return '-';
-                return new Date(params.value).toLocaleDateString('tr-TR');
+            valueFormatter: (value) => {
+                if (!value) return '-';
+                return new Date(value).toLocaleDateString('tr-TR');
             },
         },
         {
@@ -67,9 +67,9 @@ export default function RecentTransactions({ invoices, payments, loading }: Rece
             field: 'tarih',
             headerName: 'Tarih',
             width: 100,
-            valueFormatter: (params) => {
-                if (!params.value) return '-';
-                return new Date(params.value).toLocaleDateString('tr-TR');
+            valueFormatter: (value) => {
+                if (!value) return '-';
+                return new Date(value).toLocaleDateString('tr-TR');
             },
         },
         {

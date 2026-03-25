@@ -11,7 +11,7 @@ const menuItems = [
     title: 'Ürün Bazlı Sayım',
     description: 'Sadece ürün toplamını sayın, raf adresleri önemli değil',
     icon: Inventory,
-    href: '/sayim/urun-bazli',
+    href: '/inventory-count/urun-bazli',
     color: 'var(--chart-1)',
     badge: 'Barkod okuma destekli',
   },
@@ -19,7 +19,7 @@ const menuItems = [
     title: 'Raf Bazlı Sayım',
     description: 'Her rafta ne kadar ürün var detaylı sayın',
     icon: QrCode2,
-    href: '/sayim/raf-bazli',
+    href: '/inventory-count/raf-bazli',
     color: 'var(--secondary)',
     badge: 'Barkod okuma destekli',
   },
@@ -27,7 +27,7 @@ const menuItems = [
     title: 'Sayım Listesi',
     description: 'Geçmiş sayımları görüntüleyin ve onaylayın',
     icon: Inventory,
-    href: '/sayim/liste',
+    href: '/inventory-count/liste',
     color: 'var(--chart-2)',
     badge: null,
   },
@@ -39,8 +39,8 @@ export default function SayimPage() {
   return (
     <MainLayout>
       <Box sx={{ p: 3 }}>
-        <Typography 
-          variant="h4" 
+        <Typography
+          variant="h4"
           sx={{
             fontWeight: 700,
             fontSize: '1.875rem',
@@ -51,15 +51,15 @@ export default function SayimPage() {
         >
           Stok Sayım Modülü
         </Typography>
-        
+
         <Grid container spacing={3} sx={{ mt: 3 }}>
           {menuItems.map((item, index) => {
             const IconComponent = item.icon;
             return (
               <Grid key={index} size={{ xs: 12, md: 4 }}>
-                <Paper 
-                  sx={{ 
-                    p: 4, 
+                <Paper
+                  sx={{
+                    p: 4,
                     textAlign: 'center',
                     cursor: 'pointer',
                     borderRadius: 'var(--radius)',
@@ -67,7 +67,7 @@ export default function SayimPage() {
                     bgcolor: 'var(--card)',
                     boxShadow: 'var(--shadow-sm)',
                     transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-                    '&:hover': { 
+                    '&:hover': {
                       bgcolor: 'var(--muted)',
                       borderColor: 'var(--ring)',
                       boxShadow: 'var(--shadow-md)',
@@ -90,8 +90,8 @@ export default function SayimPage() {
                   >
                     <IconComponent sx={{ fontSize: 48, color: item.color }} />
                   </Box>
-                  <Typography 
-                    variant="h5" 
+                  <Typography
+                    variant="h5"
                     sx={{
                       fontWeight: 700,
                       fontSize: '1.25rem',
@@ -101,7 +101,7 @@ export default function SayimPage() {
                   >
                     {item.title}
                   </Typography>
-                  <Typography 
+                  <Typography
                     sx={{
                       color: 'var(--muted-foreground)',
                       fontSize: '0.875rem',
@@ -111,8 +111,8 @@ export default function SayimPage() {
                     {item.description}
                   </Typography>
                   {item.badge && (
-                    <Typography 
-                      variant="caption" 
+                    <Typography
+                      variant="caption"
                       sx={{
                         color: item.color,
                         fontSize: '0.75rem',

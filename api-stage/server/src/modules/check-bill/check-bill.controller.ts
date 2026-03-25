@@ -2,6 +2,7 @@ import { Controller, Get, Post, Body, Param, Put, Delete, Query, UseGuards, Requ
 import { CheckBillService } from './check-bill.service';
 import { CreateCheckBillDto, UpdateCheckBillDto } from './dto/create-check-bill.dto';
 import { CheckBillActionDto } from './dto/check-bill-transaction.dto';
+import { CheckBillFilterDto } from './dto/check-bill-filter.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 
 @Controller('checks-promissory-notes')
@@ -10,8 +11,8 @@ export class CheckBillController {
     constructor(private readonly checkBillService: CheckBillService) { }
 
     @Get()
-    findAll(@Query() query: any) {
-        return this.checkBillService.findAll(query);
+    findAll(@Query() filter: CheckBillFilterDto) {
+        return this.checkBillService.findAll(filter);
     }
 
     @Get('upcoming')
@@ -23,6 +24,16 @@ export class CheckBillController {
             startDate ? new Date(startDate) : new Date(),
             endDate ? new Date(endDate) : new Date(),
         );
+    }
+
+    @Get('endorsements/:id')
+    getEndorsements(@Param('id') id: string) {
+        return this.checkBillService.getEndorsements(id);
+    }
+
+    @Get('collections/:id')
+    getCollectionHistory(@Param('id') id: string) {
+        return this.checkBillService.getCollectionHistory(id);
     }
 
     @Get(':id')

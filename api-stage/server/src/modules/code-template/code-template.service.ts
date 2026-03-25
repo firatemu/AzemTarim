@@ -29,6 +29,8 @@ const DEFAULT_TEMPLATES: Partial<Record<ModuleType, { name: string; prefix: stri
   [ModuleType.WORK_ORDER]: { name: 'İş Emri No', prefix: 'IE', digitCount: 5 },
   [ModuleType.SERVICE_INVOICE]: { name: 'Servis Faturası No', prefix: 'SF', digitCount: 5 },
   [ModuleType.POS_CONSOLE]: { name: 'POS İşlem No', prefix: 'POS', digitCount: 5 },
+  [ModuleType.CHECK_BILL_JOURNAL]: { name: 'Bordro / Fiş No', prefix: 'BRD', digitCount: 6 },
+  [ModuleType.CHECK_BILL_DOCUMENT]: { name: 'Çek/Senet No', prefix: 'EVR', digitCount: 6 },
 };
 
 @Injectable()
@@ -104,20 +106,73 @@ export class CodeTemplateService {
   }
 
   async update(id: string, updateDto: UpdateCodeTemplateDto) {
-    await this.findOne(id); // Check if exists and belongs to tenant
+    const tenantId = await this.tenantResolver.resolveForQuery();
+    const existing = await this.findOne(id);
 
     return (this.prisma.codeTemplate as any).update({
-      where: { id } as any,
-      data: updateDto,
+      where: { id: existing.id, tenantId } as any,
+      data: {
+        name: updateDto.name,
+        prefix: updateDto.prefix,
+        digitCount: updateDto.digitCount,
+        currentValue: updateDto.currentValue,
+        includeYear: updateDto.includeYear,
+        isActive: updateDto.isActive,
+      } as any,
     });
   }
 
   async remove(id: string) {
-    await this.findOne(id); // Check if exists and belongs to tenant
+    const tenantId = await this.tenantResolver.resolveForQuery();
+    const existing = await this.findOne(id);
 
     return (this.prisma.codeTemplate as any).delete({
-      where: { id } as any,
+      where: { id: existing.id, tenantId } as any,
     });
+  }
+
+  /**
+   * Modül tipine göre veritabanında kodun kullanılıp kullanılmadığını kontrol eder.
+   */
+  private async isCodeUsed(module: ModuleType, code: string, tenantId: string | null): Promise<boolean> {
+    const mapping: Partial<Record<ModuleType, { model: string; field: string }>> = {
+      [ModuleType.INVOICE_SALES]: { model: 'invoice', field: 'invoiceNo' },
+      [ModuleType.INVOICE_PURCHASE]: { model: 'invoice', field: 'invoiceNo' },
+      [ModuleType.SERVICE_INVOICE]: { model: 'invoice', field: 'invoiceNo' },
+      [ModuleType.ORDER_SALES]: { model: 'salesOrder', field: 'orderNo' },
+      [ModuleType.ORDER_PURCHASE]: { model: 'purchaseOrder', field: 'orderNo' },
+      [ModuleType.DELIVERY_NOTE_SALES]: { model: 'salesDeliveryNote', field: 'deliveryNoteNo' },
+      [ModuleType.DELIVERY_NOTE_PURCHASE]: { model: 'purchaseDeliveryNote', field: 'deliveryNoteNo' },
+      [ModuleType.PRODUCT]: { model: 'product', field: 'code' },
+      [ModuleType.CUSTOMER]: { model: 'account', field: 'code' },
+      [ModuleType.WAREHOUSE]: { model: 'warehouse', field: 'code' },
+      [ModuleType.CASHBOX]: { model: 'cashbox', field: 'code' },
+      [ModuleType.PERSONNEL]: { model: 'employee', field: 'code' },
+      [ModuleType.WORK_ORDER]: { model: 'workOrder', field: 'workOrderNo' },
+      [ModuleType.QUOTE]: { model: 'quote', field: 'quoteNo' },
+      [ModuleType.CHECK_BILL_JOURNAL]: { model: 'checkBillJournal', field: 'journalNo' },
+      [ModuleType.CHECK_BILL_DOCUMENT]: { model: 'checkBill', field: 'checkNo' },
+    };
+
+    const config = mapping[module];
+    if (!config) return false;
+
+    try {
+      const model = this.prisma[config.model] as any;
+      if (!model) return false;
+
+      const count = await model.count({
+        where: {
+          [config.field]: code,
+          ...buildTenantWhereClause(tenantId || undefined),
+        },
+      });
+
+      return count > 0;
+    } catch (error) {
+      console.error(`[CodeTemplateService] isCodeUsed error for ${module}:`, error);
+      return false;
+    }
   }
 
   async getNextCode(module: ModuleType): Promise<string> {
@@ -155,24 +210,55 @@ export class CodeTemplateService {
         );
       }
 
-      // Increment counter
+      let nextCode = '';
+      let nextNumber: number;
+      let isUsed = true;
+      let attempts = 0;
+
+      // Kullanılmayan bir kod bulana kadar döngü (max 100 deneme)
+      while (isUsed && attempts < 100) {
+        attempts++;
+        nextNumber = template.currentValue + 1;
+        const paddedNumber = String(nextNumber).padStart(template.digitCount, '0');
+
+        if (template.includeYear) {
+          const currentYear = new Date().getFullYear();
+          nextCode = `${template.prefix}${currentYear}${paddedNumber}`;
+        } else {
+          nextCode = `${template.prefix}${paddedNumber}`;
+        }
+
+        // Kontrol et
+        isUsed = await this.isCodeUsed(module, nextCode, tenantId);
+
+        if (isUsed) {
+          // Eğer kod kullanılmışsa sayacı hemen güncelle ve bir sonrakini dene
+          template = await (this.prisma.codeTemplate as any).update({
+            where: { id: template.id } as any,
+            data: { currentValue: nextNumber },
+          });
+          console.warn(`⚠️ [CodeTemplateService] ${nextCode} kullanımda, sayaç ${nextNumber} değerine atlandı.`);
+        }
+      }
+
+      // Sayacı resmi olarak güncelle
       const updated = await (this.prisma.codeTemplate as any).update({
         where: { id: template.id } as any,
         data: { currentValue: template.currentValue + 1 },
       });
 
-      const nextNumber = updated.currentValue;
-      const paddedNumber = String(nextNumber).padStart(template.digitCount, '0');
+      const finalNumber = updated.currentValue;
+      const paddedFinal = String(finalNumber).padStart(template.digitCount, '0');
 
-      let nextCode: string;
+      let finalCode: string;
       if (template.includeYear) {
         const currentYear = new Date().getFullYear();
-        nextCode = `${template.prefix}${currentYear}${paddedNumber}`;
+        finalCode = `${template.prefix}${currentYear}${paddedFinal}`;
       } else {
-        nextCode = `${template.prefix}${paddedNumber}`;
+        finalCode = `${template.prefix}${paddedFinal}`;
       }
 
-      return nextCode;
+      return finalCode;
     } catch (error: any) {
       console.error('❌ [CodeTemplate Service] getNextCode hatası:', error);
       if (error instanceof NotFoundException || error instanceof BadRequestException) {
@@ -184,71 +270,123 @@ export class CodeTemplateService {
     }
   }
 
-  async resetCounter(module: ModuleType, newValue: number = 0) {
-    const template = await this.findByModule(module);
+  async getPreviewCode(module: ModuleType): Promise<string> {
+    const tenantId = await this.tenantResolver.resolveForQuery();
+    try {
+      let template = await (this.prisma.codeTemplate as any).findFirst({
+        where: { module, tenantId } as any,
+      });
+
+      if (!template) {
+        const defaults = DEFAULT_TEMPLATES[module];
+        if (defaults) {
+          template = await (this.prisma.codeTemplate as any).create({
+            data: {
+              tenantId,
+              module,
+              name: defaults.name,
+              prefix: defaults.prefix,
+              digitCount: defaults.digitCount,
+              currentValue: 0,
+              includeYear: false,
+              isActive: true,
+            } as any,
+          });
+        } else {
+          throw new NotFoundException(
+            `Bu modül için şablon tanımlanmamış: ${module}`,
+          );
+        }
+      }
+
+      let nextCode = '';
+      let nextNumber: number;
+      let isUsed = true;
+      let attempts = 0;
+      let currentValForPreview = template.currentValue;
+
+      // Önizleme için de kullanılmayan bir kod bulana kadar bak
+      while (isUsed && attempts < 100) {
+        attempts++;
+        nextNumber = currentValForPreview + 1;
+        const paddedNumber = String(nextNumber).padStart(template.digitCount, '0');
+
+        if (template.includeYear) {
+          const currentYear = new Date().getFullYear();
+          nextCode = `${template.prefix}${currentYear}${paddedNumber}`;
+        } else {
+          nextCode = `${template.prefix}${paddedNumber}`;
+        }
+
+        isUsed = await this.isCodeUsed(module, nextCode, tenantId);
+
+        if (isUsed) {
+          currentValForPreview = nextNumber;
+        }
+      }
+
+      return nextCode;
+    } catch (error: any) {
+      console.error('❌ [CodeTemplate Service] getPreviewCode hatası:', error);
+      throw error;
+    }
+  }
+
+  async resetCounter(module: ModuleType, newValue?: number) {
+    const tenantId = await this.tenantResolver.resolveForQuery();
+    const template = await (this.prisma.codeTemplate as any).findFirst({
+      where: { module, tenantId } as any,
+    });
+
+    if (!template) {
+      throw new NotFoundException(`Template not found for module: ${module}`);
+    }
+
+    const next =
+      newValue !== undefined && Number.isFinite(newValue)
+        ? Math.max(0, Math.floor(newValue))
+        : 0;
 
     return (this.prisma.codeTemplate as any).update({
       where: { id: template.id } as any,
-      data: { currentValue: newValue },
+      data: { currentValue: next },
     });
   }
 
-  async isCodeUnique(module: ModuleType, code: string): Promise<boolean> {
+  /**
+   * Bir kodun kaydedilmesi durumunda son değeri günceller.
+   * Eğer girilen kodun sonundaki sayı, mevcut sayaçtan büyükse sayacı günceller.
+   */
+  async saveLastCode(module: ModuleType, code: string): Promise<void> {
     const tenantId = await this.tenantResolver.resolveForQuery();
-    if (!tenantId) return true;
+    try {
+      const template = await (this.prisma.codeTemplate as any).findFirst({
+        where: { module, tenantId } as any,
+      });
 
-    const tenantWhere = buildTenantWhereClause(tenantId);
-    switch (module) {
-      case 'WAREHOUSE': {
-        return !(await this.prisma.warehouse.findFirst({
-          where: { code, ...tenantWhere } as any,
-        }));
+      if (!template || !code) return;
+
+      // Prefix + Year (opsiyonel) sonrasındaki sayı kısmını al
+      const lastNumberStr = template.includeYear
+        ? code.substring(template.prefix.length + 4)
+        : code.substring(template.prefix.length);
+
+      const lastNumber = parseInt(lastNumberStr, 10);
+
+      if (isNaN(lastNumber)) {
+        return;
       }
-      case 'CASHBOX': {
-        return !(await this.prisma.cashbox.findFirst({
-          where: { code, ...tenantWhere } as any,
-        }));
+
+      // Sadece daha büyük bir numara gelirse güncelle
+      if (lastNumber > template.currentValue) {
+        await (this.prisma.codeTemplate as any).update({
+          where: { id: template.id } as any,
+          data: { currentValue: lastNumber },
+        });
+        console.log(`✅ [CodeTemplate Service] Sayaç güncellendi: ${module} -> ${lastNumber}`);
       }
-      case 'PERSONNEL': {
-        return !(await this.prisma.employee.findFirst({
-          where: { employeeCode: code, ...tenantWhere } as any,
-        }));
-      }
-      case 'PRODUCT': {
-        return !(await this.prisma.product.findFirst({
-          where: { code, ...tenantWhere } as any,
-        }));
-      }
-      case 'CUSTOMER': {
-        return !(await this.prisma.account.findFirst({
-          where: { code, ...tenantWhere } as any,
-        }));
-      }
-      case 'INVOICE_SALES':
-      case 'INVOICE_PURCHASE': {
-        return !(await this.prisma.invoice.findFirst({
-          where: { invoiceNo: code, ...tenantWhere } as any,
-        }));
-      }
-      case 'ORDER_SALES':
-        return !(await this.prisma.salesOrder.findFirst({
-          where: { orderNo: code, ...tenantWhere } as any,
-        }));
-      case 'ORDER_PURCHASE':
-        return !(await this.prisma.procurementOrder.findFirst({
-          where: { orderNo: code, ...tenantWhere } as any,
-        }));
-      case 'INVENTORY_COUNT': {
-        // Model adı projede değişmiş olabilir; en azından yanlış delegate çağırmayalım.
-        return true;
-      }
-      case 'QUOTE': {
-        return !(await this.prisma.quote.findFirst({
-          where: { quoteNo: code, ...tenantWhere } as any,
-        }));
-      }
-      default:
-        return true;
+    } catch (error) {
+      console.error('❌ [CodeTemplate Service] saveLastCode hatası:', error);
     }
   }
 }

@@ -92,7 +92,7 @@ function FaturaArsivContent() {
   const updateUrl = useCallback(
     (params: URLSearchParams) => {
       const query = params.toString();
-      router.replace(query ? `/fatura/arsiv?${query}` : '/invoice/arsiv', { scroll: false });
+      router.replace(query ? `/fatura/arsiv?${query}` : '/invoices/arsiv', { scroll: false });
     },
     [router],
   );

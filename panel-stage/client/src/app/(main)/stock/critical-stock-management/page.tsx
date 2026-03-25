@@ -92,7 +92,7 @@ export default function KritikStokYonetimiPage() {
     const fetchReport = async () => {
         try {
             setLoading(true);
-            const response = await axios.get('/warehouse-critical-stock/report');
+            const response = await axios.get('/warehouses-critical-stock/report');
             setReportData(response.data.report);
             setWarehouses(response.data.warehouses);
         } catch (error) {
@@ -366,7 +366,7 @@ export default function KritikStokYonetimiPage() {
                 }
 
                 setLoading(true);
-                const response = await axios.put('/warehouse-critical-stock/bulk-update', bulkData);
+                const response = await axios.put('/warehouses-critical-stock/bulk-update', bulkData);
 
                 setUpdateResult(response.data);
                 await fetchReport();
@@ -488,7 +488,7 @@ export default function KritikStokYonetimiPage() {
                                 }}>
                                     <Tooltip title="Mevcut Durumu Dışa Aktar">
                                         <Button
-                                            variant="ghost"
+                                            variant="text"
                                             startIcon={<Download />}
                                             onClick={handleExport}
                                             sx={{
@@ -649,7 +649,7 @@ export default function KritikStokYonetimiPage() {
                 </DialogContent>
                 <DialogActions sx={{ p: 2, gap: 1 }}>
                     <Button
-                        variant="ghost"
+                        variant="text"
                         onClick={() => setUpdateResult(null)}
                         sx={{ borderRadius: 'var(--radius)' }}
                     >

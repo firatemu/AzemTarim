@@ -139,8 +139,8 @@ export class InventoryCountService {
                         await this.prisma.productLocationStock.findUnique({
                             where: {
                                 warehouseId_locationId_productId: {
-                                    warehouseId: (await this.prisma.location.findUnique({
-                                        where: { id: item.locationId },
+                                    warehouseId: (await this.prisma.location.findFirst({
+                                        where: { id: item.locationId, ...buildTenantWhereClause(tenantId ?? undefined) },
                                     }))!.warehouseId,
                                     locationId: item.locationId,
                                     productId: item.productId,
@@ -150,7 +150,7 @@ export class InventoryCountService {
                     systemQty = locationStock?.qtyOnHand || 0;
                 } else {
                     const movements = await this.prisma.productMovement.findMany({
-                        where: { productId: item.productId },
+                        where: { productId: item.productId, ...buildTenantWhereClause(tenantId ?? undefined) },
                         include: { invoiceItem: { include: { invoice: { select: { status: true } } } } },
                     });
 
@@ -192,7 +192,7 @@ export class InventoryCountService {
                     stocktakeNo: countNumber,
                     stocktakeType: countType === 'SHELF_BASED' ? 'SHELF_BASED' : 'PRODUCT_BASED',
                     notes: description,
-                    ...(tenantId != null && { tenantId }),
+                    tenantId: tenantId!,
                     createdBy: userId,
                     items: {
                         create: itemsWithSystemQty,
@@ -253,21 +253,22 @@ export class InventoryCountService {
                     let systemQty = 0;
 
                     if (dbStocktakeType === 'SHELF_BASED' && item.locationId) {
-                        const locationStock = await prisma.productLocationStock.findUnique({
+                        const tenantId = await this.tenantResolver.resolveForQuery();
+                        const locationStock = await prisma.productLocationStock.findFirst({
                             where: {
-                                warehouseId_locationId_productId: {
-                                    warehouseId: (await prisma.location.findUnique({
-                                        where: { id: item.locationId },
-                                    }))!.warehouseId,
-                                    locationId: item.locationId,
-                                    productId: item.productId,
-                                },
+                                warehouseId: (await prisma.location.findFirst({
+                                    where: { id: item.locationId, ...buildTenantWhereClause(tenantId ?? undefined) },
+                                }))!.warehouseId,
+                                locationId: item.locationId,
+                                productId: item.productId,
+                                ...buildTenantWhereClause(tenantId ?? undefined),
                             },
                         });
                         systemQty = locationStock?.qtyOnHand || 0;
                     } else {
+                        const tenantId = await this.tenantResolver.resolveForQuery();
                         const movements = await prisma.productMovement.findMany({
-                            where: { productId: item.productId },
+                            where: { productId: item.productId, ...buildTenantWhereClause(tenantId ?? undefined) },
                             include: { invoiceItem: { include: { invoice: { select: { status: true } } } } },
                         });
 
@@ -378,19 +379,18 @@ export class InventoryCountService {
                 if (item.difference === 0) continue;
 
                 if (inventoryCount.stocktakeType === 'SHELF_BASED' && item.locationId) {
-                    const location = await prisma.location.findUnique({
-                        where: { id: item.locationId },
+                    const location = await prisma.location.findFirst({
+                        where: { id: item.locationId, ...buildTenantWhereClause(inventoryCount.tenantId ?? undefined) },
                     });
 
                     if (!location) continue;
 
-                    const locationStock = await prisma.productLocationStock.findUnique({
+                    const locationStock = await prisma.productLocationStock.findFirst({
                         where: {
-                            warehouseId_locationId_productId: {
-                                warehouseId: location.warehouseId,
-                                locationId: item.locationId,
-                                productId: item.productId,
-                            },
+                            warehouseId: location.warehouseId,
+                            locationId: item.locationId,
+                            productId: item.productId,
+                            ...buildTenantWhereClause(inventoryCount.tenantId ?? undefined),
                         },
                     });
 
@@ -404,6 +404,7 @@ export class InventoryCountService {
                     } else if (item.countedQuantity > 0) {
                         await prisma.productLocationStock.create({
                             data: {
+                                tenantId: inventoryCount.tenantId!,
                                 warehouseId: location.warehouseId,
                                 locationId: item.locationId,
                                 productId: item.productId,
@@ -423,6 +424,7 @@ export class InventoryCountService {
 
                 await prisma.productMovement.create({
                     data: {
+                        tenantId: inventoryCount.tenantId!,
                         productId: item.productId,
                         movementType: movementCategory,
                         quantity: qtyToPost,
@@ -452,8 +454,9 @@ export class InventoryCountService {
     }
 
     async findProductByBarcode(barcode: string) {
-        const productBarcode = await this.prisma.productBarcode.findUnique({
-            where: { barcode },
+        const tenantId = await this.tenantResolver.resolveForQuery();
+        const productBarcode = await this.prisma.productBarcode.findFirst({
+            where: { barcode, ...buildTenantWhereClause(tenantId ?? undefined) },
             include: {
                 product: true,
             },
@@ -464,7 +467,7 @@ export class InventoryCountService {
         }
 
         const product = await this.prisma.product.findFirst({
-            where: { barcode },
+            where: { barcode, ...buildTenantWhereClause(tenantId ?? undefined) },
         });
 
         if (!product) {
@@ -475,8 +478,9 @@ export class InventoryCountService {
     }
 
     async findLocationByBarcode(barcode: string) {
-        const location = await this.prisma.location.findUnique({
-            where: { barcode },
+        const tenantId = await this.tenantResolver.resolveForQuery();
+        const location = await this.prisma.location.findFirst({
+            where: { barcode, ...buildTenantWhereClause(tenantId ?? undefined) },
             include: {
                 warehouse: true,
             },
@@ -501,28 +505,29 @@ export class InventoryCountService {
         let systemQty = 0;
 
         if (inventoryCount.stocktakeType === 'SHELF_BASED' && addItemDto.locationId) {
-            const location = await this.prisma.location.findUnique({
-                where: { id: addItemDto.locationId },
+            const tenantId = await this.tenantResolver.resolveForQuery();
+            const location = await this.prisma.location.findFirst({
+                where: { id: addItemDto.locationId, ...buildTenantWhereClause(tenantId ?? undefined) },
             });
 
             if (!location) {
                 throw new NotFoundException('Location not found');
             }
 
-            const locationStock = await this.prisma.productLocationStock.findUnique({
+            const locationStock = await this.prisma.productLocationStock.findFirst({
                 where: {
-                    warehouseId_locationId_productId: {
-                        warehouseId: location.warehouseId,
-                        locationId: addItemDto.locationId,
-                        productId: addItemDto.productId,
-                    },
+                    warehouseId: location.warehouseId,
+                    locationId: addItemDto.locationId,
+                    productId: addItemDto.productId,
+                    ...buildTenantWhereClause(tenantId ?? undefined),
                 },
             });
 
             systemQty = locationStock?.qtyOnHand || 0;
         } else {
+            const tenantId = await this.tenantResolver.resolveForQuery();
             const movements = await this.prisma.productMovement.findMany({
-                where: { productId: addItemDto.productId },
+                where: { productId: addItemDto.productId, ...buildTenantWhereClause(tenantId ?? undefined) },
                 include: { invoiceItem: { include: { invoice: { select: { status: true } } } } },
             });
 
@@ -548,11 +553,13 @@ export class InventoryCountService {
 
         const diffAmt = addItemDto.countedQuantity - systemQty;
 
+        const tenantIdForWhere = await this.tenantResolver.resolveForQuery();
         const existingItem = await this.prisma.stocktakeItem.findFirst({
             where: {
                 stocktakeId: inventoryCountId,
                 productId: addItemDto.productId,
                 locationId: addItemDto.locationId || null,
+                ...buildTenantWhereClause(tenantIdForWhere ?? undefined),
             },
         });
 
@@ -572,6 +579,7 @@ export class InventoryCountService {
 
         return this.prisma.stocktakeItem.create({
             data: {
+                tenantId: tenantIdForWhere!,
                 stocktakeId: inventoryCountId,
                 productId: addItemDto.productId,
                 locationId: addItemDto.locationId || null,

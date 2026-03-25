@@ -1,13 +1,17 @@
-version: "3.9"
 
 services:
   backend-staging:
     container_name: otomuhasebe_saas_backend
     build:
-      context: ../../api-stage
-      dockerfile: server/Dockerfile.staging.prod
+      context: ../../api-stage/server
+      dockerfile: Dockerfile.dev
     env_file:
       - .env.staging
+    environment:
+      - NODE_ENV=development
+    volumes:
+      - ../../api-stage/server:/app/server
+      - /app/server/node_modules
     networks: [ app_net ]
     ports:
       - "3020:3000"
@@ -23,27 +27,59 @@ services:
     container_name: otomuhasebe_saas_panel
     build:
       context: ../../panel-stage/client
-      dockerfile: Dockerfile.staging.prod
+      dockerfile: Dockerfile.dev
     ports:
       - "3010:3000"
     env_file:
       - .env.staging
     environment:
-      PORT: "3000"
+      NODE_ENV: development
       HOSTNAME: "0.0.0.0"
-      NEXT_PUBLIC_API_URL: https://staging-api.otomuhasebe.com
-      NEXT_PUBLIC_API_BASE_URL: https://staging-api.otomuhasebe.com
-      NODE_ENV: production
-      # Panel /api/* isteklerini backend container'a yönlendirir (Docker ağı)
-      API_PROXY_TARGET: "http://otomuhasebe_saas_backend:3000"
-    networks: [ app_net ]
-    healthcheck:
-      test: [ "CMD", "wget", "-qO-", "http://0.0.0.0:3000/" ]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 60s
+      PORT: "3000"
+      API_PROXY_TARGET: "http://backend-staging:3000"
+      NEXT_PUBLIC_API_URL: http://localhost:3020
+      NEXT_PUBLIC_API_BASE_URL: http://localhost:3020
+    volumes:
+      - ../../panel-stage/client:/app
+      - /app/node_modules
+      - /app/.next
+    networks:
+      - app_net
+    depends_on:
+      - backend-staging
     restart: unless-stopped
+
+  b2b-portal:
+    container_name: otomuhasebe_b2b_portal
+    build:
+      context: ../../b2b-portal
+      dockerfile: Dockerfile.dev
+    ports:
+      - "3002:3000"
+    env_file:
+      - .env.staging
+    environment:
+      NODE_ENV: development
+      HOSTNAME: "0.0.0.0"
+      PORT: "3000"
+      NEXT_PUBLIC_API_URL: http://localhost:3020
+      NEXT_PUBLIC_API_BASE_URL: http://localhost:3020
+    volumes:
+      - ../../b2b-portal:/app
+      - /app/node_modules
+      - /app/.next
+    networks:
+      - app_net
+    depends_on:
+      backend-staging:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: [ "CMD", "wget", "-qO-", "http://0.0.0.0:3000/health" ]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 30s
 
 networks:
   app_net:

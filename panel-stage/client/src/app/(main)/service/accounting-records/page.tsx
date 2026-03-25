@@ -44,7 +44,7 @@ export default function MuhasebeKayitlariPage() {
   const fetchReadyWorkOrders = async () => {
     try {
       setReadyLoading(true);
-      const res = await axios.get('/work-order', {
+      const res = await axios.get('/work-orders', {
         params: { readyForInvoice: true, limit: 50 },
       });
       const data = res.data?.data ?? res.data;
@@ -75,7 +75,7 @@ export default function MuhasebeKayitlariPage() {
   const fetchEntries = async () => {
     try {
       setLoading(true);
-      const res = await axios.get('/journal-entry', {
+      const res = await axios.get('/journal-entries', {
         params: { referenceType: 'SERVICE_INVOICE', limit: 100 },
       });
       const data = res.data?.data ?? res.data;

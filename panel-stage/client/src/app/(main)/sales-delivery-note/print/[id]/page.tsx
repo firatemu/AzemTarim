@@ -80,7 +80,7 @@ export default function IrsaliyePrintPage() {
   const fetchIrsaliye = async () => {
     try {
       setLoading(true);
-      const response = await axios.get(`/satis-irsaliyesi/${id}`);
+      const response = await axios.get(`/sales-waybills/${id}`);
       setIrsaliye(response.data);
     } catch (error) {
       console.error('İrsaliye yüklenemedi:', error);

@@ -5,7 +5,6 @@ import {
   Alert,
   Box,
   Button,
-  Chip,
   CircularProgress,
   FormControl,
   FormControlLabel,
@@ -15,18 +14,32 @@ import {
   Radio,
   RadioGroup,
   Select,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
   TextField,
   Typography,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogContentText,
+  DialogActions,
+  Divider,
+  InputAdornment,
+  IconButton,
 } from '@mui/material';
+import {
+  Update,
+  Settings,
+  ShoppingCartCheckout,
+  TrendingUp,
+  InfoOutlined,
+  Refresh,
+  FilterList
+} from '@mui/icons-material';
 import MainLayout from '@/components/Layout/MainLayout';
 import axios from '@/lib/axios';
 
+/**
+ * Interface definition for product/stock data
+ */
 interface Stok {
   id: string;
   stokKodu: string;
@@ -37,398 +50,297 @@ interface Stok {
   satisFiyati?: number | null;
 }
 
-type AdjustmentType = 'percentage' | 'fixed';
-
-interface ResultRow {
-  stokId: string;
-  stokKodu: string;
-  stokAdi: string;
-  previousPrice?: number | null;
-  newPrice?: number | null;
-  status: 'success' | 'skipped' | 'failed';
-  message?: string;
+/**
+ * Reusable component for Bulk Update sections
+ */
+interface BulkUpdateSectionProps {
+  title: string;
+  subtitle: string;
+  icon: React.ReactNode;
+  stocks: Stok[];
+  onUpdate: (payload: any) => void;
+  loading: boolean;
+  basePriceType: 'SALE' | 'PURCHASE';
 }
 
-const formatDateOnly = (date: Date) => {
-  const pad = (value: number) => value.toString().padStart(2, '0');
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
-};
+function BulkUpdateSection({ title, subtitle, icon, stocks, onUpdate, loading, basePriceType }: BulkUpdateSectionProps) {
+  const [marka, setMarka] = useState('');
+  const [anaKategori, setAnaKategori] = useState('');
+  const [altKategori, setAltKategori] = useState('');
+  const [adjustmentType, setAdjustmentType] = useState<'percentage' | 'fixed'>('percentage');
+  const [adjustmentValue, setAdjustmentValue] = useState('');
 
-export default function TopluSatisFiyatGuncellePage() {
-  const [allStocks, setAllStocks] = useState<Stok[]>([]);
-  const [initialLoading, setInitialLoading] = useState(true);
-  const [initialError, setInitialError] = useState<string | null>(null);
+  const markaOptions = useMemo(() => {
+    const values = stocks.map((s) => s.marka).filter(Boolean);
+    return Array.from(new Set(values)).sort();
+  }, [stocks]);
 
-  const [selectedMarka, setSelectedMarka] = useState('');
-  const [selectedAnaKategori, setSelectedAnaKategori] = useState('');
-  const [selectedAltKategori, setSelectedAltKategori] = useState('');
+  const anaKategoriOptions = useMemo(() => {
+    const values = stocks.map((s) => s.anaKategori).filter(Boolean);
+    return Array.from(new Set(values)).sort();
+  }, [stocks]);
 
-  const [adjustmentType, setAdjustmentType] = useState<AdjustmentType>('percentage');
-  const [adjustmentValue, setAdjustmentValue] = useState<string>('');
+  const altKategoriOptions = useMemo(() => {
+    const filtered = anaKategori ? stocks.filter((s) => s.anaKategori === anaKategori) : stocks;
+    const values = filtered.map((s) => s.altKategori).filter(Boolean);
+    return Array.from(new Set(values)).sort();
+  }, [stocks, anaKategori]);
 
+  const handleProcess = () => {
+    const valueNum = Number(adjustmentValue);
+    if (!valueNum || valueNum === 0) return;
+
+    onUpdate({
+      marka: marka || undefined,
+      anaKategori: anaKategori || undefined,
+      altKategori: altKategori || undefined,
+      adjustmentType,
+      adjustmentValue: valueNum,
+      basePriceType,
+    });
+  };
+
+  return (
+    <Paper variant="outlined" sx={{ borderRadius: 'var(--radius-md)', overflow: 'hidden', mb: 3, border: '1px solid var(--border)', background: 'var(--card)' }}>
+      {/* Section Header */}
+      <Box sx={{ p: 2, bgcolor: 'var(--muted)', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 1.5 }}>
+        <Box sx={{
+          width: 32,
+          height: 32,
+          borderRadius: 'var(--radius-sm)',
+          bgcolor: basePriceType === 'SALE' ? 'var(--primary)' : 'var(--secondary)',
+          color: basePriceType === 'SALE' ? 'var(--primary-foreground)' : 'var(--secondary-foreground)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center'
+        }}>
+          {icon}
+        </Box>
+        <Box>
+          <Typography variant="subtitle1" fontWeight={700} sx={{ lineHeight: 1, color: 'var(--foreground)' }}>
+            {title}
+          </Typography>
+          <Typography variant="caption" sx={{ color: 'var(--muted-foreground)' }}>
+            {subtitle}
+          </Typography>
+        </Box>
+      </Box>
+
+      <Box sx={{ p: 3 }}>
+        <Typography variant="caption" fontWeight={700} sx={{ color: 'var(--muted-foreground)', display: 'block', mb: 2, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+          Hedef Ürün Filtreleri
+        </Typography>
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr 1fr' }, gap: 2, mb: 3 }}>
+          <FormControl fullWidth size="small">
+            <InputLabel>Marka Seçin</InputLabel>
+            <Select label="Marka Seçin" value={marka} onChange={(e) => setMarka(e.target.value)}>
+              <MenuItem value=""><em>Tümü</em></MenuItem>
+              {markaOptions.map(m => <MenuItem key={m || 'unknown'} value={(m || '') as string}>{m}</MenuItem>)}
+            </Select>
+          </FormControl>
+          <FormControl fullWidth size="small">
+            <InputLabel>Ana Kategori</InputLabel>
+            <Select label="Ana Kategori" value={anaKategori} onChange={(e) => { setAnaKategori(e.target.value); setAltKategori(''); }}>
+              <MenuItem value=""><em>Tümü</em></MenuItem>
+              {anaKategoriOptions.map(k => <MenuItem key={k || 'unknown'} value={(k || '') as string}>{k}</MenuItem>)}
+            </Select>
+          </FormControl>
+          <FormControl fullWidth size="small">
+            <InputLabel>Alt Kategori</InputLabel>
+            <Select label="Alt Kategori" value={altKategori} onChange={(e) => setAltKategori(e.target.value)} disabled={!anaKategori}>
+              <MenuItem value=""><em>Tümü</em></MenuItem>
+              {altKategoriOptions.map(k => <MenuItem key={k || 'unknown'} value={(k || '') as string}>{k}</MenuItem>)}
+            </Select>
+          </FormControl>
+        </Box>
+
+        <Divider sx={{ mb: 3 }} />
+
+        <Typography variant="caption" fontWeight={700} sx={{ color: 'var(--muted-foreground)', display: 'block', mb: 2, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+          Fiyat Artış Ayarları
+        </Typography>
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 4, mb: 3 }}>
+          <RadioGroup row value={adjustmentType} onChange={(e) => setAdjustmentType(e.target.value as any)}>
+            <FormControlLabel value="percentage" control={<Radio size="small" />} label={<Typography variant="body2">Yüzdelik (%)</Typography>} />
+            <FormControlLabel value="fixed" control={<Radio size="small" />} label={<Typography variant="body2">Sabit Tutar (₺)</Typography>} />
+          </RadioGroup>
+          <TextField
+            size="small"
+            label={adjustmentType === 'percentage' ? 'Artış Yüzdesi' : 'Artış Tutarı'}
+            type="number"
+            value={adjustmentValue}
+            onChange={(e) => setAdjustmentValue(e.target.value)}
+            sx={{ width: 180 }}
+            InputProps={{
+              startAdornment: <InputAdornment position="start">{adjustmentType === 'percentage' ? '%' : '₺'}</InputAdornment>,
+            }}
+          />
+          <Button
+            variant="contained"
+            disabled={loading || !adjustmentValue}
+            onClick={handleProcess}
+            sx={{
+              bgcolor: 'var(--primary)',
+              color: 'var(--primary-foreground)',
+              boxShadow: 'var(--shadow-sm)',
+              fontWeight: 600,
+              textTransform: 'none',
+              px: 4,
+              borderRadius: 'var(--radius-md)',
+              '&:hover': { bgcolor: 'var(--primary-hover)', boxShadow: 'var(--shadow-md)' }
+            }}
+            startIcon={loading ? <CircularProgress size={16} color="inherit" /> : <TrendingUp sx={{ fontSize: 16 }} />}
+          >
+            Fiyatları Hazırla ve Uygula
+          </Button>
+        </Box>
+      </Box>
+    </Paper>
+  );
+}
+
+export default function TopluFiyatGuncellePage() {
+  const [stocks, setStocks] = useState<Stok[]>([]);
+  const [loading, setLoading] = useState(false);
   const [processing, setProcessing] = useState(false);
-  const [resultRows, setResultRows] = useState<ResultRow[] | null>(null);
-  const [summaryMessage, setSummaryMessage] = useState<string | null>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [currentPayload, setCurrentPayload] = useState<any>(null);
+  const [summary, setSummary] = useState<{ open: boolean; message: string; severity: 'success' | 'error' | 'info' } | null>(null);
 
   useEffect(() => {
-    const fetchStocks = async () => {
-      setInitialLoading(true);
-      setInitialError(null);
-      try {
-        const response = await axios.get('/product', {
-          params: {
-            limit: 1000,
-          },
-        });
-        setAllStocks(response.data?.data ?? []);
-      } catch (error: any) {
-        console.error('Stok listesi alınamadı', error);
-        setInitialError(error?.response?.data?.message ?? 'Stok listesi alınamadı.');
-      } finally {
-        setInitialLoading(false);
-      }
-    };
-
     void fetchStocks();
   }, []);
 
-  const markaOptions = useMemo(() => {
-    const values = allStocks.map((item) => item.marka).filter((value): value is string => Boolean(value));
-    return Array.from(new Set(values)).sort((a, b) => a.localeCompare(b));
-  }, [allStocks]);
-
-  const anaKategoriOptions = useMemo(() => {
-    const values = allStocks.map((item) => item.anaKategori).filter((value): value is string => Boolean(value));
-    return Array.from(new Set(values)).sort((a, b) => a.localeCompare(b));
-  }, [allStocks]);
-
-  const altKategoriOptions = useMemo(() => {
-    const filtered = selectedAnaKategori
-      ? allStocks.filter((item) => item.anaKategori === selectedAnaKategori)
-      : allStocks;
-    const values = filtered.map((item) => item.altKategori).filter((value): value is string => Boolean(value));
-    return Array.from(new Set(values)).sort((a, b) => a.localeCompare(b));
-  }, [allStocks, selectedAnaKategori]);
-
-  const handleResetFilters = () => {
-    setSelectedMarka('');
-    setSelectedAnaKategori('');
-    setSelectedAltKategori('');
-    setAdjustmentType('percentage');
-    setAdjustmentValue('');
-    setResultRows(null);
-    setSummaryMessage(null);
+  const fetchStocks = async () => {
+    setLoading(true);
+    try {
+      const response = await axios.get('/products', { params: { limit: 1000 } });
+      setStocks(response.data?.data ?? []);
+    } catch (error) {
+      console.error('Veriler alınamadı', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleProcess = async () => {
-    const numericValue = Number(adjustmentValue);
-    if (Number.isNaN(numericValue) || numericValue === 0) {
-      setSummaryMessage('Lütfen sıfırdan farklı geçerli bir artış değeri girin.');
-      setResultRows(null);
-      return;
-    }
+  const handleUpdateInitiated = (payload: any) => {
+    setCurrentPayload(payload);
+    setConfirmOpen(true);
+  };
 
+  const handleConfirmUpdate = async () => {
+    if (!currentPayload) return;
+    setConfirmOpen(false);
     setProcessing(true);
-    setResultRows(null);
-    setSummaryMessage(null);
-
     try {
-      const response = await axios.get('/product', {
-        params: {
-          limit: 1000,
-          marka: selectedMarka || undefined,
-          anaKategori: selectedAnaKategori || undefined,
-          altKategori: selectedAltKategori || undefined,
-        },
+      const response = await axios.post('/price-cards/bulk-update', currentPayload);
+      const { message, totalProcessed, successCount, skippedCount } = response.data;
+      setSummary({
+        open: true,
+        severity: 'success',
+        message: `${message} İşlem başarılı: ${successCount}, Atlanan: ${skippedCount}.`
       });
-
-      const filteredStocks: Stok[] = response.data?.data ?? [];
-
-      if (filteredStocks.length === 0) {
-        setSummaryMessage('Seçilen kriterlere göre stok bulunamadı.');
-        setResultRows([]);
-        return;
-      }
-
-      const rows: ResultRow[] = [];
-      let successCount = 0;
-      let skippedCount = 0;
-      let failedCount = 0;
-      const effectiveFrom = formatDateOnly(new Date());
-      const note = `Toplu satış fiyatı güncellemesi (${adjustmentType === 'percentage' ? `%${numericValue}` : `+${numericValue}₺`})`;
-
-      for (const stok of filteredStocks) {
-        const row: ResultRow = {
-          stokId: stok.id,
-          stokKodu: stok.stokKodu,
-          stokAdi: stok.stokAdi,
-          status: 'skipped',
-        };
-
-        try {
-          const latestResponse = await axios.get(`/price-cards/stok/${stok.id}/latest`, {
-            params: { type: 'SALE' },
-          });
-
-          const latestCard = latestResponse.data;
-          const basePrice = latestCard?.price != null ? Number(latestCard.price) : stok.satisFiyati ?? 0;
-
-          if (!basePrice || Number.isNaN(basePrice) || basePrice <= 0) {
-            row.status = 'skipped';
-            row.message = 'Geçerli satış fiyatı bulunamadı.';
-            skippedCount += 1;
-            rows.push(row);
-            continue;
-          }
-
-          const newPrice = (() => {
-            if (adjustmentType === 'percentage') {
-              return Number((basePrice * (1 + numericValue / 100)).toFixed(2));
-            }
-            return Number((basePrice + numericValue).toFixed(2));
-          })();
-
-          if (!Number.isFinite(newPrice) || newPrice <= 0) {
-            row.status = 'skipped';
-            row.previousPrice = basePrice;
-            row.message = 'Hesaplanan yeni fiyat geçersiz.';
-            skippedCount += 1;
-            rows.push(row);
-            continue;
-          }
-
-          await axios.post('/price-cards', {
-            stokId: stok.id,
-            type: 'SALE',
-            price: newPrice,
-            effectiveFrom,
-            note,
-          });
-
-          row.status = 'success';
-          row.previousPrice = basePrice;
-          row.newPrice = newPrice;
-          successCount += 1;
-        } catch (error: any) {
-          console.error(`Stok ${stok.stokKodu} için fiyat güncellenemedi`, error);
-          row.status = 'failed';
-          row.message = error?.response?.data?.message ?? 'Fiyat güncellemesi sırasında hata oluştu.';
-          failedCount += 1;
-        }
-
-        rows.push(row);
-      }
-
-      setResultRows(rows);
-      setSummaryMessage(
-        `Toplam ${filteredStocks.length} malzeme işlendi. Başarılı: ${successCount}, Atlanan: ${skippedCount}, Hatalı: ${failedCount}.`
-      );
     } catch (error: any) {
-      console.error('Toplu fiyat güncellemesi başarısız', error);
-      setSummaryMessage(error?.response?.data?.message ?? 'Toplu fiyat güncellemesi sırasında hata oluştu.');
-      setResultRows(null);
+      console.error('Hata:', error);
+      setSummary({
+        open: true,
+        severity: 'error',
+        message: error?.response?.data?.message ?? 'İşlem sırasında bir hata oluştu.'
+      });
     } finally {
       setProcessing(false);
+      setCurrentPayload(null);
     }
   };
 
   return (
     <MainLayout>
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-        <Box>
-          <Typography variant="h4" fontWeight={700} sx={{ mb: 0.5 }}>
-            Toplu Satış Fiyatı Güncelleme
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Marka ve kategori kriterlerine göre ürünlerin satış fiyatlarına yüzdelik veya sabit artış uygulayın. Her ürün için yeni bir satış fiyatı kartı oluşturulur.
-          </Typography>
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+        {/* Header Section */}
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+            <Box sx={{ width: 40, height: 40, borderRadius: 'var(--radius-md)', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--primary)', color: 'var(--primary-foreground)' }}>
+              <Settings fontSize="small" />
+            </Box>
+            <Box>
+              <Typography variant="h6" fontWeight={700} sx={{ lineHeight: 1.2, color: 'var(--foreground)' }}>
+                Toplu Fiyat Yönetimi
+              </Typography>
+              <Typography variant="caption" sx={{ color: 'var(--muted-foreground)' }}>
+                Ürün satış fiyatlarını toplu kurallar ile güncelleyin
+              </Typography>
+            </Box>
+          </Box>
+          <IconButton size="small" onClick={fetchStocks} disabled={loading}>
+            <Refresh fontSize="small" />
+          </IconButton>
         </Box>
 
-        <Paper sx={{ p: 3 }}>
-          {initialLoading ? (
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-              <CircularProgress size={24} />
-              <Typography color="text.secondary">Ürün verileri yükleniyor...</Typography>
-            </Box>
-          ) : initialError ? (
-            <Alert severity="error">{initialError}</Alert>
-          ) : (
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-              <Box
-                sx={{
-                  display: 'grid',
-                  gap: 3,
-                  gridTemplateColumns: { xs: '1fr', md: 'repeat(3, minmax(0, 1fr))' },
-                }}
-              >
-                <Box>
-                  <FormControl fullWidth size="small">
-                    <InputLabel>Marka</InputLabel>
-                    <Select
-                      label="Marka"
-                      value={selectedMarka}
-                      onChange={(event) => setSelectedMarka(event.target.value)}
-                    >
-                      <MenuItem value="">
-                        <em>Tümü</em>
-                      </MenuItem>
-                      {markaOptions.map((marka) => (
-                        <MenuItem key={marka} value={marka}>
-                          {marka}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                </Box>
-
-                <Box>
-                  <FormControl fullWidth size="small">
-                    <InputLabel>Ana Kategori</InputLabel>
-                    <Select
-                      label="Ana Kategori"
-                      value={selectedAnaKategori}
-                      onChange={(event) => {
-                        setSelectedAnaKategori(event.target.value);
-                        setSelectedAltKategori('');
-                      }}
-                    >
-                      <MenuItem value="">
-                        <em>Tümü</em>
-                      </MenuItem>
-                      {anaKategoriOptions.map((kategori) => (
-                        <MenuItem key={kategori} value={kategori}>
-                          {kategori}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                </Box>
-
-                <Box>
-                  <FormControl fullWidth size="small" disabled={!selectedAnaKategori && altKategoriOptions.length === 0}>
-                    <InputLabel>Alt Kategori</InputLabel>
-                    <Select
-                      label="Alt Kategori"
-                      value={selectedAltKategori}
-                      onChange={(event) => setSelectedAltKategori(event.target.value)}
-                    >
-                      <MenuItem value="">
-                        <em>Tümü</em>
-                      </MenuItem>
-                      {altKategoriOptions.map((kategori) => (
-                        <MenuItem key={kategori} value={kategori}>
-                          {kategori}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                </Box>
-              </Box>
-
-              <Box
-                sx={{
-                  display: 'grid',
-                  gap: 3,
-                  gridTemplateColumns: { xs: '1fr', md: 'repeat(2, minmax(0, 1fr))' },
-                }}
-              >
-                <Box>
-                  <FormControl component="fieldset">
-                    <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 1 }}>
-                      Artış Türü
-                    </Typography>
-                    <RadioGroup
-                      row
-                      value={adjustmentType}
-                      onChange={(event) => setAdjustmentType(event.target.value as AdjustmentType)}
-                    >
-                      <FormControlLabel value="percentage" control={<Radio />} label="Yüzdelik (%)" />
-                      <FormControlLabel value="fixed" control={<Radio />} label="Sabit Tutar (₺)" />
-                    </RadioGroup>
-                  </FormControl>
-                </Box>
-
-                <Box>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    label={adjustmentType === 'percentage' ? 'Yüzde Artışı (%)' : 'Sabit Tutar (₺)'}
-                    type="number"
-                    value={adjustmentValue}
-                    onChange={(event) => setAdjustmentValue(event.target.value)}
-                    inputProps={{ step: adjustmentType === 'percentage' ? 0.5 : 0.1 }}
-                    helperText="Pozitif bir değer giriniz"
-                  />
-                </Box>
-              </Box>
-
-              <Box sx={{ display: 'flex', gap: 1 }}>
-                <Button
-                  variant="contained"
-                  onClick={handleProcess}
-                  disabled={processing}
-                  sx={{ bgcolor: '#191970', '&:hover': { bgcolor: '#0f0f40' } }}
-                  startIcon={processing ? <CircularProgress size={18} color="inherit" /> : undefined}
-                >
-                  {processing ? 'Güncelleniyor...' : 'Fiyatları Güncelle'}
-                </Button>
-                <Button variant="outlined" onClick={handleResetFilters} disabled={processing}>
-                  Sıfırla
-                </Button>
-              </Box>
-            </Box>
-          )}
-        </Paper>
-
-        {summaryMessage && <Alert severity="info">{summaryMessage}</Alert>}
-
-        {resultRows && resultRows.length > 0 && (
-          <TableContainer component={Paper} sx={{ maxHeight: 420 }}>
-            <Table stickyHeader size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell>Stok Kodu</TableCell>
-                  <TableCell>Stok Adı</TableCell>
-                  <TableCell align="right">Önceki Fiyat</TableCell>
-                  <TableCell align="right">Yeni Fiyat</TableCell>
-                  <TableCell>Durum</TableCell>
-                  <TableCell>Açıklama</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {resultRows.map((row) => (
-                  <TableRow key={row.stokId + row.stokKodu}>
-                    <TableCell>{row.stokKodu}</TableCell>
-                    <TableCell>{row.stokAdi}</TableCell>
-                    <TableCell align="right">
-                      {row.previousPrice != null ? `₺${row.previousPrice.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '-'}
-                    </TableCell>
-                    <TableCell align="right">
-                      {row.newPrice != null ? `₺${row.newPrice.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '-'}
-                    </TableCell>
-                    <TableCell>
-                      <Chip
-                        size="small"
-                        label={
-                          row.status === 'success'
-                            ? 'Başarılı'
-                            : row.status === 'failed'
-                            ? 'Hatalı'
-                            : 'Atlandı'
-                        }
-                        color={row.status === 'success' ? 'success' : row.status === 'failed' ? 'error' : 'default'}
-                      />
-                    </TableCell>
-                    <TableCell>{row.message || '-'}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
+        {summary && (
+          <Alert severity={summary.severity} sx={{ mb: 2, borderRadius: 2 }} onClose={() => setSummary(null)}>
+            {summary.message}
+          </Alert>
         )}
+
+        {/* Section 1: Mevcut Satış Fiyatları */}
+        <BulkUpdateSection
+          title="Mevcut Satış Fiyatları Güncelleme"
+          subtitle="Seçili ürünlerin mevcut aktif satış fiyatları üzerine artış uygula."
+          icon={<TrendingUp fontSize="small" />}
+          stocks={stocks}
+          loading={processing}
+          basePriceType="SALE"
+          onUpdate={handleUpdateInitiated}
+        />
+
+        {/* Section 2: Son Satınalma Fiyatına Göre */}
+        <BulkUpdateSection
+          title="Son Satınalma Fiyatına Göre Satış Fiyatı Belirleme"
+          subtitle="En son satınalma faturanızdaki maliyet üzerine kar marjı ekleyerek satış fiyatı oluştur."
+          icon={<ShoppingCartCheckout fontSize="small" />}
+          stocks={stocks}
+          loading={processing}
+          basePriceType="PURCHASE"
+          onUpdate={handleUpdateInitiated}
+        />
+
+
+        {/* Info Strip */}
+        <Paper variant="outlined" sx={{ p: 2, display: 'flex', alignItems: 'center', gap: 2, borderRadius: 'var(--radius-md)', bgcolor: 'var(--accent)', borderColor: 'var(--border)', border: '1px solid var(--border)' }}>
+          <InfoOutlined sx={{ color: 'var(--muted-foreground)' }} />
+          <Typography variant="body2" sx={{ color: 'var(--foreground)' }}>
+            <strong>İpucu:</strong> Her iki işlem de ürünler için yeni birer fiyat kartı oluşturur. Mevcut geçmiş verileriniz korunur.
+            İşlem bittiğinde ürünlerin satış fiyatı olarak bu yeni değerler geçerli olacaktır.
+          </Typography>
+        </Paper>
       </Box>
+
+      {/* Confirmation Dialog */}
+      <Dialog open={confirmOpen} onClose={() => setConfirmOpen(false)} PaperProps={{ sx: { borderRadius: 'var(--radius-md)', p: 1, bgcolor: 'var(--card)', border: '1px solid var(--border)' } }}>
+        <DialogTitle sx={{ fontWeight: 700, color: 'var(--foreground)' }}>
+          Toplu İşlem Onayı
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText sx={{ color: 'var(--muted-foreground)' }}>
+            Seçili kriterlere uyan ürünlerin fiyatları <strong>kalıcı olarak</strong> güncellenecektir.
+            Bu işlem sonrasında her ürün için yeni bir fiyat kartı oluşturulur.
+            <br /><br />
+            Devam etmek istediğinizden emin misiniz?
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions sx={{ p: 2 }}>
+          <Button onClick={() => setConfirmOpen(false)} sx={{ textTransform: 'none', fontWeight: 600, color: 'var(--muted-foreground)' }}>
+            Vazgeç
+          </Button>
+          <Button
+            onClick={handleConfirmUpdate}
+            variant="contained"
+            sx={{ bgcolor: 'var(--primary)', color: 'var(--primary-foreground)', textTransform: 'none', fontWeight: 600, px: 3, borderRadius: 'var(--radius-md)', '&:hover': { bgcolor: 'var(--primary-hover)' } }}
+          >
+            Evet, İşlemi Başlat
+          </Button>
+        </DialogActions>
+      </Dialog>
     </MainLayout>
   );
 }
-
-

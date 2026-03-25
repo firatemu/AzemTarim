@@ -19,11 +19,17 @@ import { InvoiceProfitService } from '../invoice-profit/invoice-profit.service';
 import { CostingService } from '../costing/costing.service';
 import { SystemParameterService } from '../system-parameter/system-parameter.service';
 import { WarehouseService } from '../warehouse/warehouse.service';
+import { AccountBalanceService } from '../account-balance/account-balance.service';
 import { CreateInvoiceDto } from './dto/create-invoice.dto';
 import { CreateInvoicePaymentPlanDto } from './dto/create-invoice-payment-plan.dto';
 import { UpdateInvoiceDto } from './dto/update-invoice.dto';
 import { DeletionProtectionService } from '../../common/services/deletion-protection.service';
 import { TcmbService } from '../../common/services/tcmb.service';
+import { InvoiceOrchestratorService } from './services/invoice-orchestrator.service';
+import { StockEffectService } from './services/stock-effect.service';
+import { AccountEffectService } from './services/account-effect.service';
+import { InvoiceOperationType } from './types/invoice-orchestrator.types';
+import { UnitSetService } from '../unit-set/unit-set.service';
 
 @Injectable()
 export class InvoiceService {
@@ -39,6 +45,11 @@ export class InvoiceService {
     private warehouseService: WarehouseService,
     private deletionProtection: DeletionProtectionService,
     private tcmbService: TcmbService,
+    private accountBalanceService: AccountBalanceService,
+    private orchestratorService: InvoiceOrchestratorService,
+    private stockEffectService: StockEffectService,
+    private accountEffectService: AccountEffectService,
+    private unitSetService: UnitSetService,
   ) { }
 
   /** Prisma Decimal veya number'ı güvenle number'a çevirir (null/undefined → 0). */
@@ -69,7 +80,7 @@ export class InvoiceService {
         changes: changes ? JSON.stringify(changes) : null,
         ipAddress,
         userAgent,
-        tenantId,
+        tenantId: tenantId!, // Ensure tenantId is not null
       },
     });
   }
@@ -200,7 +211,7 @@ export class InvoiceService {
             warehouseId,
             locationId: defaultLocation.id,
             productId,
-            qtyOnHand: -quantity, // Negative stock
+            quantity: -quantity, // Negative stock
             tenantId: createTenantId,
           },
         });
@@ -212,7 +223,7 @@ export class InvoiceService {
             warehouseId,
             locationId: defaultLocation.id,
             productId,
-            qtyOnHand: quantity,
+            quantity: quantity,
             tenantId: createTenantId,
           },
         });
@@ -228,11 +239,11 @@ export class InvoiceService {
         fromLocationId: moveType === 'SALE' ? defaultLocation.id : null,
         toWarehouseId: warehouseId,
         toLocationId: defaultLocation.id,
-        qty: quantity,
+        quantity,
         moveType: moveType,
         refType,
         refId,
-        note,
+        notes: note,
         createdBy: userId,
         tenantId: createTenantId,
       },
@@ -494,7 +505,12 @@ export class InvoiceService {
       'AUTO_APPROVE_INVOICE',
       false,
     );
-    const status = autoApprove ? InvoiceStatus.APPROVED : (inputStatus || InvoiceStatus.DRAFT);
+    let status = autoApprove ? InvoiceStatus.APPROVED : (inputStatus || InvoiceStatus.DRAFT);
+
+    // Satış faturaları (SALE) her zaman onaylanmış durumda kaydedilmelidir.
+    if (invoiceData.type === InvoiceType.SALE) {
+      status = InvoiceStatus.APPROVED;
+    }
 
     if (!invoiceData.invoiceNo || invoiceData.invoiceNo.trim() === '') {
       try {
@@ -503,30 +519,12 @@ export class InvoiceService {
         } else if (invoiceData.type === InvoiceType.PURCHASE) {
           invoiceData.invoiceNo = await this.codeTemplateService.getNextCode(ModuleType.INVOICE_PURCHASE);
         } else {
-          const year = new Date().getFullYear();
-          const lastInvoice = await this.prisma.invoice.findFirst({
-            where: {
-              invoiceType: invoiceData.type as InvoiceType,
-              ...(tenantId && { tenantId }),
-            },
-            orderBy: { createdAt: 'desc' },
-          });
-          const lastNo = lastInvoice ? parseInt(lastInvoice.invoiceNo.split('-')[2] || '0') : 0;
-          const newNo = (lastNo + 1).toString().padStart(3, '0');
-          invoiceData.invoiceNo = `SF-${year}-${newNo}`;
+          throw new BadRequestException(`Fatura tipi desteklenmiyor: ${invoiceData.type}`);
         }
       } catch (error: any) {
-        const year = new Date().getFullYear();
-        const lastInvoice = await this.prisma.invoice.findFirst({
-          where: {
-            invoiceType: invoiceData.type as InvoiceType,
-            ...(tenantId && { tenantId }),
-          },
-          orderBy: { createdAt: 'desc' },
-        });
-        const lastNo = lastInvoice ? parseInt(lastInvoice.invoiceNo.split('-')[2] || '0') : 0;
-        const newNo = (lastNo + 1).toString().padStart(3, '0');
-        invoiceData.invoiceNo = `SF-${year}-${newNo}`;
+        throw new BadRequestException(
+          `Fatura numarası üretilirken hata: ${error.message}. Lütfen Şablon Ayarlarını kontrol edin.`
+        );
       }
     }
 
@@ -555,13 +553,26 @@ export class InvoiceService {
       throw new NotFoundException(`Account not found: ${invoiceData.accountId}`);
     }
 
+    // Validate quantities for unit divisibility
+    const products = await this.prisma.product.findMany({
+      where: { id: { in: items.map((i) => i.productId) } },
+      select: { id: true, unitId: true },
+    });
+
+    for (const item of items) {
+      const product = products.find((p) => p.id === item.productId);
+      if (product?.unitId) {
+        await this.unitSetService.validateQuantity(product.unitId, item.quantity);
+      }
+    }
+
     let totalAmount = 0;
     let vatAmount = 0;
     let sctTotal = 0;
     let withholdingTotal = 0;
 
     const itemsWithCalculations = items.map((item) => {
-      const quantity = Math.max(1, Math.floor(Number(item.quantity) || 1));
+      const quantity = Number(item.quantity) || 0;
       const unitPrice = Number(item.unitPrice) || 0;
       const rawAmount = quantity * unitPrice;
 
@@ -611,6 +622,7 @@ export class InvoiceService {
         sctAmount: new Decimal(sctAmount),
         vatExemptionReason: item.vatExemptionReason || null,
         unit: item.unit || null,
+        tenantId: tenantId!, // Add tenantId to invoice item
       };
     });
 
@@ -1037,6 +1049,10 @@ export class InvoiceService {
         prisma,
       );
 
+      // Update code template counter
+      const invoiceModule = invoiceData.type === InvoiceType.SALE ? ModuleType.INVOICE_SALES : ModuleType.INVOICE_PURCHASE;
+      await this.codeTemplateService.saveLastCode(invoiceModule, invoice.invoiceNo);
+
       if (invoiceData.type === InvoiceType.SALE) {
         try {
           await this.invoiceProfitService.calculateAndSaveProfit(
@@ -1054,6 +1070,19 @@ export class InvoiceService {
 
       return invoice;
     });
+
+    // Fatura kaydedildikten sonra sayaç güncelle (transaction dışında)
+    try {
+      if (invoiceData.type === InvoiceType.SALE || invoiceData.type === InvoiceType.PURCHASE) {
+        const moduleType = invoiceData.type === InvoiceType.SALE
+          ? ModuleType.INVOICE_SALES
+          : ModuleType.INVOICE_PURCHASE;
+        await this.codeTemplateService.saveLastCode(moduleType, createdInvoice.invoiceNo);
+      }
+    } catch (error) {
+      console.error(`❌ [InvoiceService] Son numara kaydedilemedi: ${createdInvoice.invoiceNo}`, error);
+      // Hata olsa bile fatura kaydedilmiş, kritik değil
+    }
 
     if (invoiceData.type === InvoiceType.PURCHASE) {
       try {
@@ -1177,11 +1206,26 @@ export class InvoiceService {
       }
     }
 
+    // Validate quantities for unit divisibility
+    if (items && items.length > 0) {
+      const products = await this.prisma.product.findMany({
+        where: { id: { in: items.map((i) => i.productId) } },
+        select: { id: true, unitId: true },
+      });
+
+      for (const item of items) {
+        const product = products.find((p) => p.id === item.productId);
+        if (product?.unitId) {
+          await this.unitSetService.validateQuantity(product.unitId, item.quantity);
+        }
+      }
+    }
+
     let totalAmount = 0;
     let vatAmount = 0;
 
     const itemsWithCalculations = items.map((item) => {
-      const quantity = Math.max(1, Math.floor(Number(item.quantity) || 1));
+      const quantity = Number(item.quantity) || 0;
       const unitPrice = Number(item.unitPrice) || 0;
       const rawAmount = quantity * unitPrice;
 
@@ -1257,6 +1301,7 @@ export class InvoiceService {
           where: { id },
           data: {
             ...invoiceData,
+            status: invoice.invoiceType === InvoiceType.SALE ? InvoiceStatus.APPROVED : (updateInvoiceDto.status || invoice.status),
             currency: currency || 'TRY',
             exchangeRate: exchangeRate ? new Decimal(exchangeRate) : new Decimal(1),
             foreignTotal: foreignTotal ? new Decimal(foreignTotal) : null,
@@ -1366,106 +1411,12 @@ export class InvoiceService {
     // Protection check
     await this.deletionProtection.checkFaturaDeletion(id, tenantId);
 
-    // Soft delete
+    // Soft delete with effects reversal
     const deletedInvoice = await this.prisma.$transaction(async (prisma) => {
-      // Delete account movements and stock movements if approved
+      // Revert movements using new orchestration logic if approved
       if (invoice.status === InvoiceStatus.APPROVED) {
-        await prisma.accountMovement.deleteMany({
-          where: {
-            accountId: invoice.accountId,
-            documentType: 'INVOICE',
-            documentNo: invoice.invoiceNo,
-            ...buildTenantWhereClause(tenantId ?? undefined),
-          },
-        });
-
-        // Revert account balance
-        await prisma.account.updateMany({
-          where: {
-            id: invoice.accountId,
-            ...buildTenantWhereClause(tenantId ?? undefined),
-          },
-          data: {
-            balance:
-              invoice.invoiceType === InvoiceType.SALE
-                ? { decrement: invoice.grandTotal }
-                : { increment: invoice.grandTotal },
-          },
-        });
-
-        // Delete product movements
-        const itemIds = invoice.items?.map((item) => item.id) ?? [];
-        if (itemIds.length > 0) {
-          await prisma.productMovement.deleteMany({
-            where: {
-              invoiceItemId: { in: itemIds },
-              ...buildTenantWhereClause(tenantId ?? undefined),
-            },
-          });
-        }
-
-        // Revert warehouse stocks
-        const transactionWarehouseId = invoice.warehouseId && String(invoice.warehouseId).trim() ? String(invoice.warehouseId).trim() : undefined;
-        for (const item of invoice.items ?? []) {
-          if (!item.productId) continue;
-          const quantity = Number(item.quantity) || 0;
-          if (quantity <= 0) continue;
-          if (transactionWarehouseId) {
-            await this.reverseWarehouseStockForInvoice(
-              transactionWarehouseId,
-              item.productId,
-              quantity,
-              invoice.invoiceType,
-              prisma,
-            );
-          }
-        }
-        if (invoice.invoiceType === InvoiceType.SALE && invoice.deliveryNoteId && !transactionWarehouseId) {
-          const deliveryNote = await prisma.salesDeliveryNote.findFirst({
-            where: {
-              id: invoice.deliveryNoteId,
-              ...buildTenantWhereClause(tenantId ?? undefined),
-            },
-            select: { warehouseId: true },
-          });
-          if (deliveryNote?.warehouseId) {
-            for (const item of invoice.items ?? []) {
-              if (!item.productId) continue;
-              const quantity = Number(item.quantity) || 0;
-              if (quantity <= 0) continue;
-              await this.reverseWarehouseStockForInvoice(
-                deliveryNote.warehouseId,
-                item.productId,
-                quantity,
-                invoice.invoiceType,
-                prisma,
-              );
-            }
-          }
-        }
-        if (invoice.invoiceType === InvoiceType.PURCHASE && !transactionWarehouseId && invoice.purchaseDeliveryNoteId) {
-          const deliveryNote = await prisma.purchaseDeliveryNote.findFirst({
-            where: {
-              id: invoice.purchaseDeliveryNoteId,
-              ...buildTenantWhereClause(tenantId ?? undefined),
-            },
-            select: { warehouseId: true },
-          });
-          if (deliveryNote?.warehouseId) {
-            for (const item of invoice.items ?? []) {
-              if (!item.productId) continue;
-              const quantity = Number(item.quantity) || 0;
-              if (quantity <= 0) continue;
-              await this.reverseWarehouseStockForInvoice(
-                deliveryNote.warehouseId,
-                item.productId,
-                quantity,
-                invoice.invoiceType,
-                prisma,
-              );
-            }
-          }
-        }
+        await this.stockEffectService.reverseStockEffects(id, tenantId, prisma);
+        await this.accountEffectService.reverseAccountEffect(id, tenantId, prisma);
       }
 
       // Soft delete: set deletedAt and deletedBy
@@ -1815,6 +1766,7 @@ export class InvoiceService {
     userId?: string,
     ipAddress?: string,
     userAgent?: string,
+    tx?: Prisma.TransactionClient,
   ) {
     const invoice = await this.findOne(id);
     const oldStatus = invoice.status;
@@ -1823,17 +1775,14 @@ export class InvoiceService {
       throw new BadRequestException('Invoice is already in this status.');
     }
 
-    return this.prisma.$transaction(async (prisma) => {
-      // If old status was APPROVED, revert movements
+    const executeWork = async (prisma: Prisma.TransactionClient) => {
+      // If old status was APPROVED, revert movements using new orchestration logic
       if (oldStatus === InvoiceStatus.APPROVED) {
-        if (invoice.invoiceType === InvoiceType.SALE || invoice.invoiceType === InvoiceType.PURCHASE) {
-          await this.reverseAccountOnlyForInvoice(invoice, prisma);
-        } else {
-          await this.reverseInvoiceMovements(invoice, prisma, invoice.tenantId ?? undefined);
-        }
+        await this.stockEffectService.reverseStockEffects(id, invoice.tenantId!, prisma);
+        await this.accountEffectService.reverseAccountEffect(id, invoice.tenantId!, prisma);
       }
 
-      // If new status is APPROVED, create movements
+      // If new status is APPROVED, create movements using new orchestration logic
       if (newStatus === InvoiceStatus.APPROVED) {
         if (invoice.invoiceType === InvoiceType.SALE) {
           try {
@@ -1842,41 +1791,21 @@ export class InvoiceService {
             console.error('Profit calculation error:', error);
           }
         }
-        // DRAFT -> APPROVED transition: process movements
-        if (oldStatus === InvoiceStatus.DRAFT && newStatus === InvoiceStatus.APPROVED) {
-          await this.processInvoiceMovements(
-            invoice,
-            prisma,
-            userId,
-            (invoice as any).warehouseId,
-            [],
-            invoice.tenantId,
-          );
-        }
+
+        // Apply Stock and Account Effects via new services
+        await this.stockEffectService.applyStockEffects(invoice as any, prisma, 'APPROVE');
+        await this.accountEffectService.applyAccountEffect(invoice, prisma, 'APPROVE');
       }
 
-      // If new status is CANCELLED
+      // If new status is CANCELLED (Modern Cancellation)
       if (newStatus === InvoiceStatus.CANCELLED) {
-        if (oldStatus === InvoiceStatus.APPROVED) {
-          const account = await prisma.account.findUnique({
-            where: { id: invoice.accountId },
-          });
+        // Cari etkisi her zaman ters çevrilir
+        await this.accountEffectService.applyAccountEffect(invoice, prisma, 'CANCEL');
 
-          if (account) {
-            await prisma.accountMovement.create({
-              data: {
-                accountId: invoice.accountId,
-                tenantId: invoice.tenantId!,
-                type: invoice.invoiceType === InvoiceType.SALE ? 'CREDIT' : 'DEBIT',
-                amount: this.toDecimalNumber(invoice.grandTotal),
-                balance: this.toDecimalNumber(account.balance),
-                documentType: 'CORRECTION',
-                documentNo: `${invoice.invoiceNo}-CANCEL`,
-                date: new Date(),
-                notes: `Invoice Cancellation: ${invoice.invoiceNo}`,
-              },
-            });
-          }
+        // Stok etkisi: SADECE iade faturalarında
+        const isReturnInvoice = [InvoiceType.SALES_RETURN, InvoiceType.PURCHASE_RETURN].includes(invoice.invoiceType as any);
+        if (isReturnInvoice) {
+          await this.stockEffectService.applyStockEffects(invoice as any, prisma, 'CANCEL');
         }
       }
 
@@ -1886,14 +1815,6 @@ export class InvoiceService {
         data: {
           status: newStatus,
           updatedBy: userId,
-        },
-        include: {
-          account: true,
-          items: {
-            include: {
-              product: true,
-            },
-          },
         },
       });
 
@@ -1909,6 +1830,14 @@ export class InvoiceService {
       );
 
       return updated;
+    };
+
+    if (tx) {
+      return executeWork(tx);
+    }
+
+    return this.prisma.$transaction(async (prisma) => {
+      return executeWork(prisma as Prisma.TransactionClient);
     });
   }
 
@@ -2655,22 +2584,7 @@ export class InvoiceService {
 
     for (const id of ids) {
       try {
-        await this.prisma.invoice.update({
-          where: { id },
-          data: {
-            status,
-            updatedBy: userId,
-          },
-        });
-        // Log the action
-        await this.prisma.invoiceLog.create({
-          data: {
-            invoiceId: id,
-            userId,
-            actionType: 'STATUS_CHANGE',
-            changes: JSON.stringify({ status }),
-          },
-        });
+        await this.changeStatus(id, status, userId);
         results.push({ id, success: true });
       } catch (error: any) {
         results.push({ id, success: false, message: error.message });
@@ -2993,42 +2907,13 @@ export class InvoiceService {
       ? `Invoice Cancellation: ${invoice.invoiceNo}`
       : `Invoice update (reversal): ${invoice.invoiceNo}`;
 
-    // 3. Create reversing ProductMovement for each item
+    // 3. Revert warehouse stock and Delete old movements
     for (const item of invoice.items) {
       if (!item.productId) continue;
       const quantity = Number(item.quantity) || 0;
       if (quantity <= 0) continue;
-      const unitPrice =
-        typeof item.unitPrice === 'object' && item.unitPrice != null && 'toNumber' in item.unitPrice
-          ? (item.unitPrice as any).toNumber()
-          : Number(item.unitPrice);
 
-      let reverseType: string;
-      if (useCancelType) {
-        if (invoice.invoiceType === InvoiceType.SALE) reverseType = 'CANCELLATION_ENTRY';
-        else if (invoice.invoiceType === InvoiceType.PURCHASE) reverseType = 'CANCELLATION_EXIT';
-        else if (invoice.invoiceType === InvoiceType.SALES_RETURN) reverseType = 'CANCELLATION_EXIT';
-        else reverseType = 'CANCELLATION_ENTRY'; // PURCHASE_RETURN
-      } else {
-        if (invoice.invoiceType === InvoiceType.SALE) reverseType = 'RETURN';
-        else if (invoice.invoiceType === InvoiceType.PURCHASE) reverseType = 'EXIT';
-        else if (invoice.invoiceType === InvoiceType.SALES_RETURN) reverseType = 'EXIT';
-        else reverseType = 'ENTRY'; // PURCHASE_RETURN
-      }
-
-      await prisma.productMovement.create({
-        data: {
-          productId: item.productId,
-          movementType: reverseType as any,
-          quantity: quantity,
-          unitPrice: unitPrice,
-          notes: description,
-          warehouseId: transactionWarehouseId ?? null,
-          ...(effectiveTenantId && { tenantId: effectiveTenantId }),
-        },
-      });
-
-      // 4. Reverse warehouse stock when WMS enabled
+      // Revert warehouse stock when WMS enabled
       if (transactionWarehouseId) {
         await this.reverseWarehouseStockForInvoice(
           transactionWarehouseId,
@@ -3038,6 +2923,47 @@ export class InvoiceService {
           prisma,
         );
       }
+    }
+
+    if (useCancelType) {
+      // Cancellation case: For SATIS/ALIS, we don't want history of movements, just delete original ones.
+      // If it were RETURN type, we might keep them, but per rules "Do NOT create stock movement" for SATIS/ALIS cancellation.
+      const itemIds = invoice.items?.map((item: any) => item.id).filter(Boolean) || [];
+      if (itemIds.length > 0) {
+        await prisma.productMovement.deleteMany({
+          where: {
+            invoiceItemId: { in: itemIds },
+            ...buildTenantWhereClause(effectiveTenantId),
+          },
+        });
+      }
+
+      await prisma.stockMove.deleteMany({
+        where: {
+          refId: invoice.id,
+          refType: 'Invoice',
+          ...buildTenantWhereClause(effectiveTenantId),
+        },
+      });
+    } else {
+      // Update case: Delete old movements (they will be rebuilt in processInvoiceMovements)
+      const itemIds = invoice.items?.map((item: any) => item.id).filter(Boolean) || [];
+      if (itemIds.length > 0) {
+        await prisma.productMovement.deleteMany({
+          where: {
+            invoiceItemId: { in: itemIds },
+            ...buildTenantWhereClause(effectiveTenantId),
+          },
+        });
+      }
+
+      await prisma.stockMove.deleteMany({
+        where: {
+          refId: invoice.id,
+          refType: 'Invoice',
+          ...buildTenantWhereClause(effectiveTenantId),
+        },
+      });
     }
 
     // SALE with deliveryNoteId may have used delivery note warehouseId
@@ -3151,7 +3077,12 @@ export class InvoiceService {
       balanceUpdate = { increment: grandTotal };
     }
 
-    const effectiveTenantId = tenantId ?? invoice.tenantId ?? undefined;
+    // Use invoice.tenantId to ensure proper account movement creation
+    const effectiveTenantId = invoice.tenantId || tenantId;
+
+    if (!effectiveTenantId) {
+      throw new BadRequestException('Tenant ID is required for account movement creation');
+    }
 
     // 1. Create Account Movement
     await prisma.accountMovement.create({
@@ -3164,7 +3095,7 @@ export class InvoiceService {
         documentNo: invoice.invoiceNo,
         date: new Date(invoice.date),
         notes: description,
-        tenantId: effectiveTenantId!,
+        tenantId: effectiveTenantId,
       },
     });
 
@@ -3263,6 +3194,9 @@ export class InvoiceService {
           }
         }
       }
+
+      // Recalculate account balance after processing movements
+      await this.accountBalanceService.recalculateAccountBalance(invoice.accountId, prisma);
     } else if (invoice.invoiceType === InvoiceType.SALES_RETURN) {
       const items = Array.isArray(invoice.items) ? invoice.items : [];
       for (const item of items) {
@@ -3376,18 +3310,177 @@ export class InvoiceService {
   }
 
   async createPaymentPlan(invoiceId: string, plan: any[]) {
+    const tenantId = await this.tenantResolver.resolveForCreate();
     return this.prisma.$transaction(async (tx) => {
+      // Önce mevcut planı sil (tenant güvenliği ile)
       await (tx as any).invoicePaymentPlan.deleteMany({
-        where: { invoiceId },
+        where: {
+          invoiceId,
+          ...buildTenantWhereClause(tenantId ?? undefined),
+        },
       });
 
+      if (!plan || plan.length === 0) return { count: 0 };
+
+      // Yeni planı oluştur (alan eşleştirme ve tenantId ile)
       return (tx as any).invoicePaymentPlan.createMany({
         data: plan.map(p => ({
-          ...p,
           invoiceId,
-          dueDate: new Date(p.dueDate),
+          tenantId,
+          dueDate: new Date(p.vade || p.dueDate),
+          amount: new Decimal(p.tutar || p.amount || 0),
+          paymentType: p.odemeTipi || p.paymentType || null,
+          notes: p.aciklama || p.notes || null,
+          isPaid: Boolean(p.odendi || p.isPaid || false),
         })),
       });
     });
+  }
+
+  async getPaymentPlan(invoiceId: string) {
+    const tenantId = await this.tenantResolver.resolveForQuery();
+    const plans = await (this.prisma as any).invoicePaymentPlan.findMany({
+      where: {
+        invoiceId,
+        ...buildTenantWhereClause(tenantId ?? undefined),
+      },
+      orderBy: { dueDate: 'asc' },
+    });
+
+    // Toplam ödenen ve bekleyen tutarları hesapla
+    const totalPaid = plans
+      .filter((p: any) => p.isPaid)
+      .reduce((sum: number, p: any) => sum + Number(p.amount), 0);
+    const totalPending = plans
+      .filter((p: any) => !p.isPaid)
+      .reduce((sum: number, p: any) => sum + Number(p.amount), 0);
+    const totalAmount = plans.reduce((sum: number, p: any) => sum + Number(p.amount), 0);
+
+    return {
+      plans,
+      summary: {
+        totalInstallments: plans.length,
+        totalAmount,
+        totalPaid,
+        totalPending,
+        paidCount: plans.filter((p: any) => p.isPaid).length,
+        pendingCount: plans.filter((p: any) => !p.isPaid).length,
+      },
+    };
+  }
+
+  async updatePaymentPlanItem(planId: string, isPaid: boolean) {
+    const tenantId = await this.tenantResolver.resolveForQuery();
+    return (this.prisma as any).invoicePaymentPlan.update({
+      where: {
+        id: planId,
+        ...buildTenantWhereClause(tenantId ?? undefined),
+      },
+      data: { isPaid },
+    });
+  }
+
+  async recalculateCariBakiyeler(accountId?: string) {
+    const tenantId = await this.tenantResolver.resolveForQuery();
+    const where: Prisma.AccountWhereInput = {
+      ...buildTenantWhereClause(tenantId ?? undefined),
+      deletedAt: null,
+    };
+    if (accountId) where.id = accountId;
+
+    const accounts = await this.prisma.account.findMany({ where });
+
+    for (const account of accounts) {
+      const movements = await this.prisma.accountMovement.findMany({
+        where: {
+          accountId: account.id,
+          ...buildTenantWhereClause(tenantId ?? undefined),
+        },
+        orderBy: [{ date: 'asc' }, { createdAt: 'asc' }],
+      });
+
+      let runningBalance = 0;
+      for (const movement of movements) {
+        if (movement.type === 'DEBIT') {
+          runningBalance += Number(movement.amount);
+        } else {
+          runningBalance -= Number(movement.amount);
+        }
+
+        await this.prisma.accountMovement.update({
+          where: { id: movement.id },
+          data: { balance: runningBalance },
+        });
+      }
+
+      await this.prisma.account.update({
+        where: { id: account.id },
+        data: { balance: runningBalance },
+      });
+    }
+    return { success: true, count: accounts.length };
+  }
+
+  async getVadeAnaliz(accountId?: string) {
+    const analysisData = await this.getDueDateAnalysis(accountId);
+
+    return {
+      ozet: {
+        toplam: analysisData.summary.total,
+        toplamTutar: analysisData.summary.totalAmount,
+        toplamKalanTutar: analysisData.summary.totalPayableAmount,
+        vadesiGecenler: {
+          adet: analysisData.summary.pastDue.count,
+          tutar: analysisData.summary.pastDue.amount,
+        },
+        bugunVadenler: {
+          adet: analysisData.summary.dueToday.count,
+          tutar: analysisData.summary.dueToday.amount,
+        },
+        yaklaşanlar: {
+          adet: analysisData.summary.upcoming.count,
+          tutar: analysisData.summary.upcoming.amount,
+        },
+        normalFaturalar: {
+          adet: analysisData.summary.normalInvoices.count,
+          tutar: analysisData.summary.normalInvoices.amount,
+        },
+      },
+      cariOzet: analysisData.accountSummary
+        ? analysisData.accountSummary.map((acc: any) => ({
+          cari: {
+            id: acc.account.id,
+            cariKodu: acc.account.code,
+            unvan: acc.account.title,
+            tip: acc.account.type,
+          },
+          toplamFatura: acc.totalInvoices,
+          toplamKalan: acc.totalRemaining,
+          vadesiGecen: acc.pastDueCount,
+          vadesiGecenTutar: acc.pastDueAmount,
+        }))
+        : null,
+      faturalar: analysisData.invoices.map((inv: any) => ({
+        id: inv.id,
+        faturaNo: inv.invoiceNo,
+        faturaTipi: inv.invoiceType,
+        cari: {
+          id: inv.account.id,
+          cariKodu: inv.account.code,
+          unvan: inv.account.title,
+          tip: inv.account.type,
+        },
+        tarih: inv.date,
+        vade: inv.dueDate,
+        genelToplam: inv.grandTotal,
+        odenenTutar: inv.paidAmount,
+        odenecekTutar: inv.payableAmount,
+        kalanGun: inv.daysRemaining,
+        vadeDurumu: inv.dueDateStatus === 'PAST' ? 'GECMIS' :
+          inv.dueDateStatus === 'TODAY' ? 'BUGUN' :
+            inv.dueDateStatus === 'UPCOMING' ? 'YAKLASAN' : 'NORMAL',
+        gecenGun: inv.daysPassed,
+      })),
+    };
   }
 }

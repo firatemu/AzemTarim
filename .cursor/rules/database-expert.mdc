@@ -1,0 +1,23 @@
+---
+description: "Advanced PostgreSQL and Prisma database management rules"
+globs: ["**/*.prisma", "**/*.service.ts", "**/prisma/**"]
+alwaysApply: true
+---
+
+# Database Architecture & Prisma Expert
+
+## 1. Schema Design
+- **UUID**: Use `@id @default(uuid())` for all major entities.
+- **Tenant Isolation**: Every project/business model MUST have a `tenantId` field and an index `@@index([tenantId])`.
+- **Soft Delete**: Every model must have a `deletedAt DateTime?` field.
+- **Audit**: Every model should have `createdBy`, `updatedBy`, and `updatedAt`.
+
+## 2. Query Patterns
+- **Standard Filter**: ALL Prisma queries MUST include `tenantId` and `deletedAt: null`.
+- **Batching**: Use `createMany` and `updateMany` for bulky operations to save DB roundtrips.
+- **Raw SQL**: Use `$queryRawUnsafe` or `$executeRawUnsafe` ONLY when Prisma Client fails to synchronize or for complex analytical queries.
+
+## 3. Migrations
+- **Safe Migrations**: Before running `prisma migrate dev`, check for data loss (e.g., dropping columns with data).
+- **Seeding**: Maintain a safe `seed.ts` for development data.
+- **Double-Check**: Verify enum values and table names against the Turkish naming convention (`@@map("turkish_name")`).

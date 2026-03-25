@@ -16,36 +16,78 @@ import {
   Divider,
   InputAdornment,
   IconButton,
+  Alert,
+  AlertTitle,
 } from '@mui/material';
-import { Close, Check } from '@mui/icons-material';
+import { Close, Warning } from '@mui/icons-material';
 import { usePosStore } from '@/stores/posStore';
+import type { PosPayment } from '@/app/(main)/pos/types/pos.types';
+
+function mapUiCodeToPosPayment(code: string): Pick<PosPayment, 'method' | 'label'> {
+  switch (code) {
+    case 'NAKIT':
+      return { method: 'cash', label: 'Nakit' };
+    case 'KREDI_KARTI':
+      return { method: 'credit_card', label: 'Kredi Kartı' };
+    case 'BANKA_HAVALESI':
+      return { method: 'transfer', label: 'Banka Havale' };
+    case 'CEK':
+      return { method: 'other', label: 'Çek' };
+    case 'SENET':
+      return { method: 'other', label: 'Senet' };
+    case 'HEDIYE_KARTI':
+      return { method: 'other', label: 'Hediye Kartı' };
+    case 'KREDI_HESABI':
+      return { method: 'other', label: 'Kredi Hesabı' };
+    default:
+      return { method: 'other', label: code || 'Diğer' };
+  }
+}
 
 export default function PaymentDialog() {
   const {
     paymentDialogOpen,
     setPaymentDialogOpen,
-    cartTotal,
+    cartTotals,
     payments,
-    remainingAmount,
+    remaining,
     addPayment,
     removePayment,
     clearPayments,
   } = usePosStore();
+
+  const cartTotal = cartTotals.grandTotal;
 
   const [paymentMethod, setPaymentMethod] = useState('');
   const [amount, setAmount] = useState('');
   const [cashboxId, setCashboxId] = useState('');
   const [bankAccountId, setBankAccountId] = useState('');
   const [giftCardId, setGiftCardId] = useState('');
+  const [error, setError] = useState('');
 
   const handleAddPayment = () => {
+    // Önceki hataları temizle
+    setError('');
+
     if (!amount || parseFloat(amount) <= 0) {
+      setError('Lütfen geçerli bir tutar girin.');
       return;
     }
 
     const paymentAmount = parseFloat(amount);
-    const payment = {
-      paymentMethod,
+    const currentTotalPaid = payments.reduce((sum, p) => sum + p.amount, 0);
+    const newTotalPaid = currentTotalPaid + paymentAmount;
+
+    // Ödenen tutar sepet toplamından fazla olamaz kontrolü
+    if (newTotalPaid > cartTotal) {
+      setError(`Ödenen tutar (₺${newTotalPaid.toFixed(2)}) sepet toplamından (₺${cartTotal.toFixed(2)}) büyük olamaz!`);
+      return;
+    }
+
+    const { method, label } = mapUiCodeToPosPayment(paymentMethod);
+    const payment: PosPayment = {
+      method,
+      label,
       amount: paymentAmount,
       ...(cashboxId && { cashboxId }),
       ...(bankAccountId && { bankAccountId }),
@@ -62,7 +104,7 @@ export default function PaymentDialog() {
     setGiftCardId('');
 
     // Close dialog if remaining amount is 0
-    if (cartTotal - (payments.reduce((sum, p) => sum + paymentAmount, 0)) === 0) {
+    if (cartTotal - newTotalPaid <= 0) {
       setPaymentDialogOpen(false);
     }
   };
@@ -74,10 +116,10 @@ export default function PaymentDialog() {
     setCashboxId('');
     setBankAccountId('');
     setGiftCardId('');
+    setError('');
   };
 
   const totalPaid = payments.reduce((sum, p) => sum + p.amount, 0);
-  const suggestedAmount = remainingAmount;
 
   return (
     <Dialog open={paymentDialogOpen} onClose={handleClose} maxWidth="sm" fullWidth>
@@ -85,18 +127,43 @@ export default function PaymentDialog() {
         Ödeme Ekle
       </DialogTitle>
       <DialogContent>
+        {error && (
+          <Alert 
+            severity="warning" 
+            sx={{ 
+              mb: 2, 
+              borderRadius: 2,
+              borderLeft: '6px solid #f57c00',
+              '& .MuiAlert-icon': {
+                fontSize: '32px'
+              },
+              '& .MuiAlert-message': {
+                py: 1
+              }
+            }}
+            icon={<Warning sx={{ fontSize: '32px' }} />}
+          >
+            <AlertTitle sx={{ fontWeight: 'bold', fontSize: '1rem', mb: 0.5 }}>
+              ⚠️ Uyarı
+            </AlertTitle>
+            <Typography variant="body1" sx={{ fontWeight: 600 }}>
+              {error}
+            </Typography>
+          </Alert>
+        )}
+
         <Box sx={{ mb: 3 }}>
           <Typography variant="body2" gutterBottom>
-            Kalan Tutar: ₺{(cartTotal - totalPaid).toFixed(2)}
+            Kalan Tutar: ₺{remaining.toFixed(2)}
           </Typography>
         </Box>
 
         <Grid container spacing={2}>
           {/* Payment Method */}
-          <Grid item xs={12}>
+          <Grid size={{ xs: 12 }}>
             <Select
               fullWidth
-              size="large"
+              size="medium"
               value={paymentMethod}
               onChange={(e) => setPaymentMethod(e.target.value as string)}
               displayEmpty
@@ -112,10 +179,10 @@ export default function PaymentDialog() {
           </Grid>
 
           {/* Amount */}
-          <Grid item xs={12}>
+          <Grid size={{ xs: 12 }}>
             <TextField
               fullWidth
-              size="large"
+              size="medium"
               type="number"
               label="Tutar"
               value={amount}
@@ -128,10 +195,10 @@ export default function PaymentDialog() {
 
           {/* Conditional fields based on payment method */}
           {paymentMethod === 'NAKIT' && (
-            <Grid item xs={12}>
+            <Grid size={{ xs: 12 }}>
               <Select
                 fullWidth
-                size="large"
+                size="medium"
                 value={cashboxId}
                 onChange={(e) => setCashboxId(e.target.value as string)}
                 displayEmpty
@@ -143,10 +210,10 @@ export default function PaymentDialog() {
           )}
 
           {paymentMethod === 'BANKA_HAVALESI' && (
-            <Grid item xs={12}>
+            <Grid size={{ xs: 12 }}>
               <Select
                 fullWidth
-                size="large"
+                size="medium"
                 value={bankAccountId}
                 onChange={(e) => setBankAccountId(e.target.value as string)}
                 displayEmpty
@@ -158,10 +225,10 @@ export default function PaymentDialog() {
           )}
 
           {paymentMethod === 'HEDIYE_KARTI' && (
-            <Grid item xs={12}>
+            <Grid size={{ xs: 12 }}>
               <TextField
                 fullWidth
-                size="large"
+                size="medium"
                 label="Hediye Kart ID"
                 value={giftCardId}
                 onChange={(e) => setGiftCardId(e.target.value)}
@@ -190,7 +257,7 @@ export default function PaymentDialog() {
               }}
             >
               <Box>
-                <Typography variant="caption">{payment.paymentMethod}</Typography>
+                <Typography variant="caption">{payment.label}</Typography>
                 <Typography variant="body1">₺{payment.amount.toFixed(2)}</Typography>
               </Box>
               <IconButton size="small" onClick={() => removePayment(index)}>

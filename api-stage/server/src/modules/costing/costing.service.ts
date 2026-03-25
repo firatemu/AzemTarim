@@ -2,6 +2,7 @@ import { TenantResolverService } from '../../common/services/tenant-resolver.ser
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma, InvoiceStatus, InvoiceType, MovementType } from '@prisma/client';
 import { PrismaService } from '../../common/prisma.service';
+import { buildTenantWhereClause } from '../../common/utils/staging.util';
 import { GetCostingQueryDto } from './dto/get-costing-query.dto';
 
 type TimelineEvent =
@@ -47,7 +48,11 @@ export class CostingService {
     const page = Number.isFinite(parsedPage) && parsedPage > 0 ? parsedPage : 1;
     const skip = (page - 1) * limit;
 
-    const productWhere: Prisma.ProductWhereInput = {};
+    const tenantId = await this.tenantResolver.resolveForQuery();
+    const productWhere: Prisma.ProductWhereInput = {
+      ...buildTenantWhereClause(tenantId ?? undefined),
+      deletedAt: null,
+    };
 
     if (search?.trim()) {
       const term = search.trim();
@@ -101,6 +106,7 @@ export class CostingService {
     const histories = await this.prisma.productCostHistory.findMany({
       where: {
         productId: { in: productIds },
+        ...buildTenantWhereClause(tenantId ?? undefined),
       },
       orderBy: { computedAt: 'desc' },
     });
@@ -136,8 +142,9 @@ export class CostingService {
   }
 
   async calculateWeightedAverageCost(productId: string) {
-    const product = await this.prisma.product.findUnique({
-      where: { id: productId },
+    const tenantId = await this.tenantResolver.resolveForQuery();
+    const product = await this.prisma.product.findFirst({
+      where: { id: productId, ...buildTenantWhereClause(tenantId ?? undefined) },
       select: {
         id: true,
         code: true,
@@ -145,6 +152,7 @@ export class CostingService {
         brand: true,
         mainCategory: true,
         subCategory: true,
+        tenantId: true,
       },
     });
 
@@ -157,10 +165,12 @@ export class CostingService {
     const purchaseLines = await this.prisma.invoiceItem.findMany({
       where: {
         productId: productId,
+        ...buildTenantWhereClause(tenantId ?? undefined),
         invoice: {
           invoiceType: InvoiceType.PURCHASE,
           status: InvoiceStatus.APPROVED,
           deletedAt: null, // Silinmemiş faturalar
+          ...buildTenantWhereClause(tenantId ?? undefined),
         },
       },
       select: {
@@ -185,10 +195,12 @@ export class CostingService {
     const salesLines = await this.prisma.invoiceItem.findMany({
       where: {
         productId: productId,
+        ...buildTenantWhereClause(tenantId ?? undefined),
         invoice: {
           invoiceType: { in: [InvoiceType.SALE, InvoiceType.PURCHASE_RETURN] as any },
           status: InvoiceStatus.APPROVED,
           deletedAt: null, // Silinmemiş faturalar
+          ...buildTenantWhereClause(tenantId ?? undefined),
         },
       },
       select: {
@@ -210,10 +222,12 @@ export class CostingService {
     const salesReturnLines = await this.prisma.invoiceItem.findMany({
       where: {
         productId: productId,
+        ...buildTenantWhereClause(tenantId ?? undefined),
         invoice: {
           invoiceType: InvoiceType.SALES_RETURN,
           status: InvoiceStatus.APPROVED,
           deletedAt: null, // Silinmemiş faturalar
+          ...buildTenantWhereClause(tenantId ?? undefined),
         },
       },
       select: {
@@ -241,6 +255,7 @@ export class CostingService {
     const stockMovements = await this.prisma.productMovement.findMany({
       where: {
         productId: productId,
+        ...buildTenantWhereClause(tenantId ?? undefined),
       },
       select: {
         movementType: true,
@@ -362,6 +377,7 @@ export class CostingService {
       await this.prisma.productCostHistory.create({
         data: {
           productId: productId,
+          tenantId: product.tenantId!,
           cost: new Prisma.Decimal(0),
           note: 'No valid purchase movement found.',
           brand: (product as any).brand ?? undefined,
@@ -421,6 +437,7 @@ export class CostingService {
       await this.prisma.productCostHistory.create({
         data: {
           productId: productId,
+          tenantId: product.tenantId!,
           cost: new Prisma.Decimal(roundedCost),
           brand: (product as any).brand ?? undefined,
           mainCategory: (product as any).mainCategory ?? undefined,
@@ -451,6 +468,7 @@ export class CostingService {
    * Toplu maliyet hesaplama (rate limit aşımını önlemek için tek istekte tüm products)
    */
   async calculateWeightedAverageCostBulk(productIds: string[]) {
+    const tenantId = await this.tenantResolver.resolveForQuery();
     const results: Array<{
       productId: string;
       code: string;
@@ -471,8 +489,8 @@ export class CostingService {
           status: 'success',
         });
       } catch (error: any) {
-        const product = await this.prisma.product.findUnique({
-          where: { id: productId },
+        const product = await this.prisma.product.findFirst({
+          where: { id: productId, ...buildTenantWhereClause(tenantId ?? undefined) },
           select: { code: true, name: true },
         });
         results.push({

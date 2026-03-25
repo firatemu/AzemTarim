@@ -1,0 +1,21 @@
+---
+description: "Security auditing and vulnerability scanning rules"
+globs: ["**/*"]
+alwaysApply: true
+---
+
+# Security Audit Rules
+
+## Core Principles
+
+- **Tenant Isolation**: EVERY query to the database must include `tenantId`. NO CROSS-TENANT DATA ACCESS.
+- **JWT Validation**: Verify JWT tokens on every protected route.
+- **Input Sanitization**: Always sanitize user input before using it in database queries or UI rendering.
+- **PII Protection**: Mask personally identifiable information (PII) in logs.
+
+## Audit Checklist (Pre-Commit)
+
+1. **Prisma Queries**: Are filters for `tenantId` and `deletedAt: null` present?
+2. **DTOs**: Are `class-validator` decorators correctly applied?
+3. **Endpoints**: Are appropriate authentication/authorization guards in place?
+4. **Secrets**: Are there any hardcoded API keys or passwords in the code?

@@ -36,10 +36,10 @@ import axios from '@/lib/axios';
 
 interface SatisElemani {
     id: string;
-    adSoyad: string;
-    telefon: string;
+    fullName: string;
+    phone: string;
     email: string;
-    aktif: boolean;
+    isActive: boolean;
     createdAt: string;
     updatedAt: string;
 }
@@ -75,8 +75,8 @@ const SatisElemaniDialog = memo(({ open, initialData, isEditing, onClose, onSubm
                             <TextField
                                 fullWidth
                                 label="Ad Soyad"
-                                value={formData.adSoyad || ''}
-                                onChange={(e) => handleChange('adSoyad', e.target.value)}
+                                value={formData.fullName || ''}
+                                onChange={(e) => handleChange('fullName', e.target.value)}
                                 required
                             />
                         </Grid>
@@ -84,8 +84,8 @@ const SatisElemaniDialog = memo(({ open, initialData, isEditing, onClose, onSubm
                             <TextField
                                 fullWidth
                                 label="Telefon"
-                                value={formData.telefon || ''}
-                                onChange={(e) => handleChange('telefon', e.target.value)}
+                                value={formData.phone || ''}
+                                onChange={(e) => handleChange('phone', e.target.value)}
                             />
                         </Grid>
                         <Grid size={{ xs: 12, sm: 6 }}>
@@ -100,8 +100,8 @@ const SatisElemaniDialog = memo(({ open, initialData, isEditing, onClose, onSubm
                             <FormControlLabel
                                 control={
                                     <Switch
-                                        checked={formData.aktif !== false}
-                                        onChange={(e) => handleChange('aktif', e.target.checked)}
+                                        checked={formData.isActive !== false}
+                                        onChange={(e) => handleChange('isActive', e.target.checked)}
                                     />
                                 }
                                 label="Aktif"
@@ -115,7 +115,7 @@ const SatisElemaniDialog = memo(({ open, initialData, isEditing, onClose, onSubm
                 <Button
                     onClick={() => onSubmit(formData)}
                     variant="contained"
-                    disabled={!formData.adSoyad}
+                    disabled={!formData.fullName}
                 >
                     {isEditing ? 'Güncelle' : 'Kaydet'}
                 </Button>
@@ -156,7 +156,7 @@ export default function SatisElemanlariPage() {
             setFormData(item);
         } else {
             setEditingId(null);
-            setFormData({ aktif: true });
+            setFormData({ isActive: true });
         }
         setDialogOpen(true);
     };
@@ -164,7 +164,7 @@ export default function SatisElemanlariPage() {
     const handleSubmit = async (submitData: Partial<SatisElemani>) => {
         try {
             if (editingId) {
-                await axios.patch(`/satis-elemani/${editingId}`, submitData);
+                await axios.patch(`/sales-agent/${editingId}`, submitData);
                 setSnackbar({ open: true, message: 'Güncellendi', severity: 'success' });
             } else {
                 await axios.post('/sales-agent', submitData);
@@ -180,7 +180,7 @@ export default function SatisElemanlariPage() {
     const handleDelete = async (id: string) => {
         if (!confirm('Silmek istediğinize emin misiniz?')) return;
         try {
-            await axios.delete(`/satis-elemani/${id}`);
+            await axios.delete(`/sales-agent/${id}`);
             setSnackbar({ open: true, message: 'Silindi', severity: 'success' });
             fetchData();
         } catch (error) {
@@ -189,11 +189,11 @@ export default function SatisElemanlariPage() {
     };
 
     const columns: GridColDef[] = [
-        { field: 'adSoyad', headerName: 'Ad Soyad', flex: 1 },
-        { field: 'telefon', headerName: 'Telefon', width: 150 },
+        { field: 'fullName', headerName: 'Ad Soyad', flex: 1 },
+        { field: 'phone', headerName: 'Telefon', width: 150 },
         { field: 'email', headerName: 'E-posta', width: 200 },
         {
-            field: 'aktif',
+            field: 'isActive',
             headerName: 'Durum',
             width: 100,
             renderCell: (params) => (

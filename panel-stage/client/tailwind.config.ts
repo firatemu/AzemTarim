@@ -13,13 +13,35 @@ const config: Config = {
       variants: ['hover', 'focus', 'active', 'dark'],
     },
     {
-      pattern: /from-(primary|secondary)/,
+      pattern: /from-(primary|secondary|slate-800|slate-900|emerald-500|emerald-600|blue-500|blue-600|amber-500|amber-600|rose-500|rose-600)/,
     },
     {
-      pattern: /to-(primary|secondary)/,
+      pattern: /to-(primary|secondary|slate-800|slate-900|emerald-500|emerald-600|blue-500|blue-600|amber-500|amber-600|rose-500|rose-600)/,
     },
     {
-      pattern: /via-(background)/,
+      pattern: /via-(background|slate-50)/,
+    },
+    {
+      pattern: /(bg|text|border)-(slate|emerald|blue|amber|rose)-[0-9]{2,3}/,
+      variants: ['hover', 'focus', 'active'],
+    },
+    {
+      pattern: /text-(slate|emerald|blue|amber|rose)-[0-9]{2,3}/,
+    },
+    {
+      pattern: /bg-(slate|emerald|blue|amber|rose)-[0-9]{2,3}/,
+    },
+    {
+      pattern: /border-(slate|emerald|blue|amber|rose)-[0-9]{2,3}/,
+    },
+    {
+      pattern: /ring-(slate|emerald|blue|amber|rose)-[0-9]{2,3}/,
+    },
+    {
+      pattern: /hover:(bg|text|border)-(slate|emerald|blue|amber|rose)-[0-9]{2,3}/,
+    },
+    {
+      pattern: /focus:(ring|border)-(slate|emerald|blue|amber|rose)-[0-9]{2,3}/,
     },
   ],
   theme: {

@@ -31,7 +31,7 @@ const defaultQuickMenuItems: QuickMenuItem[] = [
     id: 'quick-fatura',
     label: 'Yeni Fatura',
     icon: 'Receipt',
-    path: '/invoice/sales',
+    path: '/invoices/sales',
     color: '#8b5cf6',
     enabled: true,
     order: 0,

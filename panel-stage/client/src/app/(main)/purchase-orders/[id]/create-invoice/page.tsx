@@ -152,7 +152,7 @@ export default function CreateInvoiceFromOrderPage() {
 
   const fetchStoklar = async () => {
     try {
-      const response = await axios.get('/product', {
+      const response = await axios.get('/products', {
         params: { limit: 1000 },
       });
       setStoklar(response.data.data || []);
@@ -163,7 +163,7 @@ export default function CreateInvoiceFromOrderPage() {
 
   const generateFaturaNo = async () => {
     try {
-      const response = await axios.get('/invoice', {
+      const response = await axios.get('/invoices', {
         params: { faturaTipi: 'ALIS', limit: 1 },
       });
       const faturalar = response.data.data || [];

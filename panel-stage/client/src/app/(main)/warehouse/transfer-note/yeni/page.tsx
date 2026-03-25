@@ -111,7 +111,7 @@ export default function YeniTransferFisiPage() {
 
   const fetchWarehouses = async () => {
     try {
-      const response = await axios.get('/warehouse?active=true');
+      const response = await axios.get('/warehouses?active=true');
       setWarehouses(response.data);
     } catch (error) {
       console.error('Ambar listesi alınamadı:', error);
@@ -120,7 +120,7 @@ export default function YeniTransferFisiPage() {
 
   const fetchStoklar = async () => {
     try {
-      const response = await axios.get('/product', { params: { limit: 1000 } });
+      const response = await axios.get('/products', { params: { limit: 1000 } });
       setStoklar(response.data.data || []);
     } catch (error) {
       console.error('Stok listesi alınamadı:', error);
@@ -218,7 +218,7 @@ export default function YeniTransferFisiPage() {
         }))
       };
 
-      const response = await axios.post('/warehouse-transfer', payload);
+      const response = await axios.post('/warehouses-transfers', payload);
 
       if (approve) {
         await axios.put(`/warehouse-transfer/${response.data.id}/approve`);

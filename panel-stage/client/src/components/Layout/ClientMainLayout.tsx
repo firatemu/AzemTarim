@@ -6,6 +6,7 @@ import Sidebar, { SIDEBAR_WIDTH } from './Sidebar';
 import Header from './Header';
 import TabBar from './TabBar';
 import { useLayoutStore } from '@/stores/layoutStore';
+import { usePathname } from 'next/navigation';
 
 interface MainLayoutProps {
   children: React.ReactNode;
@@ -20,6 +21,9 @@ export default function ClientMainLayout({ children, menuItems }: MainLayoutProp
     toggleSidebarPin,
     setSidebarOpen
   } = useLayoutStore();
+
+  const pathname = usePathname();
+  const isPosPage = pathname?.startsWith('/pos');
 
   const handleToggleSidebar = () => {
     toggleSidebar();
@@ -58,7 +62,16 @@ export default function ClientMainLayout({ children, menuItems }: MainLayoutProp
         />
         <Toolbar />
         <TabBar />
-        <Box sx={{ p: 3, bgcolor: 'var(--background)', overflowX: 'auto' }}>{children}</Box>
+        <Box
+          sx={{
+            p: isPosPage ? 0 : 3,
+            bgcolor: 'var(--background)',
+            // POS ekranında yatay kaymayı azaltıyoruz (özellikle mobilde).
+            overflowX: isPosPage ? 'hidden' : 'auto',
+          }}
+        >
+          {children}
+        </Box>
       </Box>
     </Box>
   );

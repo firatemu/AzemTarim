@@ -249,7 +249,7 @@ export default function MalzemeAktarimPage() {
           if (row.aracMotorHacmi) payload.aracMotorHacmi = row.aracMotorHacmi;
           if (row.aracYakitTipi) payload.aracYakitTipi = row.aracYakitTipi;
 
-          const response = await axios.post('/product', payload);
+          const response = await axios.post('/products', payload);
           successCount += 1;
 
           setExcelData((prev) =>

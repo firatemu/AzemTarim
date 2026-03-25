@@ -4,6 +4,7 @@ import {
   IsNumber,
   IsOptional,
   Min,
+  IsBoolean,
 } from 'class-validator';
 
 export class CreateProductDto {
@@ -130,4 +131,8 @@ export class CreateProductDto {
   @IsOptional()
   @IsNumber()
   leadTimeDays?: number;
+
+  @IsOptional()
+  @IsBoolean()
+  isB2B?: boolean;
 }

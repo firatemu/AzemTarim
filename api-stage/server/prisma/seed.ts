@@ -1,5 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
+import { seedSystemUnitSets } from './seeds/systemUnitSets';
 
 const prisma = new PrismaClient();
 
@@ -181,6 +182,10 @@ async function main() {
     },
   });
   console.log(`✓ Admin user oluşturuldu: info@azemyazilim.com / 1212`);
+
+  // 7. Sistem Birim Setlerini Oluştur
+  await seedSystemUnitSets();
+  console.log('✓ Sistem birim setleri oluşturuldu');
 
   console.log('✅ Seed işlemi tamamlandı!');
 }

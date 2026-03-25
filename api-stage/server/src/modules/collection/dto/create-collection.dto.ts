@@ -6,6 +6,7 @@ import {
   IsNumber,
   IsDateString,
   Min,
+  IsInt,
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
@@ -13,7 +14,7 @@ import { CollectionType, PaymentMethod } from '../collection.enums';
 
 /** Swagger circular dependency önleme - literal array */
 const COLLECTION_TYPE_VALUES = ['COLLECTION', 'PAYMENT'] as const;
-const PAYMENT_METHOD_VALUES = ['CASH', 'CREDIT_CARD', 'BANK_TRANSFER', 'CHECK', 'PROMISSORY_NOTE'] as const;
+const PAYMENT_METHOD_VALUES = ['CASH', 'CREDIT_CARD', 'BANK_TRANSFER', 'CHECK', 'PROMISSORY_NOTE', 'GIFT_CARD', 'LOAN_ACCOUNT'] as const;
 
 export class CreateCollectionDto {
   @IsString()
@@ -73,4 +74,10 @@ export class CreateCollectionDto {
   @IsOptional()
   @ApiProperty({ required: false })
   salesAgentId?: string;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @ApiProperty({ required: false, description: 'Kredi karti icin taksit sayisi' })
+  installmentCount?: number;
 }

@@ -142,7 +142,7 @@ export default function IsEmriDetayPage() {
   useEffect(() => {
     const fetchStok = async () => {
       try {
-        const res = await axios.get('/product', { params: { limit: 1000 } });
+        const res = await axios.get('/products', { params: { limit: 1000 } });
         const data = res.data?.data ?? res.data;
         setStoklar(Array.isArray(data) ? data : []);
       } catch {
@@ -236,7 +236,7 @@ export default function IsEmriDetayPage() {
       await axios.patch(`/work-order-item/${editingItem.id}`, data);
       showSnackbar('Kalem güncellendi', 'success');
     } else {
-      await axios.post('/work-order-item', data);
+      await axios.post('/work-orders-item', data);
       showSnackbar('Kalem eklendi', 'success');
     }
     setOpenItemDialog(false);
@@ -245,7 +245,7 @@ export default function IsEmriDetayPage() {
   };
 
   const handlePartSubmit = async (data: any) => {
-    await axios.post('/part-request', data);
+    await axios.post('/part-requests', data);
     showSnackbar('Parça talebi eklendi', 'success');
     setOpenPartDialog(false);
     fetchWorkOrder();
@@ -384,7 +384,7 @@ export default function IsEmriDetayPage() {
         </Button>
       </Box>
 
-      <OnlineStatusBanner isOnline={isOnline} />
+      <OnlineStatusBanner tenantId={workOrder.tenantId ?? ''} pendingCount={0} />
 
 
       <Box sx={{ display: 'none' }}>
@@ -1049,24 +1049,31 @@ export default function IsEmriDetayPage() {
           {snackbar.message}
         </Alert>
       </Snackbar>
-      <BarcodeScanner
-        open={openScanner}
-        onClose={() => setOpenScanner(false)}
-        onScan={(barcode) => {
-          showSnackbar(`Barkod okundu: ${barcode}`, 'success');
-          setOpenScanner(false);
-        }}
-      />
+      <Dialog open={openScanner} onClose={() => setOpenScanner(false)}>
+        <DialogTitle>Barkod Oku</DialogTitle>
+        <DialogContent>
+          <BarcodeScanner
+            onClose={() => setOpenScanner(false)}
+            onDetect={(barcode) => {
+              showSnackbar(`Barkod okundu: ${barcode}`, 'success');
+              setOpenScanner(false);
+            }}
+          />
+        </DialogContent>
+      </Dialog>
 
-      <DamagePhotoCapture
-        open={openPhoto}
-        onClose={() => setOpenPhoto(false)}
-        onCapture={(photo) => {
-          showSnackbar('Fotoğraf kaydedildi', 'success');
-          setOpenPhoto(false);
-        }}
-        title="İş Emri Fotoğrafı"
-      />
+      <Dialog open={openPhoto} onClose={() => setOpenPhoto(false)}>
+        <DialogTitle>Fotoğraf Yükle</DialogTitle>
+        <DialogContent>
+          <DamagePhotoCapture
+            workOrderId={id}
+            onUploadComplete={(count) => {
+              showSnackbar(`${count} fotoğraf kaydedildi`, 'success');
+              setOpenPhoto(false);
+            }}
+          />
+        </DialogContent>
+      </Dialog>
 
     </>
   );

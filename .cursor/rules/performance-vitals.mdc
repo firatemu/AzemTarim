@@ -1,0 +1,22 @@
+---
+description: "Application performance, scalability, and memory vitals"
+globs: ["**/*"]
+alwaysApply: true
+---
+
+# Performance Vitals & Scalability
+
+## 1. Backend Performance
+- **Pagination**: NEVER return all records from a table. Use `skip`, `take`, and `where` filters.
+- **Indexing**: Ensure `tenantId`, `deletedAt`, and frequently queried fields (e.g., `invoiceDate`, `accountId`) have indexes in Prisma.
+- **N+1 Queries**: Avoid N+1 issues by using `include` or specialized loaders for relations.
+- **Caching**: Use Redis for frequently accessed lookup data (e.g., settings, bank lists).
+
+## 2. Frontend Performance
+- **Lazy Loading**: Use `next/dynamic` for heavy client components (DataGrid, Charts).
+- **Optimization**: Use `React.useMemo` and `useCallback` for expensive calculations in large lists.
+- **Payload Minimization**: Fetch only the necessary fields from the API.
+
+## 3. Database Constraints
+- **Timeout**: Set appropriate timeouts for long-running Prisma queries.
+- **Bloat Prevention**: Avoid large JSON fields in frequently accessed rows.

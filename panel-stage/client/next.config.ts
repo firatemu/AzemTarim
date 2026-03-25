@@ -35,8 +35,7 @@ const withPWA = require('next-pwa')({
   ],
 });
 
-// API Proxy Target: Docker'da API_PROXY_TARGET (http://localhost:3000) veya local'de (http://localhost:3020) kullanabilir
-const apiProxyTarget = process.env.API_PROXY_TARGET || 'http://localhost:3000';
+// API: panel-stage/client/src/app/api/[...path]/route.ts (Node proxy). API_PROXY_TARGET orada okunur.
 const isDevelopment = process.env.NODE_ENV === 'development';
 const isProduction = process.env.NODE_ENV === 'production';
 const isStaging = (process.env.NODE_ENV as string) === 'staging';
@@ -185,15 +184,6 @@ const nextConfig: NextConfig = {
     }
 
     return config;
-  },
-
-  async rewrites() {
-    return [
-      {
-        source: '/api/:path*',
-        destination: `${apiProxyTarget}/api/:path*`,
-      },
-    ];
   },
 
   async redirects() {

@@ -112,7 +112,7 @@ export default function TahsilatPrintPage() {
       try {
         setLoading(true);
         const [tahsilatRes, tenantRes] = await Promise.all([
-          axios.get(`/tahsilat/${id}`),
+          axios.get(`/collections/${id}`),
           axios.get('/tenants/current'),
         ]);
         setTahsilat(tahsilatRes.data);

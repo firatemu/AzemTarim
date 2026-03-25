@@ -32,7 +32,7 @@ import {
   Autocomplete,
 } from '@mui/material';
 import { Add, Edit, Delete, Search, DirectionsCar } from '@mui/icons-material';
-import MainLayout from '@/components/Layout/MainLayout';
+import { StandardPage } from '@/components/common';
 import axios from '@/lib/axios';
 import { useDebounce } from '@/hooks/useDebounce';
 
@@ -366,7 +366,7 @@ export default function AracPage() {
   }, []);
 
   return (
-    <MainLayout>
+    <StandardPage maxWidth={false}>
       <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Box>
           <Typography variant="h4" fontWeight="bold">
@@ -620,7 +620,7 @@ export default function AracPage() {
         onClose={handleCloseDialog}
         onSubmit={handleSubmit}
       />
-    </MainLayout>
+    </StandardPage>
   );
 }
 

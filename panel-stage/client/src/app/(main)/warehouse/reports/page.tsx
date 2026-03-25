@@ -100,7 +100,7 @@ export default function DepoRaporlarPage() {
 
   const fetchProducts = async () => {
     try {
-      const response = await axios.get('/product', {
+      const response = await axios.get('/products', {
         params: { limit: 1000 } // Tüm ürünleri getir
       });
       // Backend { data, meta } yapısında döndürüyor
@@ -145,7 +145,7 @@ export default function DepoRaporlarPage() {
     setLoading(true);
     try {
       // ProductLocationStock'ları filtrele
-      const response = await axios.get('/stock-move', {
+      const response = await axios.get('/stock-movements', {
         params: { productId: selectedProduct.id, limit: 1000 },
       });
 

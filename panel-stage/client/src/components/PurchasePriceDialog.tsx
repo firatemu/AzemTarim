@@ -169,7 +169,7 @@ export function PurchasePriceDialog({ open, stok, onClose, onPriceCreated }: Pur
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
-      <DialogTitle component="div" sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }} component="div">
+      <DialogTitle component="div" sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <Box>
           <Typography variant="h6" fontWeight={700}>
             {stok ? `${stok.stokKodu} • ${stok.stokAdi}` : 'Satın Alma Fiyatları'}

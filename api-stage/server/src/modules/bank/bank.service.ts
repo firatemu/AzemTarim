@@ -12,6 +12,7 @@ import { CreateBankMovementDto, CreatePosMovementDto } from './dto/create-moveme
 import { CreateLoanUsageDto } from './dto/create-loan.dto';
 import { PayCreditInstallmentDto, PaymentType } from './dto/pay-credit-installment.dto';
 import { Decimal } from '@prisma/client/runtime/library';
+import { buildTenantWhereClause } from '../../common/utils/staging.util';
 
 @Injectable()
 export class BankService {
@@ -130,6 +131,9 @@ export class BankService {
                 commissionRate: createHesapDto.commissionRate,
                 creditLimit: createHesapDto.creditLimit,
                 cardLimit: createHesapDto.cardLimit,
+                statementDay: createHesapDto.statementDay,
+                paymentDueDay: createHesapDto.paymentDueDay,
+                terminalNo: createHesapDto.terminalNo,
                 isActive: createHesapDto.isActive ?? true,
             },
         });
@@ -161,6 +165,12 @@ export class BankService {
                 accountNo: updateHesapDto.accountNo,
                 iban: updateHesapDto.iban,
                 isActive: updateHesapDto.isActive,
+                commissionRate: updateHesapDto.commissionRate,
+                creditLimit: updateHesapDto.creditLimit,
+                cardLimit: updateHesapDto.cardLimit,
+                statementDay: updateHesapDto.statementDay,
+                paymentDueDay: updateHesapDto.paymentDueDay,
+                terminalNo: updateHesapDto.terminalNo,
             },
         });
     }
@@ -169,11 +179,11 @@ export class BankService {
         const hesap = await this.findAccount(accountId);
 
         const [hareketCount, havaleCount, tahsilatCount, salaryCount, loanCount] = await Promise.all([
-            this.prisma.bankAccountMovement.count({ where: { bankAccountId: accountId } }),
-            this.prisma.bankTransfer.count({ where: { bankAccountId: accountId } }),
-            this.prisma.collection.count({ where: { bankAccountId: accountId } }),
-            this.prisma.salaryPaymentDetail.count({ where: { bankAccountId: accountId } }),
-            this.prisma.bankLoan.count({ where: { bankAccountId: accountId } }),
+            this.prisma.bankAccountMovement.count({ where: { bankAccountId: accountId, ...buildTenantWhereClause(hesap.bank.tenantId || undefined) } }),
+            this.prisma.bankTransfer.count({ where: { bankAccountId: accountId, ...buildTenantWhereClause(hesap.bank.tenantId || undefined) } }),
+            this.prisma.collection.count({ where: { bankAccountId: accountId, ...buildTenantWhereClause(hesap.bank.tenantId || undefined) } }),
+            this.prisma.salaryPaymentDetail.count({ where: { bankAccountId: accountId, ...buildTenantWhereClause(hesap.bank.tenantId || undefined) } }),
+            this.prisma.bankLoan.count({ where: { bankAccountId: accountId, ...buildTenantWhereClause(hesap.bank.tenantId || undefined) } }),
         ]);
 
         if (hareketCount > 0 || havaleCount > 0 || tahsilatCount > 0 || salaryCount > 0 || loanCount > 0) {
@@ -295,10 +305,11 @@ export class BankService {
         const totalRepayment = installmentAmount.mul(installmentCount);
         const totalInterest = totalRepayment.sub(amount);
 
+        const frequency = dto.paymentFrequency || 1;
         const plans: any[] = [];
         for (let i = 0; i < installmentCount; i++) {
             const dueDate = new Date(firstInstallmentDate);
-            dueDate.setMonth(dueDate.getMonth() + i);
+            dueDate.setMonth(dueDate.getMonth() + (i * frequency));
 
             plans.push({
                 installmentNo: i + 1,
@@ -309,6 +320,8 @@ export class BankService {
         }
 
         return this.prisma.$transaction(async (tx) => {
+            const tenantId = hesap.bank.tenantId;
+
             const loan = await tx.bankLoan.create({
                 data: {
                     bankAccountId: accountId,
@@ -322,8 +335,12 @@ export class BankService {
                     annualInterestRate: new Decimal(dto.annualInterestRate),
                     paymentFrequency: dto.paymentFrequency || 1,
                     status: LoanStatus.ACTIVE,
+                    tenantId: tenantId,
                     plans: {
-                        create: plans
+                        create: plans.map(plan => ({
+                            ...plan,
+                            tenantId: tenantId
+                        }))
                     }
                 }
             });
@@ -397,9 +414,41 @@ export class BankService {
     }
 
     async getBanksSummary() {
-        // Implementation needed or dummy
-        return [];
+        const tenantId = await this.tenantResolver.resolveForQuery();
+        const banks = await this.prisma.bank.findMany({
+            where: { tenantId, isActive: true },
+            include: {
+                accounts: {
+                    where: { isActive: true },
+                    select: {
+                        id: true,
+                        name: true,
+                        accountNo: true,
+                        iban: true,
+                        type: true,
+                        balance: true,
+                    }
+                }
+            },
+            orderBy: { name: 'asc' }
+        });
+
+        return {
+            bankalar: banks.map(bank => ({
+                id: bank.id,
+                ad: bank.name,
+                hesaplar: bank.accounts.map(acc => ({
+                    id: acc.id,
+                    hesapAdi: acc.name,
+                    hesapNo: acc.accountNo,
+                    iban: acc.iban,
+                    hesapTipi: acc.type,
+                    balance: acc.balance,
+                }))
+            }))
+        };
     }
+
 
     async findAllAccounts() {
         const tenantId = await this.tenantResolver.resolveForQuery();
@@ -417,7 +466,10 @@ export class BankService {
             where: {
                 bankAccount: { bank: { tenantId } }
             },
-            include: { bankAccount: { include: { bank: true } } }
+            include: {
+                bankAccount: { include: { bank: true } },
+                plans: true
+            }
         });
     }
 

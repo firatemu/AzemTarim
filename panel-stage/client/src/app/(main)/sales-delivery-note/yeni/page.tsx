@@ -91,7 +91,6 @@ function YeniSatisIrsaliyesiPageContent() {
 
   useEffect(() => {
     fetchCariler();
-    fetchCariler();
     fetchStoklar();
     fetchWarehouses();
 
@@ -116,7 +115,7 @@ function YeniSatisIrsaliyesiPageContent() {
 
   const fetchStoklar = async () => {
     try {
-      const response = await axios.get('/product', {
+      const response = await axios.get('/products', {
         params: { limit: 1000 },
       });
       setStoklar(response.data.data || []);
@@ -127,7 +126,7 @@ function YeniSatisIrsaliyesiPageContent() {
 
   const fetchWarehouses = async () => {
     try {
-      const response = await axios.get('/warehouse?active=true');
+      const response = await axios.get('/warehouses?active=true');
       const warehouseList = response.data || [];
       setWarehouses(warehouseList);
 
@@ -150,7 +149,7 @@ function YeniSatisIrsaliyesiPageContent() {
   const fetchSiparisBilgileri = async (id: string) => {
     try {
       setLoadingSiparis(true);
-      const response = await axios.get(`/siparis/${id}`);
+      const response = await axios.get(`/orders/${id}`);
       const siparis = response.data;
 
       if (siparis.cari) {
@@ -219,7 +218,7 @@ function YeniSatisIrsaliyesiPageContent() {
 
   const generateIrsaliyeNo = async () => {
     try {
-      const templateResponse = await axios.get('/code-template/next-code/DELIVERY_NOTE_SALES');
+      const templateResponse = await axios.get('/code-templates/preview-code/DELIVERY_NOTE_SALES');
       if (templateResponse.data?.nextCode) {
         setFormData(prev => ({
           ...prev,

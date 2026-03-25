@@ -82,6 +82,11 @@ export default function SatinAlmaIrsaliyeleriPage() {
   const [selectedIrsaliyeForMenu, setSelectedIrsaliyeForMenu] = useState<SatinAlmaIrsaliyesi | null>(null);
 
   useEffect(() => {
+    addTab({
+      id: 'purchase-delivery-note-list',
+      label: 'Satın Alma İrsaliyeleri',
+      path: '/purchase-delivery-note',
+    });
     fetchIrsaliyeler();
   }, []);
 

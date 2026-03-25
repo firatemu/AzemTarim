@@ -177,7 +177,7 @@ export default function SatisIadeFaturalariPage() {
 
   const fetchCariler = async () => {
     try {
-      const response = await axios.get('/accounts', {
+      const response = await axios.get('/account', {
         params: { limit: 1000 },
       });
       setCariler(response.data.data || []);
@@ -786,9 +786,9 @@ export default function SatisIadeFaturalariPage() {
           variant="contained"
           startIcon={<Add />}
           onClick={() => {
-            addTab({ id: 'fatura-iade-satis-yeni', label: 'Yeni Satış İade Faturası', path: '/invoice/iade/satis/yeni' });
+            addTab({ id: 'fatura-iade-satis-yeni', label: 'Yeni Satış İade Faturası', path: '/invoices/iade/satis/yeni' });
             setActiveTab('fatura-iade-satis-yeni');
-            router.push('/invoice/iade/satis/yeni');
+            router.push('/invoices/iade/satis/yeni');
           }}
           sx={{
             background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
@@ -832,7 +832,8 @@ export default function SatisIadeFaturalariPage() {
             <TableRow>
               <TableCell sx={{ fontWeight: 600 }}>Fatura No</TableCell>
               <TableCell sx={{ fontWeight: 600 }}>Tarih</TableCell>
-              <TableCell sx={{ fontWeight: 600 }}>Cari</TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>Cari Kod</TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>Cari Ünvan</TableCell>
               <TableCell sx={{ fontWeight: 600 }}>Vade</TableCell>
               <TableCell align="right" sx={{ fontWeight: 600 }}>Tutar</TableCell>
               <TableCell sx={{ fontWeight: 600 }}>Onay Durumu</TableCell>
@@ -873,6 +874,7 @@ export default function SatisIadeFaturalariPage() {
                     </Typography>
                   </TableCell>
                   <TableCell>{formatDate(fatura.tarih)}</TableCell>
+                  <TableCell>{fatura.cari.cariKodu}</TableCell>
                   <TableCell>{fatura.cari.unvan}</TableCell>
                   <TableCell>{fatura.vade ? formatDate(fatura.vade) : '-'}</TableCell>
                   <TableCell align="right">

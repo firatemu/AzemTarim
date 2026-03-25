@@ -23,18 +23,18 @@ import { Close as CloseIcon } from '@mui/icons-material';
 
 // Enum for Loan Types (Aligning with Backend)
 enum LoanType {
-    ESIT_TAKSITLI = 'ESIT_TAKSITLI',
-    ROTATIF = 'ROTATIF'
+    EQUAL_INSTALLMENT = 'EQUAL_INSTALLMENT',
+    REVOLVING = 'REVOLVING'
 }
 
 const schema = z.object({
     loanType: z.nativeEnum(LoanType),
     amount: z.number().min(1, 'Tutar 0 dan büyük olmalıdır'),
-    interestRate: z.number().min(0, 'Faiz oranı 0 dan küçük olamaz'),
+    annualInterestRate: z.number().min(0, 'Faiz oranı 0 dan küçük olamaz'),
     installmentCount: z.number().min(1, 'Taksit sayısı en az 1 olmalıdır'),
     paymentFrequency: z.number().min(1).optional(), // Rotatif için
     installmentAmount: z.number().min(1, 'Taksit tutarı zorunludur'),
-    usageDate: z.string(),
+    startDate: z.string(),
     firstInstallmentDate: z.string(),
     notes: z.string().optional(),
 });
@@ -52,13 +52,13 @@ export default function CreateCreditDialog({ open, onClose, onSubmit, loading }:
     const { control, handleSubmit, formState: { errors }, reset, setValue } = useForm<FormData>({
         resolver: zodResolver(schema),
         defaultValues: {
-            loanType: LoanType.ESIT_TAKSITLI,
+            loanType: LoanType.EQUAL_INSTALLMENT,
             amount: 0,
-            interestRate: 0,
+            annualInterestRate: 0,
             installmentCount: 12,
             paymentFrequency: 3,
             installmentAmount: 0,
-            usageDate: new Date().toISOString().split('T')[0],
+            startDate: new Date().toISOString().split('T')[0],
             firstInstallmentDate: new Date(new Date().setMonth(new Date().getMonth() + 1)).toISOString().split('T')[0],
             notes: '',
         }
@@ -79,9 +79,9 @@ export default function CreateCreditDialog({ open, onClose, onSubmit, loading }:
         let totalInterest = 0;
 
         if (installment > 0) {
-            if (type === LoanType.ESIT_TAKSITLI) {
+            if (type === LoanType.EQUAL_INSTALLMENT) {
                 totalRepayment = installment * n;
-            } else if (type === LoanType.ROTATIF) {
+            } else if (type === LoanType.REVOLVING) {
                 // Rotatif: Tek bir ödeme (Taksit Tutarı kadar)
                 totalRepayment = installment;
             }
@@ -99,7 +99,7 @@ export default function CreateCreditDialog({ open, onClose, onSubmit, loading }:
 
     const handleFormSubmit = (data: FormData) => {
         // Rotatif kredide vade her zaman 1 (tek ödeme) olarak gönderilmeli
-        if (data.loanType === LoanType.ROTATIF) {
+        if (data.loanType === LoanType.REVOLVING) {
             data.installmentCount = 1;
         }
         onSubmit(data);
@@ -114,16 +114,17 @@ export default function CreateCreditDialog({ open, onClose, onSubmit, loading }:
         if (!open) reset();
     }, [open, reset]);
 
-    // Auto-calculate First Installment Date based on Payment Frequency for Rotatif
+    // Auto-calculate First Installment Date based on Payment Frequency
     useEffect(() => {
-        if (watchedValues.loanType === LoanType.ROTATIF && watchedValues.usageDate) {
-            const date = new Date(watchedValues.usageDate);
-            const monthsToAdd = watchedValues.paymentFrequency || 1;
+        if (watchedValues.startDate) {
+            const date = new Date(watchedValues.startDate);
+            const monthsToAdd = watchedValues.loanType === LoanType.REVOLVING
+                ? (watchedValues.paymentFrequency || 1)
+                : 1;
             date.setMonth(date.getMonth() + monthsToAdd);
-            // Handle edge cases like month overflow (e.g. Jan 31 + 1 month -> Feb 28/29) automatically handled by setMonth but good to verify format
             setValue('firstInstallmentDate', date.toISOString().split('T')[0]);
         }
-    }, [watchedValues.loanType, watchedValues.paymentFrequency, watchedValues.usageDate, setValue]);
+    }, [watchedValues.loanType, watchedValues.paymentFrequency, watchedValues.startDate, setValue]);
 
     return (
         <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
@@ -152,8 +153,8 @@ export default function CreateCreditDialog({ open, onClose, onSubmit, loading }:
                                                 error={!!errors.loanType}
                                                 helperText={errors.loanType?.message}
                                             >
-                                                <MenuItem value={LoanType.ESIT_TAKSITLI}>Eşit Taksitli Kredi</MenuItem>
-                                                <MenuItem value={LoanType.ROTATIF}>Rotatif (Dönemsel Ödemeli) Kredi</MenuItem>
+                                                <MenuItem value={LoanType.EQUAL_INSTALLMENT}>Eşit Taksitli Kredi</MenuItem>
+                                                <MenuItem value={LoanType.REVOLVING}>Rotatif (Dönemsel Ödemeli) Kredi</MenuItem>
                                             </TextField>
                                         )}
                                     />
@@ -166,7 +167,7 @@ export default function CreateCreditDialog({ open, onClose, onSubmit, loading }:
                                         render={({ field }) => (
                                             <TextField
                                                 {...field}
-                                                label="Ele Geçen Tutar (Ana Para)"
+                                                label="Kredi kullanım tutarı"
                                                 fullWidth
                                                 type="number"
                                                 InputProps={{
@@ -205,7 +206,7 @@ export default function CreateCreditDialog({ open, onClose, onSubmit, loading }:
 
                                 <Grid size={{ xs: 6 }}>
                                     <Controller
-                                        name="interestRate"
+                                        name="annualInterestRate"
                                         control={control}
                                         render={({ field }) => (
                                             <TextField
@@ -214,14 +215,14 @@ export default function CreateCreditDialog({ open, onClose, onSubmit, loading }:
                                                 fullWidth
                                                 type="number"
                                                 helperText="Sadece bilgi amaçlıdır"
-                                                error={!!errors.interestRate}
+                                                error={!!errors.annualInterestRate}
                                                 onChange={(e) => field.onChange(Number(e.target.value))}
                                             />
                                         )}
                                     />
                                 </Grid>
 
-                                {watchedValues.loanType !== LoanType.ROTATIF && (
+                                {watchedValues.loanType !== LoanType.REVOLVING && (
                                     <Grid size={{ xs: 6 }}>
                                         <Controller
                                             name="installmentCount"
@@ -241,7 +242,7 @@ export default function CreateCreditDialog({ open, onClose, onSubmit, loading }:
                                     </Grid>
                                 )}
 
-                                {watchedValues.loanType === LoanType.ROTATIF && (
+                                {watchedValues.loanType === LoanType.REVOLVING && (
                                     <Grid size={{ xs: 12 }}>
                                         <Controller
                                             name="paymentFrequency"
@@ -266,7 +267,7 @@ export default function CreateCreditDialog({ open, onClose, onSubmit, loading }:
 
                                 <Grid size={{ xs: 6 }}>
                                     <Controller
-                                        name="usageDate"
+                                        name="startDate"
                                         control={control}
                                         render={({ field }) => (
                                             <TextField
@@ -275,7 +276,7 @@ export default function CreateCreditDialog({ open, onClose, onSubmit, loading }:
                                                 fullWidth
                                                 type="date"
                                                 InputLabelProps={{ shrink: true }}
-                                                error={!!errors.usageDate}
+                                                error={!!errors.startDate}
                                                 helperText="Paranın hesaba girdiği tarih"
                                             />
                                         )}
@@ -345,16 +346,64 @@ export default function CreateCreditDialog({ open, onClose, onSubmit, loading }:
                                         </Typography>
                                     </Box>
 
-                                    <Box sx={{ mb: 3, p: 2, bgcolor: 'primary.light', borderRadius: 1, color: 'primary.contrastText' }}>
-                                        <Typography variant="caption" sx={{ opacity: 0.9 }}>
-                                            {watchedValues.loanType === LoanType.ROTATIF
+                                    <Box sx={{ mb: 3, p: 2, bgcolor: '#1e293b', borderRadius: 2, color: '#fff' }}>
+                                        <Typography variant="caption" sx={{ opacity: 0.9 }} color="white">
+                                            {watchedValues.loanType === LoanType.REVOLVING
                                                 ? `${watchedValues.paymentFrequency} Ayda Bir Ödenecek Tutar`
                                                 : "Aylık Taksit Tutarı"}
                                         </Typography>
-                                        <Typography variant="h5" fontWeight="bold">
+                                        <Typography variant="h5" fontWeight="bold" color="white">
                                             {formatCurrency(summary.monthlyPayment)}
                                         </Typography>
                                     </Box>
+
+                                    {/* Plana Özel Önizleme */}
+                                    {watchedValues.installmentCount && watchedValues.installmentCount > 0 && (
+                                        <Box sx={{ mt: 2 }}>
+                                            <Typography variant="caption" color="text.secondary" fontWeight="bold" display="block" sx={{ mb: 1 }}>
+                                                TAKSİT PLANI ÖNİZLEME ({watchedValues.installmentCount || 0} Taksit)
+                                            </Typography>
+                                            <Box sx={{
+                                                maxHeight: 200,
+                                                overflowY: 'auto',
+                                                bgcolor: 'white',
+                                                borderRadius: 2,
+                                                border: '1px solid',
+                                                borderColor: 'divider',
+                                                '&::-webkit-scrollbar': { width: '4px' },
+                                                '&::-webkit-scrollbar-thumb': { bgcolor: 'divider', borderRadius: '4px' }
+                                            }}>
+                                                {[...Array(Math.min(watchedValues.installmentCount || 0, 48))].map((_, i) => {
+                                                    const d = new Date(watchedValues.firstInstallmentDate || new Date());
+                                                    const freq = watchedValues.loanType === LoanType.REVOLVING ? (watchedValues.paymentFrequency || 1) : 1;
+                                                    d.setMonth(d.getMonth() + (i * freq));
+                                                    return (
+                                                        <Box key={i} sx={{
+                                                            p: 1.5,
+                                                            display: 'flex',
+                                                            justifyContent: 'space-between',
+                                                            alignItems: 'center',
+                                                            borderBottom: (i === (watchedValues.installmentCount || 0) - 1) ? 'none' : '1px solid',
+                                                            borderColor: 'divider',
+                                                            bgcolor: i % 2 === 0 ? 'transparent' : 'grey.50'
+                                                        }}>
+                                                            <Typography variant="caption" fontWeight="bold" color="text.secondary">
+                                                                {i + 1}. Taksit
+                                                            </Typography>
+                                                            <Box sx={{ textAlign: 'right' }}>
+                                                                <Typography variant="caption" fontWeight="bold" display="block">
+                                                                    {d.toLocaleDateString('tr-TR')}
+                                                                </Typography>
+                                                                <Typography variant="caption" color="primary.main" fontWeight="bold">
+                                                                    {formatCurrency(watchedValues.installmentAmount || 0)}
+                                                                </Typography>
+                                                            </Box>
+                                                        </Box>
+                                                    );
+                                                })}
+                                            </Box>
+                                        </Box>
+                                    )}
 
                                     <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 2 }}>
                                         * Hesaplamalar yaklaşık değerlerdir. Banka planıyla kuruş farkları olabilir.

@@ -1,0 +1,26 @@
+---
+description: "Guidelines for premium UI/UX, micro-animations, and design aesthetics"
+globs: ["**/*.tsx", "**/*.css", "**/components/**"]
+alwaysApply: true
+---
+
+# UI Premium Design & UX Standards
+
+## 1. Visual Excellence
+- **Tokens Over Hex**: Never use hardcoded hex/rgb. Always use `var(--primary)`, `var(--secondary)`, `var(--card)`, etc.
+- **Glassmorphism**: Use subtle `backdrop-filter: blur(...)` for overlays and drawers to create a modern feel.
+- **Gradients**: Use HSL-tailored gradients for background accents or primary buttons.
+
+## 2. Micro-Animations
+- **Hover Transitions**: Every interactive element must have a smooth `transition: all 0.2s ease-in-out` on hover.
+- **Loading**: Use Skeletons specifically tailored to the content shape. Avoid generic "loading..." text.
+- **Smooth Feedbacks**: Use Snackbar or Toast notifications for all mutations.
+
+## 3. Dashboard & KPI
+- **High Scannability**: Use bold fonts for primary metrics and muted colors for secondary information.
+- **KPI Consistency**: Icons in KPI cards should have a background with 10% opacity of the primary color.
+- **Visual Hierarchy**: Use `h5` for section titles and `h6` for card titles.
+
+## 4. Typography
+- **Modern Fonts**: Use Inter, Roboto, or Outfit from Google Fonts.
+- **Letter Spacing**: Use `-0.02em` for headers and `0.01em` for body text to enhance readability.

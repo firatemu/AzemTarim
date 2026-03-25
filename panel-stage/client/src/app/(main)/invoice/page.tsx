@@ -1,9 +1,9 @@
 'use client';
 
 import React from 'react';
-import { Box, Typography, Paper, Grid, Card, CardContent, CardActionArea } from '@mui/material';
-import { Receipt, ShoppingCart, CloudDownload } from '@mui/icons-material';
-import MainLayout from '@/components/Layout/MainLayout';
+import { Box, Typography, Paper, Grid, Card, CardContent, CardActionArea, Stack } from '@mui/material';
+import { Receipt, ShoppingCart, CloudDownload, Description } from '@mui/icons-material';
+import { StandardPage } from '@/components/common';
 import { useRouter } from 'next/navigation';
 
 const menuItems = [
@@ -22,11 +22,11 @@ const menuItems = [
     color: 'var(--secondary)',
   },
   {
-    title: 'Gelen E-Faturalar',
-    description: 'Hızlı Teknoloji entegratöründen gelen e-faturaları görüntüleyin ve yönetin',
-    icon: CloudDownload,
-    href: '/efatura/gelen',
-    color: 'var(--chart-1)',
+    title: 'Fatura Arşivi',
+    description: 'Tüm faturalarınızı tek bir yerden arayın ve yönetin',
+    icon: Description,
+    href: '/invoice/archive',
+    color: 'var(--chart-2)',
   },
 ];
 
@@ -34,26 +34,25 @@ export default function FaturaPage() {
   const router = useRouter();
 
   return (
-    <MainLayout>
-      <Typography
-        variant="h4"
-        sx={{
-          fontWeight: 700,
-          fontSize: '1.875rem',
-          color: 'var(--foreground)',
-          letterSpacing: '-0.02em',
-          mb: 1,
-        }}
-      >
-        Fatura Yönetimi
-      </Typography>
+    <StandardPage maxWidth={false}>
+      {/* Header */}
+      <Box sx={{ mb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1.5 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Box sx={{ width: 40, height: 40, borderRadius: 2, background: 'linear-gradient(135deg, var(--primary), var(--secondary))', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Receipt sx={{ color: 'var(--primary-foreground)', fontSize: 20 }} />
+          </Box>
+          <Typography variant="h6" fontWeight={700} color="var(--foreground)">
+            Fatura Yönetimi
+          </Typography>
+        </Box>
+      </Box>
 
+      {/* Description */}
       <Typography
-        variant="body1"
+        variant="body2"
         sx={{
-          mb: 4,
+          mb: 3,
           color: 'var(--muted-foreground)',
-          fontSize: '0.875rem',
         }}
       >
         Lütfen işlem yapmak istediğiniz fatura türünü seçiniz
@@ -121,6 +120,6 @@ export default function FaturaPage() {
           );
         })}
       </Grid>
-    </MainLayout>
+    </StandardPage>
   );
 }

@@ -179,6 +179,9 @@ export class WarehouseTransferService {
       },
     });
 
+    // Update code template counter
+    await this.codeTemplateService.saveLastCode('WAREHOUSE_TRANSFER' as any, transfer.transferNo);
+
     // Log kaydı oluştur
     await this.createLog(transfer.id, createDto.userId, 'CREATE', {
       action: 'Transfer fişi oluşturuldu',

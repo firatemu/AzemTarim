@@ -79,7 +79,7 @@ export default function SiparişPrintPage() {
   const fetchSipariş = async () => {
     try {
       setLoading(true);
-      const response = await axios.get(`/siparis/${id}`);
+      const response = await axios.get(`/orders/${id}`);
       setSipariş(response.data);
     } catch (error) {
       console.error('Sipariş yüklenemedi:', error);

@@ -141,7 +141,7 @@ export default function SatinAlmaIrsaliyesiDetayPage() {
     switch (durum) {
       case 'INVOICED':
         return 'success';
-      case 'FATURALANMADI':
+      case 'NOT_INVOICED':
         return 'warning';
       default:
         return 'default';
@@ -152,7 +152,7 @@ export default function SatinAlmaIrsaliyesiDetayPage() {
     switch (durum) {
       case 'INVOICED':
         return 'Faturalandı';
-      case 'FATURALANMADI':
+      case 'NOT_INVOICED':
         return 'Faturalanmadı';
       default:
         return durum;
@@ -217,7 +217,7 @@ export default function SatinAlmaIrsaliyesiDetayPage() {
               Satın Alma İrsaliyesi Detayı
             </Typography>
           </Box>
-          {irsaliye.durum === 'FATURALANMADI' && (
+          {irsaliye.durum === 'NOT_INVOICED' && (
             <Box sx={{ display: 'flex', gap: 2 }}>
               <Button
                 variant="contained"

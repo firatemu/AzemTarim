@@ -1,5 +1,5 @@
 import axiosInstance from '../lib/axios';
-import { Role, CreateRoleData, UpdateRoleData, Permission } from '../types/role.ts'; // Ensure correct path
+import { Role, CreateRoleData, UpdateRoleData, Permission } from '../types/role'; // Ensure correct path
 
 export const RoleService = {
     getRoles: async (): Promise<Role[]> => {

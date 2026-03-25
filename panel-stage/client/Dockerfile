@@ -1,45 +1,41 @@
-# Stage 1: Dependencies
+# Stage 1 — deps
 FROM node:20-alpine AS deps
-RUN apk add --no-cache libc6-compat
 WORKDIR /app
+RUN npm install -g pnpm@10
+COPY package.json pnpm-lock.yaml ./
+RUN pnpm install --frozen-lockfile
 
-# Install dependencies based on the preferred package manager
-COPY package.json pnpm-lock.yaml* ./
-RUN corepack enable && pnpm i --frozen-lockfile
-
-# Stage 2: Builder
+# Stage 2 — builder
 FROM node:20-alpine AS builder
 WORKDIR /app
+RUN npm install -g pnpm@10
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
+ENV NEXT_TELEMETRY_DISABLED=1
+RUN pnpm build
 
-# Disable telemetry during build
-ENV NEXT_TELEMETRY_DISABLED 1
-ENV NODE_OPTIONS="--max-old-space-size=4096"
-
-RUN corepack enable && pnpm run build
-
-# Stage 3: Runner
+# Stage 3 — runner
 FROM node:20-alpine AS runner
 WORKDIR /app
-
 ENV NODE_ENV=production
-ENV NEXT_TELEMETRY_DISABLED 1
+ENV NEXT_TELEMETRY_DISABLED=1
 
-RUN addgroup --system --gid 1001 nodejs
-RUN adduser --system --uid 1001 nextjs
+# Security: non-root user
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 
-# Automatically leverage output traces to reduce image size
-COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
-COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
-COPY --from=builder --chown=nextjs:nodejs /app/public ./public
+# Next.js standalone output
+COPY --from=builder /app/.next/standalone ./
+COPY --from=builder /app/.next/static ./.next/static
+COPY --from=builder /app/public ./public
 
-USER nextjs
+USER appuser
 
-EXPOSE 3000
+EXPOSE 3010
+HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
+  CMD wget -q --spider http://localhost:3010/ || exit 1
 
-ENV PORT=3000
-ENV HOSTNAME="0.0.0.0"
+LABEL org.opencontainers.image.source="https://github.com/firatemu/otomuhasebe"
+LABEL org.opencontainers.image.description="Oto Muhasebe Panel"
+LABEL org.opencontainers.image.licenses="UNLICENSED"
 
-# server.js is created by next build from the standalone output
 CMD ["node", "server.js"]

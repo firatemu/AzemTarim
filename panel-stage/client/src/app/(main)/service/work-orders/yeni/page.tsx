@@ -39,7 +39,7 @@ function YeniIsEmriContent() {
     const fetch = async () => {
       try {
         const [vRes, cRes] = await Promise.all([
-          axios.get('/customer-vehicle', { params: { limit: 500 } }),
+          axios.get('/customer-vehicles', { params: { limit: 500 } }),
           axios.get('/account', { params: { limit: 1000 } }),
         ]);
         const vData = vRes.data?.data ?? vRes.data;
@@ -83,7 +83,7 @@ function YeniIsEmriContent() {
     }
     setLoading(true);
     try {
-      const res = await axios.post('/work-order', {
+      const res = await axios.post('/work-orders', {
         customerVehicleId: form.customerVehicleId,
         cariId: form.cariId,
         technicianId: form.technicianId || undefined,

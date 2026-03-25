@@ -30,6 +30,7 @@ import * as Icons from '@mui/icons-material';
 import { useAuthStore } from '@/stores/authStore';
 import { useThemeStore } from '@/stores/themeStore';
 import { useRouter } from 'next/navigation';
+import { clearServerAuthCookies } from '@/lib/clearServerAuthCookies';
 import { SIDEBAR_WIDTH } from './Sidebar';
 
 interface HeaderProps {
@@ -75,7 +76,8 @@ export default function Header({ onToggleSidebar, onToggleSidebarPin, sidebarPin
     setAnchorEl(null);
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await clearServerAuthCookies();
     clearAuth();
     router.push('/login');
     handleClose();
@@ -299,14 +301,27 @@ export default function Header({ onToggleSidebar, onToggleSidebarPin, sidebarPin
               },
             }}
           >
-            <Box sx={{ px: 2, py: 1.5 }}>
-              <Typography variant="body2" fontWeight={600} sx={{ color: 'var(--foreground)' }}>
-                {user?.fullName || 'Kullanıcı'}
-              </Typography>
-              <Typography variant="caption" sx={{ color: 'var(--muted-foreground)', fontSize: '0.75rem' }}>
-                {user?.email || user?.role || 'Bilgi yok'}
-              </Typography>
-            </Box>
+            <MenuItem
+              disabled
+              sx={{
+                px: 2,
+                py: 1.5,
+                cursor: 'default',
+                '&.Mui-disabled': {
+                  opacity: 1,
+                  color: 'var(--foreground)',
+                },
+              }}
+            >
+              <Box sx={{ width: '100%' }}>
+                <Typography variant="body2" fontWeight={600} sx={{ color: 'var(--foreground)' }}>
+                  {user?.fullName || 'Kullanıcı'}
+                </Typography>
+                <Typography variant="caption" sx={{ color: 'var(--muted-foreground)', fontSize: '0.75rem' }}>
+                  {user?.email || user?.role || 'Bilgi yok'}
+                </Typography>
+              </Box>
+            </MenuItem>
             <Divider sx={{ borderColor: 'var(--border)' }} />
             <MenuItem
               onClick={handleClose}

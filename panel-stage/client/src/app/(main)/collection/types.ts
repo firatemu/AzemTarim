@@ -43,7 +43,7 @@ export interface SatisElemani {
 }
 
 export interface TahsilatFormData {
-    tip: 'TAHSILAT' | 'ODEME';
+    tip: 'COLLECTION' | 'PAYMENT';
     cariId: string;
     kasaId: string;
     bankaHesapId?: string; // POS için
@@ -52,10 +52,10 @@ export interface TahsilatFormData {
     tarih: string;
     odemeTipi: 'NAKIT' | 'KREDI_KARTI' | 'HAVALE_EFT' | 'CEK' | 'SENET'; // Genişletilebilir
     aciklama: string;
-    satisElemaniId?: string;
     kartSahibi?: string;
     kartSonDort?: string;
     bankaAdi?: string;
+    installmentCount?: number | string;
 }
 
 export interface CaprazOdemeFormData {

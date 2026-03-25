@@ -88,7 +88,7 @@ export default function SiparisHazirlamaPage() {
   const fetchSiparis = async () => {
     try {
       setLoading(true);
-      const response = await axios.get(`/siparis/${params.id}/hazirlama-detaylari`);
+      const response = await axios.get(`/orders/${params.id}/hazirlama-detaylari`);
       setSiparis(response.data);
       
       // Mevcut hazırlananları yükle
@@ -176,7 +176,7 @@ export default function SiparisHazirlamaPage() {
       );
 
       setSaving(true);
-      const response = await axios.post(`/siparis/${params.id}/hazirla`, { hazirlananlar });
+      const response = await axios.post(`/orders/${params.id}/hazirla`, { hazirlananlar });
       
       // Eğer sipariş tamamen hazırlandıysa
       if (response.data.durum === 'HAZIRLANDI') {
@@ -185,7 +185,7 @@ export default function SiparisHazirlamaPage() {
         showSnackbar('Sipariş hazırlama bilgileri kaydedildi', 'success');
       }
       
-      setTimeout(() => router.push('/order/hazirlama-listesi'), 1500);
+      setTimeout(() => router.push('/orders/hazirlama-listesi'), 1500);
     } catch (error: any) {
       showSnackbar(error.response?.data?.message || 'Kaydetme sırasında hata oluştu', 'error');
     } finally {
@@ -217,7 +217,7 @@ export default function SiparisHazirlamaPage() {
     <MainLayout>
       <Box sx={{ p: 3 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
-          <IconButton onClick={() => router.push('/order/hazirlama-listesi')}>
+          <IconButton onClick={() => router.push('/orders/hazirlama-listesi')}>
             <ArrowBack />
           </IconButton>
           <Box sx={{ ml: 2, flex: 1 }}>

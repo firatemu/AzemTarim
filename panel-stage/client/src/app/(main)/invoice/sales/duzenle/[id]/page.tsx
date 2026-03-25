@@ -1,20 +1,25 @@
 'use client';
 
-import React from 'react';
+import React, { Suspense } from 'react';
+import { CircularProgress, Box } from '@mui/material';
 import { SatisFaturaForm } from '../../yeni/page';
-import { useTabStore } from '@/stores/tabStore';
-import { useRouter, useParams } from 'next/navigation';
+import MainLayout from '@/components/Layout/MainLayout';
+import { useParams, useRouter } from 'next/navigation';
 
-export default function DuzenleSatisFaturasiPage() {
-  const router = useRouter();
+export default function SatisFaturaDuzenlePage() {
   const params = useParams();
-  const { removeTab } = useTabStore();
-  const faturaId = params?.id as string;
+  const router = useRouter();
+  const id = params.id as string;
 
-  const goBackToList = () => {
-    removeTab(`fatura-satis-duzenle-${faturaId}`);
-    router.push('/invoice/sales');
-  };
-
-  return <SatisFaturaForm faturaId={faturaId} onBack={goBackToList} />;
+  return (
+    <Box sx={{ pb: 4 }}>
+      <Suspense fallback={
+        <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
+          <CircularProgress />
+        </Box>
+      }>
+        <SatisFaturaForm faturaId={id} onBack={() => router.push('/invoice/sales')} />
+      </Suspense>
+    </Box>
+  );
 }

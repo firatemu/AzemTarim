@@ -26,9 +26,11 @@ export class CashboxController {
     findAll(
         @Query('type') type?: CashboxType,
         @Query('isActive') isActive?: string,
+        @Query('isRetail') isRetail?: string,
     ) {
         const isActiveValue = isActive === undefined ? undefined : isActive === 'true';
-        return this.cashboxService.findAll(type, isActiveValue);
+        const isRetailValue = isRetail === undefined ? undefined : isRetail === 'true';
+        return this.cashboxService.findAll(type, isActiveValue, isRetailValue);
     }
 
     @Get(':id')

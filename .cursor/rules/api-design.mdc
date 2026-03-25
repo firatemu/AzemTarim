@@ -1,0 +1,24 @@
+---
+description: "NestJS API development and lifecycle standards"
+globs: ["**/*.controller.ts", "**/*.dto.ts", "**/modules/**"]
+alwaysApply: true
+---
+
+# API Design & NestJS Standards
+
+## 1. Module Structure
+- **Encapsulation**: Every feature (Invoice, Cashbox, Bank) must be a self-contained NestJS module.
+- **Dependency Injection**: Use standard NestJS DI. Avoid manual class instantiations (`new Class()`) for services/repositories.
+
+## 2. Controllers & DTOs
+- **Validation**: Every POST/PUT payload MUST have a DTO with `class-validator` decorators (e.g., `@IsString`, `@IsNumber`, `@IsOptional`).
+- **REST Compliance**: Use proper HTTP verbs (GET, POST, PUT, DELETE).
+- **Versioning**: Ensure compatibility for multi-tenant tenants.
+
+## 3. Tenant Isolation Policy (CRITICAL)
+- **Header**: All requests must include the `x-tenant-id` header.
+- **TenantResolverService**: Use this service in ALL controllers or services to resolve the current tenant safely.
+- **Forbidden Error**: If a user tries to access a resource from another tenant, return a `ForbiddenException`.
+
+## 4. Documentation
+- **Swagger**: Annotate DTOs and Controller methods with `@ApiProperty` and `@ApiOperation` for automated documentation.

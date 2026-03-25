@@ -7,9 +7,10 @@ import {
   DialogContent,
   Box,
   Typography,
-  Divider,
+  DialogActions,
   Button,
   IconButton,
+  Divider,
   Grid,
 } from '@mui/material';
 import { Close, Print } from '@mui/icons-material';
@@ -114,30 +115,23 @@ export default function ReceiptComponent({
               Ürünler
             </Typography>
             {receiptData.items.map((item, index) => (
-              <Grid
-                container
-                key={index}
-                sx={{
-                  borderBottom: '1px dashed #ccc',
-                  py: 1,
-                }}
-              >
-                <Grid item xs={6}>
+              <Grid container key={index} sx={{ borderBottom: '1px dashed #ccc', py: 1 }}>
+                <Grid size={{ xs: 6 }}>
                   <Typography variant="body2" align="left">
                     {item.productName}
                   </Typography>
                 </Grid>
-                <Grid item xs={2}>
+                <Grid size={{ xs: 2 }}>
                   <Typography variant="body1" align="right">
                     {item.quantity} x
                   </Typography>
                 </Grid>
-                <Grid item xs={2}>
+                <Grid size={{ xs: 2 }}>
                   <Typography variant="body1" align="right">
                     ₺{item.unitPrice.toFixed(2)}
                   </Typography>
                 </Grid>
-                <Grid item xs={2}>
+                <Grid size={{ xs: 2 }}>
                   <Typography variant="body1" align="right">
                     = ₺{item.amount.toFixed(2)}
                   </Typography>

@@ -15,6 +15,7 @@ import { CodeTemplateService } from '../code-template/code-template.service';
 import { SalesWaybillService } from '../sales-waybill/sales-waybill.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderDto } from './dto/update-order.dto';
+import { UnitSetService } from '../unit-set/unit-set.service';
 
 @Injectable()
 export class OrderService {
@@ -24,6 +25,7 @@ export class OrderService {
     @Inject(forwardRef(() => SalesWaybillService))
     private salesWaybillService: SalesWaybillService,
     private codeTemplateService: CodeTemplateService,
+    private unitSetService: UnitSetService,
   ) { }
 
   private async createLog(
@@ -45,7 +47,7 @@ export class OrderService {
         changes: changes ? JSON.stringify(changes) : null,
         ipAddress,
         userAgent,
-        tenantId,
+        tenantId: tenantId!, // Ensure tenantId is not null
       },
     });
   }
@@ -141,6 +143,7 @@ export class OrderService {
       where: {
         id,
         ...buildTenantWhereClause(tenantId ?? undefined),
+        deletedAt: null,
       },
       include: {
         account: true,
@@ -166,6 +169,7 @@ export class OrderService {
         where: {
           id,
           ...buildTenantWhereClause(tenantId ?? undefined),
+          deletedAt: null,
         },
         include: {
           account: true,
@@ -229,6 +233,19 @@ export class OrderService {
 
     if (!account) {
       throw new NotFoundException(`Account not found: ${orderData.accountId}`);
+    }
+
+    // Validate quantities for unit divisibility
+    const products = await this.prisma.product.findMany({
+      where: { id: { in: items.map((i) => i.productId) } },
+      select: { id: true, unitId: true },
+    });
+
+    for (const item of items) {
+      const product = products.find((p) => p.id === item.productId);
+      if (product?.unitId) {
+        await this.unitSetService.validateQuantity(product.unitId, item.quantity);
+      }
     }
 
     let totalAmount = new Prisma.Decimal(0);
@@ -350,6 +367,19 @@ export class OrderService {
           ...buildTenantWhereClause(order.tenantId ?? undefined),
         },
       });
+
+      // Validate quantities for unit divisibility
+      const products = await this.prisma.product.findMany({
+        where: { id: { in: items.map((i) => i.productId) } },
+        select: { id: true, unitId: true },
+      });
+
+      for (const item of items) {
+        const product = products.find((p) => p.id === item.productId);
+        if (product?.unitId) {
+          await this.unitSetService.validateQuantity(product.unitId, item.quantity);
+        }
+      }
 
       let totalAmount = new Prisma.Decimal(0);
       let vatAmount = new Prisma.Decimal(0);

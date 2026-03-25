@@ -62,7 +62,7 @@ export default function MusteriAraclariPage() {
   const fetchVehicles = async () => {
     try {
       setLoading(true);
-      const res = await axios.get('/customer-vehicle', {
+      const res = await axios.get('/customer-vehicles', {
         params: { search: debouncedSearch, limit: 100 },
       });
       const data = res.data?.data ?? res.data;
@@ -111,7 +111,7 @@ export default function MusteriAraclariPage() {
       await axios.patch(`/customer-vehicle/${selectedVehicle.id}`, data);
       showSnackbar('Araç güncellendi', 'success');
     } else {
-      await axios.post('/customer-vehicle', data);
+      await axios.post('/customer-vehicles', data);
       showSnackbar('Araç eklendi', 'success');
     }
     fetchVehicles();

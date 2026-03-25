@@ -66,17 +66,17 @@ interface SatinAlmaSiparisi {
 }
 
 const durumRenkleri: Record<string, 'default' | 'warning' | 'info' | 'success' | 'error'> = {
-  BEKLEMEDE: 'default',
-  SIPARIS_VERILDI: 'warning',
-  FATURALANDI: 'success',
-  IPTAL: 'error',
+  PENDING: 'default',
+  ORDER_PLACED: 'warning',
+  INVOICED: 'success',
+  CANCELLED: 'error',
 };
 
 const durumMetinleri: Record<string, string> = {
-  BEKLEMEDE: 'Beklemede',
-  SIPARIS_VERILDI: 'Sipariş Verildi',
-  FATURALANDI: 'Faturalandı',
-  IPTAL: 'İptal',
+  PENDING: 'Beklemede',
+  ORDER_PLACED: 'Sipariş Verildi',
+  INVOICED: 'Faturalandı',
+  CANCELLED: 'İptal',
 };
 
 export default function SatinAlmaSiparisDetayPage() {
@@ -148,7 +148,7 @@ export default function SatinAlmaSiparisDetayPage() {
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
             <Button
               startIcon={<ArrowBack />}
-              onClick={() => router.push('/order/satin-alma')}
+              onClick={() => router.push('/orders/satin-alma')}
               sx={{
                 bgcolor: '#f3f4f6',
                 '&:hover': { bgcolor: '#e5e7eb' }
@@ -174,7 +174,7 @@ export default function SatinAlmaSiparisDetayPage() {
               <Button
                 variant="contained"
                 startIcon={<Edit />}
-                onClick={() => router.push(`/siparis/satin-alma/duzenle/${siparis.id}`)}
+                onClick={() => router.push(`/orders/satin-alma/duzenle/${siparis.id}`)}
                 sx={{
                   background: 'linear-gradient(135deg, #0891b2 0%, #06b6d4 100%)',
                 }}
@@ -182,7 +182,7 @@ export default function SatinAlmaSiparisDetayPage() {
                 Düzenle
               </Button>
             )}
-            {siparis.durum === 'SIPARIS_VERILDI' && (
+            {siparis.durum === 'ORDER_PLACED' && (
               <Button
                 variant="contained"
                 startIcon={<Receipt />}
@@ -197,7 +197,7 @@ export default function SatinAlmaSiparisDetayPage() {
             <Button
               variant="outlined"
               startIcon={<PrintIcon />}
-              onClick={() => router.push(`/siparis/satin-alma/print/${siparis.id}`)}
+              onClick={() => router.push(`/orders/satin-alma/print/${siparis.id}`)}
             >
               Yazdır
             </Button>

@@ -1,0 +1,27 @@
+---
+description: "Guidelines for capturing and managing architectural decision records (ADR)"
+globs: ["**/*"]
+alwaysApply: true
+---
+
+# Architecture Decision Records (ADR)
+
+## Core Principles
+
+- **Traceability**: All major architectural changes MUST be documented.
+- **Context**: Decisions must include the problem, alternatives, and rationale.
+- **Status**: Decisions should be marked as `PROPOSED`, `ACCEPTED`, `SUPERSEDED`, or `DEPRECATED`.
+
+## When to Create an ADR
+
+- Changing a core technology (e.g., swapping a library).
+- Introducing a new architectural pattern (e.g., adding a plugin system).
+- Changing the data model or security architecture.
+
+## ADR Format
+
+1. **Title**: Concise description of the decision.
+2. **Context**: Why is this change necessary?
+3. **Decision**: What exactly is being decided?
+4. **Consequences**: What are the trade-offs and future impacts?
+5. **Alternatives**: What other options were considered?

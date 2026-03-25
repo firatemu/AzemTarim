@@ -183,6 +183,9 @@ export class ServiceInvoiceService {
         },
       });
 
+      // Update code template counter
+      await this.codeTemplateService.saveLastCode('SERVICE_INVOICE' as any, invoiceNo);
+
       return {
         serviceInvoice,
         journalEntry,

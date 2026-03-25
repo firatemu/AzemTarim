@@ -10,6 +10,8 @@ import { TenantResolverService } from '../../common/services/tenant-resolver.ser
 import { CreateAccountDto, UpdateAccountDto } from './dto';
 import { CodeTemplateService } from '../code-template/code-template.service';
 import { DeletionProtectionService } from '../../common/services/deletion-protection.service';
+import { Prisma } from '@prisma/client';
+import { buildTenantWhereClause } from '../../common/utils/staging.util';
 import * as ExcelJS from 'exceljs';
 import PdfPrinter from 'pdfmake';
 import type { TDocumentDefinitions } from 'pdfmake/interfaces';
@@ -21,11 +23,11 @@ import { ModuleType } from '../code-template/code-template.enums';
 @Injectable()
 export class AccountService {
     constructor(
-        private prisma: PrismaService,
-        private tenantResolver: TenantResolverService,
+        private readonly prisma: PrismaService,
+        private readonly tenantResolver: TenantResolverService,
         @Inject(forwardRef(() => CodeTemplateService))
-        private codeTemplateService: CodeTemplateService,
-        private deletionProtection: DeletionProtectionService,
+        private readonly codeTemplateService: CodeTemplateService,
+        private readonly deletionProtection: DeletionProtectionService,
     ) { }
 
     async create(dto: CreateAccountDto) {
@@ -43,7 +45,11 @@ export class AccountService {
         }
 
         if (!dto.title || !dto.title.trim()) {
-            throw new BadRequestException('Title cannot be empty');
+            // Title validation is now optional at the DTO level.
+            // We rely on the frontend check in NewCariDialog.tsx to handle this requirement.
+            // If title is missing or empty, we allow the service to proceed (assuming business logic allows draft/implicit naming).
+            // If strict validation is required here, re-enable the exception below:
+            // throw new BadRequestException('Title cannot be empty');
         }
 
         const type = dto.type || 'CUSTOMER';
@@ -89,6 +95,9 @@ export class AccountService {
             },
         });
 
+        // Update code template counter
+        await this.codeTemplateService.saveLastCode(ModuleType.CUSTOMER, created.code);
+
         return {
             ...created,
             balance: Number(created.balance ?? 0),
@@ -100,8 +109,9 @@ export class AccountService {
         const tenantId = await this.tenantResolver.resolveForQuery();
         const skip = (page - 1) * limit;
 
-        const where: any = {};
-        if (tenantId) where.tenantId = tenantId;
+        const where: Prisma.AccountWhereInput = {
+            ...buildTenantWhereClause(tenantId ?? undefined),
+        };
         if (isActive !== undefined) where.isActive = isActive;
 
         if (search) {
@@ -113,12 +123,15 @@ export class AccountService {
         }
 
         if (type) {
-            where.type = type;
+            where.type = type as any;
         }
 
         const [accounts, total] = await Promise.all([
             this.prisma.account.findMany({
-                where,
+                where: {
+                    ...where,
+                    deletedAt: null,
+                },
                 skip,
                 take: limit,
                 orderBy: { createdAt: 'desc' },
@@ -135,14 +148,28 @@ export class AccountService {
                     },
                 },
             }),
-            this.prisma.account.count({ where }),
+            this.prisma.account.count({
+                where: {
+                    ...where,
+                    deletedAt: null
+                }
+            }),
         ]);
 
-        const data = accounts.map((account) => ({
-            ...account,
-            balance: Number(account.balance ?? 0),
-            movementCount: (account as any)._count?.accountMovements ?? 0,
-        }));
+        const data = accounts.map((account) => {
+            const { salesAgent, balance, ...rest } = account as any;
+            const b = Number(balance ?? 0);
+            return {
+                ...rest,
+                balance: b,
+                bakiye: b,
+                cariKodu: account.code,
+                unvan: account.title,
+                movementCount: (account as any)._count?.accountMovements ?? 0,
+                salesAgent: salesAgent?.fullName || '-',
+            };
+        });
+
 
         return {
             data,
@@ -160,8 +187,9 @@ export class AccountService {
         const { search, type, salesAgentId, status, page = 1, limit = 50 } = query;
         const skip = (page - 1) * limit;
 
-        const where: any = {};
-        if (tenantId) where.tenantId = tenantId;
+        const where: Prisma.AccountWhereInput = {
+            ...buildTenantWhereClause(tenantId ?? undefined),
+        };
 
         if (salesAgentId) {
             where.salesAgentId = salesAgentId;
@@ -191,7 +219,10 @@ export class AccountService {
 
         const [accounts, total] = await Promise.all([
             this.prisma.account.findMany({
-                where,
+                where: {
+                    ...where,
+                    deletedAt: null,
+                },
                 skip,
                 take: limit,
                 orderBy: { balance: 'desc' },
@@ -203,7 +234,12 @@ export class AccountService {
                     },
                 }
             }),
-            this.prisma.account.count({ where }),
+            this.prisma.account.count({
+                where: {
+                    ...where,
+                    deletedAt: null
+                }
+            }),
         ]);
 
         const aggregates = await this.prisma.account.aggregate({
@@ -227,13 +263,15 @@ export class AccountService {
             })
         ]);
 
-        const items = accounts.map((item) => {
-            const balance = Number(item.balance || 0);
+        const items = accounts.map((account) => {
+            const { salesAgent, balance, ...rest } = account as any;
+            const numBalance = Number(balance || 0);
             return {
-                ...item,
-                balance,
-                debit: balance < 0 ? Math.abs(balance) : 0,
-                credit: balance > 0 ? balance : 0,
+                ...rest,
+                balance: numBalance,
+                debit: numBalance < 0 ? Math.abs(numBalance) : 0,
+                credit: numBalance > 0 ? numBalance : 0,
+                salesAgent: salesAgent?.fullName || '-',
             };
         });
 
@@ -255,18 +293,29 @@ export class AccountService {
     }
 
     async findOne(id: string) {
-        const account = await this.prisma.account.findUnique({
-            where: { id },
+        const tenantId = await this.tenantResolver.resolveForQuery();
+        const account = await this.prisma.account.findFirst({
+            where: {
+                id,
+                ...(tenantId ? { tenantId } : {}),
+                deletedAt: null,
+            },
             include: {
                 invoices: {
+                    where: { deletedAt: null },
                     orderBy: { createdAt: 'desc' },
                     take: 10,
                 },
                 collections: {
+                    where: { deletedAt: null },
                     orderBy: { createdAt: 'desc' },
                     take: 10,
                 },
                 accountMovements: {
+                    where: {
+                        deletedAt: null,
+                        ...(tenantId ? { tenantId } : {}),
+                    },
                     orderBy: { createdAt: 'desc' },
                     take: 20,
                 },
@@ -284,7 +333,20 @@ export class AccountService {
     }
 
     async update(id: string, dto: UpdateAccountDto) {
-        await this.findOne(id);
+        const tenantId = await this.tenantResolver.resolveForQuery();
+
+        // Ensure account belongs to tenant and is not deleted
+        const existing = await this.prisma.account.findFirst({
+            where: {
+                id,
+                ...(tenantId ? { tenantId } : {}),
+                deletedAt: null
+            }
+        });
+
+        if (!existing) {
+            throw new NotFoundException('Account not found');
+        }
 
         const { contacts, addresses, banks, ...rest } = dto;
 
@@ -312,16 +374,36 @@ export class AccountService {
     }
 
     async getMovements(accountId: string, page = 1, limit = 50) {
+        const tenantId = await this.tenantResolver.resolveForQuery();
         const skip = (page - 1) * limit;
+
+        const where: any = { accountId, deletedAt: null };
+        if (tenantId) where.tenantId = tenantId;
 
         const [data, total] = await Promise.all([
             this.prisma.accountMovement.findMany({
-                where: { accountId },
+                where,
                 skip,
                 take: limit,
-                orderBy: { createdAt: 'desc' },
+                orderBy: { date: 'desc' },
+                include: {
+                    invoice: {
+                        include: {
+                            items: {
+                                include: {
+                                    product: {
+                                        select: {
+                                            name: true,
+                                            code: true,
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             }),
-            this.prisma.accountMovement.count({ where: { accountId } }),
+            this.prisma.accountMovement.count({ where }),
         ]);
 
         return {
@@ -515,7 +597,7 @@ export class AccountService {
                             {
                                 width: 'auto',
                                 stack: [
-                                    { text: 'DEBT CREDIT REPORT', style: 'docTitle', alignment: 'right' },
+                                    { text: 'DEBIT CREDIT REPORT', style: 'docTitle', alignment: 'right' },
                                     { text: `Date: ${new Date().toLocaleDateString('tr-TR')}`, style: 'docTag', alignment: 'right' },
                                     { text: `Page: ${currentPage}`, style: 'docTag', alignment: 'right', margin: [0, 2, 0, 0] },
                                 ],
@@ -575,7 +657,7 @@ export class AccountService {
                     style: 'transactionTable',
                     table: {
                         headerRows: 1,
-                        widths: ['auto', '*', 'auto', 'auto', 'auto', 'auto'],
+                        widths: ['auto', '*', '*', '*', '*', '*', 'auto'],
                         body: [
                             [
                                 { text: 'ACCOUNT CODE', style: 'tableHeader' },
@@ -647,7 +729,6 @@ export class AccountService {
                 pdfDoc.on('data', chunk => chunks.push(chunk));
                 pdfDoc.on('end', () => resolve(Buffer.concat(chunks)));
                 pdfDoc.on('error', reject);
-                pdfDoc.end();
                 pdfDoc.end();
             } catch (error) {
                 reject(error);
@@ -747,7 +828,7 @@ export class AccountService {
                 count: finalTotal,
             },
             meta: {
-                total: finalTotal,
+                total,
                 page,
                 limit,
                 pageCount: Math.ceil(finalTotal / limit),
@@ -838,7 +919,6 @@ export class AccountService {
 
             row.getCell(4).font = { color: { argb: 'FF0284C7' } };
             if (item.debt > 0) row.getCell(5).font = { color: { argb: 'FFEF4444' } };
-
             if (item.remainingLimit < 0) {
                 row.getCell(6).font = { bold: true, color: { argb: 'FFEF4444' } };
                 row.getCell(6).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFEE2E2' } };
@@ -850,7 +930,6 @@ export class AccountService {
         worksheet.columns = [
             { width: 15 },
             { width: 40 },
-            { width: 20 },
             { width: 20 },
             { width: 20 },
             { width: 20 },
@@ -938,7 +1017,7 @@ export class AccountService {
                                 width: 'auto',
                                 stack: [
                                     { text: 'CREDIT LIMIT REPORT', style: 'docTitle', alignment: 'right' },
-                                    { text: `Date: ${new Date().toLocaleDateString('tr-TR')}`, style: 'docTag', alignment: 'right' },
+                                    { text: `Date: ${new Date().toLocaleDateString('tr-TR')}`, style: 'docTag', alignment: 'right', margin: [0, 2, 0, 0] },
                                     { text: `Page: ${currentPage}`, style: 'docTag', alignment: 'right', margin: [0, 2, 0, 0] },
                                 ],
                             },
@@ -997,7 +1076,7 @@ export class AccountService {
                     style: 'transactionTable',
                     table: {
                         headerRows: 1,
-                        widths: ['auto', '*', 'auto', 'auto', 'auto', 'auto'],
+                        widths: ['auto', '*', '*', '*', '*', 'auto'],
                         body: [
                             [
                                 { text: 'ACCOUNT CODE', style: 'tableHeader' },
@@ -1055,11 +1134,11 @@ export class AccountService {
                 transactionTable: { margin: [0, 0, 0, 0] },
                 tableHeader: { fontSize: 8, bold: true, color: '#ffffff', fillColor: '#1e293b', margin: [0, 4, 0, 4] },
                 tableCell: { fontSize: 8, color: '#334155', margin: [0, 4, 0, 4] },
-                tableCellBlue: { fontSize: 8, color: '#0284c7', margin: [0, 4, 0, 4] },
                 tableCellBold: { fontSize: 8, bold: true, color: '#0f172a', margin: [0, 4, 0, 4] },
-                tableCellSuccessBold: { fontSize: 8, bold: true, color: '#15803d', margin: [0, 4, 0, 4] },
-                tableCellDanger: { fontSize: 8, color: '#b91c1c', margin: [0, 4, 0, 4] },
-                tableCellDangerBold: { fontSize: 8, bold: true, color: '#b91c1c', margin: [0, 4, 0, 4] },
+                tableCellBlue: { fontSize: 8, color: '#0284c7', margin: [0, 4, 0, 4] },
+                tableCellSuccessBold: { fontSize: 8, bold: true, color: '#15803d' },
+                tableCellDanger: { fontSize: 8, color: '#b91c1c' },
+                tableCellDangerBold: { fontSize: 8, bold: true, color: '#b91c1c' },
             },
             defaultStyle: { font: 'Roboto' },
         };

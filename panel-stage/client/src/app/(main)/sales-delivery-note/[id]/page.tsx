@@ -101,7 +101,7 @@ export default function SatisIrsaliyesiDetayPage() {
   const fetchIrsaliye = async () => {
     try {
       setLoading(true);
-      const response = await axios.get(`/satis-irsaliyesi/${id}`);
+      const response = await axios.get(`/sales-waybills/${id}`);
       setIrsaliye(response.data);
       setError(null);
     } catch (err: any) {
@@ -141,7 +141,7 @@ export default function SatisIrsaliyesiDetayPage() {
     switch (durum) {
       case 'INVOICED':
         return 'success';
-      case 'FATURALANMADI':
+      case 'NOT_INVOICED':
         return 'warning';
       default:
         return 'default';
@@ -152,7 +152,7 @@ export default function SatisIrsaliyesiDetayPage() {
     switch (durum) {
       case 'INVOICED':
         return 'Faturalandı';
-      case 'FATURALANMADI':
+      case 'NOT_INVOICED':
         return 'Faturalanmadı';
       default:
         return durum;
@@ -217,7 +217,7 @@ export default function SatisIrsaliyesiDetayPage() {
               Satış İrsaliyesi Detayı
             </Typography>
           </Box>
-          {irsaliye.durum === 'FATURALANMADI' && (
+          {irsaliye.durum === 'NOT_INVOICED' && (
             <Box sx={{ display: 'flex', gap: 2 }}>
               <Button
                 variant="contained"
@@ -232,7 +232,7 @@ export default function SatisIrsaliyesiDetayPage() {
               <Button
                 variant="contained"
                 startIcon={<Edit />}
-                onClick={() => router.push(`/satis-irsaliyesi/${irsaliye.id}/duzenle`)}
+                onClick={() => router.push(`/sales-waybills/${irsaliye.id}/duzenle`)}
                 sx={{
                   background: 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)',
                 }}

@@ -122,7 +122,7 @@ export default function DuzenleSatinAlmaSiparisiPage() {
 
   const fetchStoklar = async () => {
     try {
-      const response = await axios.get('/product', {
+      const response = await axios.get('/products', {
         params: { limit: 1000 },
       });
       setStoklar(response.data.data || []);
@@ -319,7 +319,7 @@ export default function DuzenleSatinAlmaSiparisiPage() {
         })),
       });
       showSnackbar('Satın alma siparişi başarıyla güncellendi', 'success');
-      setTimeout(() => router.push('/order/satin-alma'), 1000);
+      setTimeout(() => router.push('/orders/satin-alma'), 1000);
     } catch (error: any) {
       showSnackbar(error.response?.data?.message || 'Sipariş güncellenirken hata oluştu', 'error');
     } finally {

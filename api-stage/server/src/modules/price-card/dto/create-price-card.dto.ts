@@ -1,5 +1,6 @@
 import { Type } from 'class-transformer';
 import {
+  IsBoolean,
   IsEnum,
   IsNumber,
   IsOptional,
@@ -10,9 +11,14 @@ import {
 
 export enum PriceType {
   SALE = 'SALE',
-  PURCHASE = 'PURCHASE',
   CAMPAIGN = 'CAMPAIGN',
   LIST = 'LIST',
+}
+
+export enum PriceCardStatus {
+  ACTIVE = 'ACTIVE',
+  PASSIVE = 'PASSIVE',
+  EXPIRED = 'EXPIRED',
 }
 
 export class CreatePriceCardDto {
@@ -33,15 +39,15 @@ export class CreatePriceCardDto {
   @Type(() => Number)
   salePrice?: number;
 
-  @IsNumber()
-  @IsOptional()
-  @Type(() => Number)
-  purchasePrice?: number | null;
 
   @IsNumber()
   @IsOptional()
   @Type(() => Number)
   vatRate?: number = 20;
+
+  @IsBoolean()
+  @IsOptional()
+  priceIncludesVat?: boolean = false;
 
   @IsNumber()
   @IsOptional()
@@ -65,4 +71,8 @@ export class CreatePriceCardDto {
   @IsOptional()
   @MaxLength(500)
   notes?: string | null;
+
+  @IsEnum(PriceCardStatus)
+  @IsOptional()
+  status?: PriceCardStatus = PriceCardStatus.ACTIVE;
 }

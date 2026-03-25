@@ -1,133 +1,126 @@
-import { NextRequest, NextResponse } from 'next/server';
-
-export const dynamic = 'force-dynamic';
-export const runtime = 'nodejs';
-
-// Docker: API_PROXY_TARGET (örn. http://backend-staging:3000). Local: localhost:3020
-const getApiBaseUrl = () => {
-  const target = process.env.API_PROXY_TARGET;
-  if (target) return target.replace(/\/$/, '');
-  return 'http://localhost:3020';
-};
+import type { NextRequest } from 'next/server';
+import { NextResponse } from 'next/server';
 
 /**
- * Proxies all /api/* requests (except /api/hizli which has its own route) to the backend.
- * Fixes 404 when Next.js rewrites are not applied (e.g. with Turbopack in dev).
+ * Nest API proxy — Node.js runtime (Edge middleware stream/duplex sorunları yok).
+ * Daha spesifik route'lar (auth/cookies, hizli, work-order/...) bu handler'ı geçersiz kılar.
  */
-async function proxyToBackend(request: NextRequest, pathSegments: string[]) {
-  const baseUrl = getApiBaseUrl();
-  const path = pathSegments.join('/');
-  const url = new URL(`/api/${path}`, baseUrl);
-  // Forward query string
-  request.nextUrl.searchParams.forEach((value, key) => {
-    url.searchParams.set(key, value);
-  });
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+export const maxDuration = 120;
 
-  const headers = new Headers();
-  request.headers.forEach((value, key) => {
-    if (
-      key.toLowerCase() === 'host' ||
-      key.toLowerCase() === 'connection' ||
-      key.toLowerCase() === 'content-length'
-    ) {
-      return;
+const DEFAULT_TARGET = 'http://127.0.0.1:3020';
+
+const SKIP_HEADERS = new Set([
+    'connection',
+    'keep-alive',
+    'proxy-authenticate',
+    'proxy-authorization',
+    'te',
+    'trailers',
+    'transfer-encoding',
+    'upgrade',
+    'host',
+    'content-length',
+    /** Tarayıcı gzip istemesin; Nest compression + Node fetch decode = ERR_CONTENT_DECODING_FAILED */
+    'accept-encoding',
+    /** Tarayıcı origin'i Nest CORS ile çakışmasın; istek sunucudan çıkıyor gibi görünsün */
+    'origin',
+    'referer',
+]);
+
+/** Backend gzip gönderse bile Node fetch çoğu zaman açar; header kalırsa tarayıcı tekrar açmaya çalışır → hata */
+const SKIP_RESPONSE_HEADERS = new Set([
+    'content-encoding',
+    'content-length',
+    'transfer-encoding',
+]);
+
+function resolveBackendBase(): string {
+    const raw =
+        process.env.API_PROXY_TARGET ||
+        process.env.BACKEND_URL ||
+        DEFAULT_TARGET;
+    return raw.replace(
+        /^http:\/\/localhost(?=:\d|\/|$)/i,
+        'http://127.0.0.1',
+    );
+}
+
+function forwardRequestHeaders(req: NextRequest): Headers {
+    const h = new Headers();
+    req.headers.forEach((value, key) => {
+        if (!SKIP_HEADERS.has(key.toLowerCase())) {
+            h.set(key, value);
+        }
+    });
+    h.set('Accept-Encoding', 'identity');
+    return h;
+}
+
+function buildProxyResponseHeaders(backend: Headers): Headers {
+    const out = new Headers();
+    backend.forEach((value, key) => {
+        const k = key.toLowerCase();
+        if (SKIP_RESPONSE_HEADERS.has(k)) return;
+        if (k === 'set-cookie') {
+            out.append(key, value);
+        } else {
+            out.set(key, value);
+        }
+    });
+    return out;
+}
+
+async function proxyRequest(req: NextRequest, pathSegments: string[]) {
+    const pathname = '/api/' + pathSegments.join('/');
+    const target = new URL(pathname + req.nextUrl.search, resolveBackendBase());
+
+    const method = req.method;
+    const hasBody = !['GET', 'HEAD', 'OPTIONS', 'TRACE'].includes(method);
+    let body: ArrayBuffer | undefined;
+    if (hasBody) {
+        body = await req.arrayBuffer();
     }
-    headers.set(key, value);
-  });
 
-  let body: string | undefined;
-  try {
-    body = await request.text();
-  } catch {
-    // no body
-  }
-
-  let res: Response;
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 25000);
-
-
-    res = await fetch(url.toString(), {
-      method: request.method,
-      headers,
-      body: body || undefined,
-      signal: controller.signal,
-      cache: 'no-store',
+    const backendRes = await fetch(target.toString(), {
+        method,
+        headers: forwardRequestHeaders(req),
+        body: body && body.byteLength > 0 ? body : undefined,
+        cache: 'no-store',
+        signal: AbortSignal.timeout(120_000),
     });
 
-
-    clearTimeout(timeoutId);
-  } catch (err) {
-    const message = err instanceof Error ? err.message : 'Backend unreachable';
-    console.error('[API Proxy] Backend fetch failed:', url.toString(), message);
-    return NextResponse.json(
-      {
-        statusCode: 503,
-        message: 'API sunucusuna bağlanılamadı. Backend çalışıyor mu?',
-        error: process.env.NODE_ENV === 'development' ? message : undefined,
-      },
-      { status: 503 }
-    );
-  }
-
-  const responseHeaders = new Headers();
-  res.headers.forEach((value, key) => {
-    if (key.toLowerCase() === 'transfer-encoding') return;
-    responseHeaders.set(key, value);
-  });
-
-  return new NextResponse(res.body, {
-    status: res.status,
-    statusText: res.statusText,
-    headers: responseHeaders,
-  });
+    return new NextResponse(backendRes.body, {
+        status: backendRes.status,
+        statusText: backendRes.statusText,
+        headers: buildProxyResponseHeaders(backendRes.headers),
+    });
 }
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: Promise<{ path: string[] }> }
-) {
-  const { path } = await params;
-  return proxyToBackend(request, path);
+type RouteCtx = { params: Promise<{ path: string[] }> };
+
+async function handle(req: NextRequest, ctx: RouteCtx) {
+    try {
+        const { path } = await ctx.params;
+        if (!path?.length) {
+            return NextResponse.json({ error: 'Missing API path' }, { status: 400 });
+        }
+        return await proxyRequest(req, path);
+    } catch (e: unknown) {
+        const message = e instanceof Error ? e.message : 'Proxy error';
+        console.error('[api proxy]', message);
+        return NextResponse.json(
+            { error: 'Backend unreachable', message },
+            { status: 504 },
+        );
+    }
 }
 
-export async function POST(
-  request: NextRequest,
-  { params }: { params: Promise<{ path: string[] }> }
-) {
-  const { path } = await params;
-  return proxyToBackend(request, path);
-}
-
-export async function PATCH(
-  request: NextRequest,
-  { params }: { params: Promise<{ path: string[] }> }
-) {
-  const { path } = await params;
-  return proxyToBackend(request, path);
-}
-
-export async function PUT(
-  request: NextRequest,
-  { params }: { params: Promise<{ path: string[] }> }
-) {
-  const { path } = await params;
-  return proxyToBackend(request, path);
-}
-
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: Promise<{ path: string[] }> }
-) {
-  const { path } = await params;
-  return proxyToBackend(request, path);
-}
-
-export async function OPTIONS(
-  request: NextRequest,
-  { params }: { params: Promise<{ path: string[] }> }
-) {
-  const { path } = await params;
-  return proxyToBackend(request, path);
-}
+export const GET = handle;
+export const POST = handle;
+export const PUT = handle;
+export const PATCH = handle;
+export const DELETE = handle;
+export const HEAD = handle;
+export const OPTIONS = handle;

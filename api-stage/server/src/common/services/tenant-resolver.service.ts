@@ -35,8 +35,8 @@ export class TenantResolverService {
   /**
    * Liste/filtre sorguları için tenant ID çözümle (findAll, findFirst, vb.)
    */
-  async resolveForQuery(): Promise<string | null> {
-    return this.resolve({ allowNull: true });
+  async resolveForQuery(options?: { userId?: string }): Promise<string | null> {
+    return this.resolve({ userId: options?.userId, allowNull: true });
   }
 
   /**
@@ -95,16 +95,19 @@ export class TenantResolverService {
     allowNull: boolean;
   }): Promise<string | null> {
     let tenantId: string | null = this.tenantContext.getTenantId() ?? null;
+    const effectiveUserId = options.userId || this.tenantContext.getUserId();
 
     // 2. Yoksa ve userId verilmişse: User.tenantId al; varsa context'e set et
-    if (!tenantId && options.userId) {
+    // Staging ortamında, frontend'den gelen hatalı header'ların (default tenant) 
+    // faturanın bulunamamasına (404) yol açmaması için kullanıcı tenant'ını önceliklendiriyoruz.
+    if (effectiveUserId && (!tenantId || isStagingEnvironment())) {
       const user = await this.prisma.user.findUnique({
-        where: { id: options.userId },
+        where: { id: effectiveUserId },
         select: { tenantId: true },
       });
       if (user?.tenantId) {
         tenantId = user.tenantId;
-        this.tenantContext.setTenant(tenantId, options.userId);
+        this.tenantContext.setTenant(tenantId, effectiveUserId);
       }
     }
 

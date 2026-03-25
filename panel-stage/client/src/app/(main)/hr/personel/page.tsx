@@ -49,7 +49,7 @@ import {
   TrendingDown,
   Badge,
 } from '@mui/icons-material';
-import MainLayout from '@/components/Layout/MainLayout';
+import { StandardPage } from '@/components/common';
 import axios from '@/lib/axios';
 import { useRouter } from 'next/navigation';
 import MaasTab from './components/MaasTab';
@@ -556,7 +556,7 @@ export default function PersonelPage() {
       // Yeni kayıt için bir sonraki kodu backend'den al
       let nextCode = '';
       try {
-        const response = await axios.get('/code-template/next-code/PERSONNEL');
+        const response = await axios.get('/code-templates/preview-code/PERSONNEL');
         nextCode = response.data.nextCode || '';
       } catch (error) {
         console.log('Otomatik kod alınamadı, boş bırakılacak');
@@ -657,7 +657,7 @@ export default function PersonelPage() {
   }
 
   return (
-    <MainLayout>
+    <StandardPage maxWidth={false}>
       <Box sx={{ p: 3 }}>
         <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <Box>
@@ -1216,7 +1216,7 @@ export default function PersonelPage() {
           </Alert>
         </Snackbar>
       </Box>
-    </MainLayout>
+    </StandardPage>
   );
 }
 

@@ -3,60 +3,105 @@ import {
   Catch,
   ArgumentsHost,
   HttpException,
-  HttpStatus,
+  Logger,
 } from '@nestjs/common';
 import { Request, Response } from 'express';
+import { v4 as uuidv4 } from 'uuid';
+import { ErrorResponseDto } from '../dto/error-response.dto';
 
-@Catch()
-export class AllExceptionsFilter implements ExceptionFilter {
-  catch(exception: unknown, host: ArgumentsHost) {
+/**
+ * HttpException Filter
+ * Handles all HttpException instances (4xx and 5xx errors)
+ * This is the innermost filter - most specific exception handling
+ */
+@Catch(HttpException)
+export class HttpExceptionFilter implements ExceptionFilter {
+  private readonly logger = new Logger(HttpExceptionFilter.name);
+
+  catch(exception: HttpException, host: ArgumentsHost) {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
     const request = ctx.getRequest<Request>();
 
-    const status =
-      exception instanceof HttpException
-        ? exception.getStatus()
-        : HttpStatus.INTERNAL_SERVER_ERROR;
+    // Get or generate request ID
+    const requestId =
+      (request.headers['x-request-id'] as string) ||
+      (request.headers['X-Request-ID'] as string) ||
+      uuidv4();
 
-    const message =
-      exception instanceof HttpException
-        ? exception.getResponse()
-        : exception instanceof Error
-          ? exception.message
-          : 'Internal server error';
+    // Extract status code
+    const status = exception.getStatus();
 
-    const errorDetails = {
+    // Extract message from exception
+    const exceptionResponse = exception.getResponse();
+    let message = 'An error occurred';
+
+    if (typeof exceptionResponse === 'string') {
+      message = exceptionResponse;
+    } else if (typeof exceptionResponse === 'object') {
+      const responseObj = exceptionResponse as any;
+      message = responseObj.message || responseObj.error || message;
+
+      // If it's a validation error with multiple messages
+      if (responseObj.errors && Array.isArray(responseObj.errors)) {
+        message = responseObj.message || 'Validation failed';
+      }
+    }
+
+    // Extract tenant ID from request for logging
+    const tenantId = (request as any).tenantId || 'unknown';
+    const userId = (request as any).userId || 'unknown';
+
+    // Build error response
+    const errorResponse: ErrorResponseDto = {
+      success: false,
       statusCode: status,
+      error: this.getHttpStatusName(status),
+      message,
       timestamp: new Date().toISOString(),
       path: request.url,
-      method: request.method,
-      message: typeof message === 'string' ? message : (message as any).message || message,
+      requestId,
     };
 
-    // Detaylı log - PM2 log'larına yazmak için process.stderr.write kullan
-    const logMessage = JSON.stringify({
-      timestamp: new Date().toISOString(),
-      type: '❌ [Global Exception Filter] Hata yakalandı',
-      status,
-      path: request.url,
-      method: request.method,
-      message: typeof message === 'string' ? message : (message as any).message || message,
-      error: exception instanceof Error ? exception.message : String(exception),
-      stack: exception instanceof Error ? exception.stack : undefined,
-    }, null, 2);
+    // Log based on status code
+    if (status >= 500) {
+      // Server errors - log with error level
+      this.logger.error(
+        `[HTTP ${status}] ${request.method} ${request.url} | tenant:${tenantId} | user:${userId} | reqId:${requestId} | ${message}`,
+      );
+    } else if (status >= 400) {
+      // Client errors - log with warn level
+      this.logger.warn(
+        `[HTTP ${status}] ${request.method} ${request.url} | tenant:${tenantId} | user:${userId} | reqId:${requestId} | ${message}`,
+      );
+    }
 
-    process.stderr.write(logMessage + '\n');
-    console.error('❌ [Global Exception Filter] Hata yakalandı:', {
-      status,
-      path: request.url,
-      method: request.method,
-      message: typeof message === 'string' ? message : (message as any).message || message,
-      error: exception instanceof Error ? exception.message : String(exception),
-      stack: exception instanceof Error ? exception.stack : undefined,
-    });
+    // Never expose stack traces
+    response.status(status).json(errorResponse);
+  }
 
-    response.status(status).json(errorDetails);
+  /**
+   * Get HTTP status name from status code
+   * @param status - HTTP status code
+   * @returns Status name (e.g., "NOT_FOUND", "CONFLICT")
+   */
+  private getHttpStatusName(status: number): string {
+    const statusNames: Record<number, string> = {
+      400: 'BAD_REQUEST',
+      401: 'UNAUTHORIZED',
+      402: 'PAYMENT_REQUIRED',
+      403: 'FORBIDDEN',
+      404: 'NOT_FOUND',
+      408: 'REQUEST_TIMEOUT',
+      409: 'CONFLICT',
+      422: 'UNPROCESSABLE_ENTITY',
+      429: 'TOO_MANY_REQUESTS',
+      500: 'INTERNAL_SERVER_ERROR',
+      502: 'BAD_GATEWAY',
+      503: 'SERVICE_UNAVAILABLE',
+      504: 'GATEWAY_TIMEOUT',
+    };
+
+    return statusNames[status] || 'ERROR';
   }
 }
-

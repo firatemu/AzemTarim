@@ -77,7 +77,7 @@ export default function DepoYonetimiPage() {
   const fetchWarehouses = async () => {
     setLoading(true);
     try {
-      const response = await axios.get('/warehouse');
+      const response = await axios.get('/warehouses');
       setWarehouses(Array.isArray(response.data) ? response.data : []);
     } catch (error) {
       console.error('Depo listesi alınamadı:', error);
@@ -122,7 +122,7 @@ export default function DepoYonetimiPage() {
         await axios.patch(`/warehouse/${editingId}`, formData);
         setSnackbar({ open: true, message: 'Depo güncellendi', severity: 'success' });
       } else {
-        await axios.post('/warehouse', formData);
+        await axios.post('/warehouses', formData);
         setSnackbar({ open: true, message: 'Depo oluşturuldu', severity: 'success' });
       }
       handleCloseDialog();

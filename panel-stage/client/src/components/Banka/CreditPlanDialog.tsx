@@ -54,6 +54,7 @@ interface CreditPlanDialogProps {
         amount: number; // Ana para
         totalRepayment: number;
         plans?: LoanPlan[];
+        planlar?: LoanPlan[]; // Backward compatibility during transition
     };
 }
 
@@ -68,16 +69,26 @@ export default function CreditPlanDialog({ open, onClose, onUpdate, loan }: Cred
     const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
     const [selectedPlanForPayment, setSelectedPlanForPayment] = useState<LoanPlan | null>(null);
 
+    // Loan objesi güncellendiğinde editing state'ini temizle
+    React.useEffect(() => {
+        if (loan?.id) {
+            setEditingId(null);
+            setIsAdding(false);
+        }
+    }, [loan?.id]);
+
     // Mernis-style sorting: Closest date first
     const sortedPlans = useMemo(() => {
-        return [...(loan.plans || [])].sort((a, b) =>
+        const plans = loan.plans || loan.planlar || [];
+        return [...plans].sort((a, b) =>
             new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime()
         );
-    }, [loan.plans]);
+    }, [loan.plans, loan.planlar]);
 
     const totalPlanned = useMemo(() => {
-        return (loan.plans || []).reduce((sum, p) => sum + Number(p.amount), 0);
-    }, [loan.plans]);
+        const plans = loan.plans || loan.planlar || [];
+        return plans.reduce((sum, p) => sum + Number(p.amount), 0);
+    }, [loan.plans, loan.planlar]);
 
     const formatCurrency = (amount: number) => {
         return new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY' }).format(amount);
@@ -371,9 +382,13 @@ export default function CreditPlanDialog({ open, onClose, onUpdate, loan }: Cred
             let durumText = plan.status;
             let durumColor = textColor;
             switch (plan.status) {
+                case 'PAID':
                 case 'ODENDI': durumText = 'ÖDENDİ'; durumColor = '#16a34a'; break;
+                case 'OVERDUE':
                 case 'GECIKMEDE': durumText = 'GECİKTİ'; durumColor = '#dc2626'; break;
+                case 'PARTIALLY_PAID':
                 case 'KISMI_ODENDI': durumText = 'KISMI ÖDENDİ'; durumColor = '#ca8a04'; break;
+                case 'PENDING':
                 case 'BEKLIYOR': durumText = 'BEKLİYOR'; durumColor = '#6b7280'; break;
             }
             doc.setTextColor(durumColor);
@@ -432,9 +447,6 @@ export default function CreditPlanDialog({ open, onClose, onUpdate, loan }: Cred
                     </Box>
                     <Box>
                         <Typography variant="h6" fontWeight="700">Ödeme Planı Yönetimi</Typography>
-                        <Typography variant="caption" color="text.secondary">
-                            Kredi ID: {loan.id.split('-')[0]}...
-                        </Typography>
                     </Box>
                 </Box>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -466,7 +478,7 @@ export default function CreditPlanDialog({ open, onClose, onUpdate, loan }: Cred
                     <Grid size={{ xs: 12, md: 4 }}>
                         <Paper elevation={0} sx={{ p: 2, borderRadius: 2, border: '1px solid', borderColor: 'divider' }}>
                             <Typography variant="caption" color="text.secondary" fontWeight="600">ANA PARA</Typography>
-                            <Typography variant="h6" fontWeight="700" color="primary">{formatCurrency(loan.amount)}</Typography>
+                            <Typography variant="h6" fontWeight="700" color="primary">{formatCurrency(loan.amount || (loan as any).tutar)}</Typography>
                         </Paper>
                     </Grid>
                     <Grid size={{ xs: 12, md: 4 }}>
@@ -479,7 +491,7 @@ export default function CreditPlanDialog({ open, onClose, onUpdate, loan }: Cred
                         <Paper elevation={0} sx={{ p: 2, borderRadius: 2, border: '1px solid', borderColor: 'divider', bgcolor: alpha('#f59e0b', 0.05) }}>
                             <Typography variant="caption" color="text.secondary" fontWeight="600">FAİZ YÜKÜ</Typography>
                             <Typography variant="h6" fontWeight="700" color="warning.main">
-                                {formatCurrency(totalPlanned - loan.amount)}
+                                {formatCurrency(totalPlanned - (loan.amount || (loan as any).tutar))}
                             </Typography>
                         </Paper>
                     </Grid>
@@ -599,15 +611,15 @@ export default function CreditPlanDialog({ open, onClose, onUpdate, loan }: Cred
                                 </Grid>
                                 <Grid size={{ xs: 6, sm: 2 }}>
                                     <Chip
-                                        label={plan.status === 'ODENDI' ? 'Ödendi' : 'Bekliyor'}
+                                        label={plan.status === 'PAID' || plan.status === 'ODENDI' ? 'Ödendi' : 'Bekliyor'}
                                         size="small"
-                                        color={plan.status === 'ODENDI' ? 'success' : 'warning'}
-                                        variant={plan.status === 'ODENDI' ? 'filled' : 'outlined'}
+                                        color={plan.status === 'PAID' || plan.status === 'ODENDI' ? 'success' : 'warning'}
+                                        variant={plan.status === 'PAID' || plan.status === 'ODENDI' ? 'filled' : 'outlined'}
                                         sx={{ borderRadius: 1.5, fontWeight: 700, fontSize: '0.7rem' }}
                                     />
                                 </Grid>
                                 <Grid size={{ xs: 12, sm: 2 }} sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
-                                    {plan.status !== 'ODENDI' && (
+                                    {(plan.status !== 'PAID' && plan.status !== 'ODENDI') && (
                                         editingId === plan.id ? (
                                             <>
                                                 <Tooltip title="Kaydet"><IconButton color="primary" onClick={() => handleSave(plan.id)}><Save /></IconButton></Tooltip>

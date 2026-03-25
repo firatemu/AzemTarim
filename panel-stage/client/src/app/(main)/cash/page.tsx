@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Box,
   Button,
@@ -31,32 +31,34 @@ import {
   Card,
   CardContent,
   Grid,
+  LinearProgress,
 } from '@mui/material';
 import {
   Add,
   Edit,
   Delete,
   Visibility,
-  AccountBalance,
-  AttachMoney,
+  Payments,
   CreditCard,
   ToggleOn,
   ToggleOff,
   AccountBalanceWallet,
+  RefreshOutlined,
 } from '@mui/icons-material';
-import MainLayout from '@/components/Layout/MainLayout';
 import axios from '@/lib/axios';
 import { useRouter } from 'next/navigation';
+import { StandardPage, StandardCard } from '@/components/common';
 
 interface Kasa {
   id: string;
-  kasaKodu: string;
-  kasaAdi: string;
-  kasaTipi: 'NAKIT';
-  bakiye: number;
-  aktif: boolean;
+  code: string;
+  name: string;
+  type: 'CASH';
+  balance: number;
+  isActive: boolean;
+  isRetail: boolean;
   _count?: {
-    hareketler: number;
+    movements: number;
   };
 }
 
@@ -72,10 +74,11 @@ export default function KasaPage() {
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' | 'info' });
 
   const [formData, setFormData] = useState({
-    kasaKodu: '',
-    kasaAdi: '',
-    kasaTipi: 'NAKIT' as const,
-    aktif: true,
+    code: '',
+    name: '',
+    type: 'CASH' as const,
+    isActive: true,
+    isRetail: false,
   });
 
   useEffect(() => {
@@ -86,7 +89,7 @@ export default function KasaPage() {
     try {
       setLoading(true);
       const response = await axios.get('/cashbox', {
-        params: { aktif: !showInactive },
+        params: { isActive: !showInactive },
       });
       setKasalar(response.data || []);
     } catch (error: any) {
@@ -100,17 +103,18 @@ export default function KasaPage() {
     // Otomatik kod al
     let nextCode = '';
     try {
-      const response = await axios.get('/code-template/next-code/CASHBOX');
+      const response = await axios.get('/code-templates/preview-code/CASHBOX');
       nextCode = response.data.nextCode || '';
     } catch (error) {
       console.log('Otomatik kod alınamadı');
     }
 
     setFormData({
-      kasaKodu: nextCode || '',
-      kasaAdi: '',
-      kasaTipi: 'NAKIT',
-      aktif: true,
+      code: nextCode || '',
+      name: '',
+      type: 'CASH',
+      isActive: true,
+      isRetail: false,
     });
   };
 
@@ -122,10 +126,11 @@ export default function KasaPage() {
 
   const openEditDialog = (kasa: Kasa) => {
     setFormData({
-      kasaKodu: kasa.kasaKodu,
-      kasaAdi: kasa.kasaAdi,
-      kasaTipi: kasa.kasaTipi,
-      aktif: kasa.aktif,
+      code: kasa.code,
+      name: kasa.name,
+      type: kasa.type,
+      isActive: kasa.isActive,
+      isRetail: kasa.isRetail,
     });
     setSelectedKasa(kasa);
     setEditMode(true);
@@ -140,12 +145,15 @@ export default function KasaPage() {
   const handleSave = async () => {
     try {
       const dataToSend = {
-        ...formData,
-        kasaKodu: formData.kasaKodu && formData.kasaKodu.trim().length > 0 ? formData.kasaKodu : undefined,
+        code: formData.code && formData.code.trim().length > 0 ? formData.code : undefined,
+        name: formData.name,
+        type: formData.type,
+        isActive: formData.isActive === true,
+        isRetail: formData.isRetail === true,
       };
 
       if (editMode && selectedKasa) {
-        await axios.put(`/kasa/${selectedKasa.id}`, dataToSend);
+        await axios.put(`/cashbox/${selectedKasa.id}`, dataToSend);
         showSnackbar('Kasa başarıyla güncellendi', 'success');
       } else {
         await axios.post('/cashbox', dataToSend);
@@ -162,7 +170,7 @@ export default function KasaPage() {
     if (!selectedKasa) return;
 
     try {
-      await axios.delete(`/kasa/${selectedKasa.id}`);
+      await axios.delete(`/cashbox/${selectedKasa.id}`);
       showSnackbar('Kasa başarıyla silindi', 'success');
       setOpenDelete(false);
       fetchKasalar();
@@ -175,130 +183,120 @@ export default function KasaPage() {
     setSnackbar({ open: true, message, severity });
   };
 
+  // İstatistik hesaplamaları
+  const totalBalance = useMemo(() => kasalar.reduce((sum, k) => sum + (k.balance || 0), 0), [kasalar]);
+  const activeCashbox = kasalar.filter(k => k.isActive && k.type === 'CASH').length;
+  const totalMovements = useMemo(() => kasalar.reduce((sum, k) => sum + (k._count?.movements || 0), 0), [kasalar]);
+
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY' }).format(amount);
   };
 
-  const getKasaIcon = (tip: string) => {
-    return <AttachMoney sx={{ color: 'var(--chart-2)' }} />;
+  const getKasaIcon = (type: string) => {
+    return <Payments sx={{ color: 'var(--chart-2)' }} />;
   };
 
-  const getKasaColor = (tip: string) => {
+  const getKasaColor = (type: string) => {
     return 'var(--chart-2)';
   };
 
-  const getKasaTipLabel = (tip: string) => {
+  const getKasaTipLabel = (type: string) => {
     return 'Nakit Kasa';
   };
 
-  const getKasaAciklama = (tip: string) => {
-    return 'Nakit tahsilat ve ödeme';
-  };
-
   return (
-    <MainLayout>
-      <Box sx={{ p: 3 }}>
-        {/* Header */}
-        <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Box>
-            <Typography
-              variant="h4"
-              sx={{
-                fontWeight: 700,
-                fontSize: '1.875rem',
-                color: 'var(--foreground)',
-                letterSpacing: '-0.02em',
-                mb: 0.5,
-              }}
-            >
-              💰 Kasa Yönetimi
-            </Typography>
-            <Typography
-              variant="body2"
-              sx={{
-                color: 'var(--muted-foreground)',
-                fontSize: '0.875rem',
-              }}
-            >
-              Nakit kasalarınızı yönetin
-            </Typography>
+    <StandardPage maxWidth={false}>
+      {/* Header & Aksiyon Butonları */}
+      <Box sx={{ mb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1.5 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Box sx={{ width: 40, height: 40, borderRadius: 2, background: 'linear-gradient(135deg, var(--primary), var(--secondary))', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <AccountBalanceWallet sx={{ color: 'var(--primary-foreground)', fontSize: 20 }} />
           </Box>
-          <Box sx={{ display: 'flex', gap: 2 }}>
-            <IconButton
-              onClick={() => setShowInactive(!showInactive)}
-              title={showInactive ? 'Kullanım İçi Kasaları Göster' : 'Kullanım Dışı Kasaları Göster'}
-              sx={{
-                color: showInactive ? 'var(--primary)' : 'var(--chart-2)',
+          <Typography variant="h6" fontWeight={700} color="var(--foreground)">
+            Kasa Yönetimi
+          </Typography>
+        </Box>
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
+          <Button
+            variant="outlined"
+            size="small"
+            startIcon={showInactive ? <ToggleOff /> : <ToggleOn />}
+            onClick={() => setShowInactive(!showInactive)}
+            sx={{
+              textTransform: 'none',
+              fontWeight: 600,
+              boxShadow: 'none',
+              color: showInactive ? 'var(--primary)' : 'var(--chart-2)',
+              borderColor: showInactive ? 'var(--primary)' : 'var(--chart-2)',
+              '&:hover': {
                 bgcolor: showInactive
                   ? 'color-mix(in srgb, var(--primary) 10%, transparent)'
                   : 'color-mix(in srgb, var(--chart-2) 10%, transparent)',
-                '&:hover': {
-                  bgcolor: showInactive
-                    ? 'color-mix(in srgb, var(--primary) 20%, transparent)'
-                    : 'color-mix(in srgb, var(--chart-2) 20%, transparent)',
-                },
-              }}
-            >
-              {showInactive ? <ToggleOff /> : <ToggleOn />}
-            </IconButton>
-            <Button
-              variant="contained"
-              startIcon={<Add />}
-              onClick={openAddDialog}
-              sx={{
-                bgcolor: 'var(--secondary)',
-                color: 'var(--secondary-foreground)',
-                textTransform: 'none',
-                fontWeight: 600,
-                '&:hover': {
-                  bgcolor: 'var(--secondary-hover)',
-                },
-              }}
-            >
-              Yeni Kasa Ekle
-            </Button>
+                boxShadow: 'none',
+              },
+            }}
+          >
+            {showInactive ? 'Aktifleri Göster' : 'Pasifleri Göster'}
+          </Button>
+          <Button
+            variant="contained"
+            size="small"
+            startIcon={<Add />}
+            onClick={openAddDialog}
+            sx={{
+              bgcolor: 'var(--secondary)',
+              color: 'var(--secondary-foreground)',
+              textTransform: 'none',
+              fontWeight: 600,
+              boxShadow: 'none',
+              '&:hover': { bgcolor: 'var(--secondary-hover)', boxShadow: 'none' },
+            }}
+          >
+            Yeni Kasa Ekle
+          </Button>
+        </Stack>
+      </Box>
+
+      {/* Loading bar */}
+      {loading && <LinearProgress sx={{ mb: 2, borderRadius: 1, height: 3 }} />}
+
+      {/* KPI Kartları */}
+      <Paper variant="outlined" sx={{ mb: 2, p: 1.5, display: 'flex', flexWrap: 'wrap', gap: 0 }}>
+        {[
+          { label: 'Toplam Kasa', value: kasalar.length },
+          { label: 'Aktif Kasa', value: kasalar.filter(k => k.isActive).length },
+          { label: 'Toplam Bakiye', value: formatCurrency(totalBalance) },
+          { label: 'Toplam Hareket', value: totalMovements },
+        ].map((item, i) => (
+          <Box
+            key={item.label}
+            sx={{
+              flex: '1 1 120px',
+              px: 1.5,
+              borderRight: i < 3 ? '1px solid var(--divider, var(--border))' : 'none',
+            }}
+          >
+            <Typography variant="caption" color="var(--muted-foreground)" fontWeight={500}>
+              {item.label}
+            </Typography>
+            <Typography variant="h6" fontWeight={700} sx={{ color: 'var(--foreground)' }}>
+              {item.value}
+            </Typography>
           </Box>
+        ))}
+      </Paper>
+
+      {/* Tablo Kartı */}
+      <StandardCard padding={0} sx={{ boxShadow: 'none', overflow: 'hidden' }}>
+        {/* Tablo Satır Özeti */}
+        <Box sx={{ px: 2, py: 1, borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Typography variant="caption" color="text.secondary">
+            Toplam <b>{kasalar.length}</b> kasa listeleniyor
+          </Typography>
         </Box>
 
-        {/* Kasa Tipleri Bilgilendirme */}
-        <Grid container spacing={2} sx={{ mb: 3 }}>
-          <Grid size={{ xs: 12, md: 3 }}>
-            <Card sx={{
-              bgcolor: 'color-mix(in srgb, var(--chart-2) 10%, transparent)',
-              borderLeft: '4px solid var(--chart-2)',
-              borderRadius: 'var(--radius)',
-              boxShadow: 'var(--shadow-sm)',
-            }}>
-              <CardContent>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                  <AttachMoney sx={{ color: 'var(--chart-2)' }} />
-                  <Typography
-                    variant="subtitle2"
-                    sx={{
-                      fontWeight: 700,
-                      fontSize: '0.9375rem',
-                      color: 'var(--foreground)',
-                    }}
-                  >
-                    Nakit Kasa
-                  </Typography>
-                </Box>
-                <Typography
-                  variant="caption"
-                  sx={{
-                    color: 'var(--muted-foreground)',
-                    fontSize: '0.8125rem',
-                  }}
-                >
-                  Nakit tahsilat ve ödeme işlemleri
-                </Typography>
-              </CardContent>
-            </Card>
-          </Grid>
-        </Grid>
-
         {/* Table */}
-        <TableContainer component={Paper} sx={{ borderRadius: 2 }}>
+        <TableContainer sx={{ borderRadius: 0 }}>
           <Table>
             <TableHead sx={{ bgcolor: 'var(--muted)' }}>
               <TableRow>
@@ -330,13 +328,13 @@ export default function KasaPage() {
                   <TableRow key={kasa.id} hover>
                     <TableCell>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        {getKasaIcon(kasa.kasaTipi)}
+                        {getKasaIcon(kasa.type)}
                         <Chip
-                          label={getKasaTipLabel(kasa.kasaTipi)}
+                          label={getKasaTipLabel(kasa.type)}
                           size="small"
                           sx={{
-                            bgcolor: `${getKasaColor(kasa.kasaTipi)}20`,
-                            color: getKasaColor(kasa.kasaTipi),
+                            bgcolor: `${getKasaColor(kasa.type)}20`,
+                            color: getKasaColor(kasa.type),
                             fontWeight: 600,
                           }}
                         />
@@ -344,24 +342,41 @@ export default function KasaPage() {
                     </TableCell>
                     <TableCell>
                       <Typography variant="body2" fontWeight="600">
-                        {kasa.kasaKodu}
+                        {kasa.code}
                       </Typography>
                     </TableCell>
                     <TableCell>
-                      <Typography variant="body2">
-                        {kasa.kasaAdi}
-                      </Typography>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                          {kasa.name}
+                        </Typography>
+                        {kasa.isRetail && (
+                          <Chip
+                            label="Perakende"
+                            size="small"
+                            variant="outlined"
+                            sx={{
+                              height: 20,
+                              fontSize: '0.625rem',
+                              fontWeight: 700,
+                              color: 'var(--chart-5)',
+                              borderColor: 'var(--chart-5)',
+                              bgcolor: 'color-mix(in srgb, var(--chart-5) 5%, transparent)',
+                            }}
+                          />
+                        )}
+                      </Box>
                     </TableCell>
                     <TableCell align="right">
-                      <Typography variant="body2" fontWeight="700" color={kasa.bakiye >= 0 ? 'success.main' : 'error.main'}>
-                        {formatCurrency(kasa.bakiye)}
+                      <Typography variant="body2" fontWeight="700" color={kasa.balance >= 0 ? 'success.main' : 'error.main'}>
+                        {formatCurrency(kasa.balance)}
                       </Typography>
                     </TableCell>
                     <TableCell align="center">
                       <Chip
-                        label={kasa.aktif ? 'Aktif' : 'Pasif'}
+                        label={kasa.isActive ? 'Aktif' : 'Pasif'}
                         size="small"
-                        color={kasa.aktif ? 'success' : 'default'}
+                        color={kasa.isActive ? 'success' : 'default'}
                       />
                     </TableCell>
                     <TableCell align="center">
@@ -369,7 +384,7 @@ export default function KasaPage() {
                         <Tooltip title="Detay / Hesapları Yönet">
                           <IconButton
                             size="small"
-                            onClick={() => router.push(`/kasa/${kasa.id}`)}
+                            onClick={() => router.push(`/cash/${kasa.id}`)}
                             sx={{
                               color: '#3b82f6',
                               '&:hover': { bgcolor: 'color-mix(in srgb, var(--chart-1) 15%, transparent)' }
@@ -390,7 +405,7 @@ export default function KasaPage() {
                             <Edit fontSize="small" />
                           </IconButton>
                         </Tooltip>
-                        {(!kasa._count?.hareketler || kasa._count.hareketler === 0) && (
+                        {(!kasa._count?.movements || kasa._count.movements === 0) && (
                           <Tooltip title="Sil">
                             <IconButton
                               size="small"
@@ -412,105 +427,116 @@ export default function KasaPage() {
             </TableBody>
           </Table>
         </TableContainer>
+      </StandardCard>
 
-        {/* Add/Edit Dialog */}
-        <Dialog open={openDialog} onClose={() => setOpenDialog(false)} maxWidth="sm" fullWidth>
-          <DialogTitle component="div" sx={{ fontWeight: 'bold', borderBottom: '1px solid #e0e0e0' }}>
-            {editMode ? 'Kasa Düzenle' : 'Yeni Kasa Ekle'}
-          </DialogTitle>
-          <DialogContent>
-            <Box sx={{ mt: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
-              <TextField
-                fullWidth
-                label="Kasa Kodu"
-                value={formData.kasaKodu}
-                onChange={(e) => setFormData(prev => ({ ...prev, kasaKodu: e.target.value }))}
-                disabled={editMode}
-                placeholder="Otomatik"
-                helperText={!editMode && formData.kasaKodu ? "Önerilen kod (değiştirilebilir)" : "Boş bırakılırsa otomatik"}
-                sx={{
-                  '& .MuiInputBase-input': {
-                    color: formData.kasaKodu && !editMode ? '#0066cc' : 'inherit',
-                    fontWeight: formData.kasaKodu && !editMode ? 500 : 'normal'
-                  }
-                }}
-              />
+      {/* Add/Edit Dialog */}
+      <Dialog open={openDialog} onClose={() => setOpenDialog(false)} maxWidth="sm" fullWidth>
+        <DialogTitle component="div" sx={{ fontWeight: 'bold', borderBottom: '1px solid #e0e0e0' }}>
+          {editMode ? 'Kasa Düzenle' : 'Yeni Kasa Ekle'}
+        </DialogTitle>
+        <DialogContent>
+          <Box sx={{ mt: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
+            {/* Kasa Tipi artık sabit CASH */}
 
-              <TextField
-                fullWidth
-                label="Kasa Adı"
-                value={formData.kasaAdi}
-                onChange={(e) => setFormData(prev => ({ ...prev, kasaAdi: e.target.value }))}
-                required
-                autoFocus
-                placeholder="Örn: Ana Kasa, Ziraat Bankası, vb."
-              />
+            <TextField
+              fullWidth
+              label="Kasa Kodu"
+              value={formData.code}
+              onChange={(e) => setFormData(prev => ({ ...prev, code: e.target.value }))}
+              disabled={editMode}
+              placeholder="Otomatik"
+              helperText={!editMode && formData.code ? "Önerilen kod (değiştirilebilir)" : "Boş bırakılırsa otomatik"}
+              sx={{
+                '& .MuiInputBase-input': {
+                  color: formData.code && !editMode ? '#0066cc' : 'inherit',
+                  fontWeight: formData.code && !editMode ? 500 : 'normal'
+                }
+              }}
+            />
+
+            <TextField
+              fullWidth
+              label="Kasa Adı"
+              value={formData.name}
+              onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+              required
+              autoFocus
+              placeholder="Örn: Ana Kasa, Ziraat Bankası, vb."
+            />
 
 
-              {!editMode && (formData.kasaTipi === 'BANKA' || formData.kasaTipi === 'FIRMA_KREDI_KARTI') && (
-                <Alert severity="info">
-                  <Typography variant="body2">
-                    {formData.kasaTipi === 'BANKA'
-                      ? '💡 Kasa oluşturduktan sonra banka hesaplarını (Vadesiz, POS) ekleyebilirsiniz.'
-                      : '💡 Kasa oluşturduktan sonra firma kredi kartlarını ekleyebilirsiniz.'}
-                  </Typography>
-                </Alert>
-              )}
 
-              <FormControl fullWidth>
-                <InputLabel>Durum</InputLabel>
+            <FormControl fullWidth>
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', p: 1.5, border: '1px solid var(--border)', borderRadius: 'var(--radius-md)' }}>
+                <Box>
+                  <Typography variant="body2" sx={{ fontWeight: 600 }}>Perakende Kasa</Typography>
+                  <Typography variant="caption" sx={{ color: 'var(--muted-foreground)' }}>POS satışlarında nakit tahsilat için kullanılır</Typography>
+                </Box>
                 <Select
-                  value={formData.aktif}
-                  onChange={(e) => setFormData(prev => ({ ...prev, aktif: e.target.value as boolean }))}
-                  label="Durum"
+                  size="small"
+                  value={formData.isRetail}
+                  onChange={(e) => setFormData(prev => ({ ...prev, isRetail: e.target.value === 'true' }))}
+                  sx={{ minWidth: 100 }}
                 >
-                  <MenuItem value={true as any}>Kullanım İçi</MenuItem>
-                  <MenuItem value={false as any}>Kullanım Dışı</MenuItem>
+                  <MenuItem value="true">Evet</MenuItem>
+                  <MenuItem value="false">Hayır</MenuItem>
                 </Select>
-              </FormControl>
-            </Box>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setOpenDialog(false)}>İptal</Button>
-            <Button onClick={handleSave} variant="contained" disabled={!formData.kasaAdi}>
-              {editMode ? 'Güncelle' : 'Kaydet'}
-            </Button>
-          </DialogActions>
-        </Dialog>
+              </Box>
+            </FormControl>
 
-        {/* Delete Dialog */}
-        <Dialog open={openDelete} onClose={() => setOpenDelete(false)}>
-          <DialogTitle component="div" sx={{ fontWeight: 'bold' }}>Kasa Sil</DialogTitle>
-          <DialogContent>
-            <Typography>
-              <strong>{selectedKasa?.kasaAdi}</strong> kasasını silmek istediğinizden emin misiniz?
-            </Typography>
-            {selectedKasa?._count && selectedKasa._count.hareketler > 0 && (
-              <Alert severity="error" sx={{ mt: 2 }}>
-                Bu kasa hareket görmüştür ve silinemez. Kullanım dışı yapabilirsiniz.
-              </Alert>
-            )}
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setOpenDelete(false)}>İptal</Button>
-            <Button onClick={handleDelete} color="error" variant="contained">
-              Sil
-            </Button>
-          </DialogActions>
-        </Dialog>
+            <FormControl fullWidth>
+              <InputLabel>Durum</InputLabel>
+              <Select
+                value={formData.isActive}
+                onChange={(e) => setFormData(prev => ({ ...prev, isActive: e.target.value === 'true' }))}
+                label="Durum"
+              >
+                <MenuItem value="true">Kullanım İçi</MenuItem>
+                <MenuItem value="false">Kullanım Dışı</MenuItem>
+              </Select>
+            </FormControl>
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenDialog(false)}>İptal</Button>
+          <Button onClick={handleSave} variant="contained" disabled={!formData.name}>
+            {editMode ? 'Güncelle' : 'Kaydet'}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
-        {/* Snackbar */}
-        <Snackbar
-          open={snackbar.open}
-          autoHideDuration={4000}
-          onClose={() => setSnackbar({ ...snackbar, open: false })}
-          anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-        >
-          <Alert severity={snackbar.severity} onClose={() => setSnackbar({ ...snackbar, open: false })}>
-            {snackbar.message}
-          </Alert>
-        </Snackbar>
-      </Box>
-    </MainLayout>
+      {/* Delete Dialog */}
+      <Dialog open={openDelete} onClose={() => setOpenDelete(false)}>
+        <DialogTitle component="div" sx={{ fontWeight: 'bold' }}>Kasa Sil</DialogTitle>
+        <DialogContent>
+          <Typography>
+            <strong>{selectedKasa?.name}</strong> kasasını silmek istediğinizden emin misiniz?
+          </Typography>
+          {selectedKasa?._count && selectedKasa._count.movements > 0 && (
+            <Alert severity="error" sx={{ mt: 2 }}>
+              Bu kasa hareket görmüştür ve silinemez. Kullanım dışı yapabilirsiniz.
+            </Alert>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenDelete(false)}>İptal</Button>
+          <Button onClick={handleDelete} color="error" variant="contained">
+            Sil
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Snackbar */}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={4000}
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+      >
+        <Alert severity={snackbar.severity} onClose={() => setSnackbar({ ...snackbar, open: false })}>
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
+    </StandardPage>
   );
 }

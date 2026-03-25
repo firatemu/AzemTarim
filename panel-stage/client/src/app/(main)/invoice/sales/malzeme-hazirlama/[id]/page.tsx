@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useParams, useRouter } from 'next/navigation';
 import {
   Box,
   Typography,
@@ -18,8 +19,8 @@ import {
   Alert,
 } from '@mui/material';
 import { Print, CheckCircle, Warning, ArrowBack } from '@mui/icons-material';
-import { useParams, useRouter } from 'next/navigation';
 import axios from '@/lib/axios';
+import StatusBadge from '@/components/Fatura/StatusBadge';
 
 interface RafBilgisi {
   depoKodu: string;
@@ -134,7 +135,7 @@ export default function MalzemeHazirlamaFisiPage() {
         <Button
           variant="outlined"
           startIcon={<ArrowBack />}
-          onClick={() => router.push('/invoice/sales')}
+          onClick={() => router.push('/invoices/sales')}
           sx={{ mt: 2 }}
         >
           Geri Dön
@@ -158,7 +159,7 @@ export default function MalzemeHazirlamaFisiPage() {
         <Button
           variant="outlined"
           startIcon={<ArrowBack />}
-          onClick={() => router.push('/invoice/sales')}
+          onClick={() => router.push('/invoices/sales')}
         >
           Geri Dön
         </Button>
@@ -182,34 +183,34 @@ export default function MalzemeHazirlamaFisiPage() {
         <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
           <Box sx={{ flex: '1 1 300px', minWidth: '300px' }}>
             <Typography variant="body1">
-              <strong>Fatura No:</strong> {data.invoice.invoiceNo}
+              <strong>Fatura No:</strong> {data.fatura.faturaNo}
             </Typography>
             <Typography variant="body1">
-              <strong>Tarih:</strong> {new Date(data.invoice.date).toLocaleDateString('tr-TR')}
+              <strong>Tarih:</strong> {new Date(data.fatura.tarih).toLocaleDateString('tr-TR')}
             </Typography>
-            {data.invoice.dueDate && (
+            {data.fatura.vade && (
               <Typography variant="body1">
-                <strong>Vade:</strong> {new Date(data.invoice.dueDate).toLocaleDateString('tr-TR')}
+                <strong>Vade:</strong> {new Date(data.fatura.vade).toLocaleDateString('tr-TR')}
               </Typography>
             )}
             <Typography variant="body1" component="div">
               <strong>Durum:</strong>{' '}
-              <StatusBadge status={data.invoice.status} />
+              <StatusBadge status={data.fatura.durum} />
             </Typography>
           </Box>
 
           <Box sx={{ flex: '1 1 300px', minWidth: '300px' }}>
             <Typography variant="body1">
-              <strong>Müşteri:</strong> {data.account.code} - {data.account.title}
+              <strong>Müşteri:</strong> {data.cari.cariKodu} - {data.cari.unvan}
             </Typography>
-            {data.account.phone && (
+            {data.cari.telefon && (
               <Typography variant="body1">
-                <strong>Telefon:</strong> {data.account.phone}
+                <strong>Telefon:</strong> {data.cari.telefon}
               </Typography>
             )}
-            {data.account.address && (
+            {data.cari.adres && (
               <Typography variant="body1">
-                <strong>Adres:</strong> {data.account.address}
+                <strong>Adres:</strong> {data.cari.adres}
               </Typography>
             )}
           </Box>
@@ -232,13 +233,13 @@ export default function MalzemeHazirlamaFisiPage() {
             <Typography variant="body2" color="text.secondary">
               Toplam Kalem
             </Typography>
-            <Typography variant="h6">{(data as any).preparationInfo.totalItemCount}</Typography>
+            <Typography variant="h6">{data.hazirlamaBilgisi.toplamKalemSayisi}</Typography>
           </Box>
           <Box sx={{ flex: '1 1 150px', minWidth: '150px' }}>
             <Typography variant="body2" color="text.secondary">
               Toplam Adet
             </Typography>
-            <Typography variant="h6">{(data as any).preparationInfo.totalUnitCount}</Typography>
+            <Typography variant="h6">{data.hazirlamaBilgisi.toplamUrunAdedi}</Typography>
           </Box>
         </Box>
       </Paper>
@@ -283,12 +284,12 @@ export default function MalzemeHazirlamaFisiPage() {
             </TableRow>
           </TableHead>
           <TableBody>
-            {data.items.map((kalem: any, index: number) => (
+            {data.kalemler.map((kalem: any, index: number) => (
               <TableRow
-                key={kalem.productId}
+                key={kalem.stokId}
                 sx={{
                   bgcolor:
-                    kalem.totalOnHandQuantity < kalem.requestedQuantity ? '#ffebee' : '#f1f8e9',
+                    kalem.toplamMevcutMiktar < kalem.istenenMiktar ? '#ffebee' : '#f1f8e9',
                   '@media print': {
                     pageBreakInside: 'avoid',
                   },

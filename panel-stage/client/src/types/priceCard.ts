@@ -1,6 +1,5 @@
 export enum PriceType {
     SALE = 'SALE',
-    PURCHASE = 'PURCHASE',
     CAMPAIGN = 'CAMPAIGN',
     LIST = 'LIST',
 }
@@ -24,16 +23,13 @@ export interface IPriceCard {
     productId: string;
 
     salePrice: number | string;
-    purchasePrice?: number | string | null;
+    /** Opsiyonel: alış fiyatı (mock / eski API uyumu) */
+    purchasePrice?: number | null;
     vatRate: number | string;
     currency: string;
 
     effectiveFrom: string | Date;
     effectiveTo?: string | Date | null;
-
-    customerId?: string | null;
-    customerGroupId?: string | null;
-    priceListId?: string | null;
 
     minQuantity: number | string;
 
@@ -63,13 +59,10 @@ export interface ICreatePriceCardRequest {
     purchasePrice?: number | null;
     vatRate?: number;
     currency?: string;
+    priceIncludesVat?: boolean; // KDV dahil mi? (default: false = KDV hariç)
 
     effectiveFrom: string; // ISO DateTime
     effectiveTo?: string | null; // ISO DateTime
-
-    customerId?: string | null;
-    customerGroupId?: string | null;
-    priceListId?: string | null;
 
     minQuantity?: number;
 

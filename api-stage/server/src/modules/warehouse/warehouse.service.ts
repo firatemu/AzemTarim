@@ -134,6 +134,9 @@ export class WarehouseService {
       await this.setOtherWarehousesNotDefault(created.id, tenantId ?? undefined);
     }
 
+    // Update code template counter
+    await this.codeTemplateService.saveLastCode(ModuleType.WAREHOUSE, created.code);
+
     return created;
   }
 

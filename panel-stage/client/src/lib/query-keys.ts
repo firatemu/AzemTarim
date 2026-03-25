@@ -1,0 +1,15 @@
+export const QK = {
+    journals: (filters?: object) => ['journals', filters] as const,
+    journal: (id: string) => ['journal', id] as const,
+    checks: (filters?: object) => ['checks', filters] as const,
+    check: (id: string) => ['check', id] as const,
+    checkEndorsements: (id: string) => ['check-endorsements', id] as const,
+    checkCollections: (id: string) => ['check-collections', id] as const,
+    accounts: (search?: string) => ['accounts', search] as const,
+    bankAccounts: (filters?: object) => ['bank-accounts', filters] as const,
+    cashboxes: (filters?: object) => ['cashboxes', filters] as const,
+    reportPortfolio: () => ['report-portfolio'] as const,
+    reportMaturity: () => ['report-maturity'] as const,
+    reportAccount: () => ['report-account'] as const,
+    reportCollection: () => ['report-collection'] as const,
+};

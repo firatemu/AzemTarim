@@ -6,12 +6,6 @@ import {
   Typography,
   Button,
   Paper,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
   TextField,
   IconButton,
   Chip,
@@ -31,12 +25,21 @@ import {
   ListSubheader,
   CircularProgress,
   Tooltip,
+  Collapse,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Tabs,
+  Tab,
+  Switch,
 } from '@mui/material';
 import {
   DataGrid,
   GridColDef,
   GridRenderCellParams,
-  GridToolbar,
   GridToolbarContainer,
   GridToolbarColumnsButton,
   GridToolbarFilterButton,
@@ -44,99 +47,23 @@ import {
   GridToolbarExport,
 } from '@mui/x-data-grid';
 import { trTR } from '@mui/x-data-grid/locales';
-import { Add, Edit, Delete, Search, FileDownload, History, CompareArrows, Warehouse, Refresh } from '@mui/icons-material';
+import { Add, Edit, Delete, Search, FileDownload, History, CompareArrows, Warehouse, Refresh, ExpandLess, ExpandMore, BarChart, Close, ArrowUpward, ArrowDownward, CalendarToday } from '@mui/icons-material';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useTabStore } from '@/stores/tabStore';
 import axios from '@/lib/axios';
 import { useDebounce } from '@/hooks/useDebounce';
-import { useStokHareketler } from '@/hooks/useApi';
 import TableSkeleton from '@/components/Loading/TableSkeleton';
-import MainLayout from '@/components/Layout/MainLayout';
 import * as XLSX from 'xlsx';
-
-// Custom Search Bar Component (External to DataGrid to avoid slot issues)
-const MaterialSearchBar = ({ search, setSearch, onSearch, onRefresh }: any) => {
-  return (
-    <Box
-      sx={{
-        p: 1.5,
-        borderBottom: '1px solid var(--border)',
-        display: 'flex',
-        alignItems: 'center',
-        gap: 1.5,
-        width: '100%',
-        bgcolor: 'var(--card)',
-      }}
-    >
-      <TextField
-        size="small"
-        placeholder="Stok kodu, adı, barkod veya OEM kodu ile ara..."
-        value={search || ''}
-        onChange={(e) => setSearch?.(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter') {
-            onSearch?.();
-          }
-        }}
-        sx={{
-          width: { xs: '100%', md: 450 },
-          '& .MuiInputBase-root': {
-            bgcolor: 'var(--background)',
-          }
-        }}
-        InputProps={{
-          startAdornment: (
-            <InputAdornment position="start">
-              <Search fontSize="small" sx={{ color: 'var(--primary)' }} />
-            </InputAdornment>
-          ),
-        }}
-      />
-      <Button
-        variant="contained"
-        size="medium"
-        onClick={() => onSearch?.()}
-        startIcon={<Search />}
-        sx={{
-          bgcolor: 'var(--primary)',
-          color: 'var(--primary-foreground)',
-          textTransform: 'none',
-          fontWeight: 600,
-          px: 3,
-          '&:hover': {
-            bgcolor: 'var(--primary)',
-            opacity: 0.9,
-          },
-        }}
-      >
-        Ara
-      </Button>
-      <Tooltip title="Listeyi yenile">
-        <Button
-          variant="outlined"
-          size="medium"
-          onClick={() => onRefresh?.()}
-          startIcon={<Refresh />}
-          sx={{
-            textTransform: 'none',
-            fontWeight: 600,
-          }}
-        >
-          Yenile
-        </Button>
-      </Tooltip>
-    </Box>
-  );
-};
-
 
 interface Malzeme {
   id: string;
   stokKodu: string;
   stokAdi: string;
   barkod?: string;
+  aciklama?: string;
   marka: string;
+  model?: string;
   anaKategori: string;
   altKategori: string;
   birim: string;
@@ -148,7 +75,6 @@ interface Malzeme {
   raf?: string;
   alisFiyati: number;
   satisFiyati: number;
-  // Araç bilgileri
   aracMarka?: string;
   aracModel?: string;
   aracMotorHacmi?: string;
@@ -158,10 +84,10 @@ interface Malzeme {
   dimensions?: string;
   countryOfOrigin?: string;
   warrantyMonths?: number;
+  criticalQty?: number;
   internalNote?: string;
   minOrderQty?: number;
   leadTimeDays?: number;
-  // Backend alanları (Mapping için)
   code?: string;
   name?: string;
   mainCategory?: string;
@@ -173,6 +99,7 @@ interface Malzeme {
   vehicleEngineSize?: string;
   vehicleFuelType?: string;
   quantity?: number;
+  isB2B?: boolean;
 }
 
 interface Location {
@@ -182,32 +109,42 @@ interface Location {
   barcode?: string;
 }
 
-const formatDateOnly = (date: Date) => {
-  const pad = (value: number) => value.toString().padStart(2, '0');
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+const mapProductToMalzeme = (p: any): Malzeme => {
+  const purchasePrice = p.priceCards?.find((c: any) => c.type === 'PURCHASE')?.price || 0;
+  const salePrice = p.priceCards?.find((c: any) => c.type === 'SALE')?.price || 0;
+
+  return {
+    ...p,
+    stokKodu: p.code,
+    stokAdi: p.name,
+    barkod: p.barcode || '',
+    aciklama: p.description || '',
+    model: p.model || '',
+    anaKategori: p.mainCategory || '',
+    altKategori: p.subCategory || '',
+    olcu: p.size || '',
+    tedarikciKodu: p.supplierCode || '',
+    aracMarka: p.vehicleBrand || '',
+    aracModel: p.vehicleModel || '',
+    aracMotorHacmi: p.vehicleEngineSize || '',
+    aracYakitTipi: p.vehicleFuelType || '',
+    miktar: p.quantity ?? 0,
+    alisFiyati: Number(purchasePrice),
+    satisFiyati: Number(salePrice),
+    birim: p.unit || p.birim || 'Adet',
+    birimId: p.unitId || p.birimId || '',
+    criticalQty: p.criticalQty ?? 0,
+    isB2B: p.isB2B || false,
+  };
 };
 
-const mapProductToMalzeme = (p: any): Malzeme => ({
-  ...p,
-  stokKodu: p.code,
-  stokAdi: p.name,
-  anaKategori: p.mainCategory || '',
-  altKategori: p.subCategory || '',
-  olcu: p.size || '',
-  tedarikciKodu: p.supplierCode || '',
-  aracMarka: p.vehicleBrand || '',
-  aracModel: p.vehicleModel || '',
-  aracMotorHacmi: p.vehicleEngineSize || '',
-  aracYakitTipi: p.vehicleFuelType || '',
-  miktar: p.quantity ?? 0,
-});
-
-// Malzeme Form Data Interface
 interface MalzemeFormData {
   stokKodu: string;
   stokAdi: string;
   barkod: string;
+  aciklama?: string;
   marka: string;
+  model?: string;
   anaKategori: string;
   altKategori: string;
   birim: string;
@@ -227,12 +164,15 @@ interface MalzemeFormData {
   dimensions?: string;
   countryOfOrigin?: string;
   warrantyMonths?: number;
+  criticalQty?: number;
   internalNote?: string;
   minOrderQty?: number;
   leadTimeDays?: number;
+  purchaseVatRate?: number;
+  salesVatRate?: number;
+  isB2B?: boolean;
 }
 
-// Malzeme Form Dialog Component - Local State ile Ping Sorunu Çözümü
 interface MalzemeFormDialogProps {
   open: boolean;
   initialFormData: MalzemeFormData;
@@ -240,15 +180,48 @@ interface MalzemeFormDialogProps {
   locations: Location[];
   kategoriler: Record<string, string[]>;
   markalar: string[];
-  // Araç bilgileri
   aracMarkalar: string[];
   aracModeller: string[];
   aracMotorHacimleri: string[];
   aracYakitTipleri: string[];
-  birimSetleri: any[]; // BirimSeti[]
+  birimSetleri: any[];
+  canEditUnit?: boolean;
   onAracMarkaChange: (marka: string) => void;
   onClose: () => void;
   onSubmit: (data: MalzemeFormData) => void;
+}
+
+interface TabPanelProps {
+  children?: React.ReactNode;
+  index: number;
+  value: number;
+}
+
+function CustomTabPanel(props: TabPanelProps) {
+  const { children, value, index, ...other } = props;
+
+  return (
+    <div
+      role="tabpanel"
+      hidden={value !== index}
+      id={`simple-tabpanel-${index}`}
+      aria-labelledby={`simple-tab-${index}`}
+      {...other}
+    >
+      {value === index && (
+        <Box sx={{ p: 2 }}>
+          {children}
+        </Box>
+      )}
+    </div>
+  );
+}
+
+function a11yProps(index: number) {
+  return {
+    id: `simple-tab-${index}`,
+    'aria-controls': `simple-tabpanel-${index}`,
+  };
 }
 
 const MalzemeFormDialog = memo(({
@@ -263,57 +236,56 @@ const MalzemeFormDialog = memo(({
   aracMotorHacimleri,
   aracYakitTipleri,
   birimSetleri,
+  canEditUnit = true,
   onAracMarkaChange,
   onClose,
   onSubmit,
 }: MalzemeFormDialogProps) => {
-  // Local State - Parent'ı etkilemez, ping sorunu çözülür
   const [localFormData, setLocalFormData] = useState<MalzemeFormData>(initialFormData);
+  const [tabIndex, setTabIndex] = useState(0);
 
-  // initialFormData değiştiğinde local state'i güncelle
+  const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
+    setTabIndex(newValue);
+  };
+
   useEffect(() => {
-    // Eğer düzenleme modundaysak ve initialFormData.altKategori varsa,
-    // önce kategorilerin yüklenmesini bekleyelim
+    if (open) {
+      setTabIndex(0);
+    }
+  }, [open]);
+
+  useEffect(() => {
     if (open && initialFormData.anaKategori && initialFormData.altKategori) {
       const currentOptions = kategoriler[initialFormData.anaKategori] || [];
-      // Eğer alt kategori mevcut seçenekler arasında değilse ve düzenleme modundaysak,
-      // alt kategoriyi koruyalım (çünkü malzeme zaten bu değere sahip)
       setLocalFormData(initialFormData);
     } else {
       setLocalFormData(initialFormData);
     }
   }, [initialFormData, open, kategoriler]);
 
-  // Local değişiklik fonksiyonu - Sadece dialog re-render olur
   const handleLocalChange = useCallback((field: keyof MalzemeFormData, value: any) => {
     setLocalFormData((prev) => ({ ...prev, [field]: value }));
   }, []);
 
-  // Ana kategori değiştiğinde alt kategoriyi sıfırla
   const handleAnaKategoriChange = useCallback((value: string) => {
     setLocalFormData((prev) => ({ ...prev, anaKategori: value, altKategori: '' }));
   }, []);
 
-  // Araç markası değiştiğinde modeli sıfırla ve modelleri yükle
   const handleAracMarkaChange = useCallback((value: string) => {
     setLocalFormData((prev) => ({ ...prev, aracMarka: value, aracModel: '' }));
     onAracMarkaChange(value);
   }, [onAracMarkaChange]);
 
-  // Local submit - Parent'a sadece burada veri gönderilir
   const handleLocalSubmit = useCallback(() => {
     onSubmit(localFormData);
   }, [localFormData, onSubmit]);
 
-  // Alt kategori seçenekleri - useMemo ile optimize edilmiş
   const altKategoriOptions = useMemo(() => {
     if (!localFormData.anaKategori) {
       return [];
     }
     const options = kategoriler[localFormData.anaKategori] || [];
 
-    // Eğer düzenleme modundaysak ve mevcut altKategori seçenekler arasında yoksa,
-    // onu da ekle (malzeme zaten bu değere sahip olabilir)
     if (editingMalzeme && localFormData.altKategori && !options.includes(localFormData.altKategori)) {
       return [...options, localFormData.altKategori];
     }
@@ -321,7 +293,6 @@ const MalzemeFormDialog = memo(({
     return options;
   }, [localFormData.anaKategori, localFormData.altKategori, kategoriler, editingMalzeme]);
 
-  // Hook'lar bittikten SONRA conditional return
   if (!open) return null;
 
   return (
@@ -334,476 +305,429 @@ const MalzemeFormDialog = memo(({
         sx: {
           minHeight: '70vh',
           bgcolor: 'var(--card)',
-          backgroundImage: 'none'
+          backgroundImage: 'none',
+          borderRadius: 3,
         }
       }}
     >
       <DialogTitle component="div"
         sx={{
-          background: 'linear-gradient(135deg, var(--primary), var(--secondary))',
-          color: 'var(--primary-foreground)',
-          fontSize: '1.25rem',
+          background: 'linear-gradient(135deg, #1e293b, #334155)', // More stable dark slate gradient
+          color: '#ffffff', // Explicit white for title
+          fontSize: '1.1rem',
           py: 2,
           borderBottom: '1px solid var(--border)',
         }}
       >
-        {editingMalzeme ? '✏️ Malzeme Düzenle' : '➕ Yeni Malzeme Ekle'}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          {editingMalzeme ? <Edit sx={{ fontSize: 20, color: '#ffffff' }} /> : <Add sx={{ fontSize: 20, color: '#ffffff' }} />}
+          <Typography variant="subtitle1" fontWeight={700} sx={{ lineHeight: 1, color: '#ffffff' }}>
+            {editingMalzeme ? 'Malzeme Düzenle' : 'Yeni Malzeme Ekle'}
+          </Typography>
+        </Box>
+        <Typography variant="caption" display="block" sx={{ color: 'rgba(255,255,255,0.85)', mt: 0.5, fontWeight: 500 }}>
+          {editingMalzeme ? 'Mevcut stok bilgilerini güncelleyin.' : 'Yeni bir stok kartı tanımlayarak envantere ekleyin.'}
+        </Typography>
       </DialogTitle>
-      <DialogContent sx={{ mt: 3, bgcolor: 'var(--background)', borderTop: '1px solid var(--border)', px: 3 }}>
-        <Box sx={{ py: 1 }}>
-          {/* Genel Bilgiler Bölümü */}
-          <Typography variant="h6" sx={{ mb: 2, color: 'var(--foreground)', fontWeight: 700, letterSpacing: '-0.01em' }}>
-            📋 Genel Bilgiler
-          </Typography>
-          <Grid container spacing={3}>
-            <Grid size={{ xs: 12, md: 3 }}>
-              <TextField
-                fullWidth
-                label="Stok Kodu"
-                value={localFormData.stokKodu}
-                onChange={(e) => handleLocalChange('stokKodu', e.target.value)}
-                size="medium"
-                className="form-control-textfield"
-                helperText={localFormData.stokKodu ? "Önerilen kod (değiştirilebilir)" : "Otomatik üretilecek"}
-                placeholder="Otomatik"
-                sx={{
-                  '& .MuiInputBase-input': {
-                    color: localFormData.stokKodu && !editingMalzeme ? 'var(--primary)' : 'var(--foreground)',
-                    fontWeight: localFormData.stokKodu && !editingMalzeme ? 500 : 'normal'
-                  }
-                }}
-              />
-            </Grid>
-            <Grid size={{ xs: 12, md: 6 }}>
-              <TextField
-                fullWidth
-                label="Stok Adı"
-                value={localFormData.stokAdi}
-                onChange={(e) => handleLocalChange('stokAdi', e.target.value)}
-                required
-                size="medium"
-                className="form-control-textfield"
-                helperText="Detaylı ürün açıklaması giriniz"
-                inputProps={{ style: { fontSize: '1rem' } }}
-              />
-            </Grid>
-            <Grid size={{ xs: 12, md: 3 }}>
-              <TextField
-                fullWidth
-                label="Barkod"
-                value={localFormData.barkod}
-                onChange={(e) => handleLocalChange('barkod', e.target.value)}
-                size="medium"
-                className="form-control-textfield"
-                helperText="Ürün barkod numarası"
-                placeholder="Örn: 8690123456789"
-                sx={{
-                  '& .MuiInputBase-input': {
-                    fontFamily: 'monospace',
-                    fontSize: '0.95rem'
-                  }
-                }}
-              />
-            </Grid>
-          </Grid>
+      <DialogContent sx={{ mt: 0, bgcolor: 'var(--background)', borderTop: '1px solid var(--border)', px: 0, overflowY: 'hidden', display: 'flex', flexDirection: 'column' }}>
+        <Box sx={{ borderBottom: 1, borderColor: 'var(--border)', bgcolor: 'var(--card)' }}>
+          <Tabs
+            value={tabIndex}
+            onChange={handleTabChange}
+            aria-label="malzeme form sekmeleri"
+            variant="fullWidth"
+            sx={{
+              '& .MuiTab-root': {
+                textTransform: 'none',
+                fontWeight: 600,
+                fontSize: '0.85rem',
+                minHeight: 48,
+              },
+              '& .Mui-selected': {
+                color: 'var(--primary) !important',
+              },
+              '& .MuiTabs-indicator': {
+                backgroundColor: 'var(--primary)',
+              }
+            }}
+          >
+            <Tab label="Genel Bilgiler" {...a11yProps(0)} />
+            <Tab label="Teknik Detaylar" {...a11yProps(1)} />
+            <Tab label="Araç Uyumluluğu" {...a11yProps(2)} />
+            <Tab label="Finans & Notlar" {...a11yProps(3)} />
+          </Tabs>
+        </Box>
 
-          <Divider sx={{ my: 4 }} />
-
-          {/* Kategori ve Ölçü Bilgileri */}
-          <Typography variant="h6" sx={{ mb: 2, color: 'var(--foreground)', fontWeight: 700, letterSpacing: '-0.01em' }}>
-            🏷️ Kategori ve Ölçü Bilgileri
-          </Typography>
-          <Grid container spacing={3}>
-            <Grid size={{ xs: 12, md: 6 }}>
-              <TextField
-                fullWidth
-                label="Tedarikçi Kodu"
-                value={localFormData.tedarikciKodu}
-                onChange={(e) => handleLocalChange('tedarikciKodu', e.target.value)}
-                placeholder="Tedarikçinin ürün kodu"
-                size="medium"
-                className="form-control-textfield"
-                helperText="Tedarikçinin kullandığı ürün kodu"
-              />
-            </Grid>
-
-            <Grid size={{ xs: 12, md: 6 }}>
-              <TextField
-                fullWidth
-                label="OEM Kodu"
-                value={localFormData.oem}
-                onChange={(e) => handleLocalChange('oem', e.target.value)}
-                placeholder="Orijinal parça numarası"
-                size="medium"
-                className="form-control-textfield"
-                helperText="Orjinal ekipman üreticisi kodu"
-              />
-            </Grid>
-
-            <Grid size={{ xs: 12, md: 6 }}>
-              <FormControl fullWidth size="medium" className="form-control-select">
-                <InputLabel shrink>Marka</InputLabel>
-                <Select
-                  value={localFormData.marka}
-                  label="Marka"
-                  displayEmpty
-                  onChange={(e) => handleLocalChange('marka', e.target.value)}
+        <Box sx={{ flexGrow: 1, overflowY: 'auto', maxHeight: 'calc(100vh - 250px)' }}>
+          <CustomTabPanel value={tabIndex} index={0}>
+            <Grid container spacing={2}>
+              <Grid size={{ xs: 12, md: 4 }}>
+                <TextField
+                  fullWidth
+                  label="Stok Kodu"
+                  value={localFormData.stokKodu}
+                  onChange={(e) => handleLocalChange('stokKodu', e.target.value)}
+                  size="small"
+                  helperText={localFormData.stokKodu ? "Önerilen kod" : "Otomatik üretilecek"}
+                  sx={{ '& .MuiInputBase-input': { fontWeight: 600 } }}
+                />
+              </Grid>
+              <Grid size={{ xs: 12, md: 8 }}>
+                <TextField
+                  fullWidth
+                  label="Stok Adı"
+                  value={localFormData.stokAdi}
+                  onChange={(e) => handleLocalChange('stokAdi', e.target.value)}
+                  required
+                  size="small"
+                />
+              </Grid>
+              <Grid size={{ xs: 12, md: 6 }}>
+                <TextField
+                  fullWidth
+                  label="Barkod"
+                  value={localFormData.barkod || ''}
+                  onChange={(e) => handleLocalChange('barkod', e.target.value)}
+                  size="small"
+                  placeholder="Ürün barkod numarası"
+                  helperText="Opsiyonel"
+                />
+              </Grid>
+              <Grid size={{ xs: 12, md: 6 }}>
+                <TextField
+                  fullWidth
+                  label="Model"
+                  value={localFormData.model || ''}
+                  onChange={(e) => handleLocalChange('model', e.target.value)}
+                  size="small"
+                  placeholder="Ürün modeli"
+                />
+              </Grid>
+              <Grid size={{ xs: 12 }}>
+                <TextField
+                  fullWidth
+                  label="Açıklama"
+                  value={localFormData.aciklama || ''}
+                  onChange={(e) => handleLocalChange('aciklama', e.target.value)}
+                  size="small"
+                  multiline
+                  rows={2}
+                  placeholder="Ürün hakkında ek bilgiler"
+                />
+              </Grid>
+              <Grid size={{ xs: 12, md: 6 }}>
+                <FormControl fullWidth size="small">
+                  <InputLabel shrink>Marka</InputLabel>
+                  <Select
+                    value={localFormData.marka || ''}
+                    label="Marka"
+                    displayEmpty
+                    onChange={(e) => handleLocalChange('marka', e.target.value)}
+                  >
+                    <MenuItem value=""><em>Seçiniz</em></MenuItem>
+                    {markalar.filter(Boolean).map((marka, idx) => (
+                      <MenuItem key={marka || `marka-${idx}`} value={marka}>{marka}</MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid size={{ xs: 12, md: 6 }}>
+                <FormControl fullWidth size="small">
+                  <InputLabel shrink>Ana Kategori *</InputLabel>
+                  <Select
+                    value={localFormData.anaKategori}
+                    label="Ana Kategori *"
+                    displayEmpty
+                    onChange={(e) => handleAnaKategoriChange(e.target.value)}
+                  >
+                    <MenuItem value=""><em>Seçiniz</em></MenuItem>
+                    {Object.keys(kategoriler).filter(Boolean).map((kategori, idx) => (
+                      <MenuItem key={kategori || `kat-${idx}`} value={kategori}>{kategori}</MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid size={{ xs: 12, md: 6 }}>
+                <FormControl
+                  fullWidth
+                  size="small"
+                  disabled={!localFormData.anaKategori}
                 >
-                  <MenuItem value="">
-                    <em>Seçiniz</em>
-                  </MenuItem>
-                  {markalar.map((marka) => (
-                    <MenuItem key={marka} value={marka}>
-                      {marka}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
+                  <InputLabel shrink>Alt Kategori</InputLabel>
+                  <Select
+                    value={localFormData.altKategori || ''}
+                    label="Alt Kategori"
+                    displayEmpty
+                    onChange={(e) => handleLocalChange('altKategori', e.target.value)}
+                  >
+                    <MenuItem value=""><em>Seçiniz</em></MenuItem>
+                    {altKategoriOptions.filter(Boolean).map((altKat, idx) => (
+                      <MenuItem key={altKat || `alt-kat-${idx}`} value={altKat}>{altKat}</MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid size={{ xs: 12, md: 3 }}>
+                <FormControl fullWidth size="small">
+                  <InputLabel shrink>Birim *</InputLabel>
+                  <Select
+                    value={localFormData.birimId || ''}
+                    label="Birim *"
+                    displayEmpty
+                    disabled={!canEditUnit && !!editingMalzeme}
+                    onChange={(e) => {
+                      const selectedId = e.target.value;
+                      let selectedName = '';
+                      birimSetleri.forEach(set => {
+                        const found = (set.units || []).find((b: any) => b.id === selectedId);
+                        if (found) selectedName = found.name;
+                      });
+                      setLocalFormData(prev => ({ ...prev, birimId: selectedId, birim: selectedName }));
+                    }}
+                  >
+                    <MenuItem value=""><em>Seçiniz</em></MenuItem>
+                    {birimSetleri.flatMap((set) => [
+                      <ListSubheader key={`header-${set.id}`}>{set.name}</ListSubheader>,
+                      ...(set.units?.map((b: any) => (
+                        <MenuItem key={b.id} value={b.id}>{b.name}</MenuItem>
+                      )) || [])
+                    ])}
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid size={{ xs: 12, md: 3 }}>
+                <Autocomplete<Location, false, false, true>
+                  fullWidth
+                  options={locations}
+                  getOptionLabel={(option) => (typeof option === 'string' ? option : option.code)}
+                  value={locations.find((l) => l.code === localFormData.raf) ?? null}
+                  onChange={(_, newValue) => handleLocalChange('raf', typeof newValue === 'string' ? newValue : newValue?.code || '')}
+                  renderInput={(params) => <TextField {...params} label="Raf Adresi" size="small" />}
+                  freeSolo
+                  onInputChange={(_, newValue) => handleLocalChange('raf', newValue)}
+                />
+              </Grid>
             </Grid>
+          </CustomTabPanel>
 
-            <Grid size={{ xs: 12, md: 6 }}>
-              <FormControl fullWidth size="medium" className="form-control-select">
-                <InputLabel shrink>Ana Kategori *</InputLabel>
-                <Select
-                  value={localFormData.anaKategori}
-                  label="Ana Kategori *"
-                  displayEmpty
-                  onChange={(e) => handleAnaKategoriChange(e.target.value)}
-                >
-                  <MenuItem value="">
-                    <em>Seçiniz</em>
-                  </MenuItem>
-                  {Object.keys(kategoriler).map((kategori) => (
-                    <MenuItem key={kategori} value={kategori}>
-                      {kategori}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
+          <CustomTabPanel value={tabIndex} index={1}>
+            <Grid container spacing={2}>
+              <Grid size={{ xs: 12, md: 6 }}>
+                <TextField fullWidth label="OEM Kodu" value={localFormData.oem || ''} onChange={(e) => handleLocalChange('oem', e.target.value)} size="small" />
+              </Grid>
+              <Grid size={{ xs: 12, md: 6 }}>
+                <TextField fullWidth label="Tedarikçi Kodu" value={localFormData.tedarikciKodu || ''} onChange={(e) => handleLocalChange('tedarikciKodu', e.target.value)} size="small" />
+              </Grid>
+              <Grid size={{ xs: 12 }}>
+                <TextField fullWidth label="Ölçü / Teknik Özellikler" value={localFormData.olcu || ''} onChange={(e) => handleLocalChange('olcu', e.target.value)} placeholder="Örn: 195/65R15" size="small" />
+              </Grid>
+              <Grid size={{ xs: 12, md: 3 }}>
+                <TextField fullWidth label="Ağırlık" type="number" value={localFormData.weight ?? ''} onChange={(e) => handleLocalChange('weight', e.target.value === '' ? undefined : parseFloat(e.target.value))} size="small" />
+              </Grid>
+              <Grid size={{ xs: 12, md: 3 }}>
+                <FormControl fullWidth size="small">
+                  <InputLabel>Ağırlık Birimi</InputLabel>
+                  <Select value={localFormData.weightUnit || 'kg'} label="Ağırlık Birimi" onChange={(e) => handleLocalChange('weightUnit', e.target.value)}>
+                    <MenuItem value="kg">kg</MenuItem>
+                    <MenuItem value="g">g</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid size={{ xs: 12, md: 6 }}>
+                <TextField fullWidth label="Boyutlar" value={localFormData.dimensions || ''} onChange={(e) => handleLocalChange('dimensions', e.target.value)} placeholder="10x20x5 cm" size="small" />
+              </Grid>
+              <Grid size={{ xs: 12, md: 6 }}>
+                <TextField fullWidth label="Menşei Ülke" value={localFormData.countryOfOrigin || ''} onChange={(e) => handleLocalChange('countryOfOrigin', e.target.value)} size="small" />
+              </Grid>
+              <Grid size={{ xs: 12, md: 6 }}>
+                <TextField fullWidth label="Garanti (Ay)" type="number" value={localFormData.warrantyMonths ?? ''} onChange={(e) => handleLocalChange('warrantyMonths', e.target.value === '' ? undefined : parseInt(e.target.value, 10))} size="small" />
+              </Grid>
             </Grid>
+          </CustomTabPanel>
 
-            <Grid size={{ xs: 12, md: 6 }}>
-              <FormControl
-                fullWidth
-                size="medium"
-                className="form-control-select"
-                disabled={!localFormData.anaKategori}
-                error={Boolean(localFormData.altKategori && altKategoriOptions.length > 0 && !altKategoriOptions.includes(localFormData.altKategori))}
-              >
-                <InputLabel shrink>Alt Kategori</InputLabel>
-                <Select
-                  value={
-                    // Eğer altKategoriOptions boşsa, boş string kullan (MUI hatası önlemek için)
-                    // Eğer mevcut altKategori seçenekler arasındaysa, onu kullan
-                    // Aksi halde boş string kullan
-                    !localFormData.altKategori || altKategoriOptions.length === 0
-                      ? ''
-                      : altKategoriOptions.includes(localFormData.altKategori)
-                        ? localFormData.altKategori
-                        : ''
-                  }
-                  label="Alt Kategori"
-                  displayEmpty
-                  onChange={(e) => handleLocalChange('altKategori', e.target.value)}
-                >
-                  <MenuItem value="">
-                    <em>Seçiniz</em>
-                  </MenuItem>
-                  {altKategoriOptions.map((altKat) => (
-                    <MenuItem key={altKat} value={altKat}>
-                      {altKat}
-                    </MenuItem>
-                  ))}
-                </Select>
-                {localFormData.altKategori && altKategoriOptions.length > 0 && !altKategoriOptions.includes(localFormData.altKategori) && (
-                  <FormHelperText error>
-                    Bu alt kategori mevcut ana kategori altında bulunmuyor. Lütfen ana kategoriyi kontrol edin.
-                  </FormHelperText>
-                )}
-                {altKategoriOptions.length === 0 && localFormData.anaKategori && (
-                  <FormHelperText>
-                    Bu ana kategori için henüz alt kategori tanımlanmamış.
-                  </FormHelperText>
-                )}
-              </FormControl>
+          <CustomTabPanel value={tabIndex} index={2}>
+            <Grid container spacing={2}>
+              <Grid size={{ xs: 12, md: 6 }}>
+                <FormControl fullWidth size="small">
+                  <InputLabel shrink>Araç Markası</InputLabel>
+                  <Select
+                    value={localFormData.aracMarka || ''}
+                    label="Araç Markası"
+                    displayEmpty
+                    onChange={(e) => handleAracMarkaChange(e.target.value)}
+                  >
+                    <MenuItem value=""><em>Seçiniz</em></MenuItem>
+                    {aracMarkalar.map((marka) => (
+                      <MenuItem key={marka} value={marka}>{marka}</MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid size={{ xs: 12, md: 6 }}>
+                <FormControl fullWidth size="small" disabled={!localFormData.aracMarka}>
+                  <InputLabel shrink>Araç Modeli</InputLabel>
+                  <Select
+                    value={localFormData.aracModel || ''}
+                    label="Araç Modeli"
+                    displayEmpty
+                    onChange={(e) => handleLocalChange('aracModel', e.target.value)}
+                  >
+                    <MenuItem value=""><em>Seçiniz</em></MenuItem>
+                    {aracModeller.map((model) => (
+                      <MenuItem key={model} value={model}>{model}</MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid size={{ xs: 12, md: 6 }}>
+                <FormControl fullWidth size="small">
+                  <InputLabel shrink>Motor Hacmi</InputLabel>
+                  <Select
+                    value={localFormData.aracMotorHacmi || ''}
+                    label="Motor Hacmi"
+                    displayEmpty
+                    onChange={(e) => handleLocalChange('aracMotorHacmi', e.target.value)}
+                  >
+                    <MenuItem value=""><em>Seçiniz</em></MenuItem>
+                    {aracMotorHacimleri.map((hacim) => (
+                      <MenuItem key={hacim} value={hacim}>{hacim}</MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid size={{ xs: 12, md: 6 }}>
+                <FormControl fullWidth size="small">
+                  <InputLabel shrink>Yakıt Tipi</InputLabel>
+                  <Select
+                    value={localFormData.aracYakitTipi || ''}
+                    label="Yakıt Tipi"
+                    displayEmpty
+                    onChange={(e) => handleLocalChange('aracYakitTipi', e.target.value)}
+                  >
+                    <MenuItem value=""><em>Seçiniz</em></MenuItem>
+                    {aracYakitTipleri.map((yakit) => (
+                      <MenuItem key={yakit} value={yakit}>{yakit}</MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
             </Grid>
+          </CustomTabPanel>
 
-            <Grid size={{ xs: 12, md: 8 }}>
-              <TextField
-                fullWidth
-                label="Ölçü / Teknik Özellikler"
-                value={localFormData.olcu}
-                onChange={(e) => handleLocalChange('olcu', e.target.value)}
-                placeholder="Örn: 12x1.5, 195/65R15, M14x1.5, 180x20mm"
-                size="medium"
-                className="form-control-textfield"
-                helperText="Ürünün ölçü veya teknik özelliklerini giriniz"
-              />
-            </Grid>
-
-            <Grid size={{ xs: 12, md: 2 }}>
-              <Autocomplete<Location, false, false, true>
-                fullWidth
-                options={locations}
-                getOptionLabel={(option) => (typeof option === 'string' ? option : option.code)}
-                value={locations.find((l) => l.code === localFormData.raf) ?? null}
-                onChange={(_, newValue) => {
-                  if (typeof newValue === 'string') {
-                    handleLocalChange('raf', newValue);
-                  } else {
-                    handleLocalChange('raf', newValue?.code || '');
-                  }
-                }}
-                renderInput={(params) => (
-                  <TextField
-                    {...params}
-                    label="Raf Adresi"
-                    placeholder="Seçiniz veya yazınız"
-                    size="medium"
-                    className="form-control-textfield"
-                    helperText="Depo raf konumu"
-                  />
-                )}
-                freeSolo
-                onInputChange={(_, newValue, reason) => {
-                  if (reason === 'input') {
-                    handleLocalChange('raf', newValue);
-                  }
-                }}
-              />
-            </Grid>
-
-            <Grid size={{ xs: 12, md: 2 }}>
-              <FormControl fullWidth size="medium" className="form-control-select">
-                <InputLabel shrink>Birim *</InputLabel>
-                <Select
-                  value={localFormData.birimId || ''}
-                  label="Birim *"
-                  displayEmpty
-                  onChange={(e) => {
-                    const selectedId = e.target.value;
-                    let selectedName = '';
-                    birimSetleri.forEach(set => {
-                      const found = set.birimler.find((b: any) => b.id === selectedId);
-                      if (found) selectedName = found.ad;
-                    });
-                    setLocalFormData(prev => ({ ...prev, birimId: selectedId, birim: selectedName }));
+          <CustomTabPanel value={tabIndex} index={3}>
+            <Grid container spacing={2}>
+              <Grid size={{ xs: 12, md: 6 }}>
+                <TextField
+                  fullWidth
+                  label="Alış Fiyatı (₺)"
+                  type="number"
+                  value={localFormData.alisFiyati ?? 0}
+                  onChange={(e) => handleLocalChange('alisFiyati', e.target.value === '' ? 0 : parseFloat(e.target.value))}
+                  size="small"
+                  InputProps={{
+                    startAdornment: <InputAdornment position="start">₺</InputAdornment>,
                   }}
-                >
-                  <MenuItem value=""><em>Seçiniz</em></MenuItem>
-                  {birimSetleri.map((set) => [
-                    <ListSubheader key={`set-${set.id}`}>{set.ad}</ListSubheader>,
-                    ...set.birimler.map((b: any) => (
-                      <MenuItem key={b.id} value={b.id}>
-                        {b.ad} {b.kod ? `(${b.kod})` : ''}
-                      </MenuItem>
-                    ))
-                  ])}
-                </Select>
-              </FormControl>
+                />
+              </Grid>
+              <Grid size={{ xs: 12, md: 6 }}>
+                <TextField
+                  fullWidth
+                  label="Satış Fiyatı (₺)"
+                  type="number"
+                  value={localFormData.satisFiyati ?? 0}
+                  onChange={(e) => handleLocalChange('satisFiyati', e.target.value === '' ? 0 : parseFloat(e.target.value))}
+                  size="small"
+                  InputProps={{
+                    startAdornment: <InputAdornment position="start">₺</InputAdornment>,
+                  }}
+                />
+              </Grid>
+              <Grid size={{ xs: 12, md: 6 }}>
+                <FormControl fullWidth size="small">
+                  <InputLabel shrink>Satış KDV Oranı (%)</InputLabel>
+                  <Select
+                    value={localFormData.salesVatRate ?? 20}
+                    label="Satış KDV Oranı (%)"
+                    onChange={(e) => handleLocalChange('salesVatRate', e.target.value as number)}
+                  >
+                    <MenuItem value={0}>%0</MenuItem>
+                    <MenuItem value={1}>%1</MenuItem>
+                    <MenuItem value={8}>%8</MenuItem>
+                    <MenuItem value={10}>%10</MenuItem>
+                    <MenuItem value={18}>%18</MenuItem>
+                    <MenuItem value={20}>%20</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid size={{ xs: 12, md: 6 }}>
+                <FormControl fullWidth size="small">
+                  <InputLabel shrink>Satınalma KDV Oranı (%)</InputLabel>
+                  <Select
+                    value={localFormData.purchaseVatRate ?? 20}
+                    label="Satınalma KDV Oranı (%)"
+                    onChange={(e) => handleLocalChange('purchaseVatRate', e.target.value as number)}
+                  >
+                    <MenuItem value={0}>%0</MenuItem>
+                    <MenuItem value={1}>%1</MenuItem>
+                    <MenuItem value={8}>%8</MenuItem>
+                    <MenuItem value={10}>%10</MenuItem>
+                    <MenuItem value={18}>%18</MenuItem>
+                    <MenuItem value={20}>%20</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid size={{ xs: 12, md: 6 }}>
+                <TextField fullWidth label="Min. Sipariş Miktarı" type="number" value={localFormData.minOrderQty ?? ''} onChange={(e) => handleLocalChange('minOrderQty', e.target.value === '' ? undefined : parseInt(e.target.value, 10))} size="small" />
+              </Grid>
+              <Grid size={{ xs: 12, md: 6 }}>
+                <TextField
+                  fullWidth
+                  label="Kritik Stok Miktarı"
+                  type="number"
+                  value={localFormData.criticalQty ?? ''}
+                  onChange={(e) => handleLocalChange('criticalQty', e.target.value === '' ? undefined : parseInt(e.target.value, 10))}
+                  size="small"
+                  helperText="Bu miktarın altına düştüğünde uyarı verir"
+                />
+              </Grid>
+              <Grid size={{ xs: 12, md: 6 }}>
+                <TextField fullWidth label="Tedarik Süresi (Gün)" type="number" value={localFormData.leadTimeDays ?? ''} onChange={(e) => handleLocalChange('leadTimeDays', e.target.value === '' ? undefined : parseInt(e.target.value, 10))} size="small" />
+              </Grid>
+              <Grid size={{ xs: 12 }}>
+                <TextField fullWidth label="İç Not" multiline rows={3} value={localFormData.internalNote || ''} onChange={(e) => handleLocalChange('internalNote', e.target.value)} size="small" />
+              </Grid>
+              <Grid size={{ xs: 12 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', p: 2, bgcolor: 'color-mix(in srgb, var(--primary) 5%, transparent)', borderRadius: 2, border: '1px solid var(--border)' }}>
+                  <Box>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 600, color: 'var(--primary)' }}>
+                      B2B Portalında Göster
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      Bu ürün B2B portalında satışa sunulacak
+                    </Typography>
+                  </Box>
+                  <Switch
+                    checked={localFormData.isB2B || false}
+                    onChange={(e) => handleLocalChange('isB2B', e.target.checked)}
+                    color="primary"
+                  />
+                </Box>
+              </Grid>
             </Grid>
-          </Grid>
-
-          <Divider sx={{ my: 4 }} />
-
-          {/* Fiyat Bilgileri */}
-          <Typography variant="h6" sx={{ mb: 2, color: 'var(--foreground)', fontWeight: 700, letterSpacing: '-0.01em' }}>
-            💰 Fiyat Bilgileri
-          </Typography>
-          <Grid container spacing={3}>
-            <Grid size={{ xs: 12, md: 6 }}>
-              <TextField
-                fullWidth
-                label="Alış Fiyatı"
-                type="number"
-                value={localFormData.alisFiyati}
-                onChange={(e) => handleLocalChange('alisFiyati', parseFloat(e.target.value) || 0)}
-                size="medium"
-                className="form-control-textfield"
-                InputProps={{
-                  startAdornment: <InputAdornment position="start">₺</InputAdornment>,
-                  readOnly: Boolean(editingMalzeme),
-                }}
-                disabled={Boolean(editingMalzeme)}
-                helperText={editingMalzeme ? 'Güncelleme sırasında alış fiyatı değiştirilemez.' : 'Tedarikçiden aldığınız fiyat'}
-              />
-            </Grid>
-
-            <Grid size={{ xs: 12, md: 6 }}>
-              <TextField
-                fullWidth
-                label="Satış Fiyatı"
-                type="number"
-                value={localFormData.satisFiyati}
-                onChange={(e) => handleLocalChange('satisFiyati', parseFloat(e.target.value) || 0)}
-                size="medium"
-                className="form-control-textfield"
-                InputProps={{
-                  startAdornment: <InputAdornment position="start">₺</InputAdornment>,
-                  readOnly: Boolean(editingMalzeme),
-                }}
-                disabled={Boolean(editingMalzeme)}
-                helperText={editingMalzeme ? 'Güncelleme sırasında satış fiyatı değiştirilemez.' : 'Müşteriye satış fiyatı'}
-              />
-            </Grid>
-          </Grid>
-
-          {localFormData.alisFiyati > 0 && localFormData.satisFiyati > 0 && (
-            <Box sx={{ mt: 2, p: 2, bgcolor: 'color-mix(in srgb, var(--primary) 5%, transparent)', borderRadius: 'var(--radius)', border: '1px solid var(--border)' }}>
-              <Typography variant="body2" sx={{ color: 'var(--foreground)' }}>
-                <strong>Kâr Marjı:</strong> ₺{(localFormData.satisFiyati - localFormData.alisFiyati).toFixed(2)}
-                ({localFormData.alisFiyati > 0 ? ((localFormData.satisFiyati - localFormData.alisFiyati) / localFormData.alisFiyati * 100).toFixed(1) : 0}%)
-              </Typography>
-            </Box>
-          )}
-
-          <Divider sx={{ my: 4, borderColor: 'var(--border)' }} />
-
-          {/* Kurumsal / Ek Özellikler */}
-          <Typography variant="h6" sx={{ mb: 2, color: 'var(--foreground)', fontWeight: 700, letterSpacing: '-0.01em' }}>
-            📦 Kurumsal / Ek Özellikler
-          </Typography>
-          <Grid container spacing={3}>
-            <Grid size={{ xs: 12, md: 3 }}>
-              <TextField fullWidth label="Ağırlık" type="number" value={localFormData.weight ?? ''} onChange={(e) => handleLocalChange('weight', e.target.value === '' ? undefined : parseFloat(e.target.value))} size="medium" className="form-control-textfield" InputProps={{ endAdornment: <InputAdornment position="end">{localFormData.weightUnit || 'kg'}</InputAdornment> }} />
-            </Grid>
-            <Grid size={{ xs: 12, md: 2 }}>
-              <FormControl fullWidth size="medium" className="form-control-select">
-                <InputLabel shrink>Ağırlık Birimi</InputLabel>
-                <Select value={localFormData.weightUnit || 'kg'} label="Ağırlık Birimi" onChange={(e) => handleLocalChange('weightUnit', e.target.value)}>
-                  <MenuItem value="kg">kg</MenuItem>
-                  <MenuItem value="g">g</MenuItem>
-                  <MenuItem value="lb">lb</MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
-            <Grid size={{ xs: 12, md: 4 }}>
-              <TextField fullWidth label="Boyutlar" value={localFormData.dimensions ?? ''} onChange={(e) => handleLocalChange('dimensions', e.target.value)} placeholder="Örn: 10x20x5 cm" size="medium" className="form-control-textfield" />
-            </Grid>
-            <Grid size={{ xs: 12, md: 3 }}>
-              <TextField fullWidth label="Menşei Ülke" value={localFormData.countryOfOrigin ?? ''} onChange={(e) => handleLocalChange('countryOfOrigin', e.target.value)} size="medium" className="form-control-textfield" />
-            </Grid>
-            <Grid size={{ xs: 12, md: 3 }}>
-              <TextField fullWidth label="Garanti (Ay)" type="number" value={localFormData.warrantyMonths ?? ''} onChange={(e) => handleLocalChange('warrantyMonths', e.target.value === '' ? undefined : parseInt(e.target.value, 10))} size="medium" className="form-control-textfield" inputProps={{ min: 0 }} />
-            </Grid>
-            <Grid size={{ xs: 12, md: 3 }}>
-              <TextField fullWidth label="Min. Sipariş Miktarı" type="number" value={localFormData.minOrderQty ?? ''} onChange={(e) => handleLocalChange('minOrderQty', e.target.value === '' ? undefined : parseInt(e.target.value, 10))} size="medium" className="form-control-textfield" inputProps={{ min: 0 }} />
-            </Grid>
-            <Grid size={{ xs: 12, md: 3 }}>
-              <TextField fullWidth label="Tedarik Süresi (Gün)" type="number" value={localFormData.leadTimeDays ?? ''} onChange={(e) => handleLocalChange('leadTimeDays', e.target.value === '' ? undefined : parseInt(e.target.value, 10))} size="medium" className="form-control-textfield" inputProps={{ min: 0 }} />
-            </Grid>
-            <Grid size={{ xs: 12 }}>
-              <TextField fullWidth label="İç Not" multiline rows={2} value={localFormData.internalNote ?? ''} onChange={(e) => handleLocalChange('internalNote', e.target.value)} placeholder="Sadece iç kullanım" size="medium" className="form-control-textfield" />
-            </Grid>
-          </Grid>
-
-          <Divider sx={{ my: 4, borderColor: 'var(--border)' }} />
-
-          {/* Araç Bilgileri Bölümü */}
-          <Typography variant="h6" sx={{ mb: 2, color: 'var(--foreground)', fontWeight: 700, letterSpacing: '-0.01em' }}>
-            🚗 Araç Bilgileri
-          </Typography>
-          <Grid container spacing={3}>
-            <Grid size={{ xs: 12, md: 6 }}>
-              <FormControl fullWidth size="medium" className="form-control-select">
-                <InputLabel shrink>Araç Markası</InputLabel>
-                <Select
-                  value={localFormData.aracMarka || ''}
-                  label="Araç Markası"
-                  displayEmpty
-                  onChange={(e) => handleAracMarkaChange(e.target.value)}
-                >
-                  <MenuItem value="">
-                    <em>Seçiniz</em>
-                  </MenuItem>
-                  {aracMarkalar.map((marka) => (
-                    <MenuItem key={marka} value={marka}>
-                      {marka}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Grid>
-
-            <Grid size={{ xs: 12, md: 6 }}>
-              <FormControl fullWidth size="medium" disabled={!localFormData.aracMarka}>
-                <InputLabel shrink>Araç Modeli</InputLabel>
-                <Select
-                  value={localFormData.aracModel || ''}
-                  label="Araç Modeli"
-                  displayEmpty
-                  onChange={(e) => handleLocalChange('aracModel', e.target.value)}
-                >
-                  <MenuItem value="">
-                    <em>Seçiniz</em>
-                  </MenuItem>
-                  {aracModeller.map((model) => (
-                    <MenuItem key={model} value={model}>
-                      {model}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Grid>
-
-            <Grid size={{ xs: 12, md: 6 }}>
-              <FormControl fullWidth size="medium">
-                <InputLabel shrink>Motor Hacmi</InputLabel>
-                <Select
-                  value={localFormData.aracMotorHacmi || ''}
-                  label="Motor Hacmi"
-                  displayEmpty
-                  onChange={(e) => handleLocalChange('aracMotorHacmi', e.target.value)}
-                >
-                  <MenuItem value="">
-                    <em>Seçiniz</em>
-                  </MenuItem>
-                  {aracMotorHacimleri.map((hacim) => (
-                    <MenuItem key={hacim} value={hacim}>
-                      {hacim}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Grid>
-
-            <Grid size={{ xs: 12, md: 6 }}>
-              <FormControl fullWidth size="medium">
-                <InputLabel shrink>Yakıt Tipi</InputLabel>
-                <Select
-                  value={localFormData.aracYakitTipi || ''}
-                  label="Yakıt Tipi"
-                  displayEmpty
-                  onChange={(e) => handleLocalChange('aracYakitTipi', e.target.value)}
-                >
-                  <MenuItem value="">
-                    <em>Seçiniz</em>
-                  </MenuItem>
-                  {aracYakitTipleri.map((yakit) => (
-                    <MenuItem key={yakit} value={yakit}>
-                      {yakit}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Grid>
-          </Grid>
-
-          <Divider sx={{ my: 4 }} />
-
+          </CustomTabPanel>
         </Box>
       </DialogContent>
       <DialogActions sx={{ px: 3, py: 2, bgcolor: 'var(--muted)', borderTop: '1px solid var(--border)' }}>
         <Button
           onClick={onClose}
-          size="large"
+          size="medium"
           sx={{
-            minWidth: 100,
-            borderRadius: '999px',
-            px: 2.4,
+            borderRadius: 3,
+            px: 2,
             border: '1px solid var(--border)',
             color: 'var(--muted-foreground)',
             textTransform: 'none',
+            fontWeight: 600,
             '&:hover': { bgcolor: 'var(--card)' },
           }}
         >
@@ -812,21 +736,23 @@ const MalzemeFormDialog = memo(({
         <Button
           onClick={handleLocalSubmit}
           variant="contained"
-          size="large"
+          size="medium"
           disabled={!localFormData.stokAdi}
           sx={{
             background: '#527575',
             color: '#0b0b0b',
-            minWidth: 140,
-            borderRadius: '999px',
-            px: 2.8,
+            borderRadius: 3,
+            px: 2.5,
             fontWeight: 700,
             letterSpacing: '-0.01em',
-            boxShadow: '0 10px 24px color-mix(in srgb, #527575 30%, transparent)',
             textTransform: 'none',
+            boxShadow: 'none',
             '&:hover': {
               background: 'color-mix(in srgb, #527575 90%, #000 10%)',
-              transform: 'translateY(-1px)',
+              boxShadow: 'none',
+            },
+            '&:active': {
+              boxShadow: 'none',
             },
           }}
         >
@@ -838,6 +764,30 @@ const MalzemeFormDialog = memo(({
 });
 
 MalzemeFormDialog.displayName = 'MalzemeFormDialog';
+
+// Custom Toolbar Component
+const CustomToolbar = () => {
+  return (
+    <GridToolbarContainer sx={{
+      p: 1,
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      borderBottom: '1px solid var(--border)',
+      bgcolor: 'var(--card)'
+    }}>
+      <Box sx={{ display: 'flex', gap: 0.5 }}>
+        <GridToolbarColumnsButton />
+        <GridToolbarFilterButton />
+        <GridToolbarDensitySelector />
+        <GridToolbarExport />
+      </Box>
+      <Box sx={{ display: 'flex', alignItems: 'center', pr: 1 }}>
+        {/* MUI X v6/v7 standard search is through slots, but we can put a placeholder or custom one if needed */}
+      </Box>
+    </GridToolbarContainer>
+  );
+};
 
 export default function MalzemeListesiPage() {
   const router = useRouter();
@@ -852,27 +802,45 @@ export default function MalzemeListesiPage() {
   const [selectedAltKategori, setSelectedAltKategori] = useState('');
   const [selectedMarka, setSelectedMarka] = useState('');
   const [stokDurumu, setStokDurumu] = useState<'all' | 'inStock' | 'outOfStock'>('all');
-  const [openEslestirmeDialog, setOpenEslestirmeDialog] = useState(false);
-  const [selectedMalzeme, setSelectedMalzeme] = useState<Malzeme | null>(null);
-  const [selectedEquivalents, setSelectedEquivalents] = useState<Malzeme[]>([]);
   const [hareketDialogOpen, setHareketDialogOpen] = useState(false);
   const [hareketMalzeme, setHareketMalzeme] = useState<Malzeme | null>(null);
-  const [hareketTipiFilter, setHareketTipiFilter] = useState('');
+  const [hareketler, setHareketler] = useState<any[]>([]);
+  const [hareketLoading, setHareketLoading] = useState(false);
+  const [hareketTotal, setHareketTotal] = useState(0);
+  const [canEditUnit, setCanEditUnit] = useState(true);
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' | 'info' });
 
-  // Eşdeğer ürünler modal state
+  const handleCloseSnackbar = () => {
+    setSnackbar(prev => ({ ...prev, open: false }));
+  };
+
+  const fetchHareketler = async (productId: string) => {
+    try {
+      setHareketLoading(true);
+      const response = await axios.get('/product-movements', {
+        params: {
+          productId,
+          limit: 100,
+        },
+      });
+      setHareketler(response.data.data || []);
+      setHareketTotal(response.data.meta?.total || 0);
+    } catch (error: any) {
+      setSnackbar({ open: true, message: error.response?.data?.message || 'Hareketler yüklenirken hata oluştu', severity: 'error' });
+    } finally {
+      setHareketLoading(false);
+    }
+  };
+  const [hareketTipiFilter, setHareketTipiFilter] = useState('');
   const [esdegerDialogOpen, setEsdegerDialogOpen] = useState(false);
   const [esdegerMalzeme, setEsdegerMalzeme] = useState<Malzeme | null>(null);
   const [esdegerUrunler, setEsdegerUrunler] = useState<any[]>([]);
   const [esdegerLoading, setEsdegerLoading] = useState(false);
+  const [showChart, setShowChart] = useState(false);
 
-  // Debounced search - 500ms sonra arama yapılır
   const debouncedSearch = useDebounce(search, 500);
-
-  // Kategoriler ve markalar state
   const [kategoriler, setKategoriler] = useState<Record<string, string[]>>({});
   const [markalar, setMarkalar] = useState<string[]>([]);
-
-  // Araç bilgileri state
   const [aracMarkalar, setAracMarkalar] = useState<string[]>([]);
   const [aracModeller, setAracModeller] = useState<string[]>([]);
   const [aracMotorHacimleri] = useState<string[]>(['1.0L', '1.2L', '1.4L', '1.5L', '1.6L', '1.8L', '2.0L', '2.2L', '2.5L', '3.0L', '3.5L', '4.0L', '5.0L']);
@@ -880,7 +848,6 @@ export default function MalzemeListesiPage() {
   const [selectedAracMarka, setSelectedAracMarka] = useState<string>('');
   const [birimSetleri, setBirimSetleri] = useState<any[]>([]);
 
-  // Initial form data - sadece dialog açıldığında kullanılır
   const [initialFormData, setInitialFormData] = useState<MalzemeFormData>({
     stokKodu: '',
     stokAdi: '',
@@ -893,16 +860,15 @@ export default function MalzemeListesiPage() {
     oem: '',
     raf: '',
     tedarikciKodu: '',
+    birimId: '',
     alisFiyati: 0,
     satisFiyati: 0,
-    birimId: '',
   });
 
   useEffect(() => {
     setSelectedAltKategori('');
   }, [selectedKategori]);
 
-  // Fetch locations - useCallback ile optimize edilmiş
   const fetchLocations = useCallback(async () => {
     try {
       const response = await axios.get('/location');
@@ -915,7 +881,7 @@ export default function MalzemeListesiPage() {
 
   const fetchKategoriler = useCallback(async () => {
     try {
-      const response = await axios.get('/category');
+      const response = await axios.get('/categories');
       const kategoriData = response.data || [];
       const kategoriMap: Record<string, string[]> = {};
       kategoriData.forEach((k: { mainCategory: string; subCategories: string[] }) => {
@@ -932,15 +898,16 @@ export default function MalzemeListesiPage() {
     try {
       const response = await axios.get('/brand');
       const markaData = response.data || [];
-      const markaList = markaData.map((m: { brandName: string }) => m.brandName);
-      setMarkalar(markaList);
+      const markaList = markaData
+        .map((m: { brandName: string; name?: string }) => m.brandName || m.name)
+        .filter(Boolean);
+      setMarkalar(markaList as string[]);
     } catch (error) {
       console.error('Marka listesi alınamadı:', error);
       setMarkalar([]);
     }
   }, []);
 
-  // Fetch araç markaları
   const fetchAracMarkalar = useCallback(async () => {
     try {
       const response = await axios.get('/vehicle-brand/brands').catch(() => ({ data: [] }));
@@ -951,7 +918,6 @@ export default function MalzemeListesiPage() {
     }
   }, []);
 
-  // Fetch araç modelleri (marka seçildiğinde)
   const fetchAracModeller = useCallback(async (marka: string) => {
     if (!marka) {
       setAracModeller([]);
@@ -968,7 +934,6 @@ export default function MalzemeListesiPage() {
     }
   }, []);
 
-  // Fetch yakıt tipleri
   const fetchAracYakitTipleri = useCallback(async () => {
     try {
       const response = await axios.get('/vehicle-brand/fuel-types');
@@ -980,8 +945,18 @@ export default function MalzemeListesiPage() {
   }, []);
 
   const fetchBirimSetleri = useCallback(async () => {
+    // Authentication kontrolü
+    if (typeof window !== 'undefined') {
+      const token = localStorage.getItem('accessToken');
+      if (!token) {
+        console.warn('MalzemeListesiPage: Authentication token bulunamadı, atlanıyor');
+        setBirimSetleri([]);
+        return;
+      }
+    }
+
     try {
-      const response = await axios.get('/unit-set');
+      const response = await axios.get('/unit-sets');
       setBirimSetleri(response.data || []);
     } catch (error) {
       console.error('Birim setleri yüklenemedi:', error);
@@ -989,16 +964,26 @@ export default function MalzemeListesiPage() {
     }
   }, []);
 
-  // Araç markası değiştiğinde modelleri yükle
   const handleAracMarkaChange = useCallback((marka: string) => {
     setSelectedAracMarka(marka);
     fetchAracModeller(marka);
   }, [fetchAracModeller]);
 
   const fetchStoklar = useCallback(async () => {
+    // Authentication kontrolü
+    if (typeof window !== 'undefined') {
+      const token = localStorage.getItem('accessToken');
+      if (!token) {
+        console.warn('MalzemeListesiPage: Authentication token bulunamadı, atlanıyor');
+        setStoklar([]);
+        setLoading(false);
+        return;
+      }
+    }
+
     try {
       setLoading(true);
-      const response = await axios.get('/product', {
+      const response = await axios.get('/products', {
         params: { search: debouncedSearch, limit: 100, page: 1 },
       });
       const rawData = response.data.data || [];
@@ -1012,7 +997,6 @@ export default function MalzemeListesiPage() {
     }
   }, [debouncedSearch]);
 
-  // Initial fetch
   useEffect(() => {
     fetchStoklar();
     fetchLocations();
@@ -1023,11 +1007,19 @@ export default function MalzemeListesiPage() {
     fetchBirimSetleri();
   }, [fetchStoklar, fetchLocations, fetchKategoriler, fetchMarkalar, fetchAracMarkalar, fetchAracYakitTipleri, fetchBirimSetleri]);
 
-  // Dialog açma - initialFormData hazırla - useCallback ile optimize edilmiş
   const handleOpenDialog = useCallback(async (malzeme?: Malzeme) => {
     if (malzeme) {
       setEditingMalzeme(malzeme);
-      // Araç markası varsa modelleri yükle
+
+      // Birim düzenleme iznini kontrol et (Hareket var mı?)
+      try {
+        const res = await axios.get(`/products/${malzeme.id}/can-delete`);
+        setCanEditUnit(res.data.canDelete);
+      } catch (e) {
+        console.error('Birim düzenleme izni kontrol edilemedi:', e);
+        setCanEditUnit(false);
+      }
+
       if (malzeme.aracMarka) {
         await fetchAracModeller(malzeme.aracMarka);
         setSelectedAracMarka(malzeme.aracMarka);
@@ -1036,7 +1028,9 @@ export default function MalzemeListesiPage() {
         stokKodu: malzeme.stokKodu,
         stokAdi: malzeme.stokAdi,
         barkod: malzeme.barkod || '',
+        aciklama: malzeme.aciklama || '',
         marka: malzeme.marka || '',
+        model: malzeme.model || '',
         anaKategori: malzeme.anaKategori || '',
         altKategori: malzeme.altKategori || '',
         birim: malzeme.birim || 'Adet',
@@ -1044,31 +1038,33 @@ export default function MalzemeListesiPage() {
         oem: malzeme.oem || '',
         raf: malzeme.raf || '',
         tedarikciKodu: malzeme.tedarikciKodu || '',
-        alisFiyati: malzeme.alisFiyati || 0,
-        satisFiyati: malzeme.satisFiyati || 0,
         birimId: malzeme.birimId || '',
         aracMarka: malzeme.aracMarka || '',
         aracModel: malzeme.aracModel || '',
         aracMotorHacmi: malzeme.aracMotorHacmi || '',
         aracYakitTipi: malzeme.aracYakitTipi || '',
+        alisFiyati: malzeme.alisFiyati || 0,
+        satisFiyati: malzeme.satisFiyati || 0,
         weight: malzeme.weight,
         weightUnit: malzeme.weightUnit || 'kg',
         dimensions: malzeme.dimensions || '',
         countryOfOrigin: malzeme.countryOfOrigin || '',
         warrantyMonths: malzeme.warrantyMonths,
+        criticalQty: malzeme.criticalQty ?? 0,
         internalNote: malzeme.internalNote || '',
         minOrderQty: malzeme.minOrderQty,
         leadTimeDays: malzeme.leadTimeDays,
+        isB2B: malzeme.isB2B,
       });
     } else {
       setEditingMalzeme(null);
+      setCanEditUnit(true);
       setSelectedAracMarka('');
       setAracModeller([]);
 
-      // Stok kodunu otomatik olarak al
       let nextCode = '';
       try {
-        const response = await axios.get('/code-template/next-code/PRODUCT');
+        const response = await axios.get('/code-templates/preview-code/PRODUCT');
         nextCode = response.data.nextCode || '';
         console.log('Bir sonraki stok kodu:', nextCode);
       } catch (error) {
@@ -1079,7 +1075,9 @@ export default function MalzemeListesiPage() {
         stokKodu: nextCode,
         stokAdi: '',
         barkod: '',
+        aciklama: '',
         marka: '',
+        model: '',
         anaKategori: '',
         altKategori: '',
         birim: 'Adet',
@@ -1087,10 +1085,9 @@ export default function MalzemeListesiPage() {
         oem: '',
         raf: '',
         tedarikciKodu: '',
+        birimId: '',
         alisFiyati: 0,
         satisFiyati: 0,
-        birimId: '',
-        // Araç bilgileri
         aracMarka: '',
         aracModel: '',
         aracMotorHacmi: '',
@@ -1100,23 +1097,21 @@ export default function MalzemeListesiPage() {
         dimensions: '',
         countryOfOrigin: '',
         warrantyMonths: undefined,
+        criticalQty: 0,
         internalNote: '',
         minOrderQty: undefined,
         leadTimeDays: undefined,
       });
     }
     setOpenDialog(true);
-  }, [fetchAracModeller, fetchBirimSetleri]);
+  }, [fetchAracModeller]);
 
-  // Dialog kapatma - useCallback ile optimize edilmiş
   const handleCloseDialog = useCallback(() => {
     setOpenDialog(false);
     setEditingMalzeme(null);
   }, []);
 
-  // Submit handler - useCallback ile optimize edilmiş
   const handleSubmit = useCallback(async (submitFormData: MalzemeFormData) => {
-    // Stok kodu kontrolü - sadece girilmişse ve aynı koda sahip başka kayıt varsa engelle
     if (submitFormData.stokKodu && submitFormData.stokKodu.trim().length > 0) {
       const mevcutStok = stoklar.find(s =>
         s.stokKodu.toLowerCase() === submitFormData.stokKodu.toLowerCase() &&
@@ -1130,18 +1125,16 @@ export default function MalzemeListesiPage() {
     }
 
     try {
-      // Backend'e gönderilecek veri - stokKodu boşsa undefined gönder (backend otomatik üretsin)
       const payload = {
         code: submitFormData.stokKodu && submitFormData.stokKodu.trim().length > 0 ? submitFormData.stokKodu : undefined,
         name: submitFormData.stokAdi,
         barcode: submitFormData.barkod && submitFormData.barkod.trim().length > 0 ? submitFormData.barkod : undefined,
+        description: submitFormData.aciklama && submitFormData.aciklama.trim().length > 0 ? submitFormData.aciklama : undefined,
         unit: submitFormData.birim,
-        unitId: submitFormData.birimId || undefined,
-        purchasePrice: Number(submitFormData.alisFiyati),
-        salePrice: Number(submitFormData.satisFiyati),
         mainCategory: submitFormData.anaKategori || undefined,
         subCategory: submitFormData.altKategori || undefined,
         brand: submitFormData.marka || undefined,
+        model: submitFormData.model && submitFormData.model.trim().length > 0 ? submitFormData.model : undefined,
         oem: submitFormData.oem || undefined,
         size: submitFormData.olcu || undefined,
         shelf: submitFormData.raf || undefined,
@@ -1155,54 +1148,24 @@ export default function MalzemeListesiPage() {
         dimensions: submitFormData.dimensions || undefined,
         countryOfOrigin: submitFormData.countryOfOrigin || undefined,
         warrantyMonths: submitFormData.warrantyMonths != null ? submitFormData.warrantyMonths : undefined,
+        criticalQty: submitFormData.criticalQty ?? 0,
         internalNote: submitFormData.internalNote || undefined,
         minOrderQty: submitFormData.minOrderQty != null ? submitFormData.minOrderQty : undefined,
         leadTimeDays: submitFormData.leadTimeDays != null ? submitFormData.leadTimeDays : undefined,
+        purchaseVatRate: submitFormData.purchaseVatRate != null ? submitFormData.purchaseVatRate : undefined,
+        salesVatRate: submitFormData.salesVatRate != null ? submitFormData.salesVatRate : undefined,
+        vatRate: submitFormData.salesVatRate ?? 20,
+        purchasePrice: Number(submitFormData.alisFiyati || 0),
+        salePrice: Number(submitFormData.satisFiyati || 0),
+        isB2B: submitFormData.isB2B,
       };
 
-      console.log('Backend\'e gönderilen veri:', payload);
-
-      let stokId: string | undefined = editingMalzeme?.id;
+      console.log('Backend\'e gönderilen veri:', JSON.stringify(payload, null, 2));
 
       if (editingMalzeme) {
-        // Güncelleme
-        const response = await axios.patch(`/product/${editingMalzeme.id}`, payload);
-        if (!stokId) {
-          stokId = response?.data?.id ?? response?.data?.data?.id;
-        }
+        await axios.patch(`/products/${editingMalzeme.id}`, payload);
       } else {
-        // Yeni ekleme
-        const response = await axios.post('/product', payload);
-        stokId = response?.data?.id ?? response?.data?.data?.id;
-      }
-
-      const priceCardPayloads: Array<{ type: 'SALE' | 'PURCHASE'; price: number }> = [];
-
-      if (submitFormData.alisFiyati > 0 && (!editingMalzeme || editingMalzeme.alisFiyati !== submitFormData.alisFiyati)) {
-        priceCardPayloads.push({ type: 'PURCHASE', price: Number(submitFormData.alisFiyati) });
-      }
-
-      if (submitFormData.satisFiyati > 0 && (!editingMalzeme || editingMalzeme.satisFiyati !== submitFormData.satisFiyati)) {
-        priceCardPayloads.push({ type: 'SALE', price: Number(submitFormData.satisFiyati) });
-      }
-
-      if (stokId && priceCardPayloads.length > 0) {
-        const effectiveFrom = formatDateOnly(new Date());
-        try {
-          await Promise.all(
-            priceCardPayloads.map((item) =>
-              axios.post('/price-cards', {
-                productId: stokId,
-                type: item.type,
-                price: item.price,
-                effectiveFrom,
-                note: 'Malzeme kartı kaydı sırasında otomatik oluşturuldu.',
-              })
-            )
-          );
-        } catch (priceCardError) {
-          console.error('Fiyat kartı oluşturulamadı:', priceCardError);
-        }
+        await axios.post('/products', payload);
       }
 
       handleCloseDialog();
@@ -1212,13 +1175,11 @@ export default function MalzemeListesiPage() {
       console.error('Backend hatası:', error.response?.data);
       alert(`Malzeme kaydedilirken bir hata oluştu:\n${error.response?.data?.message || error.message}`);
     }
-  }, [editingMalzeme, stoklar, handleCloseDialog, debouncedSearch]);
+  }, [editingMalzeme, stoklar, handleCloseDialog, debouncedSearch, fetchStoklar]);
 
-  // Delete handler - useCallback ile optimize edilmiş
   const handleDelete = useCallback(async (id: string) => {
     try {
-      // Önce silinebilir mi kontrol et
-      const canDeleteResponse = await axios.get(`/product/${id}/can-delete`);
+      const canDeleteResponse = await axios.get(`/products/${id}/can-delete`);
       const canDelete = canDeleteResponse.data;
 
       if (!canDelete.canDelete) {
@@ -1237,7 +1198,7 @@ export default function MalzemeListesiPage() {
       }
 
       if (confirm('Bu malzemeyi silmek istediğinizden emin misiniz?')) {
-        await axios.delete(`/product/${id}`);
+        await axios.delete(`/products/${id}`);
         fetchStoklar();
       }
     } catch (error: any) {
@@ -1250,198 +1211,6 @@ export default function MalzemeListesiPage() {
     }
   }, [debouncedSearch, fetchStoklar]);
 
-  const handleOpenEslestirme = async (malzeme: Malzeme) => {
-    setSelectedMalzeme(malzeme);
-    setOpenEslestirmeDialog(true);
-
-    // Mevcut eşdeğer ürünleri yükle
-    try {
-      const response = await axios.get(`/product/${malzeme.id}/esdegerler`);
-      if (response.data.esdegerler && response.data.esdegerler.length > 0) {
-        setSelectedEquivalents(response.data.esdegerler.map(mapProductToMalzeme));
-      }
-    } catch (error) {
-      console.error('Eşdeğer ürünler yüklenemedi:', error);
-    }
-  };
-
-  const handleCloseEslestirme = () => {
-    setOpenEslestirmeDialog(false);
-    setSelectedMalzeme(null);
-    setSelectedEquivalents([]);
-  };
-
-  const handleSaveEslestirme = async () => {
-    if (!selectedMalzeme) {
-      return;
-    }
-
-    // Eğer tüm eşdeğerler silinmişse, eşleştirmeyi kaldır
-    if (selectedEquivalents.length === 0) {
-      const confirm = window.confirm(
-        `${selectedMalzeme.stokKodu} ürününün tüm eşleştirmelerini kaldırmak istediğinizden emin misiniz?`
-      );
-
-      if (!confirm) return;
-
-      try {
-        await axios.delete(`/product/${selectedMalzeme.id}/match`);
-        alert(`✅ ${selectedMalzeme.stokKodu} ürününün eşleştirmesi kaldırıldı.`);
-        handleCloseEslestirme();
-        // Listeyi yenile
-        try {
-          setLoading(true);
-          const response = await axios.get('/product', {
-            params: { search: debouncedSearch, limit: 5000, page: 1 },
-          });
-          const stokData = response.data.data || [];
-          setStoklar(stokData);
-        } catch (error) {
-          console.error('Stok verisi alınamadı:', error);
-          setStoklar([]);
-        } finally {
-          setLoading(false);
-        }
-      } catch (error: any) {
-        console.error('Eşleştirme kaldırılamadı:', error);
-        alert(`❌ Hata: ${error.response?.data?.message || 'Eşleştirme kaldırılamadı.'}`);
-      }
-      return;
-    }
-
-    try {
-      const response = await axios.post('/product/match', {
-        anaUrunId: selectedMalzeme.id,
-        esUrunIds: selectedEquivalents.map(eq => eq.id)
-      });
-
-      const { toplamUrun, urunler } = response.data;
-
-      alert(
-        `✅ Eşleştirme başarılı!\n\n` +
-        `${selectedMalzeme.stokKodu} için ${selectedEquivalents.length} ürün eşleştirildi.\n` +
-        `Grup toplam ${toplamUrun} ürün içeriyor:\n\n` +
-        urunler.map((u: any) => `• ${u.marka} - ${u.stokKodu}`).join('\n')
-      );
-
-      handleCloseEslestirme();
-      fetchStoklar();
-    } catch (error: any) {
-      console.error('Eşleştirme kaydedilemedi:', error);
-      const errorMsg = error.response?.data?.message || 'Eşleştirme kaydedilemedi. Lütfen tekrar deneyin.';
-      alert(`❌ Hata: ${errorMsg}`);
-    }
-  };
-
-  const handleRemoveEslestirme = async (stok: Malzeme) => {
-    const confirm = window.confirm(
-      `${stok.stokKodu} ürününün tüm eşleştirmelerini kaldırmak istediğinizden emin misiniz?\n\n` +
-      `Bu işlem geri alınamaz!`
-    );
-
-    if (!confirm) return;
-
-    try {
-      await axios.delete(`/product/${stok.id}/match`);
-      alert(`✅ ${stok.stokKodu} ürününün eşleştirmesi başarıyla kaldırıldı.`);
-      fetchStoklar();
-    } catch (error: any) {
-      console.error('Eşleştirme kaldırılamadı:', error);
-      alert(`❌ Hata: ${error.response?.data?.message || 'Eşleştirme kaldırılamadı.'}`);
-    }
-  };
-
-  const filteredStoklar = useMemo(() => {
-    if (!Array.isArray(stoklar)) return [];
-    return stoklar.filter((stok) => {
-      const kategoriMatch = selectedKategori ? stok.anaKategori === selectedKategori : true;
-      const altKategoriMatch = selectedAltKategori ? stok.altKategori === selectedAltKategori : true;
-      const markaMatch = selectedMarka ? stok.marka === selectedMarka : true;
-      const miktar = stok.miktar ?? 0;
-      const stokMatch =
-        stokDurumu === 'inStock'
-          ? miktar > 0
-          : stokDurumu === 'outOfStock'
-            ? miktar <= 0
-            : true;
-      return kategoriMatch && altKategoriMatch && markaMatch && stokMatch;
-    });
-  }, [stoklar, selectedKategori, selectedAltKategori, selectedMarka, stokDurumu]);
-
-  const { data: hareketData, isLoading: hareketlerLoading } = useStokHareketler(
-    hareketMalzeme?.id,
-    hareketTipiFilter || undefined,
-    100,
-    !!hareketMalzeme?.id
-  );
-  // useStokHareketler hook already returns the array in data.
-  // The property access here was redundant and causing issues.
-  const hareketler = Array.isArray(hareketData) ? hareketData : [];
-
-  const formatHareketDate = (value: string) =>
-    new Date(value).toLocaleString('tr-TR', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-
-  const formatMoney = (value: number) =>
-    new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY' }).format(value || 0);
-
-  const getHareketLabel = (hareket: any) => {
-    const tip = hareket?.hareketTipi || '';
-    const faturaTipi = hareket?.faturaKalemi?.fatura?.faturaTipi;
-    const durum = hareket?.faturaKalemi?.fatura?.durum;
-    if (tip === 'SALE' && durum === 'CANCELLED') return 'Satış faturası iptal';
-    if (tip === 'ENTRY' && faturaTipi === 'PURCHASE' && durum === 'CANCELLED') return 'Satınalma faturası iptal';
-    if (tip === 'RETURN' && faturaTipi === 'SALES_RETURN' && durum === 'CANCELLED') return 'Satış iadesi iptal';
-    if (tip === 'RETURN' && faturaTipi === 'PURCHASE_RETURN' && durum === 'CANCELLED') return 'Alış iadesi iptal';
-    const labels: Record<string, string> = {
-      ENTRY: faturaTipi === 'PURCHASE' ? 'Satınalma faturası' : 'Giriş',
-      EXIT: 'Çıkış',
-      SALE: 'Satış faturası',
-      RETURN: faturaTipi === 'PURCHASE_RETURN' ? 'Alış iadesi' : faturaTipi === 'SALES_RETURN' ? 'Satış iadesi' : 'İade',
-      CANCELLATION_ENTRY: 'İptal',
-      CANCELLATION_EXIT: 'İptal',
-      COUNT: 'Sayım',
-      COUNT_SURPLUS: 'Sayım fazlası',
-      COUNT_SHORTAGE: 'Sayım eksiği',
-    };
-    return labels[tip] || tip;
-  };
-
-  const getFaturaDurumLabel = (hareket: any) => {
-    const durum = hareket?.faturaKalemi?.fatura?.durum;
-    if (!durum) {
-      if (hareket?.hareketTipi === 'CANCELLATION_ENTRY' || hareket?.hareketTipi === 'CANCELLATION_EXIT') return 'İptal';
-      return '-';
-    }
-    const labels: Record<string, string> = {
-      APPROVED: 'Onaylandı',
-      OPEN: 'Beklemede',
-      CANCELLED: 'İptal',
-      PARTIALLY_PAID: 'Kısmen Ödendi',
-      CLOSED: 'Kapalı',
-      DRAFT: 'Taslak',
-    };
-    return labels[durum] || durum;
-  };
-
-  const getFaturaDurumColor = (hareket: any): 'success' | 'error' | 'warning' | 'default' => {
-    const durum = hareket?.faturaKalemi?.fatura?.durum;
-    if (!durum) {
-      if (hareket?.hareketTipi === 'CANCELLATION_ENTRY' || hareket?.hareketTipi === 'CANCELLATION_EXIT') return 'error';
-      return 'default';
-    }
-    if (durum === 'CANCELLED') return 'error';
-    if (durum === 'APPROVED') return 'success';
-    if (durum === 'OPEN') return 'warning';
-    return 'default';
-  };
-
-  // Eşdeğer ürünler dialog handler
   const handleOpenEsdegerDialog = useCallback(async (malzeme: Malzeme) => {
     setEsdegerMalzeme(malzeme);
     setEsdegerDialogOpen(true);
@@ -1449,7 +1218,7 @@ export default function MalzemeListesiPage() {
     setEsdegerUrunler([]);
 
     try {
-      const response = await axios.get(`/product/${malzeme.id}/esdegerler`);
+      const response = await axios.get(`/products/${malzeme.id}/esdegerler`);
       if (response.data?.esdegerler && Array.isArray(response.data.esdegerler)) {
         setEsdegerUrunler(response.data.esdegerler.map(mapProductToMalzeme));
       } else {
@@ -1472,25 +1241,11 @@ export default function MalzemeListesiPage() {
     setEsdegerUrunler([]);
   }, []);
 
-  const getHareketColor = (tip: string) => {
-    const colors: Record<string, 'success' | 'error' | 'primary' | 'warning' | 'default'> = {
-      ENTRY: 'success',
-      EXIT: 'error',
-      SALE: 'primary',
-      RETURN: 'warning',
-      CANCELLATION_ENTRY: 'error',
-      CANCELLATION_EXIT: 'error',
-      COUNT: 'default',
-      COUNT_SURPLUS: 'success',
-      COUNT_SHORTAGE: 'error',
-    };
-    return colors[tip] || 'default';
-  };
-
   const handleOpenHareketDialog = (malzeme: Malzeme) => {
     setHareketMalzeme(malzeme);
     setHareketTipiFilter('');
     setHareketDialogOpen(true);
+    fetchHareketler(malzeme.id);
   };
 
   const handleCloseHareketDialog = () => {
@@ -1528,6 +1283,23 @@ export default function MalzemeListesiPage() {
     XLSX.writeFile(workbook, `malzeme-listesi-${timestamp}.xlsx`);
   };
 
+  const filteredStoklar = useMemo(() => {
+    if (!Array.isArray(stoklar)) return [];
+    return stoklar.filter((stok) => {
+      const kategoriMatch = selectedKategori ? stok.anaKategori === selectedKategori : true;
+      const altKategoriMatch = selectedAltKategori ? stok.altKategori === selectedAltKategori : true;
+      const markaMatch = selectedMarka ? stok.marka === selectedMarka : true;
+      const miktar = stok.miktar ?? 0;
+      const stokMatch =
+        stokDurumu === 'inStock'
+          ? miktar > 0
+          : stokDurumu === 'outOfStock'
+            ? miktar <= 0
+            : true;
+      return kategoriMatch && altKategoriMatch && markaMatch && stokMatch;
+    });
+  }, [stoklar, selectedKategori, selectedAltKategori, selectedMarka, stokDurumu]);
+
   const altKategoriOptions = useMemo(() => {
     if (!selectedKategori) {
       return [] as string[];
@@ -1540,159 +1312,348 @@ export default function MalzemeListesiPage() {
     return Array.from(new Set([...markalar, ...collected])).sort();
   }, [stoklar, markalar]);
 
+  // Metrics calculation
+  const totalMiktar = useMemo(() => {
+    return filteredStoklar.reduce((sum, stok) => sum + (stok.miktar ?? 0), 0);
+  }, [filteredStoklar]);
 
+  const totalDeger = useMemo(() => {
+    return filteredStoklar.reduce((sum, stok) => sum + ((stok.miktar ?? 0) * (stok.alisFiyati ?? 0)), 0);
+  }, [filteredStoklar]);
+
+  const stoktaOlan = useMemo(() => {
+    return filteredStoklar.filter(s => (s.miktar ?? 0) > 0).length;
+  }, [filteredStoklar]);
+
+  const stokuBiten = useMemo(() => {
+    return filteredStoklar.filter(s => (s.miktar ?? 0) <= 0).length;
+  }, [filteredStoklar]);
 
   return (
-    <MainLayout>
-      <Paper
-        elevation={0}
+    <Box sx={{ pb: 4 }}>
+      {/* 1. SAYFA HEADER - KOMPAKT */}
+      <Box
         sx={{
-          mb: 3,
-          p: 2.5,
-          border: '1px solid var(--border)',
-          borderRadius: 2,
-          bgcolor: 'var(--card)',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          mb: 2,
+          py: 1,
         }}
       >
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
+        {/* Sol: İkonlu Başlık */}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+          <Box
+            sx={{
+              width: 40,
+              height: 40,
+              borderRadius: 2,
+              background: 'linear-gradient(135deg, var(--primary), var(--secondary))',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <Warehouse sx={{ fontSize: 20, color: 'var(--primary-foreground)' }} />
+          </Box>
           <Box>
-            <Typography variant="h5" fontWeight={700} sx={{ color: 'var(--foreground)', letterSpacing: '-0.02em' }}>
+            <Typography variant="h6" sx={{ fontWeight: 700, color: 'var(--foreground)', lineHeight: 1.2 }}>
               Malzeme Listesi
             </Typography>
-            <Typography variant="body2" sx={{ color: 'var(--muted-foreground)', mt: 0.5 }}>
-              Stok kartlarını görüntüleyin, arayın ve yönetin.
-            </Typography>
           </Box>
-          <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center' }}>
-            <Button
-              variant="outlined"
-              startIcon={<FileDownload />}
-              onClick={handleExportExcel}
-              sx={{
-                color: 'var(--foreground)',
-                borderColor: 'var(--border)',
-                borderRadius: 1.5,
-                px: 2,
-                fontWeight: 600,
-                textTransform: 'none',
-                '&:hover': { borderColor: 'var(--primary)', color: 'var(--primary)', bgcolor: 'var(--muted)' },
-              }}
-            >
-              Excel'e Aktar
-            </Button>
-            <Button
-              variant="contained"
-              startIcon={<Add />}
-              onClick={() => {
-                handleOpenDialog();
-              }}
-              sx={{
+        </Box>
+
+        {/* Sağ: Button Stack (Flat, no shadow) */}
+        <Box sx={{ display: 'flex', gap: 1 }}>
+          <Button
+            variant="outlined"
+            size="small"
+            startIcon={<FileDownload />}
+            onClick={handleExportExcel}
+            sx={{
+              borderRadius: 2,
+              fontWeight: 600,
+              textTransform: 'none',
+              boxShadow: 'none',
+              borderColor: 'var(--border)',
+              color: 'var(--foreground)',
+              '&:hover': {
+                borderColor: 'var(--primary)',
+                color: 'var(--primary)',
+                boxShadow: 'none',
+              },
+            }}
+          >
+            Excel
+          </Button>
+          <Button
+            variant="contained"
+            size="small"
+            startIcon={<Add />}
+            onClick={() => handleOpenDialog()}
+            sx={{
+              borderRadius: 2,
+              fontWeight: 600,
+              textTransform: 'none',
+              boxShadow: 'none',
+              bgcolor: 'var(--primary)',
+              color: 'var(--primary-foreground)',
+              '&:hover': {
                 bgcolor: 'var(--primary)',
-                color: 'var(--primary-foreground)',
-                borderRadius: 1.5,
-                px: 2.5,
-                py: 1.25,
-                fontWeight: 600,
+                opacity: 0.9,
+                boxShadow: 'none',
+              },
+            }}
+          >
+            Yeni Malzeme
+          </Button>
+        </Box>
+      </Box>
+
+      {/* 2. METRICS STRIP - İNE ÖZET ÇUBUĞU */}
+      <Paper
+        variant="outlined"
+        sx={{
+          mb: 2,
+          p: 1.5,
+          display: 'flex',
+          flexWrap: 'wrap',
+          gap: 0,
+        }}
+      >
+        <Box sx={{ flex: '1 1 120px', px: 1.5, borderRight: '1px solid var(--divider)' }}>
+          <Typography variant="caption" sx={{ fontSize: '0.7rem', color: 'text.secondary', display: 'block', mb: 0.25 }}>
+            Toplam Malzeme
+          </Typography>
+          <Typography variant="body2" sx={{ fontSize: '0.85rem', fontWeight: 700, color: 'text.primary' }}>
+            {filteredStoklar.length}
+          </Typography>
+        </Box>
+        <Box sx={{ flex: '1 1 120px', px: 1.5, borderRight: '1px solid var(--divider)' }}>
+          <Typography variant="caption" sx={{ fontSize: '0.7rem', color: 'text.secondary', display: 'block', mb: 0.25 }}>
+            Toplam Miktar
+          </Typography>
+          <Typography variant="body2" sx={{ fontSize: '0.85rem', fontWeight: 700, color: 'text.primary' }}>
+            {totalMiktar.toLocaleString('tr-TR')}
+          </Typography>
+        </Box>
+        <Box sx={{ flex: '1 1 150px', px: 1.5, borderRight: '1px solid var(--divider)' }}>
+          <Typography variant="caption" sx={{ fontSize: '0.7rem', color: 'text.secondary', display: 'block', mb: 0.25 }}>
+            Toplam Değer
+          </Typography>
+          <Typography variant="body2" sx={{ fontSize: '0.85rem', fontWeight: 700, color: 'text.primary' }}>
+            ₺{totalDeger.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          </Typography>
+        </Box>
+        <Box sx={{ flex: '1 1 120px', px: 1.5, borderRight: '1px solid var(--divider)' }}>
+          <Typography variant="caption" sx={{ fontSize: '0.7rem', color: 'text.secondary', display: 'block', mb: 0.25 }}>
+            Stokta Olan
+          </Typography>
+          <Typography variant="body2" sx={{ fontSize: '0.85rem', fontWeight: 700, color: 'success.main' }}>
+            {stoktaOlan}
+          </Typography>
+        </Box>
+        <Box sx={{ flex: '1 1 120px', px: 1.5 }}>
+          <Typography variant="caption" sx={{ fontSize: '0.7rem', color: 'text.secondary', display: 'block', mb: 0.25 }}>
+            Stoğu Biten
+          </Typography>
+          <Typography variant="body2" sx={{ fontSize: '0.85rem', fontWeight: 700, color: 'error.main' }}>
+            {stokuBiten}
+          </Typography>
+        </Box>
+      </Paper>
+
+      {/* 3. ENTEGRİ TOOLBAR - FİLTRELER VE ARAMA */}
+      <Paper
+        variant="outlined"
+        sx={{ mb: 2 }}
+      >
+        <Box sx={{ p: 2, display: 'flex', flexWrap: 'wrap', gap: 1.5 }}>
+          {/* Hızlı Sekme: Stok Durumu */}
+          <Box sx={{ display: 'flex', gap: 0.5 }}>
+            <Button
+              size="small"
+              variant={stokDurumu === 'all' ? 'contained' : 'outlined'}
+              onClick={() => setStokDurumu('all')}
+              sx={{
+                borderRadius: 2,
                 textTransform: 'none',
-                boxShadow: '0 2px 8px rgba(0,0,0,0.12)',
-                '&:hover': {
-                  bgcolor: 'var(--primary)',
-                  opacity: 0.92,
-                  boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-                },
+                fontWeight: 600,
+                fontSize: '0.8rem',
+                boxShadow: 'none',
               }}
             >
-              Yeni Malzeme Ekle
+              Hepsi
             </Button>
+            <Button
+              size="small"
+              variant={stokDurumu === 'inStock' ? 'contained' : 'outlined'}
+              onClick={() => setStokDurumu('inStock')}
+              sx={{
+                borderRadius: 2,
+                textTransform: 'none',
+                fontWeight: 600,
+                fontSize: '0.8rem',
+                boxShadow: 'none',
+              }}
+            >
+              Stokta
+            </Button>
+            <Button
+              size="small"
+              variant={stokDurumu === 'outOfStock' ? 'contained' : 'outlined'}
+              onClick={() => setStokDurumu('outOfStock')}
+              sx={{
+                borderRadius: 2,
+                textTransform: 'none',
+                fontWeight: 600,
+                fontSize: '0.8rem',
+                boxShadow: 'none',
+              }}
+            >
+              Bitmiş
+            </Button>
+          </Box>
+
+          <Divider orientation="vertical" flexItem sx={{ mx: 1 }} />
+
+          {/* Kategori Filtreleri */}
+          <FormControl size="small" sx={{ minWidth: 120 }}>
+            <InputLabel>Kategori</InputLabel>
+            <Select
+              label="Kategori"
+              value={selectedKategori}
+              onChange={(e) => setSelectedKategori(e.target.value)}
+              sx={{ borderRadius: 2 }}
+            >
+              <MenuItem value="">
+                <em>Hepsi</em>
+              </MenuItem>
+              {Object.keys(kategoriler).filter(Boolean).map((kategori, idx) => (
+                <MenuItem key={kategori || `f-kat-${idx}`} value={kategori}>
+                  {kategori}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+
+          <FormControl size="small" sx={{ minWidth: 120 }} disabled={!selectedKategori}>
+            <InputLabel>Alt Kategori</InputLabel>
+            <Select
+              label="Alt Kategori"
+              value={selectedAltKategori}
+              onChange={(e) => setSelectedAltKategori(e.target.value)}
+              sx={{ borderRadius: 2 }}
+            >
+              <MenuItem value="">
+                <em>Hepsi</em>
+              </MenuItem>
+              {altKategoriOptions.filter(Boolean).map((altKategori, idx) => (
+                <MenuItem key={altKategori || `f-alt-${idx}`} value={altKategori}>
+                  {altKategori}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+
+          <FormControl size="small" sx={{ minWidth: 120 }}>
+            <InputLabel>Marka</InputLabel>
+            <Select
+              label="Marka"
+              value={selectedMarka}
+              onChange={(e) => setSelectedMarka(e.target.value)}
+              sx={{ borderRadius: 2 }}
+            >
+              <MenuItem value="">
+                <em>Hepsi</em>
+              </MenuItem>
+              {markaOptions.filter(Boolean).map((marka, idx) => (
+                <MenuItem key={marka || `f-brand-${idx}`} value={marka}>
+                  {marka}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+
+          {/* Arama Kutusu */}
+          <TextField
+            size="small"
+            placeholder="Malzeme Ara (Kod, Ad, Marka vb.)"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            sx={{ minWidth: 250, borderRadius: 2 }}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <Search fontSize="small" />
+                </InputAdornment>
+              ),
+              endAdornment: search && (
+                <InputAdornment position="end">
+                  <IconButton
+                    size="small"
+                    onClick={() => setSearch('')}
+                    edge="end"
+                  >
+                    <Close fontSize="small" />
+                  </IconButton>
+                </InputAdornment>
+              ),
+            }}
+          />
+
+          {/* Araç İkonları - Sağ tarafa it */}
+          <Box sx={{ ml: 'auto', display: 'flex', gap: 0.5 }}>
+            <Tooltip title="Listeyi Yenile">
+              <IconButton size="small" onClick={fetchStoklar}>
+                <Refresh fontSize="small" />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Grafik Göster/Gizle">
+              <IconButton size="small" onClick={() => setShowChart(!showChart)}>
+                <BarChart fontSize="small" />
+              </IconButton>
+            </Tooltip>
           </Box>
         </Box>
       </Paper>
 
-      {/* Arama ve Filtreleme Alanı */}
-      <Paper sx={{ mb: 3, p: 2, bgcolor: 'var(--card)', borderRadius: 'var(--radius)', boxShadow: 'var(--shadow-sm)' }}>
-        <Grid container spacing={2}>
-          <Grid size={{ xs: 12, md: 3 }}>
-            <FormControl fullWidth size="small" className="form-control-select">
-              <InputLabel>Kategori</InputLabel>
-              <Select
-                label="Kategori"
-                value={selectedKategori}
-                onChange={(e) => setSelectedKategori(e.target.value)}
-              >
-                <MenuItem value="">
-                  <em>Hepsi</em>
-                </MenuItem>
-                {Object.keys(kategoriler).map((kategori) => (
-                  <MenuItem key={kategori} value={kategori}>
-                    {kategori}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          </Grid>
-          <Grid size={{ xs: 12, md: 3 }}>
-            <FormControl fullWidth size="small" disabled={!selectedKategori} className="form-control-select">
-              <InputLabel>Alt Kategori</InputLabel>
-              <Select
-                label="Alt Kategori"
-                value={selectedAltKategori}
-                onChange={(e) => setSelectedAltKategori(e.target.value)}
-              >
-                <MenuItem value="">
-                  <em>Hepsi</em>
-                </MenuItem>
-                {altKategoriOptions.map((altKategori) => (
-                  <MenuItem key={altKategori} value={altKategori}>
-                    {altKategori}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          </Grid>
-          <Grid size={{ xs: 12, md: 3 }}>
-            <FormControl fullWidth size="small" className="form-control-select">
-              <InputLabel>Marka</InputLabel>
-              <Select
-                label="Marka"
-                value={selectedMarka}
-                onChange={(e) => setSelectedMarka(e.target.value)}
-              >
-                <MenuItem value="">
-                  <em>Hepsi</em>
-                </MenuItem>
-                {markaOptions.map((marka) => (
-                  <MenuItem key={marka} value={marka}>
-                    {marka}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          </Grid>
-          <Grid size={{ xs: 12, md: 3 }}>
-            <FormControl fullWidth size="small" className="form-control-select">
-              <InputLabel>Stok Durumu</InputLabel>
-              <Select
-                label="Stok Durumu"
-                value={stokDurumu}
-                onChange={(e) => setStokDurumu(e.target.value as 'all' | 'inStock' | 'outOfStock')}
-              >
-                <MenuItem value="all">Hepsi</MenuItem>
-                <MenuItem value="inStock">Stokta Olanlar</MenuItem>
-                <MenuItem value="outOfStock">Stoğu Bitenler</MenuItem>
-              </Select>
-            </FormControl>
-          </Grid>
-        </Grid>
-      </Paper >
+      {/* 4. ARA ALAN - COLLAPSIBLE CHART */}
+      <Collapse in={showChart}>
+        <Paper
+          variant="outlined"
+          sx={{ mb: 2, p: 2 }}
+        >
+          <Typography variant="body2" sx={{ fontWeight: 600, mb: 1 }}>
+            Kategori Dağılımı
+          </Typography>
+          <Box sx={{ height: 180, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Typography variant="body2" color="text.secondary">
+              Grafik entegrasyonu için placeholder
+            </Typography>
+          </Box>
+        </Paper>
+      </Collapse>
 
-      <Paper sx={{ width: '100%', bgcolor: 'var(--card)', borderRadius: 'var(--radius)', boxShadow: 'var(--shadow-sm)', overflow: 'hidden' }}>
-        <MaterialSearchBar
-          search={search}
-          setSearch={setSearch}
-          onSearch={fetchStoklar}
-          onRefresh={fetchStoklar}
-        />
-        <Box sx={{ height: 1420, width: '100%' }}>
+      {/* 5. ÖZET INFO BAR */}
+      <Box sx={{ py: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+        <Typography variant="body2" color="text.secondary">
+          {filteredStoklar.length} malzeme gösteriliyor
+        </Typography>
+        {/* Footer Sum - Sayaçsal Özet */}
+        <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+          <Typography variant="body2" sx={{ fontWeight: 600, color: 'var(--foreground)' }}>
+            Toplam: <span style={{ color: 'var(--primary)' }}>{totalMiktar.toLocaleString('tr-TR')} adet</span>
+          </Typography>
+          <Typography variant="body2" sx={{ fontWeight: 600, color: 'var(--foreground)' }}>
+            Değer: <span style={{ color: 'var(--success)' }}>₺{totalDeger.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+          </Typography>
+        </Box>
+      </Box>
+
+      {/* 6. DATAGRID - TASARIM OVERRİDE'LI */}
+      <Paper variant="outlined" sx={{ overflow: 'hidden' }}>
+        <Box sx={{ height: 'auto', minHeight: 1410, width: '100%' }}>
           <DataGrid
             rows={filteredStoklar}
             columns={[
@@ -1703,7 +1664,7 @@ export default function MalzemeListesiPage() {
                 minWidth: 150,
                 renderCell: (params: GridRenderCellParams) => (
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '100%', height: '100%' }}>
-                    <Typography variant="body2" fontWeight="600" sx={{ color: 'var(--primary)', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    <Typography variant="body2" fontWeight="600" sx={{ color: 'var(--primary)' }}>
                       {params.value}
                     </Typography>
                     <Tooltip title="Eşdeğer ürünleri göster">
@@ -1732,59 +1693,78 @@ export default function MalzemeListesiPage() {
                 headerName: 'Stok Adı',
                 flex: 2,
                 minWidth: 200,
+                renderCell: (params: GridRenderCellParams) => (
+                  <Typography variant="body2" sx={{
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                    color: 'text.primary'
+                  }}>
+                    {params.value}
+                  </Typography>
+                ),
               },
               {
                 field: 'marka',
                 headerName: 'Marka',
                 flex: 1,
                 minWidth: 100,
-                valueFormatter: (value) => value || '-',
-              },
-              {
-                field: 'raf',
-                headerName: 'Raf Adresi',
-                flex: 1,
-                minWidth: 120,
-                renderCell: (params: GridRenderCellParams) => (
-                  params.value ? (
+                renderCell: (params: GridRenderCellParams) => {
+                  if (!params.value) return <Typography variant="caption" color="text.secondary">-</Typography>;
+                  return (
                     <Chip
                       label={params.value}
                       size="small"
-                      variant="outlined"
                       sx={{
                         fontSize: '0.75rem',
-                        borderColor: 'var(--primary)',
-                        color: 'var(--primary)',
+                        borderRadius: 1,
                         bgcolor: 'color-mix(in srgb, var(--primary) 10%, transparent)',
+                        borderColor: 'color-mix(in srgb, var(--primary) 30%, transparent)',
+                        color: 'var(--primary)',
                       }}
+                      variant="outlined"
                     />
-                  ) : (
-                    <Typography variant="caption" sx={{ color: 'var(--muted-foreground)' }}>
-                      Raf atanmamış
-                    </Typography>
-                  )
-                ),
+                  );
+                },
               },
               {
-                field: 'aracBilgisi',
-                headerName: 'Araç Bilgileri',
-                flex: 1.5,
-                minWidth: 180,
+                field: 'raf',
+                headerName: 'Raf',
+                flex: 1,
+                minWidth: 100,
                 renderCell: (params: GridRenderCellParams) => {
-                  const row = params.row;
-                  if (!row.aracMarka && !row.aracModel && !row.aracMotorHacmi && !row.aracYakitTipi) {
-                    return <Typography variant="caption" sx={{ color: 'var(--muted-foreground)' }}>-</Typography>;
-                  }
+                  if (!params.value) return <Typography variant="caption" color="text.secondary">-</Typography>;
                   return (
-                    <Box sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', height: '100%' }}>
-                      {row.aracMarka && (
-                        <Typography variant="caption" fontWeight="600" sx={{ color: 'var(--chart-1)', lineHeight: 1.2 }}>
-                          {row.aracMarka}
-                        </Typography>
-                      )}
-                      {row.aracModel && (
-                        <Typography variant="caption" sx={{ color: 'var(--muted-foreground)', lineHeight: 1.2 }}>
-                          {row.aracModel}
+                    <Chip
+                      label={params.value}
+                      size="small"
+                      sx={{
+                        fontSize: '0.75rem',
+                        borderRadius: 1,
+                        bgcolor: 'color-mix(in srgb, var(--chart-1) 10%, transparent)',
+                        borderColor: 'color-mix(in srgb, var(--chart-1) 30%, transparent)',
+                        color: 'var(--chart-1)',
+                      }}
+                      variant="outlined"
+                    />
+                  );
+                },
+              },
+              {
+                field: 'anaKategori',
+                headerName: 'Kategori',
+                flex: 1.5,
+                minWidth: 140,
+                renderCell: (params: GridRenderCellParams) => {
+                  if (!params.value) return <Typography variant="caption" color="text.secondary">-</Typography>;
+                  return (
+                    <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+                      <Typography variant="caption" fontWeight={600} color="text.primary">
+                        {params.row.anaKategori}
+                      </Typography>
+                      {params.row.altKategori && (
+                        <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
+                          {params.row.altKategori}
                         </Typography>
                       )}
                     </Box>
@@ -1798,26 +1778,48 @@ export default function MalzemeListesiPage() {
                 width: 100,
                 align: 'center',
                 headerAlign: 'center',
-                renderCell: (params: GridRenderCellParams) => (
-                  <Chip
-                    label={params.value || 0}
-                    size="small"
-                    sx={{
-                      bgcolor: (params.value || 0) > 0
-                        ? 'color-mix(in srgb, var(--chart-2) 15%, transparent)'
-                        : 'color-mix(in srgb, var(--destructive) 15%, transparent)',
-                      color: (params.value || 0) > 0 ? 'var(--chart-2)' : 'var(--destructive)',
-                      fontWeight: 600,
-                      width: '100%',
-                      justifyContent: 'center',
-                    }}
-                  />
-                ),
+                renderCell: (params: GridRenderCellParams) => {
+                  const miktar = params.value || 0;
+                  return (
+                    <Chip
+                      label={miktar.toLocaleString('tr-TR')}
+                      size="small"
+                      sx={{
+                        bgcolor: miktar > 0
+                          ? 'color-mix(in srgb, var(--success) 15%, transparent)'
+                          : 'color-mix(in srgb, var(--error) 15%, transparent)',
+                        color: miktar > 0 ? 'var(--success)' : 'var(--error)',
+                        borderColor: miktar > 0 ? 'var(--success)' : 'var(--error)',
+                        fontWeight: 700,
+                        width: '100%',
+                        justifyContent: 'center',
+                        borderRadius: 1,
+                      }}
+                      variant="outlined"
+                    />
+                  );
+                },
               },
               {
-                field: 'birim',
-                headerName: 'Birim',
-                width: 80,
+                field: 'alisFiyati',
+                headerName: 'Alış Fiyatı',
+                type: 'number',
+                width: 120,
+                align: 'right',
+                headerAlign: 'right',
+                renderCell: (params: GridRenderCellParams) => (
+                  <Typography variant="body2" sx={{
+                    color: 'success.main',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'flex-end',
+                    gap: 0.5,
+                    fontWeight: 700
+                  }}>
+                    <ArrowDownward sx={{ fontSize: '0.9rem' }} />
+                    ₺{Number(params.value || 0).toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </Typography>
+                ),
               },
               {
                 field: 'satisFiyati',
@@ -1827,7 +1829,15 @@ export default function MalzemeListesiPage() {
                 align: 'right',
                 headerAlign: 'right',
                 renderCell: (params: GridRenderCellParams) => (
-                  <Typography variant="body2" fontWeight="600" sx={{ color: 'var(--primary)', width: '100%', textAlign: 'right' }}>
+                  <Typography variant="body2" sx={{
+                    color: 'error.main',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'flex-end',
+                    gap: 0.5,
+                    fontWeight: 700
+                  }}>
+                    <ArrowUpward sx={{ fontSize: '0.9rem' }} />
                     ₺{Number(params.value || 0).toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </Typography>
                 ),
@@ -1835,11 +1845,11 @@ export default function MalzemeListesiPage() {
               {
                 field: 'actions',
                 headerName: 'İşlemler',
-                width: 160,
+                width: 140,
                 sortable: false,
                 filterable: false,
                 renderCell: (params: GridRenderCellParams) => (
-                  <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'center', width: '100%' }}>
+                  <Box sx={{ display: 'flex', gap: 0.25, justifyContent: 'center', width: '100%' }}>
                     <Tooltip title="Düzenle">
                       <IconButton
                         size="small"
@@ -1848,6 +1858,7 @@ export default function MalzemeListesiPage() {
                           e.stopPropagation();
                           handleOpenDialog(params.row);
                         }}
+                        sx={{ borderRadius: 1 }}
                       >
                         <Edit fontSize="small" />
                       </IconButton>
@@ -1856,8 +1867,9 @@ export default function MalzemeListesiPage() {
                       <IconButton
                         size="small"
                         color="info"
-                        href={`/stok/${params.row.id}/ambar-toplamlari`}
+                        href={`/stock/${params.row.id}/ambar-toplamlari`}
                         onClick={(e) => e.stopPropagation()}
+                        sx={{ borderRadius: 1 }}
                       >
                         <Warehouse fontSize="small" />
                       </IconButton>
@@ -1870,6 +1882,7 @@ export default function MalzemeListesiPage() {
                           e.stopPropagation();
                           handleOpenHareketDialog(params.row);
                         }}
+                        sx={{ borderRadius: 1 }}
                       >
                         <History fontSize="small" />
                       </IconButton>
@@ -1882,6 +1895,7 @@ export default function MalzemeListesiPage() {
                           e.stopPropagation();
                           handleDelete(params.row.id);
                         }}
+                        sx={{ borderRadius: 1 }}
                       >
                         <Delete fontSize="small" />
                       </IconButton>
@@ -1899,51 +1913,92 @@ export default function MalzemeListesiPage() {
             disableRowSelectionOnClick
             loading={loading}
             localeText={trTR.components.MuiDataGrid.defaultProps.localeText}
+            getRowId={(row) => row.id || row.stokKodu || `row-${Math.random()}`}
             slots={{
-              toolbar: GridToolbar
+              toolbar: CustomToolbar,
+              loadingOverlay: () => (
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+                  <CircularProgress size={24} />
+                </Box>
+              ),
             }}
-            slotProps={{
-              toolbar: {
-                showQuickFilter: false,
-              }
-            }}
+            showCellVerticalBorder
+            showColumnVerticalBorder
             sx={{
-              border: 'none',
+              border: '1px solid var(--border)',
+              borderRadius: 2,
+              overflow: 'hidden',
+              bgcolor: 'var(--card)',
+              // Tablo Başlığı - PREMIUM LOOK
+              '& .MuiDataGrid-columnHeaders': {
+                bgcolor: '#1e1e1e', // Dark header from reference
+                color: '#ffffff',
+                borderBottom: '1px solid #333',
+                '& .MuiDataGrid-columnHeaderTitle': {
+                  fontWeight: 700,
+                  fontSize: '0.85rem',
+                  textTransform: 'none',
+                  letterSpacing: '0.02em',
+                },
+                '& .MuiDataGrid-iconButtonContainer': {
+                  color: '#ffffff',
+                },
+                '& .MuiDataGrid-menuIcon': {
+                  color: '#ffffff',
+                },
+                '& .MuiDataGrid-columnSeparator': {
+                  color: '#444',
+                },
+              },
+              // Hücre ve Dikey Çizgiler
               '& .MuiDataGrid-cell': {
-                borderColor: 'var(--border)',
+                borderBottom: '1px solid var(--border)',
+                borderRight: '1px solid var(--border)',
+                fontSize: '0.875rem',
                 display: 'flex',
                 alignItems: 'center',
+                px: 2,
               },
-              '& .MuiDataGrid-columnHeaders': {
-                bgcolor: 'var(--muted)',
-                borderBottom: '1px solid var(--border)',
+              // Satır Stilleri
+              '& .MuiDataGrid-row': {
+                '&:hover': {
+                  bgcolor: 'color-mix(in srgb, var(--primary) 5%, transparent)',
+                  cursor: 'pointer'
+                },
+                '&.Mui-selected': {
+                  bgcolor: 'color-mix(in srgb, var(--primary) 10%, transparent)',
+                  '&:hover': {
+                    bgcolor: 'color-mix(in srgb, var(--primary) 15%, transparent)',
+                  }
+                }
               },
-              '& .MuiDataGrid-columnHeaderTitle': {
-                fontWeight: 700,
-                color: 'var(--foreground)',
-              },
-              '& .MuiDataGrid-row:hover': {
-                bgcolor: 'var(--muted)',
-              },
+              // Alt kısım (Footer/Pagination)
               '& .MuiDataGrid-footerContainer': {
                 borderTop: '1px solid var(--border)',
+                bgcolor: 'var(--muted)',
+                minHeight: '48px',
               },
+              // Diğer bileşenler
+              '& .MuiTablePagination-root': {
+                color: 'var(--muted-foreground)',
+              },
+              '& .MuiDataGrid-columnHeader--sorted': {
+                bgcolor: '#2a2a2a',
+              }
             }}
           />
         </Box>
       </Paper>
 
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 2 }}>
-        <Typography variant="body2" sx={{ color: 'var(--muted-foreground)' }}>
-          Toplam {filteredStoklar.length} malzeme gösteriliyor
-        </Typography>
-      </Box>
-
+      {/* Hareketler Dialog */}
       <Dialog
         open={hareketDialogOpen}
         onClose={handleCloseHareketDialog}
         fullWidth
         maxWidth="lg"
+        PaperProps={{
+          sx: { borderRadius: 3 }
+        }}
       >
         <DialogTitle component="div">
           {hareketMalzeme
@@ -1952,152 +2007,100 @@ export default function MalzemeListesiPage() {
         </DialogTitle>
         <DialogContent sx={{ mt: 2 }}>
           {hareketMalzeme ? (
-            <>
-              <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 2 }}>
-                {hareketMalzeme.marka && (
-                  <Chip label={`Marka: ${hareketMalzeme.marka}`} size="small" color="primary" variant="outlined" />
-                )}
-                <Chip
-                  label={`Stok Miktarı: ${hareketMalzeme.miktar ?? 0} ${hareketMalzeme.birim}`}
-                  size="small"
-                  color={(hareketMalzeme.miktar ?? 0) > 0 ? 'success' : 'error'}
-                  variant="outlined"
-                />
-                <Chip
-                  label={`Raf: ${hareketMalzeme.raf && hareketMalzeme.raf.trim() !== '' ? hareketMalzeme.raf : 'Belirtilmemiş'}`}
-                  size="small"
-                  variant="outlined"
-                />
-              </Box>
-
-              <FormControl size="small" sx={{ width: { xs: '100%', sm: 240 }, mb: 2 }}>
-                <InputLabel>Hareket Tipi</InputLabel>
-                <Select
-                  label="Hareket Tipi"
-                  value={hareketTipiFilter}
-                  onChange={(e) => setHareketTipiFilter(e.target.value)}
-                >
-                  <MenuItem value="">Tümü</MenuItem>
-                  <MenuItem value="ENTRY">Giriş / Satınalma</MenuItem>
-                  <MenuItem value="EXIT">Çıkış</MenuItem>
-                  <MenuItem value="SALE">Satış faturası</MenuItem>
-                  <MenuItem value="RETURN">İade</MenuItem>
-                  <MenuItem value="CANCELLATION_ENTRY">İptal (giriş)</MenuItem>
-                  <MenuItem value="CANCELLATION_EXIT">İptal (çıkış)</MenuItem>
-                  <MenuItem value="COUNT">Sayım</MenuItem>
-                  <MenuItem value="COUNT_SURPLUS">Sayım fazlası</MenuItem>
-                  <MenuItem value="COUNT_SHORTAGE">Sayım eksiği</MenuItem>
-                </Select>
-              </FormControl>
-
-              <TableContainer component={Paper} sx={{ maxHeight: 420, '& .MuiTableCell-root': { color: 'var(--foreground)' } }}>
-                <Table stickyHeader size="small">
-                  <TableHead sx={{ bgcolor: 'var(--muted)' }}>
-                    <TableRow>
-                      <TableCell sx={{ color: 'var(--foreground)' }}><strong>Tarih</strong></TableCell>
-                      <TableCell sx={{ color: 'var(--foreground)' }}><strong>İşlem Türü</strong></TableCell>
-                      <TableCell sx={{ color: 'var(--foreground)' }}><strong>Fatura Durumu</strong></TableCell>
-                      <TableCell sx={{ color: 'var(--foreground)' }}><strong>Ambar</strong></TableCell>
-                      <TableCell sx={{ color: 'var(--foreground)' }}><strong>Cari</strong></TableCell>
-                      <TableCell align="right" sx={{ color: 'var(--foreground)' }}><strong>Miktar</strong></TableCell>
-                      <TableCell align="right" sx={{ color: 'var(--foreground)' }}><strong>Birim Fiyat</strong></TableCell>
-                      <TableCell align="right" sx={{ color: 'var(--foreground)' }}><strong>Toplam</strong></TableCell>
-                      <TableCell sx={{ color: 'var(--foreground)' }}><strong>Açıklama</strong></TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {hareketlerLoading ? (
-                      <TableSkeleton rows={5} columns={6} />
-                    ) : hareketler.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={9} align="center" sx={{ py: 6 }}>
-                          <Typography variant="body2" sx={{ color: 'var(--muted-foreground)' }}>
-                            Bu ürün için hareket kaydı bulunamadı.
-                          </Typography>
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      hareketler.map((hareket: any) => {
-                        const birimFiyat = Number(hareket.birimFiyat ?? hareket.faturaKalemi?.birimFiyat ?? 0);
-                        const toplamTutar = (hareket.miktar || 0) * birimFiyat;
-                        const cariBilgi = hareket.faturaKalemi?.fatura?.cari;
-                        const cariLabel = cariBilgi ? `${cariBilgi.cariKodu || ''} - ${cariBilgi.unvan || ''}`.trim() : '-';
-                        return (
-                          <TableRow key={hareket.id} hover>
-                            <TableCell>
-                              <Typography variant="caption" sx={{ color: 'var(--foreground)' }}>
-                                {formatHareketDate(hareket.createdAt)}
-                              </Typography>
-                            </TableCell>
-                            <TableCell>
-                              <Chip
-                                label={getHareketLabel(hareket)}
-                                color={getHareketColor(hareket.hareketTipi)}
-                                size="small"
-                              />
-                            </TableCell>
-                            <TableCell>
-                              <Chip
-                                label={getFaturaDurumLabel(hareket)}
-                                color={getFaturaDurumColor(hareket)}
-                                size="small"
-                                variant="outlined"
-                              />
-                            </TableCell>
-                            <TableCell>
-                              <Typography variant="body2" sx={{ color: 'var(--foreground)' }}>
-                                {hareket.warehouse?.name || '-'}
-                              </Typography>
-                            </TableCell>
-                            <TableCell>
-                              <Typography variant="body2" sx={{ color: 'var(--foreground)' }}>
-                                {cariLabel}
-                              </Typography>
-                            </TableCell>
-                            <TableCell align="right">
-                              <Typography variant="body2" fontWeight="600" sx={{ color: 'var(--foreground)' }}>
-                                {(hareket.miktar || 0).toLocaleString('tr-TR')}
-                              </Typography>
-                            </TableCell>
-                            <TableCell align="right">
-                              <Typography variant="body2" sx={{ color: 'var(--foreground)' }}>
-                                {formatMoney(birimFiyat)}
-                              </Typography>
-                            </TableCell>
-                            <TableCell align="right">
-                              <Typography variant="body2" fontWeight="600" sx={{ color: 'var(--foreground)' }}>
-                                {formatMoney(toplamTutar)}
-                              </Typography>
-                            </TableCell>
-                            <TableCell>
-                              <Typography variant="body2" sx={{ color: 'var(--foreground)' }}>
-                                {hareket.aciklama || '-'}
-                              </Typography>
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })
-                    )}
-                  </TableBody>
-                </Table>
-              </TableContainer>
-
-              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
-                Toplam {hareketler.length} hareket listeleniyor.
-              </Typography>
-            </>
+            <Box sx={{ height: 400, width: '100%', mt: 2 }}>
+              <DataGrid
+                rows={hareketler}
+                columns={[
+                  {
+                    field: 'createdAt',
+                    headerName: 'Tarih',
+                    width: 160,
+                    renderCell: (params) => new Date(params.value).toLocaleString('tr-TR'),
+                  },
+                  {
+                    field: 'invoiceNo',
+                    headerName: 'Fatura No',
+                    flex: 1,
+                    minWidth: 120,
+                    valueGetter: (params: any, row: any) => row.invoiceItem?.invoice?.invoiceNo || '-',
+                  },
+                  {
+                    field: 'account',
+                    headerName: 'Cari Hesap',
+                    flex: 2,
+                    minWidth: 200,
+                    valueGetter: (params: any, row: any) => row.invoiceItem?.invoice?.account?.title || '-',
+                  },
+                  {
+                    field: 'movementType',
+                    headerName: 'Tip',
+                    width: 130,
+                    renderCell: (params) => {
+                      const types: Record<string, { label: string, color: any }> = {
+                        ENTRY: { label: 'Giriş', color: 'success' },
+                        EXIT: { label: 'Çıkış', color: 'error' },
+                        SALE: { label: 'Satış', color: 'info' },
+                        RETURN: { label: 'İade', color: 'warning' },
+                        CANCELLATION_ENTRY: { label: 'İptal Giriş', color: 'default' },
+                        CANCELLATION_EXIT: { label: 'İptal Çıkış', color: 'default' },
+                        COUNT_SURPLUS: { label: 'Sayım Fazlası', color: 'success' },
+                        COUNT_SHORTAGE: { label: 'Sayım Eksiği', color: 'error' },
+                      };
+                      const type = types[params.value] || { label: params.value, color: 'default' };
+                      return <Chip label={type.label} size="small" color={type.color} variant="outlined" />;
+                    }
+                  },
+                  {
+                    field: 'quantity',
+                    headerName: 'Miktar',
+                    width: 100,
+                    align: 'right',
+                    headerAlign: 'right',
+                    renderCell: (params: any) => (
+                      <Typography variant="body2" fontWeight={600}>
+                        {params.value} {hareketMalzeme.birim}
+                      </Typography>
+                    )
+                  },
+                  {
+                    field: 'warehouse',
+                    headerName: 'Depo',
+                    width: 140,
+                    valueGetter: (params: any, row: any) => row.warehouse?.name || '-',
+                  }
+                ]}
+                loading={hareketLoading}
+                pageSizeOptions={[5, 10, 25]}
+                initialState={{
+                  pagination: { paginationModel: { pageSize: 10 } },
+                }}
+                density="compact"
+                disableRowSelectionOnClick
+                localeText={trTR.components.MuiDataGrid.defaultProps.localeText}
+                sx={{
+                  border: 'none',
+                  '& .MuiDataGrid-columnHeaders': {
+                    bgcolor: 'var(--muted)',
+                    borderBottom: '1px solid var(--border)',
+                  },
+                }}
+              />
+            </Box>
           ) : (
-            <Typography variant="body2" color="text.secondary">
-              Görüntülemek için bir malzeme seçiniz.
-            </Typography>
+            <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+              <CircularProgress size={24} sx={{ mr: 2 }} />
+              <Typography variant="body2" color="text.secondary">
+                Veriler yükleniyor...
+              </Typography>
+            </Box>
           )}
         </DialogContent>
-        <DialogActions sx={{ px: 3, py: 2 }}>
-          <Button onClick={handleCloseHareketDialog} autoFocus>Kapat</Button>
+        <DialogActions sx={{ px: 3, py: 2, borderTop: '1px solid var(--border)' }}>
+          <Button onClick={handleCloseHareketDialog} variant="outlined" sx={{ borderRadius: 2 }}>Kapat</Button>
         </DialogActions>
       </Dialog>
 
-      {/* Malzeme Ekleme/Düzenleme Dialog - Local State ile Ping Sorunu Çözüldü */}
+      {/* Malzeme Form Dialog */}
       <MalzemeFormDialog
         open={openDialog}
         initialFormData={initialFormData}
@@ -2110,6 +2113,7 @@ export default function MalzemeListesiPage() {
         aracMotorHacimleri={aracMotorHacimleri}
         aracYakitTipleri={aracYakitTipleri}
         birimSetleri={birimSetleri}
+        canEditUnit={canEditUnit}
         onAracMarkaChange={handleAracMarkaChange}
         onClose={handleCloseDialog}
         onSubmit={handleSubmit}
@@ -2125,6 +2129,7 @@ export default function MalzemeListesiPage() {
           sx: {
             bgcolor: 'var(--card)',
             backgroundImage: 'none',
+            borderRadius: 3,
           },
         }}
       >
@@ -2143,7 +2148,7 @@ export default function MalzemeListesiPage() {
         </DialogTitle>
         <DialogContent sx={{ mt: 2, bgcolor: 'var(--background)' }}>
           {esdegerMalzeme && (
-            <Box sx={{ mb: 3, p: 2, bgcolor: 'color-mix(in srgb, var(--primary) 5%, transparent)', borderRadius: 'var(--radius)', border: '1px solid var(--border)' }}>
+            <Box sx={{ mb: 3, p: 2, bgcolor: 'color-mix(in srgb, var(--primary) 5%, transparent)', borderRadius: 2, border: '1px solid var(--border)' }}>
               <Typography variant="body2" sx={{ color: 'var(--muted-foreground)', mb: 0.5 }}>
                 Ürün:
               </Typography>
@@ -2171,29 +2176,26 @@ export default function MalzemeListesiPage() {
               </Typography>
             </Box>
           ) : (
-            <TableContainer component={Paper} sx={{ bgcolor: 'var(--card)', boxShadow: 'var(--shadow-sm)' }}>
+            <TableContainer component={Paper} sx={{ bgcolor: 'var(--card)', boxShadow: 'none', borderRadius: 2 }}>
               <Table size="small">
                 <TableHead>
-                  <TableRow sx={{ bgcolor: 'var(--muted)' }}>
-                    <TableCell sx={{ fontWeight: 700, color: 'var(--foreground) !important' }}><strong>Stok Kodu</strong></TableCell>
-                    <TableCell sx={{ fontWeight: 700, color: 'var(--foreground) !important' }}><strong>Stok Adı</strong></TableCell>
-                    <TableCell sx={{ fontWeight: 700, color: 'var(--foreground) !important' }}><strong>Marka</strong></TableCell>
-                    <TableCell align="center" sx={{ fontWeight: 700, color: 'var(--foreground) !important' }}><strong>Miktar</strong></TableCell>
-                    <TableCell align="right" sx={{ fontWeight: 700, color: 'var(--foreground) !important' }}><strong>Alış Fiyatı</strong></TableCell>
-                    <TableCell align="right" sx={{ fontWeight: 700, color: 'var(--foreground) !important' }}><strong>Satış Fiyatı</strong></TableCell>
+                  <TableRow sx={{ bgcolor: '#f8fafc' }}>
+                    <TableCell sx={{ fontWeight: 700, fontSize: '0.8rem', color: '#475569', textTransform: 'uppercase' }}><strong>Stok Kodu</strong></TableCell>
+                    <TableCell sx={{ fontWeight: 700, fontSize: '0.8rem', color: '#475569', textTransform: 'uppercase' }}><strong>Stok Adı</strong></TableCell>
+                    <TableCell sx={{ fontWeight: 700, fontSize: '0.8rem', color: '#475569', textTransform: 'uppercase' }}><strong>Marka</strong></TableCell>
+                    <TableCell align="center" sx={{ fontWeight: 700, fontSize: '0.8rem', color: '#475569', textTransform: 'uppercase' }}><strong>Miktar</strong></TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 700, fontSize: '0.8rem', color: '#475569', textTransform: 'uppercase' }}><strong>Satış Fiyatı</strong></TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {esdegerUrunler.map((urun: any) => (
+                  {esdegerUrunler.filter((u: any) => u).map((urun: any, idx: number) => (
                     <TableRow
-                      key={urun.id}
+                      key={urun.id || urun.stokKodu || `esd-${idx}`}
                       hover
                       sx={{
-                        bgcolor: 'var(--background)',
-                        '&:hover': {
-                          bgcolor: 'var(--muted) !important',
-                        },
-                        borderBottom: '1px solid var(--border)',
+                        '&:hover': { bgcolor: '#f0fdf4' },
+                        '&:nth-of-type(even)': { bgcolor: '#fafafa' },
+                        borderBottom: '1px solid #f1f5f9',
                       }}
                     >
                       <TableCell>
@@ -2201,29 +2203,23 @@ export default function MalzemeListesiPage() {
                           {urun.stokKodu}
                         </Typography>
                       </TableCell>
-                      <TableCell sx={{ color: 'var(--foreground)' }}>{urun.stokAdi}</TableCell>
-                      <TableCell sx={{ color: 'var(--muted-foreground)' }}>{urun.marka || '-'}</TableCell>
+                      <TableCell sx={{ color: 'text.primary' }}>{urun.stokAdi}</TableCell>
+                      <TableCell sx={{ color: 'text.secondary' }}>{urun.marka || '-'}</TableCell>
                       <TableCell align="center">
                         <Chip
                           label={urun.miktar ?? 0}
                           size="small"
                           sx={{
                             bgcolor: urun.miktar > 0
-                              ? 'color-mix(in srgb, var(--chart-2) 15%, transparent)'
-                              : 'color-mix(in srgb, var(--destructive) 15%, transparent)',
-                            color: urun.miktar > 0 ? 'var(--chart-2)' : 'var(--destructive)',
-                            borderColor: urun.miktar > 0 ? 'var(--chart-2)' : 'var(--destructive)',
+                              ? 'color-mix(in srgb, var(--success) 15%, transparent)'
+                              : 'color-mix(in srgb, var(--error) 15%, transparent)',
+                            color: urun.miktar > 0 ? 'var(--success)' : 'var(--error)',
+                            borderColor: urun.miktar > 0 ? 'var(--success)' : 'var(--error)',
+                            fontWeight: 700,
+                            borderRadius: 1,
                           }}
                           variant="outlined"
                         />
-                      </TableCell>
-                      <TableCell align="right">
-                        <Typography variant="body2" sx={{ color: 'var(--foreground)' }}>
-                          ₺{Number(urun.alisFiyati ?? 0).toLocaleString('tr-TR', {
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: 2,
-                          })}
-                        </Typography>
                       </TableCell>
                       <TableCell align="right">
                         <Typography variant="body2" fontWeight={600} sx={{ color: 'var(--primary)' }}>
@@ -2246,6 +2242,7 @@ export default function MalzemeListesiPage() {
             variant="outlined"
             autoFocus
             sx={{
+              borderRadius: 2,
               borderColor: 'var(--border)',
               color: 'var(--foreground)',
               '&:hover': {
@@ -2258,7 +2255,6 @@ export default function MalzemeListesiPage() {
           </Button>
         </DialogActions>
       </Dialog>
-    </MainLayout >
+    </Box >
   );
 }
-

@@ -31,7 +31,7 @@ export default function GidenHavaleDetayPage() {
 
     const fetchHavaleDetay = async () => {
         try {
-            const response = await axios.get(`/banka-havale/${id}`);
+            const response = await axios.get(`/bank-transfer/${id}`);
             setHavale(response.data);
         } catch (error) {
             console.error('Giden Havale detay yüklenirken hata:', error);

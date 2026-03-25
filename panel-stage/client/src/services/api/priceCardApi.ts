@@ -8,7 +8,7 @@ import {
     PriceCardStatus,
     PriceSource,
     PriceType,
-} from '../../types/priceCard';
+} from '@/types/priceCard';
 
 // ⚠️ MOCK_MODE: True ise backend'e gitmez, sahte veri döner.
 // Backend uçları tamamlandığında burayı false yapabilirsiniz.
@@ -184,7 +184,7 @@ export const priceCardApi = {
                 }, 800);
             });
         }
-        const response = await api.put(`/price-cards/${id}`, data);
+        const response = await api.patch(`/price-cards/${id}`, data);
         return response.data;
     },
 
@@ -196,6 +196,21 @@ export const priceCardApi = {
                 }, 500);
             });
         }
-        await api.delete(`/price-cards/${id}`);
+    },
+
+    exportToExcel: async (params: { q?: string; status?: string; type?: string }) => {
+        const response = await api.get('/price-cards/export/excel', {
+            params,
+            responseType: 'blob',
+        });
+
+        const url = window.URL.createObjectURL(new Blob([response.data]));
+        const link = document.createElement('a');
+        link.href = url;
+        link.setAttribute('download', `fiyat_kartlari_${new Date().toISOString().split('T')[0]}.xlsx`);
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.URL.revokeObjectURL(url);
     },
 };

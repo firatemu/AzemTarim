@@ -7,7 +7,7 @@ export function useServiceInvoices(params?: { page?: number; limit?: number }) {
   return useQuery({
     queryKey: ['service-invoices', page, limit],
     queryFn: async () => {
-      const response = await axios.get('/service-invoice', {
+      const response = await axios.get('/service-invoices', {
         params: { page, limit },
       });
       const data = response.data?.data ?? response.data;

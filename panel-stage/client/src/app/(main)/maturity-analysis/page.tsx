@@ -32,7 +32,7 @@ import {
   TrendingDown,
   Info,
 } from '@mui/icons-material';
-import MainLayout from '@/components/Layout/MainLayout';
+import { StandardPage } from '@/components/common';
 import axios from '@/lib/axios';
 
 interface Cari {
@@ -112,7 +112,7 @@ export default function VadeAnalizPage() {
     try {
       setLoading(true);
       const params = cariId ? { cariId } : {};
-      const response = await axios.get('/invoice/vade-analiz', { params });
+      const response = await axios.get('/invoices/vade-analiz', { params });
       setAnaliz(response.data);
     } catch (error) {
       console.error('Vade analizi yüklenemedi:', error);
@@ -169,33 +169,31 @@ export default function VadeAnalizPage() {
 
   if (loading && !analiz) {
     return (
-      <MainLayout>
+      <StandardPage maxWidth={false}>
         <Box display="flex" justifyContent="center" alignItems="center" minHeight="60vh">
           <CircularProgress />
         </Box>
-      </MainLayout>
+      </StandardPage>
     );
   }
 
   return (
-    <MainLayout>
-      <Box sx={{ mb: 3 }}>
-        <Typography
-          variant="h4"
-          fontWeight="bold"
-          sx={{
-            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
-            mb: 1,
-          }}
-        >
-          📅 Vade Analizi
-        </Typography>
-        <Typography variant="body2" color="text.secondary">
-          Vadesi geçen ve yaklaşan faturaları takip edin
-        </Typography>
+    <StandardPage maxWidth={false}>
+      {/* Header */}
+      <Box sx={{ mb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1.5 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Box sx={{ width: 40, height: 40, borderRadius: 2, background: 'linear-gradient(135deg, var(--primary), var(--secondary))', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <CalendarToday sx={{ color: 'var(--primary-foreground)', fontSize: 20 }} />
+          </Box>
+          <Typography variant="h6" fontWeight={700} color="var(--foreground)">
+            Vade Analizi
+          </Typography>
+        </Box>
       </Box>
+
+      <Typography variant="body2" color="var(--muted-foreground)" sx={{ mb: 2 }}>
+        Vadesi geçen ve yaklaşan faturaları takip edin
+      </Typography>
 
       {/* Cari Filtresi */}
       <Paper sx={{ p: 2, mb: 3 }}>
@@ -233,8 +231,8 @@ export default function VadeAnalizPage() {
             <Grid size={{ xs: 12, md: 3 }}>
               <Card
                 sx={{
-                  background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
-                  color: 'white',
+                  background: 'linear-gradient(135deg, var(--destructive) 0%, color-mix(in srgb, var(--destructive) 80%, var(--destructive-foreground)) 100%)',
+                  color: 'var(--destructive-foreground)',
                 }}
               >
                 <CardContent>
@@ -259,8 +257,8 @@ export default function VadeAnalizPage() {
             <Grid size={{ xs: 12, md: 3 }}>
               <Card
                 sx={{
-                  background: 'linear-gradient(135deg, #fa709a 0%, #fee140 100%)',
-                  color: 'white',
+                  background: 'linear-gradient(135deg, var(--chart-3) 0%, color-mix(in srgb, var(--chart-3) 80%, var(--chart-3-foreground)) 100%)',
+                  color: 'var(--chart-3-foreground)',
                 }}
               >
                 <CardContent>
@@ -285,8 +283,8 @@ export default function VadeAnalizPage() {
             <Grid size={{ xs: 12, md: 3 }}>
               <Card
                 sx={{
-                  background: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
-                  color: 'white',
+                  background: 'linear-gradient(135deg, var(--chart-4) 0%, color-mix(in srgb, var(--chart-4) 80%, var(--chart-4-foreground)) 100%)',
+                  color: 'var(--chart-4-foreground)',
                 }}
               >
                 <CardContent>
@@ -311,8 +309,8 @@ export default function VadeAnalizPage() {
             <Grid size={{ xs: 12, md: 3 }}>
               <Card
                 sx={{
-                  background: 'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)',
-                  color: 'white',
+                  background: 'linear-gradient(135deg, var(--chart-2) 0%, color-mix(in srgb, var(--chart-2) 80%, var(--chart-2-foreground)) 100%)',
+                  color: 'var(--chart-2-foreground)',
                 }}
               >
                 <CardContent>
@@ -502,7 +500,7 @@ export default function VadeAnalizPage() {
           </Paper>
         </>
       )}
-    </MainLayout>
+    </StandardPage>
   );
 }
 

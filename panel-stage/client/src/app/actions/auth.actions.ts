@@ -23,4 +23,5 @@ export async function clearAuthCookies() {
     cookieStore.delete('accessToken');
     cookieStore.delete('refreshToken');
     cookieStore.delete('tenantId');
+    cookieStore.delete('user');
 }

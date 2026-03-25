@@ -93,7 +93,7 @@ export default function YeniSatisSiparisiPage() {
 
   const fetchStoklar = async () => {
     try {
-      const response = await axios.get('/product', {
+      const response = await axios.get('/products', {
         params: { limit: 1000 },
       });
       setStoklar(response.data.data || []);
@@ -104,7 +104,7 @@ export default function YeniSatisSiparisiPage() {
 
   const generateSiparisNo = async () => {
     try {
-      const response = await axios.get('/order', {
+      const response = await axios.get('/orders', {
         params: { siparisTipi: 'SATIS', limit: 1 },
       });
       const siparisler = response.data.data || [];
@@ -302,7 +302,7 @@ export default function YeniSatisSiparisiPage() {
       }
 
       setLoading(true);
-      await axios.post('/order', {
+      await axios.post('/orders', {
         siparisNo: formData.siparisNo,
         siparisTipi: formData.siparisTipi,
         cariId: formData.cariId,
@@ -323,7 +323,7 @@ export default function YeniSatisSiparisiPage() {
 
       showSnackbar('Sipariş başarıyla oluşturuldu', 'success');
       setTimeout(() => {
-        router.push('/order/satis');
+        router.push('/orders/satis');
       }, 1500);
     } catch (error: any) {
       console.error('Sipariş kaydetme hatası:', error);
@@ -349,7 +349,7 @@ export default function YeniSatisSiparisiPage() {
       <Box sx={{ mb: 3 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
           <IconButton
-            onClick={() => router.push('/order/satis')}
+            onClick={() => router.push('/orders/satis')}
             sx={{
               bgcolor: '#f3f4f6',
               '&:hover': { bgcolor: '#e5e7eb' }
@@ -748,7 +748,7 @@ export default function YeniSatisSiparisiPage() {
               <Button
                 variant="outlined"
                 size="large"
-                onClick={() => router.push('/order/satis')}
+                onClick={() => router.push('/orders/satis')}
               >
                 İptal
               </Button>

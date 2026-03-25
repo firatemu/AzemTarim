@@ -5,6 +5,7 @@ import { PrismaModule } from '../../common/prisma.module';
 import { TenantContextModule } from '../../common/services/tenant-context.module';
 import { SalesWaybillModule } from '../sales-waybill/sales-waybill.module';
 import { CodeTemplateModule } from '../code-template/code-template.module';
+import { UnitSetModule } from '../unit-set/unit-set.module';
 
 @Module({
   imports: [
@@ -12,6 +13,7 @@ import { CodeTemplateModule } from '../code-template/code-template.module';
     TenantContextModule,
     forwardRef(() => SalesWaybillModule),
     CodeTemplateModule,
+    UnitSetModule,
   ],
   controllers: [OrderController],
   providers: [OrderService],

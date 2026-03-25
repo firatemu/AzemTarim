@@ -79,7 +79,6 @@ export default function DuzenleSatinAlmaIrsaliyesiPage() {
     kaynakId: '',
     genelIskontoOran: 0,
     genelIskontoTutar: 0,
-    genelIskontoTutar: 0,
     aciklama: '',
     warehouseId: '',
     kalemler: [] as IrsaliyeKalemi[],
@@ -89,8 +88,6 @@ export default function DuzenleSatinAlmaIrsaliyesiPage() {
   const [autocompleteOpenStates, setAutocompleteOpenStates] = useState<Record<number, boolean>>({});
 
   useEffect(() => {
-    fetchCariler();
-    fetchStoklar();
     fetchCariler();
     fetchStoklar();
     fetchWarehouses();
@@ -110,7 +107,7 @@ export default function DuzenleSatinAlmaIrsaliyesiPage() {
 
   const fetchStoklar = async () => {
     try {
-      const response = await axios.get('/product', {
+      const response = await axios.get('/products', {
         params: { limit: 1000 },
       });
       setStoklar(response.data.data || []);
@@ -121,7 +118,7 @@ export default function DuzenleSatinAlmaIrsaliyesiPage() {
 
   const fetchWarehouses = async () => {
     try {
-      const response = await axios.get('/warehouse?active=true');
+      const response = await axios.get('/warehouses?active=true');
       const warehouseList = response.data || [];
       setWarehouses(warehouseList);
 

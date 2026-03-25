@@ -42,6 +42,18 @@ export class CodeTemplateController {
     }
   }
 
+  @Get('preview-code/:module')
+  @ApiParam({ name: 'module', enum: ModuleType })
+  async getPreviewCode(@Param('module') module: string) {
+    try {
+      const code = await this.codeTemplateService.getPreviewCode(module as ModuleType);
+      return { nextCode: code };
+    } catch (error: any) {
+      console.error('❌ [CodeTemplate Controller] getPreviewCode hatası:', error);
+      throw error;
+    }
+  }
+
   @Get('by-module/:module')
   @ApiParam({ name: 'module', enum: ModuleType })
   findByModule(@Param('module') module: string) {
@@ -75,5 +87,14 @@ export class CodeTemplateController {
     @Body('newValue') newValue?: number,
   ) {
     return this.codeTemplateService.resetCounter(module as ModuleType, newValue);
+  }
+
+  @Post('save-manual-code/:module')
+  @ApiParam({ name: 'module', enum: ModuleType })
+  saveManualCode(
+    @Param('module') module: string,
+    @Body('code') code: string,
+  ) {
+    return this.codeTemplateService.saveLastCode(module as ModuleType, code);
   }
 }

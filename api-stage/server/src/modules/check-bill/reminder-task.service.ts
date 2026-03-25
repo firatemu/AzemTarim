@@ -2,7 +2,7 @@ import { TenantResolverService } from '../../common/services/tenant-resolver.ser
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from '../../common/prisma.service';
-import { CheckBillStatus, CheckBillType } from '@prisma/client';
+import { CheckBillStatus, CheckBillType, PortfolioType } from '@prisma/client';
 
 @Injectable()
 export class ReminderTaskService {
@@ -83,5 +83,29 @@ export class ReminderTaskService {
         // }
 
         this.logger.log(`Tenant ${tenant.id} için ${upcomingChecks.length} adet evrak hatırlatması yapılacak.`);
+    }
+
+    @Cron('0 1 * * *')
+    async markOverdueAsUnpaid(): Promise<void> {
+        this.logger.log('Vadesi geçmiş DEBIT evraklar UNPAID olarak işaretleniyor...');
+        try {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+
+            const result = await this.prisma.checkBill.updateMany({
+                where: {
+                    portfolioType: PortfolioType.DEBIT,
+                    status: CheckBillStatus.IN_PORTFOLIO,
+                    dueDate: { lt: today },
+                    deletedAt: null,
+                    tenantId: { not: null },
+                },
+                data: { status: CheckBillStatus.UNPAID },
+            });
+
+            this.logger.log(`${result.count} adet vadesi geçmiş evrak UNPAID olarak işaretlendi.`);
+        } catch (error: any) {
+            this.logger.error(`markOverdueAsUnpaid hatası: ${error.message}`);
+        }
     }
 }

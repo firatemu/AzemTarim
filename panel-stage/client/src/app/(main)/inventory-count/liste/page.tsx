@@ -85,7 +85,7 @@ export default function SayimListePage() {
 
   const fetchSayimlar = async () => {
     try {
-      const response = await axios.get('/sayim');
+      const response = await axios.get('/inventory-count');
       setSayimlar(response.data || []);
     } catch (error: any) {
       showSnackbar(error.response?.data?.message || 'Sayımlar yüklenirken hata', 'error');
@@ -94,7 +94,7 @@ export default function SayimListePage() {
 
   const fetchSayimDetay = async (id: string) => {
     try {
-      const response = await axios.get(`/sayim/${id}`);
+      const response = await axios.get(`/inventory-count/${id}`);
       setSelectedSayim(response.data);
       setDetayDialog(true);
     } catch (error: any) {
@@ -104,10 +104,10 @@ export default function SayimListePage() {
 
   const handleTamamla = async (id: string) => {
     if (!confirm('Bu sayımı tamamlamak istediğinizden emin misiniz?')) return;
-    
+
     try {
       setLoading(true);
-      await axios.put(`/sayim/${id}/tamamla`);
+      await axios.put(`/inventory-count/${id}/complete`);
       showSnackbar('Sayım tamamlandı! Onay için hazır.', 'success');
       fetchSayimlar();
     } catch (error: any) {
@@ -119,10 +119,10 @@ export default function SayimListePage() {
 
   const handleOnayla = async () => {
     if (!selectedSayim) return;
-    
+
     try {
       setLoading(true);
-      await axios.put(`/sayim/${selectedSayim.id}/onayla`);
+      await axios.put(`/inventory-count/${selectedSayim.id}/approve`);
       showSnackbar('Sayım onaylandı ve stoklar güncellendi!', 'success');
       setOnayDialog(false);
       setDetayDialog(false);
@@ -136,9 +136,9 @@ export default function SayimListePage() {
 
   const handleDelete = async (id: string) => {
     if (!confirm('Bu sayımı silmek istediğinizden emin misiniz?')) return;
-    
+
     try {
-      await axios.delete(`/sayim/${id}`);
+      await axios.delete(`/inventory-count/${id}`);
       showSnackbar('Sayım silindi', 'success');
       fetchSayimlar();
     } catch (error: any) {
@@ -148,10 +148,10 @@ export default function SayimListePage() {
 
   const handleExportExcel = async (id: string, sayimNo: string) => {
     try {
-      const response = await axios.get(`/sayim/${id}/export/excel`, {
+      const response = await axios.get(`/inventory-count/${id}/export/excel`, {
         responseType: 'blob',
       });
-      
+
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement('a');
       link.href = url;
@@ -160,7 +160,7 @@ export default function SayimListePage() {
       link.click();
       link.remove();
       window.URL.revokeObjectURL(url);
-      
+
       showSnackbar('Excel dosyası indirildi', 'success');
     } catch (error: any) {
       showSnackbar(error.response?.data?.message || 'Excel indirme hatası', 'error');
@@ -169,10 +169,10 @@ export default function SayimListePage() {
 
   const handleExportPdf = async (id: string, sayimNo: string) => {
     try {
-      const response = await axios.get(`/sayim/${id}/export/pdf`, {
+      const response = await axios.get(`/inventory-count/${id}/export/pdf`, {
         responseType: 'blob',
       });
-      
+
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement('a');
       link.href = url;
@@ -181,7 +181,7 @@ export default function SayimListePage() {
       link.click();
       link.remove();
       window.URL.revokeObjectURL(url);
-      
+
       showSnackbar('PDF dosyası indirildi', 'success');
     } catch (error: any) {
       showSnackbar(error.response?.data?.message || 'PDF indirme hatası', 'error');
@@ -255,9 +255,9 @@ export default function SayimListePage() {
                       </IconButton>
                       {sayim.durum === 'TASLAK' && (
                         <>
-                          <IconButton 
-                            size="small" 
-                            color="primary" 
+                          <IconButton
+                            size="small"
+                            color="primary"
                             onClick={() => handleTamamla(sayim.id)}
                             title="Tamamla"
                           >
@@ -269,9 +269,9 @@ export default function SayimListePage() {
                         </>
                       )}
                       {sayim.durum === 'TAMAMLANDI' && (
-                        <IconButton 
-                          size="small" 
-                          color="success" 
+                        <IconButton
+                          size="small"
+                          color="success"
                           onClick={() => {
                             fetchSayimDetay(sayim.id);
                             setTimeout(() => setOnayDialog(true), 500);
@@ -425,7 +425,7 @@ export default function SayimListePage() {
           <DialogTitle component="div">Sayımı Onayla</DialogTitle>
           <DialogContent>
             <Typography>
-              Bu sayımı onaylamak istediğinizden emin misiniz? 
+              Bu sayımı onaylamak istediğinizden emin misiniz?
             </Typography>
             <Typography color="error" sx={{ mt: 2 }}>
               ⚠️ Onaylandığında stoklar otomatik olarak güncellenecektir!

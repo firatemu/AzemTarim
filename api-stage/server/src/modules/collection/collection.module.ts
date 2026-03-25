@@ -5,15 +5,20 @@ import { CollectionController } from './collection.controller';
 import { PrismaModule } from '../../common/prisma.module';
 import { SystemParameterModule } from '../system-parameter/system-parameter.module';
 import { TenantContextModule } from '../../common/services/tenant-context.module';
+import { AccountBalanceModule } from '../account-balance/account-balance.module';
+import { InvoiceModule } from '../invoice/invoice.module';
+import { PaymentPlanHelperService } from '../invoice/services/payment-plan-helper.service';
 
 @Module({
   imports: [
     PrismaModule,
     SystemParameterModule,
     TenantContextModule,
+    AccountBalanceModule,
+    InvoiceModule,
   ],
   controllers: [CollectionController],
-  providers: [CollectionService, CollectionExportService],
+  providers: [CollectionService, CollectionExportService, PaymentPlanHelperService],
   exports: [CollectionService],
 })
 export class CollectionModule { }

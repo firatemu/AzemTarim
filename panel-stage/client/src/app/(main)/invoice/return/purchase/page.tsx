@@ -333,9 +333,9 @@ export default function AlisIadeFaturalariPage() {
           variant="contained"
           startIcon={<Add />}
           onClick={() => {
-            addTab({ id: 'fatura-iade-alis-yeni', label: 'Yeni Satın Alma İade Faturası', path: '/invoice/iade/alis/yeni' });
+            addTab({ id: 'fatura-iade-alis-yeni', label: 'Yeni Satın Alma İade Faturası', path: '/invoices/iade/alis/yeni' });
             setActiveTab('fatura-iade-alis-yeni');
-            router.push('/invoice/iade/alis/yeni');
+            router.push('/invoices/iade/alis/yeni');
           }}
           sx={{
             background: 'linear-gradient(135deg, #06b6d4 0%, #0891b2 100%)',
@@ -379,7 +379,8 @@ export default function AlisIadeFaturalariPage() {
             <TableRow>
               <TableCell sx={{ fontWeight: 600 }}>Fatura No</TableCell>
               <TableCell sx={{ fontWeight: 600 }}>Tarih</TableCell>
-              <TableCell sx={{ fontWeight: 600 }}>Cari</TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>Cari Kod</TableCell>
+              <TableCell sx={{ fontWeight: 600 }}>Cari Ünvan</TableCell>
               <TableCell sx={{ fontWeight: 600 }}>Vade</TableCell>
               <TableCell align="right" sx={{ fontWeight: 600 }}>Tutar</TableCell>
               <TableCell sx={{ fontWeight: 600 }}>Onay Durumu</TableCell>
@@ -410,9 +411,9 @@ export default function AlisIadeFaturalariPage() {
                     startIcon={<Add />}
                     sx={{ mt: 2 }}
                     onClick={() => {
-                      addTab({ id: 'fatura-iade-alis-yeni', label: 'Yeni Satın Alma İade Faturası', path: '/invoice/iade/alis/yeni' });
+                      addTab({ id: 'fatura-iade-alis-yeni', label: 'Yeni Satın Alma İade Faturası', path: '/invoices/iade/alis/yeni' });
                       setActiveTab('fatura-iade-alis-yeni');
-                      router.push('/invoice/iade/alis/yeni');
+                      router.push('/invoices/iade/alis/yeni');
                     }}
                   >
                     İlk İade Faturasını Oluştur
@@ -432,6 +433,7 @@ export default function AlisIadeFaturalariPage() {
                     </Typography>
                   </TableCell>
                   <TableCell>{formatDate(fatura.tarih)}</TableCell>
+                  <TableCell>{fatura.cari.cariKodu}</TableCell>
                   <TableCell>{fatura.cari.unvan}</TableCell>
                   <TableCell>{fatura.vade ? formatDate(fatura.vade) : '-'}</TableCell>
                   <TableCell align="right">

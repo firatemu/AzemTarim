@@ -135,7 +135,7 @@ export default function DuzenleSatisTeklifiPage() {
 
   const fetchStoklar = async () => {
     try {
-      const response = await axios.get('/product', {
+      const response = await axios.get('/products', {
         params: { limit: 1000 },
       });
       setStoklar(response.data.data || []);
@@ -394,7 +394,7 @@ export default function DuzenleSatisTeklifiPage() {
       showSnackbar('Teklif başarıyla siparişe dönüştürüldü', 'success');
       setConvertDialogOpen(false);
       setTimeout(() => {
-        router.push(`/siparis/satis/duzenle/${response.data.siparisId}`);
+        router.push(`/orders/satis/duzenle/${response.data.siparisId}`);
       }, 1500);
     } catch (error: any) {
       showSnackbar(error.response?.data?.message || 'Teklif siparişe dönüştürülürken hata oluştu', 'error');

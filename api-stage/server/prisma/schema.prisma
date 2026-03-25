@@ -113,7 +113,29 @@ model Tenant {
   deletedBankTransfers    DeletedBankTransfer[]
   BankAccount             BankAccount[]
   BankLoan                BankLoan[]
+  checkBillEndorsements   CheckBillEndorsement[]
+  checkBillCollections    CheckBillCollection[]
+  accountTransactions     AccountTransaction[]
   BankLoanPlan            BankLoanPlan[]
+  b2bLicense              B2BLicense?
+  b2bTenantConfig         B2BTenantConfig?
+  b2bDomains              B2BDomain[]
+  b2bProducts             B2BProduct[]
+  b2bStocks               B2BStock[]
+  b2bWarehouseConfigs     B2BWarehouseConfig[]
+  b2bCustomerClasses      B2BCustomerClass[]
+  b2bCustomers            B2BCustomer[]
+  b2bSalespersons         B2BSalesperson[]
+  b2bDiscounts            B2BDiscount[]
+  b2bCarts                B2BCart[]
+  b2bCartItems            B2BCartItem[]
+  b2bDeliveryMethods      B2BDeliveryMethod[]
+  b2bOrders               B2BOrder[]
+  b2bOrderItems           B2BOrderItem[]
+  b2bNotifications        B2BNotification[]
+  b2bAdvertisements       B2BAdvertisement[]
+  b2bAccountMovements     B2BAccountMovement[]
+  b2bSyncLogs             B2BSyncLog[]
 
   @@index([subdomain])
   @@index([domain])
@@ -209,6 +231,23 @@ model Subscription {
   @@map("subscriptions")
 }
 
+model ReconciliationLog {
+  id              String   @id @default(uuid())
+  tenantId        String   @map("tenant_id")
+  invoiceId       String?  @map("invoice_id")
+  accountId       String?  @map("account_id")
+  productId       String?  @map("product_id")
+  checkType       String   @map("check_type") // INVOICE | ACCOUNT | PRODUCT | FULL
+  isConsistent    Boolean  @map("is_consistent")
+  discrepancyData Json?    @map("discrepancy_data")
+  checkedAt       DateTime @default(now()) @map("checked_at")
+  checkedBy       String?  @map("checked_by")
+
+  @@index([tenantId])
+  @@index([invoiceId])
+  @@map("reconciliation_logs")
+}
+
 model Payment {
   id              String        @id @default(cuid())
   subscriptionId  String
@@ -299,6 +338,7 @@ model User {
   createdCashboxMovements      CashboxMovement[]         @relation("CashboxMovementCreatedBy")
   createdCashboxes             Cashbox[]                 @relation("CashboxCreatedBy")
   updatedCashboxes             Cashbox[]                 @relation("CashboxUpdatedBy")
+  deletedCashboxes             Cashbox[]                 @relation("CashboxDeletedBy")
   createdEmployeePayments      EmployeePayment[]         @relation("EmployeePaymentCreatedBy")
   createdEmployees             Employee[]                @relation("EmployeeCreatedBy")
   updatedEmployees             Employee[]                @relation("EmployeeUpdatedBy")
@@ -386,6 +426,9 @@ model User {
   deletedAccountMovements     AccountMovement[]     @relation("AccountMovementDeletedBy")
   deletedProductMovements     ProductMovement[]     @relation("ProductMovementDeletedBy")
   deletedBankAccountMovements BankAccountMovement[] @relation("BankAccountMovementDeletedBy")
+  banksDeleted                Bank[]                @relation("BankDeletedBy")
+  performedCheckBillLogs      CheckBillLog[]        @relation("CheckBillLogPerformedBy")
+  createdCheckBillCollections CheckBillCollection[] @relation("CheckBillCollectionCreatedBy")
 
   @@unique([email, tenantId])
   @@index([tenantId])
@@ -447,6 +490,7 @@ model Product {
   internalNote              String?                       @map("internal_note")
   minOrderQty               Int?                          @map("min_order_qty")
   leadTimeDays              Int?                          @map("lead_time_days")
+  isB2B                     Boolean                       @default(false) @map("is_b2b")
   createdAt                 DateTime                      @default(now())
   updatedAt                 DateTime                      @updatedAt
   simpleOrders              SimpleOrder[]                 @relation("SimpleOrderProduct")
@@ -653,8 +697,16 @@ model ProductMovement {
   deletedAt     DateTime?    @map("deleted_at")
   deletedByUser User?        @relation("ProductMovementDeletedBy", fields: [deletedBy], references: [id])
 
+  // Tutarlılık Sistemi - Ters Kayıt Alanları
+  isReversed   Boolean           @default(false) @map("is_reversed")
+  reversalOfId String?           @map("reversal_of_id")
+  reversalOf   ProductMovement?  @relation("ReversalOf", fields: [reversalOfId], references: [id])
+  reversals    ProductMovement[] @relation("ReversalOf")
+  recordType   String?           @map("record_type") // NORMAL | UPDATE_REVERSAL | CANCEL_REVERSAL
+
   @@index([tenantId])
   @@index([invoiceItemId])
+  @@index([isReversed])
   @@map("product_movements")
 }
 
@@ -723,12 +775,16 @@ model Account {
   priceListId String?    @map("price_list_id")
   priceList   PriceList? @relation(fields: [priceListId], references: [id])
 
-  contacts         AccountContact[]
-  addresses        AccountAddress[]
-  banks            AccountBank[]
-  customerVehicles CustomerVehicle[]
-  workOrders       WorkOrder[]
-  serviceInvoices  ServiceInvoice[]
+  contacts                  AccountContact[]
+  addresses                 AccountAddress[]
+  banks                     AccountBank[]
+  customerVehicles          CustomerVehicle[]
+  workOrders                WorkOrder[]
+  serviceInvoices           ServiceInvoice[]
+  checkBillsAsCurrentHolder CheckBill[]            @relation("CheckBillCurrentHolder")
+  endorsementsFrom          CheckBillEndorsement[] @relation("EndorsementFrom")
+  endorsementsTo            CheckBillEndorsement[] @relation("EndorsementTo")
+  accountTransactions       AccountTransaction[]
 
   @@unique([code, tenantId])
   @@index([tenantId])
@@ -818,8 +874,19 @@ model AccountMovement {
   deletedAt     DateTime?     @map("deleted_at")
   deletedByUser User?         @relation("AccountMovementDeletedBy", fields: [deletedBy], references: [id])
 
+  // Tutarlılık Sistemi - Ters Kayıt Alanları
+  invoiceId    String?    @map("invoice_id")
+  invoice      Invoice?   @relation(fields: [invoiceId], references: [id])
+  isReversed   Boolean    @default(false) @map("is_reversed")
+  reversalOfId String?    @map("reversal_of_id")
+  isReversal   Boolean    @default(false) @map("is_reversal")
+  recordType   String?    @map("record_type") // NORMAL | UPDATE_REVERSAL | CANCEL_REVERSAL
+  checkBillId  String?    @map("check_bill_id")
+  checkBill    CheckBill? @relation(fields: [checkBillId], references: [id])
+
   @@index([tenantId])
   @@index([accountId, date])
+  @@index([invoiceId, isReversed])
   @@map("account_movements")
 }
 
@@ -831,10 +898,14 @@ model Cashbox {
   type                 CashboxType           @map("type")
   balance              Decimal               @default(0) @map("balance") @db.Decimal(15, 2)
   isActive             Boolean               @default(true) @map("is_active")
+  isRetail             Boolean               @default(false) @map("is_retail")
+  warehouseId          String?               @map("warehouse_id")
   createdBy            String?
   updatedBy            String?
   createdAt            DateTime              @default(now())
   updatedAt            DateTime              @updatedAt
+  deletedAt            DateTime?             @map("deleted_at")
+  deletedBy            String?               @map("deleted_by")
   bankTransfers        BankTransfer[]
   checkBillCollections CheckBill[]
   corporateCards       CompanyCreditCard[]
@@ -842,10 +913,13 @@ model Cashbox {
   createdByUser        User?                 @relation("CashboxCreatedBy", fields: [createdBy], references: [id])
   tenant               Tenant?               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   updatedByUser        User?                 @relation("CashboxUpdatedBy", fields: [updatedBy], references: [id])
+  deletedByUser        User?                 @relation("CashboxDeletedBy", fields: [deletedBy], references: [id])
   employeePayments     EmployeePayment[]
   collections          Collection[]
   advances             Advance[]
   salaryPaymentDetails SalaryPaymentDetail[]
+  checkBillJournals    CheckBillJournal[]    @relation("CheckBillJournalCashbox")
+  checkBillColRecords  CheckBillCollection[] @relation("CheckBillCollectionCashbox")
 
   @@unique([code, tenantId])
   @@index([tenantId])
@@ -857,19 +931,22 @@ model Cashbox {
 
 // Banka - Ana banka tanımı
 model Bank {
-  id          String        @id @default(uuid())
-  tenantId    String?
-  name        String        @map("name")
-  branch      String?       @map("branch")
-  city        String?       @map("city")
-  contactName String?       @map("contact_name")
-  phone       String?       @map("phone")
-  logo        String?
-  isActive    Boolean       @default(true) @map("is_active")
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
-  accounts    BankAccount[]
-  tenant      Tenant?       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  id            String        @id @default(uuid())
+  tenantId      String?
+  name          String        @map("name")
+  branch        String?       @map("branch")
+  city          String?       @map("city")
+  contactName   String?       @map("contact_name")
+  phone         String?       @map("phone")
+  logo          String?
+  isActive      Boolean       @default(true) @map("is_active")
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  deletedAt     DateTime?     @map("deleted_at")
+  deletedBy     String?       @map("deleted_by")
+  deletedByUser User?         @relation("BankDeletedBy", fields: [deletedBy], references: [id])
+  accounts      BankAccount[]
+  tenant        Tenant?       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@index([tenantId])
   @@map("banks")
@@ -907,6 +984,7 @@ model BankAccount {
   checkBillJournals    CheckBillJournal[]
   tenantId             String?
   tenant               Tenant?               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  checkBillColRecords  CheckBillCollection[] @relation("CheckBillCollectionBank")
 
   @@index([bankId])
   @@index([type])
@@ -1089,6 +1167,8 @@ model Invoice {
   date                   DateTime              @default(now()) @map("date")
   dueDate                DateTime?             @map("due_date")
   discount               Decimal               @default(0) @map("discount") @db.Decimal(10, 2)
+  globalDiscountType     String?               @default("pct") @map("global_discount_type") // "pct" (yüzde) veya "fixed" (sabit tutar)
+  globalDiscountValue    Decimal?              @default(0) @map("global_discount_value") @db.Decimal(10, 2)
   totalAmount            Decimal               @map("total_amount") @db.Decimal(12, 2)
   vatAmount              Decimal               @map("vat_amount") @db.Decimal(12, 2)
   sctTotal               Decimal               @default(0) @map("sct_total") @db.Decimal(12, 2)
@@ -1142,7 +1222,8 @@ model Invoice {
 
   // Opposite relations
   einvoiceSends          EInvoiceSend?
-  matchedEInvoiceInboxes EInvoiceInbox[] @relation("EInvoiceInboxMatchedInvoice")
+  matchedEInvoiceInboxes EInvoiceInbox[]   @relation("EInvoiceInboxMatchedInvoice")
+  accountMovements       AccountMovement[]
 
   @@unique([invoiceNo, tenantId])
   @@index([tenantId])
@@ -1153,6 +1234,8 @@ model Invoice {
   @@index([status])
   @@index([deliveryNoteId])
   @@index([warehouseId])
+  @@index([tenantId, accountId, status])
+  @@index([tenantId, date, status])
   @@map("invoices")
 }
 
@@ -1186,6 +1269,7 @@ model InvoiceItem {
   amount              Decimal            @map("amount") @db.Decimal(10, 2)
   discountRate        Decimal?           @default(0) @map("discount_rate") @db.Decimal(10, 2)
   discountAmount      Decimal?           @default(0) @map("discount_amount") @db.Decimal(10, 2)
+  discountType        String?            @default("pct") @map("discount_type") // "pct" (yüzde) veya "fixed" (sabit tutar)
   withholdingCode     String?            @map("withholding_code") // GIB tevkifat kodu (örn: 601)
   withholdingRate     Decimal?           @map("withholding_rate") @db.Decimal(5, 2) // Örn: 5/10 (0.5)
   sctRate             Decimal?           @map("sct_rate") @db.Decimal(5, 2)
@@ -1256,6 +1340,7 @@ model Collection {
   cashbox             Cashbox?            @relation(fields: [cashboxId], references: [id])
   tenant              Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   salesAgentId        String?             @map("sales_agent_id")
+  installmentCount    Int?                @map("installment_count")
   salesAgent          SalesAgent?         @relation(fields: [salesAgentId], references: [id])
 
   @@index([tenantId])
@@ -1265,15 +1350,16 @@ model Collection {
 }
 
 model InvoiceCollection {
-  id           String     @id @default(uuid())
-  invoiceId    String     @map("invoice_id")
-  collectionId String     @map("collection_id")
-  amount       Decimal    @map("amount") @db.Decimal(12, 2)
-  createdAt    DateTime   @default(now())
-  invoice      Invoice    @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
-  collection   Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
-  tenantId     String?
-  tenant       Tenant?    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  id               String     @id @default(uuid())
+  invoiceId        String     @map("invoice_id")
+  collectionId     String     @map("collection_id")
+  amount           Decimal    @map("amount") @db.Decimal(12, 2)
+  installmentCount Int?       @map("installment_count")
+  createdAt        DateTime   @default(now())
+  invoice          Invoice    @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  collection       Collection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  tenantId         String?
+  tenant           Tenant?    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@unique([invoiceId, collectionId])
   @@index([tenantId])
@@ -1827,7 +1913,7 @@ model StockMove {
   fromLocationId  String?       @map("fromLocationId")
   toWarehouseId   String        @map("toWarehouseId")
   toLocationId    String        @map("toLocationId")
-  quantity        Int           @map("qty")
+  quantity        Decimal       @map("qty") @db.Decimal(18, 5)
   moveType        StockMoveType @map("moveType")
   refType         String?       @map("refType")
   refId           String?       @map("refId")
@@ -2013,17 +2099,24 @@ model CheckBillJournal {
   notes       String?     @map("notes")
   tenantId    String?
   createdById String?     @map("created_by_id")
+  cashboxId   String?     @map("cashbox_id")
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
+  deletedAt   DateTime?   @map("deleted_at")
 
   bankAccountId String?                @map("bank_account_id")
   bankAccount   BankAccount?           @relation(fields: [bankAccountId], references: [id])
   account       Account?               @relation(fields: [accountId], references: [id])
   createdBy     User?                  @relation("CheckBillJournalCreatedBy", fields: [createdById], references: [id])
   tenant        Tenant?                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  cashbox       Cashbox?               @relation("CheckBillJournalCashbox", fields: [cashboxId], references: [id])
   checkBills    CheckBill[]            @relation("CheckBillLastJournal")
   items         CheckBillJournalItem[]
+  endorsements  CheckBillEndorsement[]
+  collections   CheckBillCollection[]
+  logs          CheckBillLog[]
 
+  @@unique([tenantId, journalNo])
   @@map("check_bill_journals")
 }
 
@@ -2070,6 +2163,9 @@ model CheckBill {
   updatedBy           String?                @map("updated_by")
   deletedAt           DateTime?              @map("deleted_at")
   deletedBy           String?                @map("deleted_by")
+  currentHolderId     String?                @map("current_holder_id")
+  isProtested         Boolean                @default(false) @map("is_protested")
+  protestedAt         DateTime?              @map("protested_at")
   createdAt           DateTime               @default(now())
   updatedAt           DateTime               @updatedAt
   logs                CheckBillLog[]
@@ -2082,6 +2178,10 @@ model CheckBill {
   lastJournalId       String?                @map("last_journal_id")
   lastJournal         CheckBillJournal?      @relation("CheckBillLastJournal", fields: [lastJournalId], references: [id])
   journalItems        CheckBillJournalItem[]
+  currentHolder       Account?               @relation("CheckBillCurrentHolder", fields: [currentHolderId], references: [id])
+  endorsements        CheckBillEndorsement[]
+  accountMovements    AccountMovement[]
+  collections         CheckBillCollection[]
 
   @@index([tenantId])
   @@index([tenantId, dueDate])
@@ -2132,22 +2232,95 @@ model DeletedCheckBill {
 }
 
 model CheckBillLog {
-  id          String    @id @default(uuid())
-  checkBillId String    @map("check_bill_id")
-  userId      String?   @map("user_id")
-  actionType  LogAction @map("action_type")
-  changes     String?   @map("changes")
-  ipAddress   String?   @map("ip_address")
-  userAgent   String?   @map("user_agent")
-  createdAt   DateTime  @default(now())
-  checkBill   CheckBill @relation(fields: [checkBillId], references: [id], onDelete: Cascade)
-  user        User?     @relation(fields: [userId], references: [id])
-  tenantId    String?
+  id            String           @id @default(uuid())
+  checkBillId   String           @map("check_bill_id")
+  userId        String?          @map("user_id")
+  actionType    LogAction        @map("action_type")
+  changes       String?          @map("changes")
+  ipAddress     String?          @map("ip_address")
+  userAgent     String?          @map("user_agent")
+  fromStatus    CheckBillStatus? @map("from_status")
+  toStatus      CheckBillStatus? @map("to_status")
+  journalId     String?          @map("journal_id")
+  performedById String?          @map("performed_by_id")
+  notes         String?
+  createdAt     DateTime         @default(now())
+  tenantId      String?
+
+  checkBill   CheckBill         @relation(fields: [checkBillId], references: [id], onDelete: Cascade)
+  user        User?             @relation(fields: [userId], references: [id])
+  journal     CheckBillJournal? @relation(fields: [journalId], references: [id])
+  performedBy User?             @relation("CheckBillLogPerformedBy", fields: [performedById], references: [id])
 
   @@index([checkBillId])
   @@index([userId])
   @@index([tenantId])
   @@map("check_bill_logs")
+}
+
+model CheckBillEndorsement {
+  id            String   @id @default(uuid())
+  tenantId      String?
+  checkBillId   String   @map("check_bill_id")
+  sequence      Int
+  fromAccountId String   @map("from_account_id")
+  toAccountId   String   @map("to_account_id")
+  endorsedAt    DateTime @map("endorsed_at")
+  journalId     String   @map("journal_id")
+
+  checkBill   CheckBill        @relation(fields: [checkBillId], references: [id])
+  fromAccount Account          @relation("EndorsementFrom", fields: [fromAccountId], references: [id])
+  toAccount   Account          @relation("EndorsementTo", fields: [toAccountId], references: [id])
+  journal     CheckBillJournal @relation(fields: [journalId], references: [id])
+  tenant      Tenant?          @relation(fields: [tenantId], references: [id])
+
+  @@index([checkBillId])
+  @@index([tenantId])
+  @@map("check_bill_endorsements")
+}
+
+model CheckBillCollection {
+  id              String   @id @default(uuid())
+  tenantId        String?
+  checkBillId     String   @map("check_bill_id")
+  collectedAmount Decimal  @map("collected_amount") @db.Decimal(15, 2)
+  collectionDate  DateTime @map("collection_date")
+  cashboxId       String?  @map("cashbox_id")
+  bankAccountId   String?  @map("bank_account_id")
+  journalId       String   @map("journal_id")
+  createdById     String?  @map("created_by_id")
+  createdAt       DateTime @default(now())
+
+  checkBill   CheckBill        @relation(fields: [checkBillId], references: [id])
+  cashbox     Cashbox?         @relation("CheckBillCollectionCashbox", fields: [cashboxId], references: [id])
+  bankAccount BankAccount?     @relation("CheckBillCollectionBank", fields: [bankAccountId], references: [id])
+  journal     CheckBillJournal @relation(fields: [journalId], references: [id])
+  createdBy   User?            @relation("CheckBillCollectionCreatedBy", fields: [createdById], references: [id])
+  tenant      Tenant?          @relation(fields: [tenantId], references: [id])
+
+  @@index([checkBillId])
+  @@index([tenantId])
+  @@map("check_bill_collections")
+}
+
+model AccountTransaction {
+  id          String                       @id @default(uuid())
+  tenantId    String?
+  accountId   String                       @map("account_id")
+  sourceType  AccountTransactionSourceType @map("source_type")
+  sourceId    String                       @map("source_id")
+  direction   AccountTransactionDirection  @map("direction")
+  amount      Decimal                      @db.Decimal(15, 2)
+  description String?
+  createdAt   DateTime                     @default(now())
+
+  account Account @relation(fields: [accountId], references: [id])
+  tenant  Tenant? @relation(fields: [tenantId], references: [id])
+
+  @@index([accountId])
+  @@index([tenantId])
+  @@index([sourceType, sourceId])
+  @@map("account_transactions")
 }
 
 model Employee {
@@ -2303,9 +2476,11 @@ model PurchaseOrderItem {
   invoiceItems     InvoiceItem[]   @relation("PurchaseOrderItemInvoiceItem")
   product          Product         @relation("PurchaseOrderItemProduct", fields: [productId], references: [id])
   purchaseOrder    PurchaseOrder   @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  tenantId         String?
 
   @@index([purchaseOrderId])
   @@index([productId])
+  @@index([tenantId])
   @@map("purchase_order_items")
 }
 
@@ -3360,6 +3535,16 @@ enum CheckBillType {
   PROMISSORY
 }
 
+enum AccountTransactionSourceType {
+  CHECK_BILL_JOURNAL
+  CHECK_BILL_ACTION
+}
+
+enum AccountTransactionDirection {
+  CREDIT
+  DEBIT
+}
+
 enum PortfolioType {
   CREDIT
   DEBIT
@@ -3376,6 +3561,8 @@ enum CheckBillStatus {
   WITHOUT_COVERAGE
   IN_BANK_COLLECTION
   IN_BANK_GUARANTEE
+  PARTIAL_PAID
+  PROTESTED
 }
 
 enum Gender {
@@ -3417,6 +3604,8 @@ enum ModuleType {
   TECHNICIAN
   WORK_ORDER
   SERVICE_INVOICE
+  CHECK_BILL_JOURNAL
+  CHECK_BILL_DOCUMENT
 }
 
 enum DeliveryNoteSourceType {
@@ -3821,13 +4010,14 @@ model VehicleExpense {
 
 model UnitSet {
   id          String   @id @default(uuid())
-  tenantId    String   @map("tenant_id")
+  tenantId    String?  @map("tenant_id")
   name        String   @map("name")
   description String?  @map("description")
+  isSystem    Boolean  @default(false) @map("is_system")
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   units       Unit[]
-  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant      Tenant?  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@index([tenantId])
   @@map("unit_sets")
@@ -3840,6 +4030,7 @@ model Unit {
   code           String?   @map("code") // GIB Birim Kodu (Örn: ADET, KG)
   conversionRate Decimal   @default(1) @map("conversion_rate") @db.Decimal(12, 4)
   isBaseUnit     Boolean   @default(false) @map("is_base_unit")
+  isDivisible    Boolean   @default(true) @map("is_divisible")
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
   unitSet        UnitSet   @relation(fields: [unitSetId], references: [id], onDelete: Cascade)
@@ -4400,4 +4591,460 @@ model TechnicianMetric {
   @@index([tenantId])
   @@index([technicianId])
   @@map("technician_metrics")
+}
+
+// ========== B2B Portal (tenant-scoped, main SaaS database) ==========
+
+model B2BLicense {
+  id              String    @id @default(cuid())
+  tenantId        String    @unique
+  isActive        Boolean   @default(true)
+  maxB2BCustomers Int       @default(-1)
+  expiresAt       DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  tenant          Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, isActive])
+  @@map("b2b_licenses")
+}
+
+model B2BTenantConfig {
+  id                  String               @id @default(cuid())
+  tenantId            String               @unique
+  schemaName          String               @unique
+  domain              String?              @unique
+  erpAdapterType      B2BErpAdapter
+  erpConnectionString String?
+  lastSyncedAt        DateTime?
+  syncIntervalMinutes Int                  @default(60)
+  orderApprovalMode   B2BOrderApprovalMode @default(MANUAL)
+  isActive            Boolean              @default(true)
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  tenant              Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, isActive])
+  @@map("b2b_tenant_configs")
+}
+
+model B2BDomain {
+  id         String   @id @default(cuid())
+  domain     String   @unique
+  tenantId   String
+  isVerified Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@map("b2b_domains")
+}
+
+model B2BProduct {
+  id               String         @id @default(cuid())
+  tenantId         String
+  erpProductId     String
+  stockCode        String
+  name             String
+  description      String?
+  brand            String?
+  category         String?
+  oemCode          String?
+  supplierCode     String?
+  unit             String?
+  erpListPrice     Decimal        @db.Decimal(12, 2)
+  erpCreatedAt     DateTime?
+  erpUpdatedAt     DateTime?
+  isVisibleInB2B   Boolean        @default(true)
+  minOrderQuantity Int            @default(1)
+  imageUrl         String?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  tenant           Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  stocks           B2BStock[]
+  cartItems        B2BCartItem[]
+  orderItems       B2BOrderItem[]
+
+  @@unique([tenantId, erpProductId])
+  @@unique([tenantId, stockCode])
+  @@index([tenantId, isVisibleInB2B])
+  @@map("b2b_products")
+}
+
+model B2BStock {
+  id            String     @id @default(cuid())
+  tenantId      String
+  productId     String
+  warehouseId   String
+  warehouseName String
+  isAvailable   Boolean    @default(true)
+  displayOrder  Int        @default(0)
+  updatedAt     DateTime   @updatedAt
+  tenant        Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  product       B2BProduct @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, productId, warehouseId])
+  @@index([tenantId, productId])
+  @@map("b2b_stocks")
+}
+
+model B2BWarehouseConfig {
+  id            String                  @id @default(cuid())
+  tenantId      String
+  warehouseId   String
+  warehouseName String
+  displayMode   B2BWarehouseDisplayMode @default(INDIVIDUAL)
+  isActive      Boolean                 @default(true)
+  createdAt     DateTime                @default(now())
+  updatedAt     DateTime                @updatedAt
+  tenant        Tenant                  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, warehouseId])
+  @@index([tenantId])
+  @@map("b2b_warehouse_configs")
+}
+
+model B2BCustomerClass {
+  id           String        @id @default(cuid())
+  tenantId     String
+  name         String
+  discountRate Decimal       @default(0) @db.Decimal(5, 2)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  customers    B2BCustomer[]
+
+  @@unique([tenantId, name])
+  @@index([tenantId])
+  @@map("b2b_customer_classes")
+}
+
+model B2BCustomer {
+  id              String    @id @default(cuid())
+  tenantId        String
+  erpNum          Int?
+  erpAccountId    String
+  name            String
+  email           String
+  passwordHash    String
+  isActive        Boolean   @default(true)
+  customerClassId String?
+  vatDays         Int       @default(30)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  lastLoginAt     DateTime?
+
+  city             String?
+  district         String?
+  canUseVirtualPos Boolean @default(true)
+  blockOrderOnRisk Boolean @default(false)
+  customerGrade    String?
+  discountGroupId  String?
+
+  tenant           Tenant                   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  customerClass    B2BCustomerClass?        @relation(fields: [customerClassId], references: [id], onDelete: SetNull)
+  discountGroup    B2BDiscount?             @relation(fields: [discountGroupId], references: [id], onDelete: SetNull)
+  salespersonLinks B2BSalespersonCustomer[]
+  carts            B2BCart[]
+  orders           B2BOrder[]
+  notifications    B2BNotification[]
+  accountMovements B2BAccountMovement[]
+
+  @@unique([tenantId, email])
+  @@unique([tenantId, erpAccountId])
+  @@index([tenantId, isActive])
+  @@map("b2b_customers")
+}
+
+model B2BSalesperson {
+  id                  String                   @id @default(cuid())
+  tenantId            String
+  name                String
+  email               String
+  passwordHash        String
+  isActive            Boolean                  @default(true)
+  canViewAllCustomers Boolean                  @default(false)
+  canViewAllReports   Boolean                  @default(false)
+  createdAt           DateTime                 @default(now())
+  updatedAt           DateTime                 @updatedAt
+  tenant              Tenant                   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  customerAssignments B2BSalespersonCustomer[]
+  orders              B2BOrder[]
+
+  @@unique([tenantId, email])
+  @@index([tenantId, isActive])
+  @@map("b2b_salespersons")
+}
+
+model B2BSalespersonCustomer {
+  salespersonId String
+  customerId    String
+  assignedAt    DateTime       @default(now())
+  salesperson   B2BSalesperson @relation(fields: [salespersonId], references: [id], onDelete: Cascade)
+  customer      B2BCustomer    @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@id([salespersonId, customerId])
+  @@map("b2b_salesperson_customers")
+}
+
+model B2BDiscount {
+  id           String          @id @default(cuid())
+  tenantId     String
+  name         String
+  type         B2BDiscountType
+  targetValue  String
+  discountRate Decimal         @db.Decimal(5, 2)
+  startsAt     DateTime?
+  endsAt       DateTime?
+  isActive     Boolean         @default(true)
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+  tenant       Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  customers    B2BCustomer[]
+
+  @@index([tenantId, isActive])
+  @@map("b2b_discounts")
+}
+
+model B2BCart {
+  id         String        @id @default(cuid())
+  tenantId   String
+  customerId String
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+  tenant     Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  customer   B2BCustomer   @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  items      B2BCartItem[]
+
+  @@unique([tenantId, customerId])
+  @@index([tenantId])
+  @@map("b2b_carts")
+}
+
+model B2BCartItem {
+  id        String     @id @default(cuid())
+  tenantId  String
+  cartId    String
+  productId String
+  quantity  Int
+  addedAt   DateTime   @default(now())
+  tenant    Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  cart      B2BCart    @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  product   B2BProduct @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([cartId, productId])
+  @@index([tenantId])
+  @@map("b2b_cart_items")
+}
+
+model B2BDeliveryMethod {
+  id           String     @id @default(cuid())
+  tenantId     String
+  name         String
+  isActive     Boolean    @default(true)
+  displayOrder Int        @default(0)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  tenant       Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  orders       B2BOrder[]
+
+  @@index([tenantId, isActive])
+  @@map("b2b_delivery_methods")
+}
+
+model B2BOrder {
+  id                  String            @id @default(cuid())
+  tenantId            String
+  orderNumber         String
+  customerId          String
+  salespersonId       String?
+  placedBy            B2BOrderPlacedBy
+  placedByLabel       String?
+  status              B2BOrderStatus    @default(PENDING)
+  deliveryBranchId    String?
+  deliveryBranchName  String?
+  deliveryMethodId    String
+  note                String?
+  totalListPrice      Decimal           @db.Decimal(14, 2)
+  totalDiscountAmount Decimal           @db.Decimal(14, 2)
+  totalFinalPrice     Decimal           @db.Decimal(14, 2)
+  erpOrderId          String?
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+  tenant              Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  customer            B2BCustomer       @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  salesperson         B2BSalesperson?   @relation(fields: [salespersonId], references: [id], onDelete: SetNull)
+  deliveryMethod      B2BDeliveryMethod @relation(fields: [deliveryMethodId], references: [id])
+  items               B2BOrderItem[]
+  notifications       B2BNotification[]
+
+  @@unique([tenantId, orderNumber])
+  @@index([tenantId, customerId])
+  @@index([tenantId, status])
+  @@map("b2b_orders")
+}
+
+model B2BOrderItem {
+  id                    String     @id @default(cuid())
+  tenantId              String
+  orderId               String
+  productId             String
+  stockCode             String
+  productName           String
+  quantity              Int
+  listPrice             Decimal    @db.Decimal(12, 2)
+  customerClassDiscount Decimal    @default(0) @db.Decimal(12, 2)
+  campaignDiscount      Decimal    @default(0) @db.Decimal(12, 2)
+  finalPrice            Decimal    @db.Decimal(12, 2)
+  createdAt             DateTime   @default(now())
+  tenant                Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  order                 B2BOrder   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product               B2BProduct @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId, orderId])
+  @@map("b2b_order_items")
+}
+
+model B2BNotification {
+  id         String              @id @default(cuid())
+  tenantId   String
+  customerId String
+  type       B2BNotificationType
+  message    String
+  isRead     Boolean             @default(false)
+  orderId    String?
+  createdAt  DateTime            @default(now())
+  tenant     Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  customer   B2BCustomer         @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  order      B2BOrder?           @relation(fields: [orderId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, customerId])
+  @@map("b2b_notifications")
+}
+
+model B2BAdvertisement {
+  id           String    @id @default(cuid())
+  tenantId     String
+  type         B2BAdType
+  imageUrl     String
+  linkUrl      String?
+  displayOrder Int       @default(0)
+  startsAt     DateTime?
+  endsAt       DateTime?
+  isActive     Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  tenant       Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, isActive, displayOrder])
+  @@map("b2b_advertisements")
+}
+
+model B2BAccountMovement {
+  id            String          @id @default(cuid())
+  tenantId      String
+  erpMovementId String
+  customerId    String
+  date          DateTime
+  type          B2BMovementType
+  description   String?
+  debit         Decimal         @default(0) @db.Decimal(12, 2)
+  credit        Decimal         @default(0) @db.Decimal(12, 2)
+  balance       Decimal         @db.Decimal(12, 2)
+  erpInvoiceNo  String?
+  dueDate       DateTime?
+  isPastDue     Boolean         @default(false)
+  createdAt     DateTime        @default(now())
+  tenant        Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  customer      B2BCustomer     @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, erpMovementId])
+  @@index([tenantId, customerId])
+  @@index([tenantId, date])
+  @@map("b2b_account_movements")
+}
+
+model B2BSyncLog {
+  id               String        @id @default(cuid())
+  tenantId         String
+  syncType         B2BSyncType
+  status           B2BSyncStatus
+  startedAt        DateTime      @default(now())
+  finishedAt       DateTime?
+  recordsProcessed Int           @default(0)
+  recordsAdded     Int           @default(0)
+  recordsUpdated   Int           @default(0)
+  errorMessage     String?
+  createdAt        DateTime      @default(now())
+  tenant           Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, syncType, status, startedAt])
+  @@map("b2b_sync_logs")
+}
+
+enum B2BOrderApprovalMode {
+  MANUAL
+  AUTO
+}
+
+enum B2BErpAdapter {
+  OTOMUHASEBE
+  LOGO
+  MIKRO
+}
+
+enum B2BOrderStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  EXPORTED_TO_ERP
+  CANCELLED
+}
+
+enum B2BOrderPlacedBy {
+  CUSTOMER
+  SALESPERSON
+}
+
+enum B2BNotificationType {
+  ORDER_RECEIVED
+  ORDER_APPROVED
+  ORDER_REJECTED
+}
+
+enum B2BAdType {
+  HOMEPAGE_BANNER
+  LOGIN_POPUP
+}
+
+enum B2BMovementType {
+  INVOICE
+  PAYMENT
+  RETURN
+  OTHER
+}
+
+enum B2BSyncType {
+  PRODUCTS
+  STOCK
+  ACCOUNT_MOVEMENTS
+  FULL
+}
+
+enum B2BSyncStatus {
+  RUNNING
+  SUCCESS
+  FAILED
+}
+
+enum B2BWarehouseDisplayMode {
+  INDIVIDUAL
+  COMBINED
+}
+
+enum B2BDiscountType {
+  CUSTOMER_CLASS
+  BRAND
+  CATEGORY
+  PRODUCT_LIST
 }

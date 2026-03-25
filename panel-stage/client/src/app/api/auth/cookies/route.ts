@@ -1,9 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 
+type SlimUser = {
+    id?: string;
+    email?: string;
+    username?: string;
+    fullName?: string;
+    role?: string;
+    tenantId?: string | null;
+};
+
 export async function POST(request: NextRequest) {
     try {
-        const { accessToken, refreshToken, tenantId } = await request.json();
+        const body = await request.json();
+        const { accessToken, refreshToken, tenantId, user: rawUser } = body as {
+            accessToken?: string;
+            refreshToken?: string;
+            tenantId?: string;
+            user?: SlimUser;
+        };
         const cookieStore = await cookies();
         const isProduction = process.env.NODE_ENV === 'production';
 
@@ -15,6 +30,9 @@ export async function POST(request: NextRequest) {
             maxAge: 60 * 60 * 24 * 7, // 1 hafta
         };
 
+        /** SSR menü (B2B admin) + RootLayout hydrate — iç içe tenant objesi koyma (4KB sınırı) */
+        const userOptions = { ...options };
+
         if (accessToken) {
             cookieStore.set('accessToken', accessToken, options);
         }
@@ -25,6 +43,18 @@ export async function POST(request: NextRequest) {
 
         if (tenantId) {
             cookieStore.set('tenantId', tenantId, options);
+        }
+
+        if (rawUser && typeof rawUser === 'object') {
+            const slim: SlimUser = {
+                id: rawUser.id,
+                email: rawUser.email,
+                username: rawUser.username,
+                fullName: rawUser.fullName,
+                role: rawUser.role != null ? String(rawUser.role) : undefined,
+                tenantId: rawUser.tenantId ?? null,
+            };
+            cookieStore.set('user', encodeURIComponent(JSON.stringify(slim)), userOptions);
         }
 
         return NextResponse.json({ success: true });
@@ -43,6 +73,7 @@ export async function DELETE() {
         cookieStore.delete('accessToken');
         cookieStore.delete('refreshToken');
         cookieStore.delete('tenantId');
+        cookieStore.delete('user');
         return NextResponse.json({ success: true });
     } catch (error) {
         return NextResponse.json(

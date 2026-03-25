@@ -67,10 +67,10 @@ export default function SatisIrsaliyeleriPage() {
     addTab({
       id: 'yeni-satis-irsaliyesi',
       label: 'Yeni Satış İrsaliyesi',
-      path: '/satis-irsaliyesi/yeni',
+      path: '/sales-waybills/yeni',
       icon: 'local_shipping'
     });
-    router.push('/satis-irsaliyesi/yeni');
+    router.push('/sales-waybills/yeni');
   };
 
   const [irsaliyeler, setIrsaliyeler] = useState<SatisIrsaliyesi[]>([]);
@@ -82,6 +82,11 @@ export default function SatisIrsaliyeleriPage() {
   const [selectedIrsaliyeForMenu, setSelectedIrsaliyeForMenu] = useState<SatisIrsaliyesi | null>(null);
 
   useEffect(() => {
+    addTab({
+      id: 'sales-delivery-note-list',
+      label: 'Satış İrsaliyeleri',
+      path: '/sales-delivery-note',
+    });
     fetchIrsaliyeler();
   }, []);
 
@@ -124,7 +129,7 @@ export default function SatisIrsaliyeleriPage() {
 
     try {
       setLoading(true);
-      await axios.delete(`/satis-irsaliyesi/${selectedIrsaliye.id}`);
+      await axios.delete(`/sales-waybills/${selectedIrsaliye.id}`);
       showSnackbar('İrsaliye başarıyla silindi', 'success');
       setOpenDelete(false);
       fetchIrsaliyeler();
@@ -380,7 +385,7 @@ export default function SatisIrsaliyeleriPage() {
                         <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'center' }}>
                           <IconButton
                             size="small"
-                            onClick={() => router.push(`/satis-irsaliyesi/${irsaliye.id}`)}
+                            onClick={() => router.push(`/sales-waybills/${irsaliye.id}`)}
                             sx={{
                               color: 'var(--primary)',
                               '&:hover': {
@@ -393,7 +398,7 @@ export default function SatisIrsaliyeleriPage() {
                           </IconButton>
                           <IconButton
                             size="small"
-                            onClick={() => router.push(`/satis-irsaliyesi/print/${irsaliye.id}`)}
+                            onClick={() => router.push(`/sales-waybills/print/${irsaliye.id}`)}
                             sx={{
                               color: 'var(--chart-2)',
                               '&:hover': {
@@ -441,7 +446,7 @@ export default function SatisIrsaliyeleriPage() {
                 onClick={(e) => {
                   e.stopPropagation();
                   handleMenuClose();
-                  router.push(`/satis-irsaliyesi/${selectedIrsaliyeForMenu.id}`);
+                  router.push(`/sales-waybills/${selectedIrsaliyeForMenu.id}`);
                 }}
               >
                 Görüntüle
@@ -451,7 +456,7 @@ export default function SatisIrsaliyeleriPage() {
                 onClick={(e) => {
                   e.stopPropagation();
                   handleMenuClose();
-                  router.push(`/satis-irsaliyesi/print/${selectedIrsaliyeForMenu.id}`);
+                  router.push(`/sales-waybills/print/${selectedIrsaliyeForMenu.id}`);
                 }}
               >
                 Yazdır
@@ -475,7 +480,7 @@ export default function SatisIrsaliyeleriPage() {
                   onClick={(e) => {
                     e.stopPropagation();
                     handleMenuClose();
-                    router.push(`/satis-irsaliyesi/${selectedIrsaliyeForMenu.id}/duzenle`);
+                    router.push(`/sales-waybills/${selectedIrsaliyeForMenu.id}/duzenle`);
                   }}
                 >
                   Düzenle

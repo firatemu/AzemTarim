@@ -89,13 +89,13 @@ export default function SiparisHazirlamaPage() {
       // Hazırlama detaylarını çek (lokasyon bilgileri ile)
       let data;
       try {
-        const response = await axios.get(`/siparis/${id}/hazirlama-detaylari`);
+        const response = await axios.get(`/orders/${id}/hazirlama-detaylari`);
         data = response.data;
         console.log('Hazırlama detayları alındı:', data);
       } catch (e) {
         console.error('Hazırlama detayları alınamadı, normal detay kullanılıyor:', e);
         // Hazırlama detayları yoksa normal detayı çek
-        const response = await axios.get(`/siparis/${id}`);
+        const response = await axios.get(`/orders/${id}`);
         data = response.data;
       }
       

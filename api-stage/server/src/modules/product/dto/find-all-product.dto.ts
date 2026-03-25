@@ -21,4 +21,16 @@ export class FindAllProductDto {
     @IsOptional()
     @IsString()
     isActive?: string;
+
+    @IsOptional()
+    @IsString()
+    brand?: string;
+
+    @IsOptional()
+    @IsString()
+    mainCategory?: string;
+
+    @IsOptional()
+    @IsString()
+    subCategory?: string;
 }

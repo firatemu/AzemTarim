@@ -710,7 +710,7 @@ export default function HesapDetayPage() {
                     <Box sx={{ position: 'relative', zIndex: 1 }}>
                         <Button
                             startIcon={<ArrowBack />}
-                            onClick={() => router.push(`/banks/${hesap.bank.id}`)}
+                            onClick={() => router.push(`/bank/${hesap.bank.id}`)}
                             sx={{
                                 mb: 1,
                                 color: 'var(--muted-foreground)',

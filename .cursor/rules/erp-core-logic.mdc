@@ -1,0 +1,27 @@
+---
+description: "Core ERP business logic rules (Finance, Stock, Invoices)"
+globs: ["**/*.service.ts", "**/*.handler.ts", "**/modules/**"]
+alwaysApply: true
+---
+
+# ERP Core Business Logic
+
+## 1. Financial Transactions (FIFO & Balance)
+- **FIFO (First-In, First-Out)**: Always apply FIFO logic for debt/credit matching in collections and payments.
+- **Weighted Average Cost**: Use weighted average for calculating stock costs unless otherwise specified.
+- **Account Movement**: Every financial operation MUST create an `AccountMovement` record.
+
+## 2. Inventory & Stock
+- **Stock Movements**: Every stock change (Sale, Purchase, Return) must create a `StockMovement` row.
+- **Isolation**: Never update stock levels without a corresponding document (Invoice, Delivery Note).
+- **Unit Conversions**: Handle unit conversions (e.g., Box to Piece) explicitly using the `UnitSet` logic.
+
+## 3. Invoice & Document Rules
+- **Cancellation**: 
+  - `SATIS` / `ALIS`: Reverse BALANCE only. Do NOT auto-delete stock movements if they represent physical reality.
+  - `IADE`: Reverse both STOCK and BALANCE.
+- **Traceability**: Maintain a link between `DeliveryNote` (Irsaliye) and `Invoice` (Fatura).
+
+## 4. Transactional Integrity
+- **ACID**: All multi-step operations (Invoice + Stock + Account) MUST be wrapped in a Prisma `$transaction`.
+- **Validation**: Validate availability of stock/balance BEFORE performing debit/credit operations.

@@ -12,8 +12,7 @@ import {
     IsArray,
     IsNumber,
 } from 'class-validator';
-import { Type } from 'class-transformer';
-import { Transform } from 'class-transformer';
+import { Type, Transform } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
 
 export enum AccountType {
@@ -45,7 +44,10 @@ export enum AddressType {
 }
 
 export class CreateAccountContactDto {
-    @IsNotEmpty() @IsString() @ApiProperty() fullName: string;
+    @IsOptional()
+    @IsString()
+    @ApiProperty({ required: false })
+    fullName?: string;
     @IsOptional() @IsString() @ApiProperty({ required: false }) title?: string;
     @IsOptional() @IsString() @ApiProperty({ required: false }) phone?: string;
     @IsOptional() @IsEmail() @ApiProperty({ required: false }) email?: string;
@@ -55,9 +57,11 @@ export class CreateAccountContactDto {
 }
 
 export class CreateAccountAddressDto {
-    @IsNotEmpty() @IsString() @ApiProperty() title: string;
-    @IsEnum(AddressType) @ApiProperty({ enum: AddressType }) type: AddressType;
-    @IsNotEmpty() @IsString() @ApiProperty() address: string;
+    @IsOptional()
+    @IsString()
+    @ApiProperty()
+    address?: string;
+    @IsEnum(AddressType) @ApiProperty({ enum: AddressType }) type?: AddressType;
     @IsOptional() @IsString() @ApiProperty({ required: false }) city?: string;
     @IsOptional() @IsString() @ApiProperty({ required: false }) district?: string;
     @IsOptional() @IsString() @ApiProperty({ required: false }) postalCode?: string;
@@ -65,11 +69,17 @@ export class CreateAccountAddressDto {
 }
 
 export class CreateAccountBankDto {
-    @IsNotEmpty() @IsString() @ApiProperty() bankName: string;
+    @IsOptional()
+    @IsString()
+    @ApiProperty({ required: false })
+    bankName?: string;
     @IsOptional() @IsString() @ApiProperty({ required: false }) branchName?: string;
     @IsOptional() @IsString() @ApiProperty({ required: false }) branchCode?: string;
     @IsOptional() @IsString() @ApiProperty({ required: false }) accountNumber?: string;
-    @IsNotEmpty() @IsString() @ApiProperty() iban: string;
+    @IsOptional()
+    @IsString()
+    @ApiProperty({ required: false })
+    iban?: string;
     @IsOptional() @IsString() @ApiProperty({ required: false }) currency?: string;
     @IsOptional() @IsString() @ApiProperty({ required: false }) notes?: string;
 }
@@ -80,10 +90,10 @@ export class CreateAccountDto {
     @ApiProperty({ required: false })
     code?: string;
 
-    @IsNotEmpty({ message: 'Title cannot be empty' })
+    @IsOptional()
     @IsString()
     @ApiProperty()
-    title: string;
+    title?: string;
 
     @IsOptional()
     @IsEnum(AccountType)
@@ -164,8 +174,8 @@ export class CreateAccountDto {
 
     @IsOptional()
     @IsString()
-    @Transform(({ value }) => value === '' ? null : value)
     @ApiProperty({ required: false })
+    @Transform(({ value }) => value === '' ? null : value)
     salesAgentId?: string;
 
     @IsOptional()
@@ -174,8 +184,8 @@ export class CreateAccountDto {
     @ApiProperty({ required: false })
     creditLimit?: number;
 
-    @IsEnum(RiskStatus)
     @IsOptional()
+    @IsEnum(RiskStatus)
     @ApiProperty({ enum: RiskStatus, required: false })
     creditStatus?: RiskStatus;
 
@@ -185,14 +195,38 @@ export class CreateAccountDto {
     @ApiProperty({ required: false })
     collateralAmount?: number;
 
-    @IsOptional() @IsString() @ApiProperty({ required: false }) sector?: string;
-    @IsOptional() @IsString() @ApiProperty({ required: false }) customCode1?: string;
-    @IsOptional() @IsString() @ApiProperty({ required: false }) customCode2?: string;
-    @IsOptional() @IsString() @ApiProperty({ required: false }) website?: string;
-    @IsOptional() @IsString() @ApiProperty({ required: false }) fax?: string;
-    @IsOptional() @IsInt() @ApiProperty({ required: false }) dueDays?: number;
-    @IsOptional() @IsString() @ApiProperty({ required: false }) currency?: string;
-    @IsOptional() @IsString() @ApiProperty({ required: false }) bankInfo?: string;
+    @IsOptional()
+    @IsString()
+    @ApiProperty({ required: false })
+    sector?: string;
+    @IsOptional()
+    @IsString()
+    @ApiProperty({ required: false })
+    customCode1?: string;
+    @IsOptional()
+    @IsString()
+    @ApiProperty({ required: false })
+    customCode2?: string;
+    @IsOptional()
+    @IsString()
+    @ApiProperty({ required: false })
+    website?: string;
+    @IsOptional()
+    @IsString()
+    @ApiProperty({ required: false })
+    fax?: string;
+    @IsOptional()
+    @IsInt()
+    @ApiProperty({ required: false })
+    dueDays?: number;
+    @IsOptional()
+    @IsString()
+    @ApiProperty({ required: false })
+    currency?: string;
+    @IsOptional()
+    @IsString()
+    @ApiProperty({ required: false })
+    bankInfo?: string;
 
     @IsOptional()
     @IsArray()

@@ -390,7 +390,7 @@ export default function GidenHavalePage() {
       if (filterBaslangic) params.baslangicTarihi = filterBaslangic;
       if (filterBitis) params.bitisTarihi = filterBitis;
 
-      const response = await axios.get('/bank-havale', { params });
+      const response = await axios.get('/bank-transfer', { params });
       setHavaleler(response.data);
     } catch (error: any) {
       showSnackbar(error.response?.data?.message || 'Kayıtlar yüklenirken hata oluştu', 'error');
@@ -404,7 +404,7 @@ export default function GidenHavalePage() {
       // ✅ ÇÖZÜM: Yeni Banka API'sini kullan (/api/banka)
       // Bu endpoint bankaları ve altındaki hesapları getirir.
       // Biz sadece VADESIZ hesapları düz bir liste olarak alacağız.
-      const response = await axios.get('/bank');
+      const response = await axios.get('/banks');
       const bankalar = response.data || [];
 
       const vadesizHesaplar: BankaHesabi[] = [];
@@ -538,10 +538,10 @@ export default function GidenHavalePage() {
       submitData.bankaHesapId = selectedBankaHesabi.id;
 
       if (editMode && selectedHavale) {
-        await axios.put(`/banka-havale/${selectedHavale.id}`, submitData);
+        await axios.put(`/bank-transfer/${selectedHavale.id}`, submitData);
         showSnackbar('Giden havale kaydı güncellendi', 'success');
       } else {
-        await axios.post('/bank-havale', submitData);
+        await axios.post('/bank-transfer', submitData);
         showSnackbar('Giden havale kaydı oluşturuldu', 'success');
       }
 
@@ -561,7 +561,7 @@ export default function GidenHavalePage() {
     try {
       setLoading(true);
       const params = deleteReason ? { reason: deleteReason } : {};
-      await axios.delete(`/banka-havale/${selectedHavale.id}`, { params });
+      await axios.delete(`/bank-transfer/${selectedHavale.id}`, { params });
       showSnackbar('Giden havale kaydı silindi', 'success');
       setOpenDelete(false);
       setSelectedHavale(null);
@@ -576,7 +576,7 @@ export default function GidenHavalePage() {
   };
 
   const handleViewDetail = useCallback((havale: BankaHavale) => {
-    router.push(`/banka-havale/giden/${havale.id}`);
+    router.push(`/bank-transfer/giden/${havale.id}`);
   }, [router]);
 
 

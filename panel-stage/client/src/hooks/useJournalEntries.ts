@@ -11,7 +11,7 @@ export function useJournalEntries(params?: {
   return useQuery({
     queryKey: ['journal-entries', page, limit, referenceType],
     queryFn: async () => {
-      const response = await axios.get('/journal-entry', {
+      const response = await axios.get('/journal-entries', {
         params: { page, limit, referenceType },
       });
       const data = response.data?.data ?? response.data;
@@ -36,7 +36,7 @@ export function useJournalEntriesByReference(referenceType: string, referenceId:
   return useQuery({
     queryKey: ['journal-entries', referenceType, referenceId],
     queryFn: async () => {
-      const response = await axios.get('/journal-entry', {
+      const response = await axios.get('/journal-entries', {
         params: { referenceType, referenceId },
       });
       const data = response.data?.data ?? response.data;

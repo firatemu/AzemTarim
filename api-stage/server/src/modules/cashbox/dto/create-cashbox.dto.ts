@@ -28,4 +28,9 @@ export class CreateCashboxDto {
     @IsOptional()
     @ApiProperty({ required: false, default: true })
     isActive?: boolean;
+
+    @IsBoolean()
+    @IsOptional()
+    @ApiProperty({ required: false, default: false })
+    isRetail?: boolean;
 }

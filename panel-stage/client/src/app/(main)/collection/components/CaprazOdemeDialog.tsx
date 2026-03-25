@@ -15,7 +15,7 @@ import {
     IconButton,
     Divider,
 } from '@mui/material';
-import { SwapHoriz, Close, Person, CalendarToday, AttachMoney, Description } from '@mui/icons-material';
+import { SwapHoriz, Close, Person, CalendarToday, CurrencyLira, Description } from '@mui/icons-material';
 import { Cari, CaprazOdemeFormData } from '../types';
 
 interface CaprazOdemeDialogProps {
@@ -106,6 +106,12 @@ const CaprazOdemeDialog: React.FC<CaprazOdemeDialogProps> = ({
                         <Autocomplete
                             options={Array.isArray(cariler) ? cariler : []}
                             getOptionLabel={(option) => `${option.cariKodu} - ${option.unvan}`}
+                            renderOption={(props, option) => (
+                                <li {...props} key={option.id}>
+                                    {option.cariKodu} - {option.unvan}
+                                </li>
+                            )}
+
                             isOptionEqualToValue={(option, value) => option.id === value.id}
                             value={cariler.find(c => c.id === formData.tahsilatCariId) || null}
                             onChange={(_, newValue) => handleChange('tahsilatCariId', newValue?.id || '')}
@@ -138,6 +144,12 @@ const CaprazOdemeDialog: React.FC<CaprazOdemeDialogProps> = ({
                         <Autocomplete
                             options={Array.isArray(cariler) ? cariler.filter(c => c.id !== formData.tahsilatCariId) : []}
                             getOptionLabel={(option) => `${option.cariKodu} - ${option.unvan}`}
+                            renderOption={(props, option) => (
+                                <li {...props} key={option.id}>
+                                    {option.cariKodu} - {option.unvan}
+                                </li>
+                            )}
+
                             isOptionEqualToValue={(option, value) => option.id === value.id}
                             value={cariler.find(c => c.id === formData.odemeCariId) || null}
                             onChange={(_, newValue) => handleChange('odemeCariId', newValue?.id || '')}
@@ -176,7 +188,7 @@ const CaprazOdemeDialog: React.FC<CaprazOdemeDialogProps> = ({
                             value={formData.tutar}
                             onChange={(e) => handleChange('tutar', e.target.value)}
                             InputProps={{
-                                startAdornment: <InputAdornment position="start"><AttachMoney /></InputAdornment>,
+                                startAdornment: <InputAdornment position="start"><CurrencyLira /></InputAdornment>,
                             }}
                             sx={{ '& input[type=number]': { MozAppearance: 'textfield' } }}
                         />

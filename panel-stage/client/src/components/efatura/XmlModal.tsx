@@ -27,7 +27,7 @@ interface XmlModalProps {
   } | null;
 }
 
-export default function XmlModal({ open, onClose, xml, document }: XmlModalProps) {
+export default function XmlModal({ open, onClose, xml, document: docInfo }: XmlModalProps) {
   const [formattedXml, setFormattedXml] = React.useState('');
 
   // XML'i formatla
@@ -41,7 +41,7 @@ export default function XmlModal({ open, onClose, xml, document }: XmlModalProps
       // Basit XML formatlama
       const parser = new DOMParser();
       const xmlDoc = parser.parseFromString(xml, 'text/xml');
-      
+
       if (xmlDoc.documentElement.nodeName === 'parsererror') {
         // XML parse edilemezse olduğu gibi göster
         setFormattedXml(xml);
@@ -49,7 +49,7 @@ export default function XmlModal({ open, onClose, xml, document }: XmlModalProps
         // Prettier XML formatı
         const serializer = new XMLSerializer();
         const formatted = serializer.serializeToString(xmlDoc);
-        
+
         // Basit indent ekleme (geliştirilebilir)
         let formattedResult = formatted
           .replace(/></g, '>\n<')
@@ -60,7 +60,7 @@ export default function XmlModal({ open, onClose, xml, document }: XmlModalProps
             return newIndent + line.trim();
           })
           .join('\n');
-        
+
         setFormattedXml(formattedResult);
       }
     } catch (error) {
@@ -81,7 +81,7 @@ export default function XmlModal({ open, onClose, xml, document }: XmlModalProps
     const url = window.URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.download = `${document?.ettn || 'document'}.xml`;
+    link.download = `${docInfo?.ettn || 'document'}.xml`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -106,9 +106,9 @@ export default function XmlModal({ open, onClose, xml, document }: XmlModalProps
             <Typography variant="h6" component="span">
               XML İçeriği
             </Typography>
-            {document?.ettn && (
+            {docInfo?.ettn && (
               <Typography variant="caption" sx={{ ml: 2, color: 'text.secondary' }}>
-                ETTN: {document.ettn}
+                ETTN: {docInfo.ettn}
               </Typography>
             )}
           </Box>
@@ -116,16 +116,16 @@ export default function XmlModal({ open, onClose, xml, document }: XmlModalProps
             <Close />
           </IconButton>
         </Box>
-        {document && (
+        {docInfo && (
           <Box sx={{ mt: 1 }}>
-            {document.senderTitle && (
+            {docInfo.senderTitle && (
               <Typography variant="body2" color="text.secondary">
-                Gönderen: {document.senderTitle}
+                Gönderen: {docInfo.senderTitle}
               </Typography>
             )}
-            {document.invoiceNo && (
+            {docInfo.invoiceNo && (
               <Typography variant="body2" color="text.secondary">
-                Fatura No: {document.invoiceNo}
+                Fatura No: {docInfo.invoiceNo}
               </Typography>
             )}
           </Box>

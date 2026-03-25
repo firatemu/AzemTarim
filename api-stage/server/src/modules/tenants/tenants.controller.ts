@@ -24,20 +24,22 @@ export class TenantsController {
   }
 
   @Get('current')
-  getCurrent(@Req() req: any) {
-    const tenantId = req.user?.tenantId;
+  async getCurrent(@Req() req: any) {
+    const userId = req.user?.id;
+    const tenantId = await (this.tenantsService as any).tenantResolver.resolveForQuery();
     return this.tenantsService.getCurrent(tenantId);
   }
 
   @Get('settings')
-  getSettings(@Req() req: any) {
-    const tenantId = req.user?.tenantId;
+  async getSettings(@Req() req: any) {
+    const userId = req.user?.id;
+    const tenantId = await (this.tenantsService as any).tenantResolver.resolveForQuery();
     return this.tenantsService.getSettings(tenantId);
   }
 
   @Put('settings')
-  updateSettings(@Req() req: any, @Body() updateSettingsDto: UpdateTenantSettingsDto) {
-    const tenantId = req.user?.tenantId;
+  async updateSettings(@Req() req: any, @Body() updateSettingsDto: UpdateTenantSettingsDto) {
+    const tenantId = await (this.tenantsService as any).tenantResolver.resolveForCreate();
     return this.tenantsService.updateSettings(tenantId, updateSettingsDto);
   }
 

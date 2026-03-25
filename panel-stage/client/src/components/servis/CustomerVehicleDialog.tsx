@@ -336,7 +336,7 @@ export default function CustomerVehicleDialog({
                         try {
                           const fd = new FormData();
                           fd.append('file', file);
-                          const res = await axios.post('/customer-vehicle/upload-ruhsat', fd, {
+                          const res = await axios.post('/customer-vehicles/upload-ruhsat', fd, {
                             headers: { 'Content-Type': 'multipart/form-data' },
                           });
                           update('ruhsatPhotoUrl', res.data?.url ?? '');

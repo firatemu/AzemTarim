@@ -140,7 +140,7 @@ export default function DuzenleSatinAlmaTeklifiPage() {
 
   const fetchStoklar = async () => {
     try {
-      const response = await axios.get('/product', {
+      const response = await axios.get('/products', {
         params: { limit: 1000 },
       });
       setStoklar(response.data.data || []);
@@ -399,7 +399,7 @@ export default function DuzenleSatinAlmaTeklifiPage() {
       showSnackbar('Teklif başarıyla siparişe dönüştürüldü', 'success');
       setConvertDialogOpen(false);
       setTimeout(() => {
-        router.push(`/siparis/satin-alma/duzenle/${response.data.siparisId}`);
+        router.push(`/orders/satin-alma/duzenle/${response.data.siparisId}`);
       }, 1500);
     } catch (error: any) {
       showSnackbar(error.response?.data?.message || 'Teklif siparişe dönüştürülürken hata oluştu', 'error');

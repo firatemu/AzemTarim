@@ -40,7 +40,7 @@ export default function MusteriAracDetayPage() {
         setLoading(true);
         const [vRes, woRes] = await Promise.all([
           axios.get(`/customer-vehicle/${id}`),
-          axios.get('/work-order', { params: { customerVehicleId: id, limit: 100 } }),
+          axios.get('/work-orders', { params: { customerVehicleId: id, limit: 100 } }),
         ]);
         setVehicle(vRes.data);
         const woData = woRes.data?.data ?? woRes.data;

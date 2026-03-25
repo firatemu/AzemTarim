@@ -1,4 +1,4 @@
-import { IsEnum, IsNotEmpty, IsOptional, IsString, IsDateString, ValidateNested, IsArray } from 'class-validator';
+import { IsEnum, IsNotEmpty, IsOptional, IsString, IsDateString, ValidateNested, IsArray, IsUUID } from 'class-validator';
 import { Type } from 'class-transformer';
 import { CreateCheckBillDto } from './create-check-bill.dto';
 import { JournalType } from '@prisma/client';
@@ -8,8 +8,8 @@ export class CreateCheckBillJournalDto {
     type: JournalType;
 
     @IsString()
-    @IsNotEmpty()
-    journalNo: string;
+    @IsOptional()
+    journalNo?: string;
 
     @IsDateString()
     date: string;
@@ -22,6 +22,10 @@ export class CreateCheckBillJournalDto {
     @IsOptional()
     bankAccountId?: string;
 
+    @IsOptional()
+    @IsUUID()
+    cashboxId?: string;
+
     @IsString()
     @IsOptional()
     notes?: string;
@@ -33,7 +37,17 @@ export class CreateCheckBillJournalDto {
     newDocuments?: CreateCheckBillDto[];
 
     @IsArray()
-    @IsString({ each: true })
+    @IsUUID('4', { each: true })
     @IsOptional()
     selectedDocumentIds?: string[];
+}
+
+export class UpdateCheckBillJournalDto {
+    @IsDateString()
+    @IsOptional()
+    date?: string;
+
+    @IsString()
+    @IsOptional()
+    notes?: string;
 }

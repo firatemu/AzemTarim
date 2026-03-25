@@ -45,55 +45,55 @@ import CreditPlanDialog from '@/components/Banka/CreditPlanDialog';
 // Interfaces
 interface BankaKrediPlan {
     id: string;
-    taksitNo: number;
-    vadeTarihi: string;
-    odenen: number;
-    durum: string;
-    tutar: number;
+    installmentNo: number;
+    dueDate: string;
+    paidAmount: number;
+    status: string;
+    amount: number;
 }
 
 interface BankaKredi {
     id: string;
-    tutar: number;
-    toplamGeriOdeme: number;
-    toplamFaiz: number;
-    krediTuru: string;
-    yillikFaizOrani: number;
-    taksitSayisi: number;
-    baslangicTarihi: string;
-    aciklama?: string;
-    durum: string;
+    amount: number;
+    totalRepayment: number;
+    totalInterest: number;
+    loanType: string;
+    annualInterestRate: number;
+    installmentCount: number;
+    startDate: string;
+    description?: string;
+    status: string;
     createdAt: string;
-    planlar?: BankaKrediPlan[];
-    hesap: {
+    plans?: BankaKrediPlan[];
+    bankAccount: {
         id: string;
-        hesapAdi: string;
-        hesapKodu: string;
-        hesapTipi: string;
-        banka: {
+        name: string;
+        code: string;
+        type: string;
+        bank: {
             id: string;
-            ad: string;
-            sube?: string;
+            name: string;
+            branch?: string;
         };
     };
 }
 
 interface BankaHesabi {
     id: string;
-    hesapAdi: string;
-    hesapKodu: string;
-    hesapTipi: string;
-    bankaId: string;
+    name: string;
+    code: string;
+    type: string;
+    bankId: string;
 }
 
 // API Functions
 const fetchAllKrediler = async () => {
-    const res = await axios.get('/bank/krediler/tum');
+    const res = await axios.get('/banks/loans');
     return res.data;
 };
 
 const fetchBankalar = async () => {
-    const res = await axios.get('/bank');
+    const res = await axios.get('/banks');
     return res.data;
 };
 
@@ -123,6 +123,14 @@ function KrediIslemleriContent() {
             ]);
             setKrediler(kredilerData);
             setBankalar(bankalarData);
+
+            // Eğer açık bir kredi detayı varsa, onu da güncelle
+            if (selectedKrediForPlan) {
+                const updatedKredi = kredilerData.find((k: BankaKredi) => k.id === selectedKrediForPlan.id);
+                if (updatedKredi) {
+                    setSelectedKrediForPlan(updatedKredi);
+                }
+            }
         } catch (error) {
             enqueueSnackbar('Veriler yüklenemedi', { variant: 'error' });
         } finally {
@@ -137,7 +145,7 @@ function KrediIslemleriContent() {
     const handleCreditSubmit = async (data: any) => {
         if (!selectedKrediHesapId) return;
         try {
-            await axios.post(`/banka/hesap/${selectedKrediHesapId}/kredi-kullan`, data);
+            await axios.post(`/banks/accounts/${selectedKrediHesapId}/loans/use`, data);
             enqueueSnackbar('Kredi kullanımı başarıyla oluşturuldu', { variant: 'success' });
             setKrediDialogOpen(false);
             setSelectedKrediHesapId(null);
@@ -157,11 +165,11 @@ function KrediIslemleriContent() {
 
     // Calculate summary statistics
     const calculateSummary = () => {
-        const aktifKrediler = krediler.filter(k => k.durum === 'AKTIF');
-        const toplamKredi = aktifKrediler.reduce((sum, k) => sum + Number(k.tutar), 0);
-        const toplamBorc = aktifKrediler.reduce((sum, k) => sum + Number(k.toplamGeriOdeme), 0);
+        const aktifKrediler = krediler.filter(k => k.status === 'ACTIVE');
+        const toplamKredi = aktifKrediler.reduce((sum, k) => sum + Number(k.amount), 0);
+        const toplamBorc = aktifKrediler.reduce((sum, k) => sum + Number(k.totalRepayment), 0);
         const toplamOdenen = aktifKrediler.reduce((sum, k) => {
-            const odenen = k.planlar?.reduce((acc, p) => acc + Number(p.odenen), 0) || 0;
+            const odenen = k.plans?.reduce((acc, p) => acc + Number(p.paidAmount), 0) || 0;
             return sum + odenen;
         }, 0);
         const kalanBorc = toplamBorc - toplamOdenen;
@@ -172,9 +180,9 @@ function KrediIslemleriContent() {
         otuzGunSonra.setDate(bugun.getDate() + 30);
 
         const yaklasanTaksitler = aktifKrediler.reduce((count, k) => {
-            const yaklasan = k.planlar?.filter(p => {
-                if (p.durum === 'ODENDI') return false;
-                const vadeTarihi = new Date(p.vadeTarihi);
+            const yaklasan = k.plans?.filter(p => {
+                if (p.status === 'PAID') return false;
+                const vadeTarihi = new Date(p.dueDate);
                 return vadeTarihi >= bugun && vadeTarihi <= otuzGunSonra;
             }).length || 0;
             return count + yaklasan;
@@ -190,19 +198,22 @@ function KrediIslemleriContent() {
 
     // Filter krediler
     const filteredKrediler = krediler.filter(kredi => {
-        if (filterBanka && kredi.hesap.banka.id !== filterBanka) return false;
-        if (filterDurum && kredi.durum !== filterDurum) return false;
+        if (filterBanka && kredi.bankAccount.bank.id !== filterBanka) return false;
+        if (filterDurum && kredi.status !== filterDurum) return false;
         return true;
     });
 
     // Get all credit accounts
     const krediHesaplari: BankaHesabi[] = bankalar.flatMap(banka =>
-        (banka.hesaplar || [])
-            .filter((h: any) => h.hesapTipi === 'KREDI')
+        (banka.accounts || banka.hesaplar || [])
+            .filter((h: any) => (h.type || h.hesapTipi) === 'LOAN')
             .map((h: any) => ({
                 ...h,
-                bankaId: banka.id,
-                bankaAdi: banka.ad
+                name: h.name || h.hesapAdi,
+                code: h.code || h.hesapKodu,
+                type: h.type || h.hesapTipi,
+                bankId: banka.id,
+                bankaAdi: banka.name || banka.ad
             }))
     );
 
@@ -285,7 +296,7 @@ function KrediIslemleriContent() {
                                     {formatCurrency(summary.toplamKredi)}
                                 </Typography>
                                 <Typography variant="caption" sx={{ color: 'var(--muted-foreground)', opacity: 0.8, display: 'block', mt: 0.5 }}>
-                                    {krediler.filter(k => k.durum === 'AKTIF').length} Aktif Kredi
+                                    {krediler.filter(k => k.status === 'ACTIVE').length} Aktif Kredi
                                 </Typography>
                             </CardContent>
                         </Card>
@@ -399,7 +410,7 @@ function KrediIslemleriContent() {
                             >
                                 <MenuItem value="">Tümü</MenuItem>
                                 {bankalar.map(banka => (
-                                    <MenuItem key={banka.id} value={banka.id}>{banka.ad}</MenuItem>
+                                    <MenuItem key={banka.id} value={banka.id}>{banka.name || banka.ad}</MenuItem>
                                 ))}
                             </TextField>
                         </Grid>
@@ -418,8 +429,8 @@ function KrediIslemleriContent() {
                                 }}
                             >
                                 <MenuItem value="">Tümü</MenuItem>
-                                <MenuItem value="AKTIF">Aktif</MenuItem>
-                                <MenuItem value="KAPANDI">Kapandı</MenuItem>
+                                <MenuItem value="ACTIVE">Aktif</MenuItem>
+                                <MenuItem value="CLOSED">Kapandı</MenuItem>
                             </TextField>
                         </Grid>
                     </Grid>
@@ -452,30 +463,30 @@ function KrediIslemleriContent() {
                                 </TableHead>
                                 <TableBody>
                                     {filteredKrediler.map((kredi) => {
-                                        const kalanTutar = Number(kredi.toplamGeriOdeme) - (kredi.planlar?.reduce((acc, p) => acc + Number(p.odenen), 0) || 0);
-                                        const kalanTaksitSayisi = (kredi.planlar || []).filter(p => p.durum !== 'ODENDI').length;
+                                        const kalanTutar = Number(kredi.totalRepayment) - (kredi.plans?.reduce((acc, p) => acc + Number(p.paidAmount), 0) || 0);
+                                        const kalanTaksitSayisi = (kredi.plans || []).filter(p => p.status !== 'PAID').length;
 
                                         return (
                                             <TableRow key={kredi.id} hover>
                                                 <TableCell>
-                                                    <Typography fontWeight="500">{kredi.hesap.banka.ad}</Typography>
+                                                    <Typography fontWeight="500">{kredi.bankAccount.bank.name}</Typography>
                                                     <Typography variant="caption" color="text.secondary">
-                                                        {kredi.hesap.hesapAdi} ({kredi.hesap.hesapKodu})
+                                                        {kredi.bankAccount.name} ({kredi.bankAccount.code})
                                                     </Typography>
-                                                    {kredi.aciklama && (
+                                                    {kredi.description && (
                                                         <Typography variant="caption" display="block" color="text.secondary">
-                                                            {kredi.aciklama}
+                                                            {kredi.description}
                                                         </Typography>
                                                     )}
                                                 </TableCell>
                                                 <TableCell>
-                                                    {formatDate(kredi.baslangicTarihi)}
+                                                    {formatDate(kredi.startDate)}
                                                 </TableCell>
                                                 <TableCell align="right">
-                                                    {formatCurrency(Number(kredi.tutar))}
+                                                    {formatCurrency(Number(kredi.amount))}
                                                 </TableCell>
                                                 <TableCell align="right">
-                                                    {formatCurrency(Number(kredi.toplamGeriOdeme))}
+                                                    {formatCurrency(Number(kredi.totalRepayment))}
                                                 </TableCell>
                                                 <TableCell align="right">
                                                     <Typography fontWeight="bold" color="primary">
@@ -492,8 +503,8 @@ function KrediIslemleriContent() {
                                                 </TableCell>
                                                 <TableCell align="right">
                                                     <Chip
-                                                        label={kredi.durum === 'AKTIF' ? 'Aktif' : 'Kapandı'}
-                                                        color={kredi.durum === 'AKTIF' ? 'success' : 'default'}
+                                                        label={kredi.status === 'ACTIVE' ? 'Aktif' : 'Kapandı'}
+                                                        color={kredi.status === 'ACTIVE' ? 'success' : 'default'}
                                                         size="small"
                                                         variant="outlined"
                                                     />
@@ -535,10 +546,11 @@ function KrediIslemleriContent() {
                 {/* Credit Plan Dialog */}
                 {selectedKrediForPlan && (
                     <CreditPlanDialog
+                        key={selectedKrediForPlan.id} // loan değiştiğinde dialog yenilensin
                         open={!!selectedKrediForPlan}
                         onClose={() => setSelectedKrediForPlan(null)}
                         onUpdate={loadData}
-                        kredi={selectedKrediForPlan}
+                        loan={selectedKrediForPlan}
                     />
                 )}
 

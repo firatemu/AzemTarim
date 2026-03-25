@@ -96,7 +96,7 @@ export class EmployeeService {
       data.endDate = new Date(createDto.endDate);
     }
 
-    return this.prisma.employee.create({
+    const created = await this.prisma.employee.create({
       data,
       include: {
         createdByUser: {
@@ -104,6 +104,11 @@ export class EmployeeService {
         },
       },
     });
+
+    // Update code template counter
+    await this.codeTemplateService.saveLastCode(ModuleType.PERSONNEL, created.employeeCode);
+
+    return created;
   }
 
   async findAll(isActive?: boolean, department?: string) {

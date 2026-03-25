@@ -5,7 +5,6 @@ import axios from '@/lib/axios';
 import {
     Add,
     ArrowBack,
-    AttachMoney,
     Delete,
     Edit,
 } from '@mui/icons-material';

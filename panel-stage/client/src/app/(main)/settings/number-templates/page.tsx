@@ -54,7 +54,7 @@ interface CodeTemplate {
   updatedAt: string;
 }
 
-  const moduleOptions = [
+const moduleOptions = [
   { value: 'WAREHOUSE', label: 'Depo' },
   { value: 'CASHBOX', label: 'Kasa' },
   { value: 'PERSONNEL', label: 'Personel' },
@@ -72,7 +72,9 @@ interface CodeTemplate {
   { value: 'TECHNICIAN', label: 'Teknisyen' },
   { value: 'WORK_ORDER', label: 'İş Emri' },
   { value: 'SERVICE_INVOICE', label: 'Servis Faturası' },
-  ];
+  { value: 'CHECK_BILL_JOURNAL', label: 'Bordro / Fiş No' },
+  { value: 'CHECK_BILL_DOCUMENT', label: 'Çek / Senet No' },
+];
 
 // Örnek şablon tanımları
 const exampleTemplates = [
@@ -93,6 +95,8 @@ const exampleTemplates = [
   { module: 'TECHNICIAN', name: 'Teknisyen Kodu', prefix: 'T', digitCount: 3, currentValue: 0, includeYear: false, isActive: true },
   { module: 'WORK_ORDER', name: 'İş Emri No', prefix: 'IE', digitCount: 5, currentValue: 0, includeYear: false, isActive: true },
   { module: 'SERVICE_INVOICE', name: 'Servis Fatura No', prefix: 'SF', digitCount: 6, currentValue: 0, includeYear: false, isActive: true },
+  { module: 'CHECK_BILL_JOURNAL', name: 'Bordro Fiş No', prefix: 'BRD', digitCount: 6, currentValue: 0, includeYear: false, isActive: true },
+  { module: 'CHECK_BILL_DOCUMENT', name: 'Çek/Senet No', prefix: 'EVR', digitCount: 6, currentValue: 0, includeYear: false, isActive: true },
 ];
 
 // Template Form Dialog Component - Local State ile Ping Sorunu Çözümü
@@ -398,11 +402,11 @@ export default function NumaraSablonlariPage() {
   const [snackbar, setSnackbar] = useState({
     open: false,
     message: '',
-    severity: 'success' as 'success' | 'error',
+    severity: 'success' as 'success' | 'error' | 'info',
   });
 
   // Snackbar handler - önce tanımla
-  const showSnackbar = useCallback((message: string, severity: 'success' | 'error') => {
+  const showSnackbar = useCallback((message: string, severity: 'success' | 'error' | 'info') => {
     setSnackbar({ open: true, message, severity });
   }, []);
 
@@ -410,7 +414,7 @@ export default function NumaraSablonlariPage() {
   const fetchTemplates = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await axios.get('/code-template');
+      const response = await axios.get('/code-templates');
       setTemplates(response.data);
     } catch (error: any) {
       showSnackbar('Şablonlar yüklenirken hata oluştu', 'error');
@@ -418,6 +422,20 @@ export default function NumaraSablonlariPage() {
       setLoading(false);
     }
   }, [showSnackbar]);
+
+  // Son kullanılan numarayı şablona kaydet
+  const handleSaveCurrentValue = useCallback(async (templateId: string, newValue: number) => {
+    try {
+      await axios.patch(`/code-template/${templateId}`, {
+        currentValue: newValue
+      });
+      showSnackbar('Mevcut değer güncellendi', 'success');
+      fetchTemplates();
+    } catch (error: any) {
+      showSnackbar(error.response?.data?.message || 'Güncelleme başarısız', 'error');
+      fetchTemplates(); // Hata durumunda da reload yap
+    }
+  }, [showSnackbar, fetchTemplates]);
 
   // useEffect - fetchTemplates tanımlandıktan sonra
   useEffect(() => {
@@ -476,7 +494,7 @@ export default function NumaraSablonlariPage() {
         showSnackbar('Şablon güncellendi', 'success');
       } else {
         // Create
-        await axios.post('/code-template', submitFormData);
+        await axios.post('/code-templates', submitFormData);
         showSnackbar('Şablon eklendi', 'success');
       }
       handleCloseDialog();
@@ -549,14 +567,14 @@ export default function NumaraSablonlariPage() {
       for (const exampleTemplate of exampleTemplates) {
         // Bu modül için zaten bir şablon var mı kontrol et
         const existingTemplate = templates.find(t => t.module === exampleTemplate.module);
-        
+
         if (existingTemplate) {
           skipCount++;
           continue;
         }
 
         try {
-          await axios.post('/code-template', exampleTemplate);
+          await axios.post('/code-templates', exampleTemplate);
           successCount++;
         } catch (error) {
           console.error(`Şablon eklenemedi (${exampleTemplate.module}):`, error);
@@ -613,9 +631,11 @@ export default function NumaraSablonlariPage() {
     {
       field: 'currentValue',
       headerName: 'Mevcut Değer',
-      width: 120,
+      width: 140,
       align: 'center',
       headerAlign: 'center',
+      editable: true,
+      type: 'number',
     },
     {
       field: 'includeYear',
@@ -748,6 +768,15 @@ export default function NumaraSablonlariPage() {
             disableRowSelectionOnClick
             initialState={{
               pagination: { paginationModel: { pageSize: 20 } },
+            }}
+            processRowUpdate={async (newRow, oldRow) => {
+              if (newRow.currentValue !== oldRow.currentValue) {
+                await handleSaveCurrentValue(
+                  String(newRow.id),
+                  Number(newRow.currentValue),
+                );
+              }
+              return newRow;
             }}
           />
         </Paper>

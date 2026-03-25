@@ -98,7 +98,7 @@ export default function MaliyetlendirmePage() {
       setInitialLoading(true);
       setInitialError(null);
       try {
-        const response = await axios.get('/product', {
+        const response = await axios.get('/products', {
           params: { limit: 1000 },
         });
         setAllStocks(response.data?.data ?? []);

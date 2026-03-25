@@ -1,4 +1,3 @@
-version: "3.9"
 
 networks:
   app_net:
@@ -6,8 +5,6 @@ networks:
     external: true
 
 volumes:
-  postgres_data:
-    driver: local
   redis_data:
     driver: local
   caddy_data:
@@ -45,14 +42,14 @@ services:
     container_name: otomuhasebe_saas_postgres
     restart: unless-stopped
     ports:
-      - "5432:5432"
+      - "5433:5432"
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: IKYYJ1R8fUZ3PItqxf6qel12VNbLYiOe
       POSTGRES_DB: otomuhasebe_saas_db
       TZ: Europe/Istanbul
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - ../data/postgres:/var/lib/postgresql/data
     networks:
       - app_net
     healthcheck:
@@ -88,7 +85,7 @@ services:
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin123}
       MINIO_BROWSER: "off"  # Disable public console access
     volumes:
-      - /opt/minio-data:/data  # Host bind mount (persists even if container is removed)
+      - /tmp/minio-data:/data  # Host bind mount (persists even if container is removed)
     ports:
       - "9000:9000"  # API (Docker network + localhost)
       - "127.0.0.1:9001:9001"  # Console (localhost only, for admin access)

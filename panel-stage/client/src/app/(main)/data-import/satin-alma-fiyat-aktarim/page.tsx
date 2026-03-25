@@ -155,7 +155,7 @@ export default function SatinAlmaFiyatAktarimPage() {
     }
 
     try {
-      const response = await axios.get('/product', {
+      const response = await axios.get('/products', {
         params: {
           limit: 1000,
           search: stokKodu,

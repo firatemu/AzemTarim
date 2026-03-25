@@ -231,7 +231,7 @@ const PlanDetailDialog = React.memo(({ open, onClose, plan }: { open: boolean, o
         </Dialog>
     );
 });
-import MainLayout from '@/components/Layout/MainLayout';
+import { StandardPage } from '@/components/common';
 import axios from '@/lib/axios';
 
 // Tipler
@@ -592,7 +592,7 @@ export default function MaasYonetimiPage() {
         try {
             const [kasaRes, bankaRes] = await Promise.all([
                 axios.get('/cashbox?aktif=true'),
-                axios.get('/bank-accounts?aktif=true')
+                axios.get('/bank-accountss?aktif=true')
             ]);
             setKasalar(kasaRes.data);
             setBankaHesaplari(bankaRes.data);
@@ -675,7 +675,7 @@ export default function MaasYonetimiPage() {
     };
 
     return (
-        <MainLayout>
+        <StandardPage maxWidth={false}>
             <Box sx={{ p: 3 }}>
                 <Stack direction="row" justifyContent="space-between" alignItems="center" mb={3}>
                     <Typography variant="h4">Maaş Yönetimi</Typography>
@@ -827,6 +827,6 @@ export default function MaasYonetimiPage() {
                     </Table>
                 </TableContainer>
             </Box>
-        </MainLayout>
+        </StandardPage>
     );
 }

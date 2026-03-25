@@ -9,14 +9,16 @@ import type { TDocumentDefinitions } from 'pdfmake/interfaces';
 import axios from 'axios';
 import * as fs from 'fs';
 import * as path from 'path';
+import { buildTenantWhereClause } from '../../common/utils/staging.util';
 
 @Injectable()
 export class AccountMovementService {
     constructor(private prisma: PrismaService, private readonly tenantResolver: TenantResolverService) { }
 
     async create(dto: CreateAccountMovementDto) {
-        const account = await this.prisma.account.findUnique({
-            where: { id: dto.accountId },
+        const tenantId = await this.tenantResolver.resolveForQuery();
+        const account = await this.prisma.account.findFirst({
+            where: { id: dto.accountId, ...buildTenantWhereClause(tenantId ?? undefined) },
         });
 
         if (!account) {
@@ -63,15 +65,16 @@ export class AccountMovementService {
     }
 
     async findAll(accountId: string, skip = 0, take = 100) {
+        const tenantId = await this.tenantResolver.resolveForQuery();
         const [movements, total] = await Promise.all([
             this.prisma.accountMovement.findMany({
-                where: { accountId },
+                where: { accountId, ...buildTenantWhereClause(tenantId ?? undefined) },
                 include: { account: true },
                 orderBy: { date: 'desc' },
                 skip,
                 take,
             }),
-            this.prisma.accountMovement.count({ where: { accountId } }),
+            this.prisma.accountMovement.count({ where: { accountId, ...buildTenantWhereClause(tenantId ?? undefined) } }),
         ]);
 
         return {
@@ -81,7 +84,8 @@ export class AccountMovementService {
     }
 
     async getStatement(query: StatementQueryDto) {
-        const where: any = { accountId: query.accountId };
+        const tenantId = await this.tenantResolver.resolveForQuery();
+        const where: any = { accountId: query.accountId, ...buildTenantWhereClause(tenantId ?? undefined) };
 
         if (query.startDate || query.endDate) {
             where.date = {};
@@ -94,8 +98,8 @@ export class AccountMovementService {
         }
 
         const [account, movements] = await Promise.all([
-            this.prisma.account.findUnique({
-                where: { id: query.accountId },
+            this.prisma.account.findFirst({
+                where: { id: query.accountId, ...buildTenantWhereClause(tenantId ?? undefined) },
             }),
             this.prisma.accountMovement.findMany({
                 where,
@@ -614,16 +618,17 @@ export class AccountMovementService {
     }
 
     async delete(id: string) {
-        const movement = await this.prisma.accountMovement.findUnique({
-            where: { id },
+        const tenantId = await this.tenantResolver.resolveForQuery();
+        const movement = await this.prisma.accountMovement.findFirst({
+            where: { id, ...buildTenantWhereClause(tenantId ?? undefined) },
         });
 
         if (!movement) {
             throw new NotFoundException('Movement record not found');
         }
 
-        const account = await this.prisma.account.findUnique({
-            where: { id: movement.accountId },
+        const account = await this.prisma.account.findFirst({
+            where: { id: movement.accountId, ...buildTenantWhereClause(tenantId ?? undefined) },
         });
 
         if (!account) {

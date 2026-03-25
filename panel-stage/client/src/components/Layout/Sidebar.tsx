@@ -14,6 +14,8 @@ import {
   Badge,
   Build,
   CalendarMonth,
+  Campaign,
+  Category,
   CheckCircle,
   Close,
   CloudUpload,
@@ -28,6 +30,7 @@ import {
   ExpandLess,
   ExpandMore,
   Inventory,
+  LocalOffer,
   LocalShipping,
   Logout,
   Menu as MenuIcon,
@@ -42,6 +45,8 @@ import {
   Search,
   Settings,
   ShoppingCart,
+  Store,
+  Sync,
   SwapHoriz,
   TrendingDown,
   TrendingUp,
@@ -75,27 +80,27 @@ import {
   Skeleton,
 } from '@mui/material';
 import { useRouter } from 'next/navigation';
+import { clearServerAuthCookies } from '@/lib/clearServerAuthCookies';
 import React, { useEffect, useMemo, useState } from 'react';
 
 export const SIDEBAR_WIDTH = 280;
 
 const palette = {
-  secondaryHex: '#527575',
-  // Light + clean, marka tokenlarıyla (örnek dashboard’a yakın)
+  secondaryHex: 'var(--secondary)',
   gradient: 'var(--card)',
-  headerGradient: 'linear-gradient(135deg, color-mix(in srgb, var(--primary) 65%, #527575 35%) 0%, color-mix(in srgb, var(--primary) 45%, var(--background) 55%) 100%)',
+  headerGradient: 'linear-gradient(135deg, color-mix(in srgb, var(--primary) 65%, var(--secondary) 35%) 0%, color-mix(in srgb, var(--primary) 45%, var(--background) 55%) 100%)',
   textPrimary: 'var(--foreground)',
-  textSecondary: 'color-mix(in srgb, var(--foreground) 60%, transparent)',
-  iconBg: 'color-mix(in srgb, var(--primary) 10%, var(--card) 90%)',
-  iconBgActive: 'color-mix(in srgb, #527575 18%, var(--card) 82%)',
-  itemHover: 'color-mix(in srgb, #527575 24%, var(--card) 76%)',
-  itemBorder: 'color-mix(in srgb, var(--border) 85%, transparent)',
-  itemSelectedBorder: 'color-mix(in srgb, var(--primary) 55%, var(--border) 45%)',
-  itemSelectedBg: 'color-mix(in srgb, var(--primary) 35%, #527575 25%, var(--card) 40%)',
-  submenuBg: 'color-mix(in srgb, var(--card) 80%, #527575 20%)',
-  submenuBorder: 'color-mix(in srgb, #527575 45%, var(--border) 55%)',
-  searchBg: 'color-mix(in srgb, var(--input) 92%, var(--card) 8%)',
-  searchBorder: 'color-mix(in srgb, var(--border) 80%, var(--primary) 20%)',
+  textSecondary: 'var(--muted-foreground)',
+  iconBg: 'var(--muted)',
+  iconBgActive: 'color-mix(in srgb, var(--secondary) 18%, var(--card) 82%)',
+  itemHover: 'var(--accent)',
+  itemBorder: 'var(--border)',
+  itemSelectedBorder: 'var(--primary)',
+  itemSelectedBg: 'color-mix(in srgb, var(--primary) 35%, var(--secondary) 25%, var(--card) 40%)',
+  submenuBg: 'var(--muted)',
+  submenuBorder: 'var(--border)',
+  searchBg: 'var(--muted)',
+  searchBorder: 'var(--border)',
 };
 
 // İkon Haritası - Wildcard import yerine güvenli ve performanslı eşleme
@@ -109,6 +114,8 @@ const IconMap: Record<string, any> = {
   Badge,
   Build,
   CalendarMonth,
+  Campaign,
+  Category,
   CheckCircle,
   Close,
   CloudUpload,
@@ -123,6 +130,7 @@ const IconMap: Record<string, any> = {
   ExpandLess,
   ExpandMore,
   Inventory,
+  LocalOffer,
   LocalShipping,
   Logout,
   Menu: MenuIcon,
@@ -137,6 +145,8 @@ const IconMap: Record<string, any> = {
   Search,
   Settings,
   ShoppingCart,
+  Store,
+  Sync,
   SwapHoriz,
   TrendingDown,
   TrendingUp,
@@ -277,7 +287,8 @@ export default function Sidebar({ open, pinned, onClose, onTogglePin, menuItems 
     setUserMenuAnchor(null);
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await clearServerAuthCookies();
     clearAuth();
     router.push('/login');
     handleUserMenuClose();
@@ -297,9 +308,9 @@ export default function Sidebar({ open, pinned, onClose, onTogglePin, menuItems 
         '& .MuiDrawer-paper': {
           width: SIDEBAR_WIDTH,
           boxSizing: 'border-box',
-          background: palette.gradient,
-          color: palette.textPrimary,
-          borderRight: 'none',
+          background: 'var(--card)',
+          color: 'var(--foreground)',
+          borderRight: '1px solid var(--border)',
           position: pinned ? 'relative' : 'fixed',
           display: 'flex',
           flexDirection: 'column',
@@ -309,7 +320,7 @@ export default function Sidebar({ open, pinned, onClose, onTogglePin, menuItems 
       {/* Modern Header */}
       <Toolbar
         sx={{
-          background: 'var(--card)',
+          background: 'var(--muted)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
@@ -317,6 +328,7 @@ export default function Sidebar({ open, pinned, onClose, onTogglePin, menuItems 
           py: 2,
           px: 2.5,
           borderBottom: '1px solid var(--border)',
+          boxShadow: 'var(--shadow-sm)',
         }}
       >
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flex: 1, minWidth: 0 }}>
@@ -330,7 +342,7 @@ export default function Sidebar({ open, pinned, onClose, onTogglePin, menuItems 
               borderRadius: 'var(--radius-md)',
               background: tenantSettings?.logoUrl
                 ? 'transparent'
-                : 'linear-gradient(135deg, var(--primary), #527575)',
+                : 'linear-gradient(135deg, var(--primary), var(--secondary))',
               border: tenantSettings?.logoUrl ? '1px solid var(--border)' : 'none',
               padding: tenantSettings?.logoUrl ? 0.5 : 0,
               boxShadow: tenantSettings?.logoUrl
@@ -396,10 +408,10 @@ export default function Sidebar({ open, pinned, onClose, onTogglePin, menuItems 
           sx={{
             color: 'var(--muted-foreground)',
             '&:hover': {
-              bgcolor: 'var(--muted)',
-              color: 'var(--foreground)',
+              bgcolor: 'var(--accent)',
+              color: 'var(--accent-foreground)',
             },
-            transition: 'all 0.2s ease',
+            transition: 'all var(--transition-normal)',
           }}
         >
           {pinned ? (
@@ -415,23 +427,25 @@ export default function Sidebar({ open, pinned, onClose, onTogglePin, menuItems 
         <Button
           fullWidth
           variant="contained"
-          startIcon={<Add />}
+          startIcon={<FlashOn />}
           onClick={(e) => setQuickMenuAnchor(e.currentTarget)}
           sx={{
-            background: 'linear-gradient(135deg, var(--primary), var(--secondary))',
-            color: 'var(--primary-foreground)',
-            fontWeight: 600,
+            background: 'var(--card)',
+            color: 'var(--card-foreground)',
+            fontWeight: 700,
             py: 1.25,
-            borderRadius: 'var(--radius)',
+            borderRadius: 'var(--radius-md)',
             textTransform: 'none',
             fontSize: '0.875rem',
-            boxShadow: '0 4px 12px color-mix(in srgb, var(--primary) 25%, transparent)',
+            boxShadow: 'var(--shadow-sm)',
+            border: '1px solid var(--border)',
             '&:hover': {
-              background: 'linear-gradient(135deg, var(--primary), var(--secondary))',
-              boxShadow: '0 6px 16px color-mix(in srgb, var(--primary) 35%, transparent)',
+              background: 'var(--muted)',
+              boxShadow: 'var(--shadow-md)',
               transform: 'translateY(-1px)',
+              borderColor: 'var(--secondary)',
             },
-            transition: 'all 0.2s ease',
+            transition: 'all var(--transition-normal)',
           }}
         >
           Hızlı İşlem
@@ -447,9 +461,10 @@ export default function Sidebar({ open, pinned, onClose, onTogglePin, menuItems 
               mt: 1,
               minWidth: 240,
               maxWidth: 320,
-              borderRadius: 'var(--radius)',
+              borderRadius: 'var(--radius-md)',
               border: '1px solid var(--border)',
-              boxShadow: '0 8px 24px color-mix(in srgb, var(--foreground) 8%, transparent)',
+              boxShadow: 'var(--shadow-lg)',
+              background: 'var(--card)',
             },
           }}
         >
@@ -462,26 +477,33 @@ export default function Sidebar({ open, pinned, onClose, onTogglePin, menuItems 
                 <MenuItem
                   key={item.id}
                   onClick={() => handleQuickCreate(item.path)}
-                  sx={{ py: 1.25 }}
+                  sx={{
+                    py: 1,
+                    px: 1.5,
+                    '&:hover': {
+                      bgcolor: 'var(--accent)',
+                    },
+                  }}
                 >
                   <Box
                     sx={{
                       mr: 1.5,
-                      width: 32,
-                      height: 32,
-                      borderRadius: 1,
-                      bgcolor: `${item.color}20`,
+                      width: 36,
+                      height: 36,
+                      borderRadius: '8px',
+                      bgcolor: `${item.color}15`,
                       color: item.color,
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
+                      border: `1px solid ${item.color}25`,
                     }}
                   >
                     {IconComponent ? <IconComponent sx={{ fontSize: 18 }} /> : <Add sx={{ fontSize: 18 }} />}
                   </Box>
                   <Box>
-                    <Typography variant="body2" fontWeight={600}>{item.label}</Typography>
-                    <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
+                    <Typography variant="body2" fontWeight={700} sx={{ color: 'var(--card-foreground)' }}>{item.label}</Typography>
+                    <Typography variant="caption" sx={{ color: 'var(--muted-foreground)', fontSize: '0.7rem' }}>
                       {item.path}
                     </Typography>
                   </Box>
@@ -491,7 +513,7 @@ export default function Sidebar({ open, pinned, onClose, onTogglePin, menuItems 
 
           {quickMenuItems.filter((item) => item.enabled).length === 0 && (
             <Box sx={{ px: 2, py: 3, textAlign: 'center' }}>
-              <Typography variant="body2" color="text.secondary">
+              <Typography variant="body2" sx={{ color: 'var(--muted-foreground)', fontWeight: 600 }}>
                 Hızlı menü öğesi yok
               </Typography>
               <Button
@@ -528,22 +550,23 @@ export default function Sidebar({ open, pinned, onClose, onTogglePin, menuItems 
           }}
           sx={{
             '& .MuiOutlinedInput-root': {
-              bgcolor: 'var(--input)',
-              borderRadius: 'var(--radius)',
+              bgcolor: 'var(--muted)',
+              borderRadius: 'var(--radius-md)',
               '& fieldset': {
                 borderColor: 'var(--border)',
               },
               '&:hover fieldset': {
-                borderColor: 'var(--ring)',
+                borderColor: 'var(--secondary)',
               },
               '&.Mui-focused fieldset': {
                 borderColor: 'var(--primary)',
-                borderWidth: '2px',
+                borderWidth: '1.5px',
               },
             },
             '& .MuiOutlinedInput-input': {
               fontSize: '0.875rem',
               py: 1.25,
+              color: 'var(--foreground)',
               '&::placeholder': {
                 color: 'var(--muted-foreground)',
                 opacity: 1,
@@ -553,7 +576,7 @@ export default function Sidebar({ open, pinned, onClose, onTogglePin, menuItems 
         />
       </Box>
 
-      <List sx={{ px: 1.5, pt: 1, flexGrow: 1, overflowY: 'auto', '&::-webkit-scrollbar': { width: '6px' }, '&::-webkit-scrollbar-track': { bgcolor: 'transparent' }, '&::-webkit-scrollbar-thumb': { bgcolor: 'var(--border)', borderRadius: '3px', '&:hover': { bgcolor: 'var(--muted-foreground)' } } }}>
+      <List sx={{ px: 1.5, pt: 1, flexGrow: 1, overflowY: 'auto', '&::-webkit-scrollbar': { width: '6px' }, '&::-webkit-scrollbar-track': { bgcolor: 'transparent' }, '&::-webkit-scrollbar-thumb': { bgcolor: 'var(--border)', borderRadius: '3px', '&:hover': { bgcolor: 'var(--secondary)' } } }}>
         {filteredMenuItems.length === 0 && searchTerm ? (
           <Box sx={{ px: 2, py: 4, textAlign: 'center' }}>
             <Search sx={{ fontSize: 48, color: 'var(--muted-foreground)', mb: 1, opacity: 0.5 }} />
@@ -562,24 +585,60 @@ export default function Sidebar({ open, pinned, onClose, onTogglePin, menuItems 
             </Typography>
           </Box>
         ) : (
-          filteredMenuItems.map((item) => {
+          filteredMenuItems.map((item, index) => {
             const isActive = activeTab === item.id;
             const hasSubMenu = !!item.subItems;
             const isOpen = openSubMenu === item.id;
             const ParentIcon: any = IconMap[item.icon] || IconMap.Help;
 
+            const showSectionHeader = item.section && !searchTerm;
+            const prevSection = index > 0 ? filteredMenuItems[index - 1].section : null;
+            const shouldShowHeader = showSectionHeader && item.section !== prevSection;
+
             return (
               <React.Fragment key={item.id}>
+                {shouldShowHeader && (
+                  <Box
+                    sx={{
+                      mt: index === 0 ? 0 : 2,
+                      mb: 1,
+                      px: 1.5,
+                      py: 0.5,
+                    }}
+                  >
+                    <Typography
+                      variant="caption"
+                      sx={{
+                        fontSize: '0.6875rem',
+                        fontWeight: 800,
+                        color: 'var(--muted-foreground)',
+                        letterSpacing: '0.15em',
+                        textTransform: 'uppercase',
+                      }}
+                    >
+                      {item.section}
+                    </Typography>
+                    <Box
+                      sx={{
+                        mt: 0.5,
+                        height: '2px',
+                        bgcolor: 'var(--border)',
+                        maxWidth: '40px',
+                        borderRadius: '1px',
+                      }}
+                    />
+                  </Box>
+                )}
                 <ListItem disablePadding sx={{ mb: 0.5 }}>
                   <ListItemButton
                     onClick={() => handleMenuClick(item)}
                     sx={{
-                      borderRadius: 'var(--radius)',
+                      borderRadius: '10px',
                       px: 1.5,
                       py: 0.875,
                       transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
                       background: isActive
-                        ? 'color-mix(in srgb, var(--primary) 10%, var(--card) 90%)'
+                        ? (item.color || 'var(--primary)')
                         : 'transparent',
                       position: 'relative',
                       '&::before': isActive ? {
@@ -590,14 +649,20 @@ export default function Sidebar({ open, pinned, onClose, onTogglePin, menuItems 
                         transform: 'translateY(-50%)',
                         width: 3,
                         height: '60%',
-                        bgcolor: 'var(--primary)',
+                        bgcolor: item.color || 'var(--primary)',
                         borderRadius: '0 2px 2px 0',
                       } : {},
                       '&:hover': {
                         background: isActive
-                          ? 'color-mix(in srgb, var(--primary) 10%, var(--card) 90%)'
-                          : 'color-mix(in srgb, #527575 20%, var(--card) 80%)',
+                          ? (item.color || 'var(--primary)')
+                          : 'var(--primary)',
                         transform: 'translateX(2px)',
+                      },
+                      '&:hover .MuiListItemText-primary': {
+                        color: 'var(--primary-foreground) !important',
+                      },
+                      '&:hover .MuiListItemIcon-root .MuiSvgIcon-root': {
+                        color: 'var(--primary-foreground) !important',
                       },
                     }}
                   >
@@ -609,15 +674,15 @@ export default function Sidebar({ open, pinned, onClose, onTogglePin, menuItems 
                           justifyContent: 'center',
                           width: 32,
                           height: 32,
-                          borderRadius: 'calc(var(--radius) - 2px)',
+                          borderRadius: '8px',
                           bgcolor: isActive
-                            ? 'color-mix(in srgb, var(--primary) 12%, transparent)'
+                            ? `${item.color || 'var(--primary)'}25`
                             : 'transparent',
                           transition: 'all 0.2s ease',
                         }}
                       >
                         <ParentIcon sx={{
-                          color: isActive ? 'var(--primary)' : 'var(--muted-foreground)',
+                          color: isActive ? 'var(--primary-foreground)' : 'var(--muted-foreground)',
                           fontSize: 18,
                           transition: 'color 0.2s ease',
                         }} />
@@ -627,9 +692,9 @@ export default function Sidebar({ open, pinned, onClose, onTogglePin, menuItems 
                       primary={item.label}
                       sx={{
                         '& .MuiListItemText-primary': {
-                          fontWeight: isActive ? 600 : 500,
+                          fontWeight: 700,
                           fontSize: '0.875rem',
-                          color: isActive ? 'var(--foreground)' : 'var(--muted-foreground)',
+                          color: isActive ? 'var(--primary-foreground)' : 'var(--foreground)',
                           letterSpacing: '-0.01em',
                           transition: 'all 0.2s ease',
                         },
@@ -637,7 +702,7 @@ export default function Sidebar({ open, pinned, onClose, onTogglePin, menuItems 
                     />
                     {hasSubMenu && (
                       <Box sx={{
-                        color: isActive ? 'var(--primary)' : 'var(--muted-foreground)',
+                        color: isActive ? 'var(--primary-foreground)' : 'var(--muted-foreground)',
                         transition: 'all 0.2s ease',
                         transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)',
                       }}>
@@ -651,14 +716,14 @@ export default function Sidebar({ open, pinned, onClose, onTogglePin, menuItems 
                   <Collapse in={isOpen} timeout={200} unmountOnExit>
                     <Box
                       sx={{
-                        bgcolor: 'color-mix(in srgb, var(--muted) 85%, #527575 15%)',
-                        borderRadius: 'var(--radius)',
+                        bgcolor: 'var(--muted)',
+                        borderRadius: 'var(--radius-md)',
                         mx: 1,
                         mb: 1,
                         mt: 0.5,
                         px: 0.5,
                         py: 0.75,
-                        border: '1px solid color-mix(in srgb, var(--border) 75%, #527575 25%)',
+                        border: '1px solid var(--border)',
                       }}
                     >
                       <List component="div" disablePadding>
@@ -669,23 +734,30 @@ export default function Sidebar({ open, pinned, onClose, onTogglePin, menuItems 
                           .map((subItem: any) => {
                             const isSubActive = activeTab === subItem.id;
                             const SubIcon: any = IconMap[subItem.icon] || IconMap.Help;
+                            const subColor = subItem.color || item.color || 'var(--secondary)';
 
                             return (
                               <ListItem key={subItem.id} disablePadding>
                                 <ListItemButton
                                   onClick={() => handleSubMenuClick(item, subItem)}
                                   sx={{
-                                    borderRadius: 'calc(var(--radius) - 2px)',
+                                    borderRadius: '8px',
                                     mb: 0.25,
                                     py: 0.75,
                                     px: 1.25,
                                     transition: 'all 0.2s ease',
-                                    bgcolor: isSubActive ? 'color-mix(in srgb, #527575 18%, transparent)' : 'transparent',
+                                    bgcolor: isSubActive ? subColor : 'transparent',
                                     '&:hover': {
                                       bgcolor: isSubActive
-                                        ? 'color-mix(in srgb, #527575 18%, transparent)'
-                                        : 'color-mix(in srgb, #527575 14%, transparent)',
+                                        ? subColor
+                                        : 'var(--primary)',
                                       transform: 'translateX(2px)',
+                                    },
+                                    '&:hover .MuiListItemText-primary': {
+                                      color: 'var(--primary-foreground) !important',
+                                    },
+                                    '&:hover .MuiListItemIcon-root .MuiSvgIcon-root': {
+                                      color: 'var(--primary-foreground) !important',
                                     },
                                   }}
                                 >
@@ -697,14 +769,14 @@ export default function Sidebar({ open, pinned, onClose, onTogglePin, menuItems 
                                         justifyContent: 'center',
                                         width: 24,
                                         height: 24,
-                                        borderRadius: 'calc(var(--radius) - 4px)',
+                                        borderRadius: '6px',
                                         bgcolor: isSubActive
-                                          ? 'color-mix(in srgb, #527575 10%, transparent)'
+                                          ? `${subColor}20`
                                           : 'transparent',
                                       }}
                                     >
                                       <SubIcon sx={{
-                                        color: isSubActive ? '#527575' : 'var(--muted-foreground)',
+                                        color: isSubActive ? 'var(--primary-foreground)' : 'var(--muted-foreground)',
                                         fontSize: 16,
                                       }} />
                                     </Box>
@@ -713,9 +785,9 @@ export default function Sidebar({ open, pinned, onClose, onTogglePin, menuItems 
                                     primary={subItem.label}
                                     sx={{
                                       '& .MuiListItemText-primary': {
-                                        fontWeight: isSubActive ? 600 : 500,
+                                        fontWeight: 700,
                                         fontSize: '0.8125rem',
-                                        color: isSubActive ? '#527575' : 'var(--muted-foreground)',
+                                        color: isSubActive ? 'var(--primary-foreground)' : 'var(--foreground)',
                                       },
                                     }}
                                   />
@@ -737,19 +809,21 @@ export default function Sidebar({ open, pinned, onClose, onTogglePin, menuItems 
       <Box sx={{ px: 2, pb: 2, pt: 1, borderTop: '1px solid var(--border)' }}>
         <Box
           sx={{
-            bgcolor: 'var(--card)',
-            borderRadius: 'var(--radius)',
+            bgcolor: 'var(--muted)',
+            borderRadius: 'var(--radius-md)',
             border: '1px solid var(--border)',
             p: 1.5,
             display: 'flex',
             alignItems: 'center',
             gap: 1.5,
             cursor: 'pointer',
-            transition: 'all 0.2s ease',
             '&:hover': {
-              bgcolor: 'var(--muted)',
-              borderColor: 'var(--ring)',
+              bgcolor: 'var(--primary)',
+              borderColor: 'var(--primary)',
+              '& .MuiTypography-root': { color: 'var(--primary-foreground)' },
+              '& .MuiAvatar-root': { borderColor: 'var(--primary-foreground)' }
             },
+            transition: 'all 0.2s ease',
           }}
           onClick={handleUserMenuClick}
         >
@@ -759,7 +833,7 @@ export default function Sidebar({ open, pinned, onClose, onTogglePin, menuItems 
               height: 36,
               bgcolor: 'var(--primary)',
               color: 'var(--primary-foreground)',
-              fontWeight: 600,
+              fontWeight: 700,
               fontSize: '0.875rem',
             }}
           >
@@ -769,7 +843,7 @@ export default function Sidebar({ open, pinned, onClose, onTogglePin, menuItems 
             <Typography
               variant="body2"
               sx={{
-                fontWeight: 600,
+                fontWeight: 700,
                 color: 'var(--foreground)',
                 fontSize: '0.875rem',
                 lineHeight: 1.2,
@@ -800,7 +874,7 @@ export default function Sidebar({ open, pinned, onClose, onTogglePin, menuItems 
               color: 'var(--muted-foreground)',
               '&:hover': {
                 bgcolor: 'var(--accent)',
-                color: 'var(--foreground)',
+                color: 'var(--accent-foreground)',
               },
             }}
           >
@@ -817,9 +891,10 @@ export default function Sidebar({ open, pinned, onClose, onTogglePin, menuItems 
             sx: {
               mt: 1,
               minWidth: 200,
-              borderRadius: 'var(--radius)',
+              borderRadius: 'var(--radius-md)',
               border: '1px solid var(--border)',
-              boxShadow: '0 8px 24px color-mix(in srgb, var(--foreground) 8%, transparent)',
+              boxShadow: 'var(--shadow-lg)',
+              background: 'var(--card)',
             },
           }}
         >
@@ -829,23 +904,23 @@ export default function Sidebar({ open, pinned, onClose, onTogglePin, menuItems 
                 {authUser?.fullName?.[0]?.toUpperCase() || 'U'}
               </Avatar>
               <Box>
-                <Typography variant="body2" fontWeight={600}>
+                <Typography variant="body2" fontWeight={700} sx={{ color: 'var(--card-foreground)' }}>
                   {authUser?.fullName || 'Kullanıcı'}
                 </Typography>
-                <Typography variant="caption" color="text.secondary">
+                <Typography variant="caption" sx={{ color: 'var(--muted-foreground)' }}>
                   {authUser?.email || authUser?.role || 'Bilgi yok'}
                 </Typography>
               </Box>
             </Box>
           </MenuItem>
-          <Divider sx={{ my: 0.5 }} />
-          <MenuItem onClick={handleUserMenuClose} sx={{ py: 1 }}>
+          <Divider sx={{ my: 0.5, borderColor: 'var(--border)' }} />
+          <MenuItem onClick={handleUserMenuClose} sx={{ py: 1, '&:hover': { bgcolor: 'var(--accent)' } }}>
             <Settings sx={{ mr: 1.5, fontSize: 18, color: 'var(--muted-foreground)' }} />
-            <Typography variant="body2">Ayarlar</Typography>
+            <Typography variant="body2" sx={{ color: 'var(--card-foreground)', fontWeight: 700 }}>Ayarlar</Typography>
           </MenuItem>
-          <MenuItem onClick={handleLogout} sx={{ py: 1, color: 'var(--destructive)' }}>
+          <MenuItem onClick={handleLogout} sx={{ py: 1, color: 'var(--destructive)', '&:hover': { bgcolor: 'color-mix(in srgb, var(--destructive) 10%, transparent)' } }}>
             <Logout sx={{ mr: 1.5, fontSize: 18 }} />
-            <Typography variant="body2" fontWeight={500}>Çıkış Yap</Typography>
+            <Typography variant="body2" fontWeight={700}>Çıkış Yap</Typography>
           </MenuItem>
         </Menu>
       </Box>

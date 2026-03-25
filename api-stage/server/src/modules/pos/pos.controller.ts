@@ -8,6 +8,7 @@ import {
   Query,
   Request,
   UseGuards,
+  ParseEnumPipe,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
@@ -16,13 +17,15 @@ import { CreatePosSaleDto } from './dto/create-pos-sale.dto';
 import { CreatePosSessionDto } from './dto/create-pos-session.dto';
 import { ClosePosSessionDto } from './dto/close-pos-session.dto';
 import { CreatePosReturnDto } from './dto/create-pos-return.dto';
+import { CompleteSaleDto } from './dto/complete-pos-sale.dto';
+import { BankAccountType } from '@prisma/client';
 
 @ApiTags('POS Console')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard)
 @Controller('pos')
 export class PosController {
-  constructor(private readonly posService: PosService) {}
+  constructor(private readonly posService: PosService) { }
 
   @Post('cart/draft')
   @ApiOperation({ summary: 'Taslak POS sepeti oluştur' })
@@ -37,11 +40,18 @@ export class PosController {
   @ApiResponse({ status: 200, description: 'Satış tamamlandı' })
   async completeSale(
     @Param('invoiceId') invoiceId: string,
-    @Body('payments') payments: CreatePosSaleDto['payments'],
+    @Body() dto: CompleteSaleDto,
     @Request() req: any,
   ) {
     const userId = req.user?.id;
-    return this.posService.completeSale(invoiceId, payments, userId);
+    return this.posService.completeSale(invoiceId, dto.payments, userId, dto.cashboxId);
+  }
+
+  @Get('sales-agents')
+  @ApiOperation({ summary: 'Satış elemanlarını getir' })
+  @ApiResponse({ status: 200, description: 'Satış elemanları listelendi' })
+  async getSalesAgents(@Query('search') search?: string) {
+    return this.posService.getSalesAgents(search);
   }
 
   @Post('return')
@@ -84,6 +94,22 @@ export class PosController {
   @ApiResponse({ status: 200, description: 'Aktif sepetler getirildi' })
   async getActiveCarts(@Query('cashierId') cashierId?: string) {
     return this.posService.getActiveCarts(cashierId);
+  }
+
+  @Get('retail-cashbox')
+  @ApiOperation({ summary: 'Perakende satis kasasini getir' })
+  @ApiResponse({ status: 200, description: 'Perakende satis kasasi getirildi' })
+  async getRetailCashbox() {
+    return this.posService.getRetailCashbox();
+  }
+
+  @Get('bank-accounts')
+  @ApiOperation({ summary: 'POS odeme icin banka hesaplarini getir' })
+  @ApiResponse({ status: 200, description: 'Banka hesaplari listelendi' })
+  async getBankAccounts(
+    @Query('type', new ParseEnumPipe(BankAccountType)) type: BankAccountType,
+  ) {
+    return this.posService.getBankAccountsByType(type);
   }
 
   @Delete('cart/:invoiceId')

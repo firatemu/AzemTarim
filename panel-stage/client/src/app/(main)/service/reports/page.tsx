@@ -74,7 +74,7 @@ export default function ServisRaporlarPage() {
 
   useEffect(() => {
     axios
-      .get('/work-order/stats')
+      .get('/work-orders/stats')
       .then((res) => setStats(res.data))
       .catch(() => setStats(null))
       .finally(() => setLoading(false));

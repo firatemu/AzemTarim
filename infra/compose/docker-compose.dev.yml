@@ -15,14 +15,17 @@ volumes:
   panel_stage_node_modules:
   panel_stage_next_cache:
   backend_uploads:
+  b2b_portal_node_modules:
+  b2b_portal_next_cache:
 
 services:
   postgres:
     image: postgres:16-alpine
     container_name: otomuhasebe_saas_postgres
     restart: unless-stopped
+    # Host 5432 sıkça yerel/WSL Postgres ile çakışır; api-stage/server .env çoğu zaman 5433 kullanır
     ports:
-      - "5432:5432"
+      - "5433:5432"
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
@@ -89,6 +92,7 @@ services:
       - .env.staging
     environment:
       NODE_ENV: development
+      B2B_ENABLED: "true"
     networks: [ app_net ]
     ports:
       - "3020:3000"
@@ -136,4 +140,38 @@ services:
       timeout: 10s
       retries: 5
       start_period: 90s
+    restart: unless-stopped
+
+  b2b-portal:
+    image: node:20-alpine
+    working_dir: /app
+    container_name: otomuhasebe_b2b_portal
+    ports:
+      - "3002:3000"
+    env_file:
+      - .env.staging
+    environment:
+      NODE_ENV: development
+      NEXT_PUBLIC_DEVELOPER_MODE: "true"
+      HOSTNAME: "0.0.0.0"
+      PORT: "3000"
+      NEXT_TELEMETRY_DISABLED: "1"
+      CHOKIDAR_USEPOLLING: "true"
+      WATCHPACK_POLLING: "true"
+      NEXT_PUBLIC_API_URL: http://localhost:3020
+      NEXT_PUBLIC_API_BASE_URL: http://localhost:3020
+    volumes:
+      - ../../b2b-portal:/app
+      - b2b_portal_node_modules:/app/node_modules
+      - b2b_portal_next_cache:/app/.next
+    command: sh -c "corepack enable && pnpm install && pnpm dev"
+    networks: [ app_net ]
+    depends_on:
+      backend-staging: { condition: service_healthy }
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
     restart: unless-stopped

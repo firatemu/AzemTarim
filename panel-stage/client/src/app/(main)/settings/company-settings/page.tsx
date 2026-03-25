@@ -292,7 +292,7 @@ export default function FirmaAyarlariPage() {
   const fetchWarehouses = async () => {
     try {
       setLoading(true);
-      const response = await axios.get('/warehouse');
+      const response = await axios.get('/warehouses');
       setWarehouses(response.data);
     } catch (error) {
       console.error('Ambarlar yüklenemedi:', error);
@@ -343,7 +343,7 @@ export default function FirmaAyarlariPage() {
         await axios.put(`/warehouse/${editingWarehouse.id}`, formData);
         setSnackbar({ open: true, message: 'Ambar güncellendi', severity: 'success' });
       } else {
-        await axios.post('/warehouse', formData);
+        await axios.post('/warehouses', formData);
         setSnackbar({ open: true, message: 'Ambar oluşturuldu', severity: 'success' });
       }
       handleCloseDialog();

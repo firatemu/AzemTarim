@@ -3,6 +3,16 @@
 import { createTheme } from '@mui/material/styles';
 import { trTR as dataGridTR } from '@mui/x-data-grid/locales';
 import { trTR as coreTR } from '@mui/material/locale';
+import { DataGridProps } from '@mui/x-data-grid';
+
+declare module '@mui/material/styles' {
+  interface Components<Theme = unknown> {
+    MuiDataGrid?: {
+      styleOverrides?: any;
+      defaultProps?: Partial<DataGridProps>;
+    };
+  }
+}
 
 const getDesignTokens = (mode: 'light' | 'dark') => ({
   typography: {
@@ -23,51 +33,51 @@ const getDesignTokens = (mode: 'light' | 'dark') => ({
     mode,
     ...(mode === 'light'
       ? {
-          background: {
-            default: '#F8FAFC',
-            paper: '#FFFFFF',
-          },
-          primary: {
-            main: '#0F172A',
-            light: '#334155',
-            dark: '#020617',
-            contrastText: '#FFFFFF',
-          },
-          secondary: {
-            main: '#64748B',
-            light: '#94A3B8',
-            dark: '#475569',
-            contrastText: '#FFFFFF',
-          },
-          text: {
-            primary: '#0F172A',
-            secondary: '#64748B',
-          },
-          divider: '#E2E8F0',
-        }
+        background: {
+          default: '#F8FAFC',
+          paper: '#FFFFFF',
+        },
+        primary: {
+          main: '#0F172A',
+          light: '#334155',
+          dark: '#020617',
+          contrastText: '#FFFFFF',
+        },
+        secondary: {
+          main: '#64748B',
+          light: '#94A3B8',
+          dark: '#475569',
+          contrastText: '#FFFFFF',
+        },
+        text: {
+          primary: '#0F172A',
+          secondary: '#64748B',
+        },
+        divider: '#E2E8F0',
+      }
       : {
-          background: {
-            default: '#0F172A',
-            paper: '#1E293B',
-          },
-          primary: {
-            main: '#F8FAFC',
-            light: '#94A3B8',
-            dark: '#E2E8F0',
-            contrastText: '#0F172A',
-          },
-          secondary: {
-            main: '#64748B',
-            light: '#94A3B8',
-            dark: '#475569',
-            contrastText: '#F8FAFC',
-          },
-          text: {
-            primary: '#F8FAFC',
-            secondary: '#94A3B8',
-          },
-          divider: '#334155',
-        }),
+        background: {
+          default: '#0F172A',
+          paper: '#1E293B',
+        },
+        primary: {
+          main: '#F8FAFC',
+          light: '#94A3B8',
+          dark: '#E2E8F0',
+          contrastText: '#0F172A',
+        },
+        secondary: {
+          main: '#64748B',
+          light: '#94A3B8',
+          dark: '#475569',
+          contrastText: '#F8FAFC',
+        },
+        text: {
+          primary: '#F8FAFC',
+          secondary: '#94A3B8',
+        },
+        divider: '#334155',
+      }),
   },
   shape: {
     borderRadius: 16,
@@ -75,7 +85,7 @@ const getDesignTokens = (mode: 'light' | 'dark') => ({
   components: {
     MuiCard: {
       styleOverrides: {
-        root: ({ theme }) => ({
+        root: ({ theme }: { theme: any }) => ({
           boxShadow: 'none',
           border: `1px solid ${theme.palette.divider}`,
           borderRadius: 16,
@@ -88,7 +98,7 @@ const getDesignTokens = (mode: 'light' | 'dark') => ({
         root: {
           backgroundImage: 'none',
         },
-        elevation0: ({ theme }) => ({
+        elevation0: ({ theme }: { theme: any }) => ({
           boxShadow: 'none',
           border: `1px solid ${theme.palette.divider}`,
         }),
@@ -108,7 +118,7 @@ const getDesignTokens = (mode: 'light' | 'dark') => ({
             boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
           },
         },
-        containedPrimary: ({ theme }) => ({
+        containedPrimary: ({ theme }: { theme: any }) => ({
           backgroundColor: theme.palette.primary.main,
           '&:hover': {
             backgroundColor: theme.palette.primary.dark,
@@ -118,7 +128,7 @@ const getDesignTokens = (mode: 'light' | 'dark') => ({
     },
     MuiDataGrid: {
       styleOverrides: {
-        root: ({ theme }) => ({
+        root: ({ theme }: { theme: any }) => ({
           border: 'none',
           '& .MuiDataGrid-cell': {
             borderBottom: `1px solid ${theme.palette.divider}`,
@@ -156,19 +166,19 @@ const getDesignTokens = (mode: 'light' | 'dark') => ({
         },
       },
       defaultProps: {
-        density: 'comfortable',
+        density: 'comfortable' as const,
         disableRowSelectionOnClick: true,
       },
     },
     MuiSkeleton: {
       styleOverrides: {
-        root: ({ theme }) => ({
+        root: ({ theme }: { theme: any }) => ({
           backgroundColor: theme.palette.action.hover,
           borderRadius: 8,
         }),
       },
       defaultProps: {
-        animation: 'wave',
+        animation: 'wave' as const,
       },
     },
     MuiChip: {

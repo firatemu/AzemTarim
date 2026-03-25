@@ -86,6 +86,17 @@ export default function Reminders() {
     const fetchGunlukHatirlaticilar = async () => {
         try {
             setLoading(true);
+
+            // Authentication kontrolü - token yoksa isteği yapma
+            if (typeof window !== 'undefined') {
+                const token = localStorage.getItem('accessToken');
+                if (!token) {
+                    console.warn('Reminders: Authentication token bulunamadı, atlanıyor');
+                    setLoading(false);
+                    return;
+                }
+            }
+
             let baslangic = new Date();
             let bitis = new Date();
             baslangic.setHours(0, 0, 0, 0);
@@ -124,19 +135,29 @@ export default function Reminders() {
             }
 
             // Fetch Invoices
-            const faturaRes = await axios.get('/invoices', { params: { limit: 100 } });
-            const faturaData = Array.isArray(faturaRes.data) ? faturaRes.data : (faturaRes.data?.data || []);
-            const vadesiGecenFaturalar = faturaData.filter((f: any) =>
-                f.vade && new Date(f.vade) < new Date() && Number(f.odenecekTutar) > 0
-            ).slice(0, 5);
+            let vadesiGecenFaturalar: any[] = [];
+            try {
+                const faturaRes = await axios.get('/invoices', { params: { limit: 100 } });
+                const faturaData = Array.isArray(faturaRes.data) ? faturaRes.data : (faturaRes.data?.data || []);
+                vadesiGecenFaturalar = faturaData.filter((f: any) =>
+                    f.dueDate && new Date(f.dueDate) < new Date() && Number(f.remainingAmount) > 0
+                ).slice(0, 5);
+            } catch (faturaError) {
+                console.warn('Faturalar yüklenirken hata oluştu (404 veya yetki hatası):', faturaError);
+            }
 
             // Fetch Credit Cards
-            const ccBitis = new Date();
-            ccBitis.setDate(ccBitis.getDate() + 15);
-            const ccRes = await axios.get('/banks/credit-cards/upcoming', {
-                params: { start: baslangicStr, end: ccBitis.toISOString() }
-            });
-            const krediKartiTarihleri = Array.isArray(ccRes.data) ? ccRes.data : [];
+            let krediKartiTarihleri: any[] = [];
+            try {
+                const ccBitis = new Date();
+                ccBitis.setDate(ccBitis.getDate() + 15);
+                const ccRes = await axios.get('/banks/credit-cards/upcoming', {
+                    params: { start: baslangicStr, end: ccBitis.toISOString() }
+                });
+                krediKartiTarihleri = Array.isArray(ccRes.data) ? ccRes.data : [];
+            } catch (ccError) {
+                console.warn('Kredi kartı tarihleri yüklenirken hata:', ccError);
+            }
 
             // Fetch Installments
             let krediTaksitleri: any[] = [];
@@ -264,12 +285,12 @@ export default function Reminders() {
                                 count={hatirlaticilar.personelOdemeleri.length}
                                 color="var(--chart-2)"
                                 items={hatirlaticilar.personelOdemeleri}
-                                link="/ik/personel"
+                                link="/hr/personel"
                                 renderItem={(item: any) => (
                                     <ListItem key={item.id} disablePadding sx={{ mb: 1 }}>
                                         <ListItemText
-                                            primary={`💰 ${item.firstName} ${item.lastName}`}
-                                            secondary={`Maaş: ₺${item.salary}`}
+                                            primary={`👤 ${item.firstName} ${item.lastName || ''}`}
+                                            secondary={`Maaş: ₺${item.salary} - Tarih: ${new Date().toLocaleDateString('tr-TR')}`}
                                             primaryTypographyProps={{ fontSize: '0.875rem', fontWeight: 600 }}
                                             secondaryTypographyProps={{ fontSize: '0.75rem' }}
                                         />
@@ -283,13 +304,26 @@ export default function Reminders() {
                                 icon={CreditCardOutlined}
                                 count={hatirlaticilar.krediTaksitleri.length + hatirlaticilar.krediKartiTarihleri.length}
                                 color="var(--chart-4)"
-                                items={[...hatirlaticilar.krediTaksitleri, ...hatirlaticilar.krediKartiTarihleri]}
-                                link="/banka"
+                                items={[
+                                    ...hatirlaticilar.krediTaksitleri.map(t => ({
+                                        id: t.id,
+                                        label: `${t.loan?.bankAccount?.bank?.name || 'Kredi'} - #${t.installmentNo}`,
+                                        tutar: t.amount,
+                                        tarih: t.dueDate
+                                    })),
+                                    ...hatirlaticilar.krediKartiTarihleri.map(k => ({
+                                        id: k.id,
+                                        label: `${k.bankName || k.name || 'KK'} (${k.lastFourDigits || '****'})`,
+                                        tutar: null, // Ekstre tutarı bazen gelmeyebilir
+                                        tarih: k.paymentDueDate
+                                    }))
+                                ]}
+                                link="/bank"
                                 renderItem={(item: any) => (
                                     <ListItem key={item.id} disablePadding sx={{ mb: 1 }}>
                                         <ListItemText
-                                            primary={`💳 ${item.bankaAdi || 'Banka'} - ${item.tutar ? item.tutar + '₺' : 'Ekstre'}`}
-                                            secondary={item.tarih ? new Date(item.tarih).toLocaleDateString() : 'Tarih yok'}
+                                            primary={`💳 ${item.label}`}
+                                            secondary={`${item.tutar ? item.tutar + ' ₺ - ' : ''}Son Ödeme: ${item.tarih ? new Date(item.tarih).toLocaleDateString('tr-TR') : 'Tarih yok'}`}
                                             primaryTypographyProps={{ fontSize: '0.875rem', fontWeight: 600 }}
                                             secondaryTypographyProps={{ fontSize: '0.75rem' }}
                                         />
@@ -304,12 +338,12 @@ export default function Reminders() {
                                 count={hatirlaticilar.vadesiGecenFaturalar.length}
                                 color="var(--destructive)"
                                 items={hatirlaticilar.vadesiGecenFaturalar}
-                                link="/fatura"
+                                link="/invoice"
                                 renderItem={(item: any) => (
                                     <ListItem key={item.id} disablePadding sx={{ mb: 1 }}>
                                         <ListItemText
-                                            primary={`📄 ${item.unvan || 'Cari'}`}
-                                            secondary={`Tutar: ₺${item.odenecekTutar} - Vade: ${new Date(item.vade).toLocaleDateString()}`}
+                                            primary={`📄 ${item.account?.title || 'Cari'}`}
+                                            secondary={`Tutar: ₺${item.remainingAmount || item.grandTotal} - Vade: ${new Date(item.dueDate || item.date).toLocaleDateString('tr-TR')}`}
                                             primaryTypographyProps={{ fontSize: '0.875rem', fontWeight: 600 }}
                                             secondaryTypographyProps={{ fontSize: '0.75rem', color: 'error.main' }}
                                         />
@@ -328,8 +362,8 @@ export default function Reminders() {
                                 renderItem={(item: any) => (
                                     <ListItem key={item.id} disablePadding sx={{ mb: 1 }}>
                                         <ListItemText
-                                            primary={`📝 ${item.kesideci || 'Çek/Senet'}`}
-                                            secondary={`Tutar: ₺${item.tutar} - Vade: ${new Date(item.vade).toLocaleDateString()}`}
+                                            primary={`📝 ${item.account?.title || 'Çek/Senet'}`}
+                                            secondary={`Tutar: ₺${item.amount} - Vade: ${new Date(item.dueDate).toLocaleDateString('tr-TR')}`}
                                             primaryTypographyProps={{ fontSize: '0.875rem', fontWeight: 600 }}
                                             secondaryTypographyProps={{ fontSize: '0.75rem' }}
                                         />

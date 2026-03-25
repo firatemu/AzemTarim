@@ -6,14 +6,11 @@ async function main() {
     const models = [
         'user',
         'tenant',
-        'cari',
-        'arac',
-        'fatura',
-        'stokKarti',
-        'kategori',
-        'marka',
-        'cekSenet',
-        'bordro'
+        'product',
+        'brand',
+        'category',
+        'account',
+        'invoice'
     ];
 
     console.log('--- Veritabanı Kayıt Sayıları ---');

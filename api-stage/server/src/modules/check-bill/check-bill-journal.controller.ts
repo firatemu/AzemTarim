@@ -1,6 +1,6 @@
-import { Controller, Get, Post, Body, Param, UseGuards, Request } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Delete, Patch, UseGuards, Request } from '@nestjs/common';
 import { CheckBillJournalService } from './check-bill-journal.service';
-import { CreateCheckBillJournalDto } from './dto/create-check-bill-journal.dto';
+import { CreateCheckBillJournalDto, UpdateCheckBillJournalDto } from './dto/create-check-bill-journal.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 
 @Controller('payroll')
@@ -20,6 +20,16 @@ export class CheckBillJournalController {
 
     @Post()
     create(@Body() dto: CreateCheckBillJournalDto, @Request() req) {
-        return this.checkBillJournalService.create(dto, req.user.id);
+        return this.checkBillJournalService.create(dto, req.user);
+    }
+
+    @Patch(':id')
+    update(@Param('id') id: string, @Body() dto: UpdateCheckBillJournalDto) {
+        return this.checkBillJournalService.update(id, dto);
+    }
+
+    @Delete(':id')
+    remove(@Param('id') id: string) {
+        return this.checkBillJournalService.remove(id);
     }
 }

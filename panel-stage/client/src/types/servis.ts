@@ -82,6 +82,7 @@ export interface WorkOrderItem {
   taxRate?: number;
   taxAmount?: number;
   totalPrice: number;
+  lineTotal?: number;
   stok?: StokRef;
 }
 
@@ -181,7 +182,7 @@ export interface CreateCustomerVehicleDto {
   ruhsatPhotoUrl?: string;
 }
 
-export interface UpdateCustomerVehicleDto extends Partial<CreateCustomerVehicleDto> {}
+export interface UpdateCustomerVehicleDto extends Partial<CreateCustomerVehicleDto> { }
 
 export interface CreateWorkOrderDto {
   customerVehicleId: string;

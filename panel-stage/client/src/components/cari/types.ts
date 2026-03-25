@@ -57,11 +57,13 @@ export interface CariFormData {
     // Risk & Finans
     riskLimiti: number;
     riskDurumu: 'NORMAL' | 'RISKLI' | 'BLOKELI' | 'TAKIPTE';
+    riskDurdurma: boolean;
     teminatTutar: number;
-    vadeSuresi: string; // Existing field kept as string in frontend? Backend expects int. let's check
-    vadeGun: number;    // New dedicated int field
+    vadeSuresi: string;
+    vadeGun: number;
     paraBirimi: string;
-    bankaBilgileri: string; // Text field
+    fiyatGrubu: string;
+    bankaBilgileri: string;
 
     // Gruplama
     sektor: string;
@@ -99,10 +101,12 @@ export const initialCariFormData: CariFormData = {
 
     riskLimiti: 0,
     riskDurumu: 'NORMAL',
+    riskDurdurma: false,
     teminatTutar: 0,
     vadeSuresi: '',
     vadeGun: 30,
     paraBirimi: 'TRY',
+    fiyatGrubu: '',
     bankaBilgileri: '',
 
     sektor: '',

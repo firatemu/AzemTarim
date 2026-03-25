@@ -2,18 +2,36 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
-  UnauthorizedException,
 } from '@nestjs/common';
 import { Inject, forwardRef } from '@nestjs/common';
-import { Prisma, InvoiceType, InvoiceStatus, MovementType, LogAction, PaymentMethod } from '@prisma/client';
+import { Prisma, MovementType, PaymentMethod, CollectionType, BankAccountType } from '@prisma/client';
+import { InvoiceStatus, InvoiceType } from '../invoice/invoice.enums';
+import { Decimal } from '@prisma/client/runtime/library';
 import { PrismaService } from '../../common/prisma.service';
 import { TenantResolverService } from '../../common/services/tenant-resolver.service';
 import { buildTenantWhereClause } from '../../common/utils/staging.util';
 import { CodeTemplateService } from '../code-template/code-template.service';
-import { CreatePosSaleDto } from './dto/create-pos-sale.dto';
+import { ModuleType } from '../code-template/code-template.enums';
+import { CreatePosSaleDto, DiscountType } from './dto/create-pos-sale.dto';
 import { CreatePosSessionDto } from './dto/create-pos-session.dto';
 import { ClosePosSessionDto } from './dto/close-pos-session.dto';
 import { CreatePosReturnDto } from './dto/create-pos-return.dto';
+import { InvoiceService } from '../invoice/invoice.service';
+import { CollectionService } from '../collection/collection.service';
+import { SalesAgentResponseDto } from './dto/sales-agent-response.dto';
+import { CashboxService } from '../cashbox/cashbox.service';
+
+export interface BarcodeProductResult {
+  id: string;
+  name: string;
+  barcode: string | null;
+  code: string | null;
+  salePrice: string;   // Decimal as string
+  vatRate: number;
+  stock: number;   // from product_location_stock or default 0
+  hasVariants: boolean;
+  productVariants: { id: string; name: string; salePrice: string }[];
+}
 
 @Injectable()
 export class PosService {
@@ -22,6 +40,9 @@ export class PosService {
     private tenantResolver: TenantResolverService,
     @Inject(forwardRef(() => CodeTemplateService))
     private codeTemplateService: CodeTemplateService,
+    private invoiceService: InvoiceService,
+    private collectionService: CollectionService,
+    private cashboxService: CashboxService,
   ) { }
 
   /**
@@ -32,236 +53,294 @@ export class PosService {
     if (!dto.accountId) {
       throw new BadRequestException('POS satışı için müşteri (cari) seçimi zorunludur.');
     }
-    return this.prisma.$transaction(async (tx) => {
-      const prisma = tx as any;
 
-      // Calculate totals
+    // Frontend fields mapping
+    const effectiveSalesAgentId = dto.salesAgentId || dto.salespersonId;
+    const effectiveNotes = dto.notes || dto.note;
+
+    return this.prisma.$transaction(async (tx) => {
+      // 1. Generate Invoice Number (Required for DB)
+      const invoiceNo = await this.codeTemplateService.getNextCode(ModuleType.INVOICE_SALES);
+
+      // 2. Calculate totals
       let subtotal = 0;
       let totalVat = 0;
-      let totalDiscount = 0;
+      let totalItemDiscount = 0;
 
       const invoiceItems = dto.items.map(item => {
-        const itemTotal = item.quantity * item.unitPrice;
-        const itemVat = itemTotal * (item.vatRate / 100);
-        const itemDiscount = itemTotal * (item.discountRate || 0) / 100;
+        // Gelen birim fiyat KDV dahil (brüt) kabul edilir.
+        // Veritabanı ve muhasebe için KDV hariç (net) tutara dönüştürülür.
+        const inclusivePrice = item.unitPrice;
+        const exclusivePrice = inclusivePrice / (1 + item.vatRate / 100);
+
+        const itemTotal = item.quantity * exclusivePrice;
+
+        // Item-level discount calculation
+        let itemDiscount = 0;
+        const discountType = item.discountType || DiscountType.PCT;
+
+        // Use discountValue if present, otherwise fallback to discountRate as percentage
+        if (item.discountValue !== undefined && item.discountValue !== null) {
+          if (discountType === DiscountType.PCT) {
+            itemDiscount = itemTotal * (item.discountValue / 100);
+          } else {
+            // FIXED amount discount
+            itemDiscount = Math.min(item.discountValue * item.quantity, itemTotal);
+          }
+        } else if (item.discountRate && item.discountRate > 0) {
+          // Backward compatibility for discountRate
+          itemDiscount = itemTotal * (item.discountRate / 100);
+        }
+
+        const itemVat = (itemTotal - itemDiscount) * (item.vatRate / 100);
         const itemAmount = itemTotal - itemDiscount + itemVat;
 
         subtotal += itemTotal;
         totalVat += itemVat;
-        totalDiscount += itemDiscount;
+        totalItemDiscount += itemDiscount;
 
         return {
           productId: item.productId,
           quantity: item.quantity,
-          unitPrice: item.unitPrice,
+          unitPrice: new Decimal(exclusivePrice),
           vatRate: item.vatRate,
-          vatAmount: itemVat,
-          amount: itemAmount,
-          discountRate: item.discountRate || 0,
-          discountAmount: itemDiscount,
+          vatAmount: new Decimal(itemVat),
+          amount: new Decimal(itemAmount),
+          discountRate: new Decimal(item.discountRate || (discountType === DiscountType.PCT ? (item.discountValue || 0) : 0)),
+          discountAmount: new Decimal(itemDiscount),
+          discountType: discountType as string, // Prisma expects string from schema
+          tenantId,
         };
       });
 
-      const grandTotal = subtotal + totalVat - totalDiscount;
+      // 3. Calculate global discount
+      let globalDiscount = 0;
+      const gType = dto.globalDiscount?.type || dto.globalDiscountType || DiscountType.PCT;
+      const gValue = dto.globalDiscount?.value ?? dto.globalDiscountValue ?? 0;
 
-      // Create invoice
-      const invoice = await prisma.invoice.create({
+      const afterItemDisc = subtotal - totalItemDiscount;
+      if (gValue > 0 && afterItemDisc > 0) {
+        if (gType === DiscountType.PCT) {
+          globalDiscount = afterItemDisc * (gValue / 100);
+        } else {
+          globalDiscount = Math.min(gValue, afterItemDisc);
+        }
+        // Proportionally reduce VAT for global discount
+        const ratio = globalDiscount / afterItemDisc;
+        totalVat = totalVat * (1 - ratio);
+      }
+
+      const totalDiscount = totalItemDiscount + globalDiscount;
+      const grandTotal = subtotal - totalDiscount + totalVat;
+
+      // 3.5 Resolve Warehouse (Required for Stock Movements)
+      let finalWarehouseId = dto.warehouseId;
+      if (!finalWarehouseId) {
+        const defaultWarehouse = await tx.warehouse.findFirst({
+          where: {
+            ...buildTenantWhereClause(tenantId ?? undefined),
+            isDefault: true,
+            active: true,
+          },
+        });
+        finalWarehouseId = defaultWarehouse?.id || undefined;
+      }
+
+      // 4. Create invoice in DRAFT status with items
+      const invoice = await tx.invoice.create({
         data: {
           tenantId,
-          accountId: dto.accountId,
-          invoiceType: InvoiceType.SALE,
-          status: InvoiceStatus.OPEN,
-          totalAmount: subtotal,
-          vatAmount: totalVat,
-          discount: totalDiscount,
-          grandTotal,
+          accountId: dto.accountId!,
+          salesAgentId: effectiveSalesAgentId || null,
+          warehouseId: finalWarehouseId,
+          invoiceType: InvoiceType.SALE as any,
+          status: InvoiceStatus.DRAFT as any,
+          invoiceNo: invoiceNo,
+          totalAmount: new Decimal(subtotal),
+          vatAmount: new Decimal(totalVat),
+          discount: new Decimal(totalDiscount),
+          globalDiscountType: gType as string,
+          globalDiscountValue: gValue ? new Decimal(gValue) : null,
+          grandTotal: new Decimal(grandTotal),
+          payableAmount: new Decimal(grandTotal),
           currency: 'TRY',
-          exchangeRate: 1,
-          notes: dto.notes,
+          exchangeRate: new Decimal(1),
           createdBy: userId,
           updatedBy: userId,
           items: {
             create: invoiceItems,
           },
-        },
+        } as any, // Cast to any because IDE might have stale Prisma types
       });
-
-      // Create product movements (NOT for DRAFT - Rule 1)
-      // Stock movements ONLY when status becomes COMPLETED
 
       return invoice;
     });
   }
 
   /**
-   * Complete sale transaction with ACID guarantees
-   * - Stock movements (negative)
-   * Gift card validation
-   * Credit account validation
-   * Customer ledger update
+   * Complete sale transaction using central services
    */
-  async completeSale(invoiceId: string, payments: CreatePosSaleDto['payments'], userId?: string) {
-    const tenantId = await this.tenantResolver.resolveForQuery();
-
-    const invoice = await this.prisma.invoice.findFirst({
-      where: {
-        id: invoiceId,
-        ...buildTenantWhereClause(tenantId ?? undefined),
-        deletedAt: null,
-      },
-      include: {
-        items: true,
-        account: true,
-      },
-    });
-
-    if (!invoice) {
-      throw new NotFoundException('Invoice not found');
-    }
-
-    if (invoice.status !== InvoiceStatus.OPEN) {
-      throw new BadRequestException('Sadece TASLAK faturaları tamamlanabilir');
-    }
-
-    // Calculate total paid
-    const totalPaid = payments.reduce((sum, p) => sum + p.amount, 0);
-
-    if (Number(totalPaid) !== Number(invoice.grandTotal)) {
-      throw new BadRequestException('Ödeme amountı fatura toplamı ile eşleşmiyor');
-    }
+  async completeSale(invoiceId: string, payments: any[], userId?: string, cashboxId?: string) {
+    const tenantId = await this.tenantResolver.resolveForQuery({ userId });
 
     return this.prisma.$transaction(async (tx) => {
-      const prisma = tx as any;
+      const prisma = tx as Prisma.TransactionClient;
 
-      // Generate invoice number
-      const invoiceNumber = await this.codeTemplateService.getNextCode('INVOICE_SALES' as any);
-
-      // Update invoice status
-      await prisma.invoice.updateMany({
+      // 1. Fetch the invoice
+      const invoice = await prisma.invoice.findFirst({
         where: {
           id: invoiceId,
           ...buildTenantWhereClause(tenantId ?? undefined),
         },
+        include: { items: true },
+      });
+
+      if (!invoice) {
+        throw new NotFoundException('Satış kaydı bulunamadı');
+      }
+
+      if (invoice.status !== InvoiceStatus.DRAFT && invoice.status !== InvoiceStatus.OPEN) {
+        throw new BadRequestException('Bu satış zaten tamamlanmış veya geçersiz durumda');
+      }
+
+      // 2. Status guard and Payment validation
+      const grandTotal = Number(invoice.grandTotal);
+      const totalPaid = payments.reduce((sum, p) => sum + p.amount, 0);
+
+      if (totalPaid > grandTotal + 0.01) {
+        throw new BadRequestException(`Ödeme tutarı (${totalPaid.toFixed(2)}) fatura toplamını (${grandTotal.toFixed(2)}) aşamaz.`);
+      }
+
+      // 3. Update Invoice to APPROVED (triggers stock EXIT + account DEBIT)
+      await this.invoiceService.changeStatus(
+        invoiceId,
+        InvoiceStatus.APPROVED,
+        userId,
+        undefined,
+        undefined,
+        prisma,
+      );
+
+      // 4. Process Payments (Collections via CollectionService)
+      let totalCollected = 0;
+      for (const payment of payments) {
+        if (payment.paymentMethod === PaymentMethod.LOAN_ACCOUNT) {
+          totalCollected += payment.amount;
+          continue;
+        }
+
+        let resolvedCashboxId: string | null = payment.cashboxId || cashboxId || null;
+        let resolvedBankAccountId: string | null = payment.bankAccountId || null;
+
+        if (payment.paymentMethod === PaymentMethod.CASH) {
+          let retailCashbox = await this.cashboxService.getRetailCashbox();
+
+          // Fallback: If no isRetail marked, look for code "PK"
+          if (!retailCashbox) {
+            retailCashbox = await prisma.cashbox.findFirst({
+              where: {
+                code: 'PK',
+                ...buildTenantWhereClause(tenantId ?? undefined, true),
+                isActive: true,
+              }
+            });
+          }
+
+          if (!retailCashbox) {
+            throw new BadRequestException('Lütfen "PK" kodlu bir kasa veya "Perakende Satış Kasası" olarak işaretlenmiş bir kasa tanımlayınız.');
+          }
+          resolvedCashboxId = retailCashbox.id;
+        }
+
+        if (payment.paymentMethod === PaymentMethod.CREDIT_CARD || payment.paymentMethod === PaymentMethod.BANK_TRANSFER) {
+          if (!resolvedBankAccountId) {
+            throw new BadRequestException('Banka hesabi secimi zorunludur.');
+          }
+
+          const bankAccount = await prisma.bankAccount.findFirst({
+            where: {
+              id: resolvedBankAccountId,
+              ...buildTenantWhereClause(tenantId ?? undefined, true),
+            },
+            select: { id: true, type: true, isActive: true },
+          });
+
+          if (!bankAccount || !bankAccount.isActive) {
+            throw new BadRequestException('Gecerli ve aktif bir banka hesabi seciniz.');
+          }
+
+          if (payment.paymentMethod === PaymentMethod.CREDIT_CARD && bankAccount.type !== BankAccountType.POS) {
+            throw new BadRequestException('Kredi karti odemesi icin POS Hesabi seciniz.');
+          }
+
+          if (payment.paymentMethod === PaymentMethod.BANK_TRANSFER && bankAccount.type !== BankAccountType.DEMAND_DEPOSIT) {
+            throw new BadRequestException('Banka havalesi icin Vadesiz Hesap seciniz.');
+          }
+        }
+
+        await this.collectionService.create(
+          {
+            accountId: invoice.accountId,
+            invoiceId: invoice.id,
+            type: CollectionType.COLLECTION as any,
+            amount: payment.amount,
+            date: new Date().toISOString(),
+            paymentMethod: payment.paymentMethod as any,
+            cashboxId: resolvedCashboxId,
+            bankAccountId: resolvedBankAccountId,
+            companyCreditCardId: payment.companyCreditCardId || null,
+            installmentCount: payment.installmentCount ?? null,
+            notes: `POS Satış Tahsilatı: ${invoice.invoiceNo}`,
+          } as any,
+          userId!,
+          prisma,
+        );
+        totalCollected += payment.amount;
+      }
+
+      // 5. Determine final status
+      let finalStatus: InvoiceStatus;
+      if (Math.abs(totalCollected - grandTotal) < 0.01) {
+        finalStatus = InvoiceStatus.CLOSED;
+      } else if (totalCollected > 0) {
+        finalStatus = InvoiceStatus.PARTIALLY_PAID;
+      } else {
+        finalStatus = InvoiceStatus.APPROVED;
+      }
+
+      // Update invoice: final status + paidAmount
+      await prisma.invoice.update({
+        where: { id: invoiceId },
         data: {
-          status: InvoiceStatus.CLOSED,
-          invoiceNo: invoiceNumber,
+          status: finalStatus as any,
+          paidAmount: new Decimal(totalCollected),
           updatedBy: userId,
         },
       });
 
-      const updatedInvoice = await prisma.invoice.findFirst({
-        where: {
-          id: invoiceId,
-          ...buildTenantWhereClause(tenantId ?? undefined),
+      // 6. Final Audit Log
+      await prisma.invoiceLog.create({
+        data: {
+          tenantId: tenantId!,
+          invoiceId: invoiceId,
+          userId,
+          actionType: 'STATUS_CHANGE',
+          changes: JSON.stringify({ oldStatus: invoice.status, newStatus: finalStatus }),
         },
       });
 
-      if (!updatedInvoice) throw new NotFoundException('Invoice not found after update');
-
-      // Create POS payments
-      const posPayments = await Promise.all(
-        payments.map(payment =>
-          prisma.posPayment.create({
-            data: {
-              tenantId,
-              invoiceId,
-              paymentMethod: payment.paymentMethod,
-              amount: payment.amount,
-              change: (payment as any).change,
-              giftCardId: payment.giftCardId,
-              notes: (payment as any).notes,
-              createdBy: userId,
-              updatedBy: userId,
-            },
-          })
-        )
-      );
-
-      // Create stock movements (negative for sale)
-      const stockMovements = await Promise.all(
-        invoice.items.map(item =>
-          prisma.productMovement.create({
-            data: {
-              tenantId,
-              productId: item.productId,
-              movementType: MovementType.SALE,
-              quantity: -item.quantity, // NEGATIVE - critical
-              unitPrice: item.unitPrice,
-              invoiceItemId: item.id,
-              warehouseId: updatedInvoice.warehouseId,
-            },
-          })
-        )
-      );
-
-      // Credit account validation and ledger update
-      for (const payment of payments) {
-        if (payment.paymentMethod === PaymentMethod.LOAN_ACCOUNT && invoice.accountId) {
-          // Validate credit limit
-          const account = await prisma.account.findFirst({
-            where: {
-              id: invoice.accountId,
-              ...buildTenantWhereClause(tenantId ?? undefined),
-            },
-          });
-
-          if (!account) {
-            throw new NotFoundException('Customer not found');
-          }
-
-          const availableCredit = (account.creditLimit || 0) - (account.balance || 0);
-
-          if (availableCredit < payment.amount) {
-            throw new BadRequestException('Müşteri kredi limiti aşıldı');
-          }
-
-          // Create customer ledger debit
-          await prisma.accountMovement.create({
-            data: {
-              tenantId,
-              accountId: invoice.accountId,
-              type: 'DEBIT', // Borçlanır
-              amount: payment.amount,
-              notes: `POS Satış Faturası: ${invoiceNumber}`,
-              date: new Date(),
-              createdBy: userId,
-            },
-          });
-
-          // Update customer balance
-          await prisma.account.updateMany({
-            where: {
-              id: invoice.accountId,
-              ...buildTenantWhereClause(tenantId ?? undefined),
-            },
-            data: {
-              balance: {
-                increment: payment.amount,
-              },
-            },
-          });
-        }
-
-        // Gift card validation
-        if (payment.paymentMethod === PaymentMethod.GIFT_CARD && payment.giftCardId) {
-          // Gift card balance validation would be here
-          // Assuming gift card model exists
-        }
-      }
-
       return {
-        invoice: updatedInvoice,
-        posPayments,
-        stockMovements,
+        invoiceId,
+        invoiceNumber: invoice.invoiceNo,
+        grandTotal: grandTotal.toString(),
+        paidAmount: totalCollected.toString(),
+        status: finalStatus,
       };
     });
   }
 
   /**
    * Create return transaction with ACID guarantees
-   * - Stock movements (positive - returns to shelf)
-   * Payment reversal (refund)
-   * Credit account ledger credit
    */
   async createReturn(dto: CreatePosReturnDto, userId?: string) {
     const tenantId = await this.tenantResolver.resolveForCreate({ userId });
@@ -279,28 +358,29 @@ export class PosService {
     });
 
     if (!originalInvoice) {
-      throw new NotFoundException('Original invoice not found');
+      throw new NotFoundException('Orijinal fatura bulunamadı');
     }
 
     return this.prisma.$transaction(async (tx) => {
-      const prisma = tx as any;
-
       // Generate invoice number
-      const invoiceNumber = await this.codeTemplateService.getNextCode('INVOICE_SALES' as any);
+      const invoiceNumber = await this.codeTemplateService.getNextCode(ModuleType.INVOICE_SALES);
 
       // Create return invoice
-      const returnInvoice = await prisma.invoice.create({
+      const returnInvoice = await tx.invoice.create({
         data: {
           tenantId,
           accountId: originalInvoice.accountId,
           invoiceType: InvoiceType.SALES_RETURN,
-          status: InvoiceStatus.CLOSED,
-          totalAmount: dto.totalAmount,
-          vatAmount: 0,
-          discount: 0,
-          grandTotal: dto.totalAmount,
+          status: InvoiceStatus.DRAFT as any,
+          invoiceNo: invoiceNumber,
+          totalAmount: new Decimal(dto.totalAmount),
+          vatAmount: new Decimal(0),
+          discount: new Decimal(0),
+          grandTotal: new Decimal(dto.totalAmount),
+          payableAmount: new Decimal(dto.totalAmount),
+          paidAmount: new Decimal(0),
           currency: 'TRY',
-          exchangeRate: 1,
+          exchangeRate: new Decimal(1),
           notes: (dto.notes || '') + ' [İade orijinal fatura: ' + dto.originalInvoiceId + ']',
           createdBy: userId,
           updatedBy: userId,
@@ -308,92 +388,49 @@ export class PosService {
             create: dto.items.map(item => ({
               productId: item.productId,
               quantity: item.quantity,
-              unitPrice: item.unitPrice,
+              unitPrice: new Decimal(item.unitPrice),
               vatRate: item.vatRate,
-              vatAmount: 0,
-              amount: item.quantity * item.unitPrice,
-              discountRate: 0,
-              discountAmount: 0,
+              vatAmount: new Decimal(0),
+              amount: new Decimal(item.quantity * item.unitPrice),
+              discountRate: new Decimal(0),
+              discountAmount: new Decimal(0),
+              tenantId,
             })),
           },
         },
       });
 
-      // Create stock movements (positive for return)
-      const stockMovements = await Promise.all(
-        dto.items.map(item =>
-          prisma.productMovement.create({
-            data: {
-              tenantId,
-              productId: item.productId,
-              movementType: MovementType.RETURN,
-              quantity: item.quantity, // POSITIVE - stock returns to shelf
-              unitPrice: item.unitPrice,
-              invoiceItemId: null, // Not linking to original items
-              warehouseId: originalInvoice.warehouseId,
-            },
-          })
-        )
+      // Approve return (processes stock and balance back)
+      await this.invoiceService.changeStatus(
+        returnInvoice.id,
+        InvoiceStatus.APPROVED,
+        userId,
+        undefined,
+        undefined,
+        tx as any,
       );
 
-      // Create refund payment
-      const posPayment = await prisma.posPayment.create({
-        data: {
-          tenantId,
-          invoiceId: returnInvoice.id,
-          paymentMethod: dto.paymentMethod,
-          amount: dto.totalAmount,
-          notes: `İade: ${dto.notes || ''}`,
-          createdBy: userId,
-          updatedBy: userId,
-        },
-      });
-
-      // Credit account ledger credit
-      if (originalInvoice.accountId && originalInvoice.invoiceType === InvoiceType.SALE) {
-        // Check if original used credit account
-        const originalPayments = await prisma.collection.findMany({
-          where: {
-            invoiceId: dto.originalInvoiceId,
-            paymentType: PaymentMethod.LOAN_ACCOUNT,
-          },
-        });
-
-        if (originalPayments.length > 0) {
-          const totalOriginalCredit = originalPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
-
-          // Create customer ledger credit
-          await prisma.accountMovement.create({
-            data: {
-              tenantId,
-              accountId: originalInvoice.accountId,
-              type: 'CREDIT', // Alacaklandır
-              amount: dto.totalAmount,
-              notes: `POS İade: ${invoiceNumber}`,
-              date: new Date(),
-              createdBy: userId,
-            },
-          });
-
-          // Update customer balance
-          await prisma.account.updateMany({
-            where: {
-              id: originalInvoice.accountId,
-              ...buildTenantWhereClause(tenantId ?? undefined),
-            },
-            data: {
-              balance: {
-                decrement: dto.totalAmount,
-              },
-            },
-          });
-        }
+      // Create refund payment if not LOAN_ACCOUNT
+      if (dto.paymentMethod !== PaymentMethod.LOAN_ACCOUNT) {
+        await this.collectionService.create(
+          {
+            accountId: originalInvoice.accountId,
+            invoiceId: returnInvoice.id,
+            type: CollectionType.PAYMENT as any,
+            amount: dto.totalAmount,
+            date: new Date().toISOString(),
+            paymentMethod: dto.paymentMethod as any,
+            notes: `İade Ödemesi: ${invoiceNumber}`,
+          } as any,
+          userId!,
+          tx as any,
+        );
       }
 
       return {
-        invoice: returnInvoice,
-        posPayment,
-        stockMovements,
+        id: returnInvoice.id,
+        invoiceNo: returnInvoice.invoiceNo,
+        status: 'SUCCESS',
       };
     });
   }
@@ -405,14 +442,14 @@ export class PosService {
     const tenantId = await this.tenantResolver.resolveForCreate({ userId });
 
     // Generate session number
-    const sessionNo = await this.codeTemplateService.getNextCode('POS_CONSOLE' as any);
+    const sessionNo = await this.codeTemplateService.getNextCode(ModuleType.POS_CONSOLE);
 
     return this.prisma.posSession.create({
       data: {
         tenantId,
         cashierId: dto.cashierId,
         cashboxId: dto.cashboxId,
-        openingAmount: dto.openingAmount,
+        openingAmount: new Decimal(dto.openingAmount),
         status: 'OPEN',
         sessionNo,
         createdBy: userId,
@@ -435,11 +472,11 @@ export class PosService {
     });
 
     if (!session) {
-      throw new NotFoundException('Session not found');
+      throw new NotFoundException('Oturum bulunamadı');
     }
 
     if (session.status !== 'OPEN') {
-      throw new BadRequestException('Sadece açık sessionlar kapatılabilir');
+      throw new BadRequestException('Sadece açık oturumlar kapatılabilir');
     }
 
     return this.prisma.posSession.updateMany({
@@ -448,7 +485,7 @@ export class PosService {
         ...buildTenantWhereClause(tenantId ?? undefined),
       },
       data: {
-        closingAmount: dto.closingAmount,
+        closingAmount: new Decimal(dto.closingAmount),
         closingNotes: dto.closingNotes,
         status: 'CLOSED',
         closedAt: new Date(),
@@ -458,25 +495,113 @@ export class PosService {
   }
 
   /**
-   * Get product by barcode
+   * Searches for products by barcode or product code.
+   * Returns all fields needed for the POS cart (price, VAT, stock, variants).
    */
-  async getProductsByBarcode(barcode: string, tenantId?: string) {
-    const resolvedTenantId = tenantId || await this.tenantResolver.resolveForQuery();
+  /**
+   * Searches for products by barcode or product code.
+   * Returns all fields needed for the POS cart (price, VAT, stock, variants).
+   */
+  async getProductsByBarcode(
+    barcode: string,
+    tenantId?: string,
+  ): Promise<BarcodeProductResult[]> {
+    const resolvedTenantId =
+      tenantId ?? (await this.tenantResolver.resolveForQuery());
 
-    return this.prisma.product.findMany({
+    const products = await this.prisma.product.findMany({
       where: {
         ...buildTenantWhereClause(resolvedTenantId ?? undefined),
+        deletedAt: null,
         OR: [
           { barcode: { equals: barcode, mode: 'insensitive' } },
           { code: { equals: barcode, mode: 'insensitive' } },
+          {
+            productBarcodes: {
+              some: {
+                barcode: { equals: barcode, mode: 'insensitive' },
+              },
+            },
+          },
         ],
-        deletedAt: null,
-      }
+      },
+      select: {
+        id: true,
+        name: true,
+        barcode: true,
+        code: true,
+        vatRate: true,
+        priceCards: {
+          where: {
+            type: 'SALE',
+            isActive: true,
+          },
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+        },
+        productLocationStocks: {
+          where: {
+            ...buildTenantWhereClause(resolvedTenantId ?? undefined),
+          },
+          select: { qtyOnHand: true },
+        },
+      },
+    });
+
+    return products.map(p => {
+      const salePrice = (p as any).priceCards?.length > 0 ? (p as any).priceCards[0].price.toString() : '0';
+      const totalStock = (p as any).productLocationStocks?.reduce((sum: number, s: any) => sum + (s.qtyOnHand || 0), 0) || 0;
+
+      return {
+        id: p.id,
+        name: p.name,
+        barcode: p.barcode,
+        code: p.code,
+        salePrice,
+        vatRate: p.vatRate ?? 20,
+        stock: totalStock,
+        hasVariants: false,
+        productVariants: [],
+      };
     });
   }
 
   /**
-   * Get active carts (DRAFT invoices) for a cashier
+   * Returns active sales agents for the current tenant.
+   * Used by the POS frontend SelectorBox for salesperson selection.
+   */
+  async getSalesAgents(search?: string): Promise<SalesAgentResponseDto[]> {
+    const tenantId = await this.tenantResolver.resolveForQuery();
+
+    const agents = await this.prisma.salesAgent.findMany({
+      where: {
+        ...buildTenantWhereClause(tenantId ?? undefined),
+        isActive: true,
+        ...(search && search.trim().length > 0
+          ? {
+            fullName: {
+              contains: search.trim(),
+              mode: 'insensitive',
+            },
+          }
+          : {}),
+      },
+      select: {
+        id: true,
+        fullName: true,
+        phone: true,
+        email: true,
+        isActive: true,
+      },
+      orderBy: { fullName: 'asc' },
+      take: 20,
+    });
+
+    return agents.map(SalesAgentResponseDto.fromPrisma);
+  }
+
+  /**
+   * Get active carts (DRAFT/OPEN invoices) for a cashier
    */
   async getActiveCarts(cashierId?: string) {
     const tenantId = await this.tenantResolver.resolveForQuery();
@@ -485,12 +610,12 @@ export class PosService {
       where: {
         ...buildTenantWhereClause(tenantId ?? undefined),
         invoiceType: InvoiceType.SALE,
-        status: InvoiceStatus.OPEN,
+        status: { in: [InvoiceStatus.DRAFT, InvoiceStatus.OPEN] },
         deletedAt: null,
-        cashierId, // If provided, filter by cashier
+        createdBy: cashierId,
       },
       include: {
-        items: true,
+        items: { include: { product: true } },
         account: true,
       },
       orderBy: {
@@ -514,14 +639,13 @@ export class PosService {
     });
 
     if (!invoice) {
-      throw new NotFoundException('Invoice not found');
+      throw new NotFoundException('Fatura bulunamadı');
     }
 
-    if (invoice.status !== InvoiceStatus.OPEN) {
-      throw new BadRequestException('Sadece TASLAK faturaları silinebilir');
+    if (invoice.status !== InvoiceStatus.DRAFT && invoice.status !== InvoiceStatus.OPEN) {
+      throw new BadRequestException('Sadece taslak faturalar silinebilir');
     }
 
-    // Soft delete (no stock reversal per Rule 1)
     return this.prisma.invoice.updateMany({
       where: {
         id: invoiceId,
@@ -531,6 +655,46 @@ export class PosService {
         deletedAt: new Date(),
         deletedBy: userId,
       },
+    });
+  }
+
+  async getRetailCashbox() {
+    return this.cashboxService.getRetailCashbox();
+  }
+
+  async getBankAccountsByType(type: BankAccountType) {
+    const tenantId = await this.tenantResolver.resolveForQuery();
+
+    const whereClause: Prisma.BankAccountWhereInput = {
+      type,
+      isActive: true,
+    };
+
+    // Some legacy accounts may have null tenantId on bank_accounts.
+    // In that case, fall back to the parent bank's tenant ownership.
+    if (tenantId) {
+      whereClause.OR = [
+        { tenantId },
+        { tenantId: null, bank: { tenantId } },
+      ];
+    }
+
+    return this.prisma.bankAccount.findMany({
+      where: whereClause,
+      select: {
+        id: true,
+        name: true,
+        accountNo: true,
+        iban: true,
+        type: true,
+        bank: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+      },
+      orderBy: [{ bank: { name: 'asc' } }, { name: 'asc' }],
     });
   }
 }

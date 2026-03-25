@@ -1,15 +1,19 @@
 import { TenantResolverService } from '../../common/services/tenant-resolver.service';
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../common/prisma.service';
+import { buildTenantWhereClause } from '../../common/utils/staging.util';
 
 @Injectable()
 export class UsersService {
   constructor(private prisma: PrismaService, private readonly tenantResolver: TenantResolverService) { }
 
   async findAll(search?: string, limit: number = 100, page: number = 1, role?: string) {
+    const tenantId = await this.tenantResolver.resolveForQuery();
     const skip = (page - 1) * limit;
 
-    const where: any = {};
+    const where: any = {
+      ...buildTenantWhereClause(tenantId ?? undefined),
+    };
 
     if (search) {
       where.OR = [
@@ -59,8 +63,9 @@ export class UsersService {
   }
 
   async findOne(id: string) {
-    const user = await this.prisma.user.findUnique({
-      where: { id },
+    const tenantId = await this.tenantResolver.resolveForQuery();
+    const user = await this.prisma.user.findFirst({
+      where: { id, ...buildTenantWhereClause(tenantId ?? undefined) },
       include: {
         tenant: {
           include: {
@@ -78,9 +83,9 @@ export class UsersService {
   }
 
   async remove(id: string) {
-    // Kullanıcıyı kontrol et
-    const user = await this.prisma.user.findUnique({
-      where: { id },
+    const tenantId = await this.tenantResolver.resolveForQuery();
+    const user = await this.prisma.user.findFirst({
+      where: { id, ...buildTenantWhereClause(tenantId ?? undefined) },
     });
 
     if (!user) {
@@ -155,16 +160,20 @@ export class UsersService {
   }
 
   async getStats() {
+    const tenantId = await this.tenantResolver.resolveForQuery();
+    const whereClause = { ...buildTenantWhereClause(tenantId ?? undefined) };
+
     // Get total counts
     const [totalUsers, activeUsers, inactiveUsers] = await Promise.all([
-      this.prisma.user.count(),
-      this.prisma.user.count({ where: { isActive: true } }),
-      this.prisma.user.count({ where: { isActive: false } }),
+      this.prisma.user.count({ where: whereClause }),
+      this.prisma.user.count({ where: { ...whereClause, isActive: true } }),
+      this.prisma.user.count({ where: { ...whereClause, isActive: false } }),
     ]);
 
     // Get counts by role
     const roleStats = await this.prisma.user.groupBy({
       by: ['role'],
+      where: whereClause,
       _count: {
         id: true,
       },

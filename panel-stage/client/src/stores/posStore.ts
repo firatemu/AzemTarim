@@ -1,294 +1,360 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import axios from '@/lib/axios';
+import type {
+  CartItem,
+  CartTotals,
+  GlobalDiscount,
+  PosPayment,
+  PosState,
+  SelectedPerson,
+  AddToCartPayload,
+  CheckoutResult,
+} from '@/app/(main)/pos/types/pos.types';
 
-interface CartItem {
-  productId: string;
-  productName: string;
-  quantity: number;
-  unitPrice: number;
-  vatRate: number;
-  discountRate: number;
-  variantId?: string;
-  variantName?: string;
+// ─────────────────────────────────────────────────────────────────────────────
+// Yeniden hesaplama fonksiyonu — güncel recalcTotals mantığı
+// ─────────────────────────────────────────────────────────────────────────────
+function recalcTotals(
+  cart: CartItem[],
+  globalDiscount: GlobalDiscount
+): CartTotals {
+  let subtotal = 0; // KDV dahil brüt ara toplam
+  let itemDiscountTotal = 0;
+  let vatAmount = 0;
+
+  cart.forEach((item) => {
+    // unitPrice artık KDV DAHİL
+    const lineRaw = item.quantity * item.unitPrice;
+
+    // Ürün seviyesinde indirim (Brüt tutar üzerinden)
+    let itemDisc = 0;
+    if (item.discountType === 'pct') {
+      itemDisc = lineRaw * (item.discountValue / 100);
+    } else {
+      // 'amt' = birim başı indirim, satır toplamıyla sınırlandırılır
+      itemDisc = Math.min(item.discountValue * item.quantity, lineRaw);
+    }
+    item.discountAmount = itemDisc; // yerinde güncelle
+
+    subtotal += lineRaw;
+    itemDiscountTotal += itemDisc;
+
+    // KDV, brüt net tutar üzerinden iç yüzde ile hesaplanır
+    // Formül: Tutar * (KDV_Oranı / (100 + KDV_Oranı))
+    const lineNetAfterDisc = lineRaw - itemDisc;
+    const lineVat = lineNetAfterDisc * (item.vatRate / (100 + item.vatRate));
+    vatAmount += lineVat;
+  });
+
+  // Genel indirim (Brüt tutara uygulanır)
+  const afterItemDisc = subtotal - itemDiscountTotal;
+  let globalDiscountAmount = 0;
+  if (globalDiscount.value > 0) {
+    if (globalDiscount.type === 'pct') {
+      globalDiscountAmount = afterItemDisc * (globalDiscount.value / 100);
+    } else {
+      globalDiscountAmount = Math.min(globalDiscount.value, afterItemDisc);
+    }
+
+    // Genel indirim oransal olarak KDV'yi de düşürür
+    if (afterItemDisc > 0) {
+      vatAmount = vatAmount * (1 - globalDiscountAmount / afterItemDisc);
+    }
+  }
+
+  const totalDiscount = itemDiscountTotal + globalDiscountAmount;
+  const grandTotal = subtotal - totalDiscount; // Zaten brüt üzerinden gidiyoruz
+
+  return {
+    subtotal,
+    itemDiscountTotal,
+    globalDiscountAmount,
+    totalDiscount,
+    vatAmount,
+    grandTotal,
+  };
 }
 
-interface PosPayment {
-  paymentMethod: string;
-  amount: number;
-  giftCardId?: string;
-  cashboxId?: string;
-  bankAccountId?: string;
-}
+// ─────────────────────────────────────────────────────────────────────────────
+// Boş toplam değerleri
+// ─────────────────────────────────────────────────────────────────────────────
+const EMPTY_TOTALS: CartTotals = {
+  subtotal: 0,
+  itemDiscountTotal: 0,
+  globalDiscountAmount: 0,
+  totalDiscount: 0,
+  vatAmount: 0,
+  grandTotal: 0,
+};
 
-interface PosState {
-  // Cart management
-  carts: Record<string, CartItem[]>;
-  activeCartId: string | null;
-  cartTotal: number;
-  
-  // Customer
-  selectedCustomer: {
-    id: string;
-    code: string;
-    title: string;
-    creditLimit?: number;
-    balance?: number;
-  } | null;
-  
-  // Session
-  activeSessionId: string | null;
-  cashierId: string | null;
-  cashboxId: string | null;
-  
-  // Payment
-  payments: PosPayment[];
-  remainingAmount: number;
-  
-  // UI state
-  variantDialogOpen: boolean;
-  paymentDialogOpen: boolean;
-  receiptDialogOpen: boolean;
-  selectedProductForVariant: CartItem | null;
-  
-  // Actions
-  setActiveCart: (cartId: string) => void;
-  addToCart: (item: CartItem) => void;
-  removeFromCart: (cartId: string, productId: string) => void;
-  updateCartItem: (cartId: string, productId: string, quantity: number) => void;
-  clearCart: (cartId: string) => void;
-  switchCart: (cartId: string) => void;
-  deleteCart: (cartId: string) => void;
-  
-  setSelectedCustomer: (customer: PosState['selectedCustomer']) => void;
-  clearSelectedCustomer: () => void;
-  
-  setSession: (sessionId: string | null, cashierId: string | null, cashboxId: string | null) => void;
-  
-  addPayment: (payment: PosPayment) => void;
-  removePayment: (index: number) => void;
-  clearPayments: () => void;
-  
-  setVariantDialogOpen: (open: boolean) => void;
-  setSelectedProductForVariant: (product: CartItem | null) => void;
-  setPaymentDialogOpen: (open: boolean) => void;
-  setReceiptDialogOpen: (open: boolean) => void;
-  completeCheckout: () => Promise<void>;
-}
-
+// ─────────────────────────────────────────────────────────────────────────────
+// Store
+// ─────────────────────────────────────────────────────────────────────────────
 export const usePosStore = create<PosState>()(
   persist(
-    (set) => ({
-      // Cart state
-      carts: {},
-      activeCartId: null,
-      cartTotal: 0,
-      
-      // Customer state
+    (set, get) => ({
+      // ── Başlangıç Durumu ──────────────────────────────────────────────────
+      cart: [],
+      cartTotals: EMPTY_TOTALS,
+      cartNote: '',
+
       selectedCustomer: null,
-      
-      // Session state
-      activeSessionId: null,
-      cashierId: null,
-      cashboxId: null,
-      
-      // Payment state
+      selectedSalesperson: null,
+
       payments: [],
-      remainingAmount: 0,
-      
-      // UI state
+      remaining: 0,
+
+      globalDiscount: { type: 'pct', value: 0 },
+
       variantDialogOpen: false,
-      paymentDialogOpen: false,
       receiptDialogOpen: false,
+      paymentDialogOpen: false,
       selectedProductForVariant: null,
-      
-      // Cart actions
-      setActiveCart: (cartId) => set({ activeCartId: cartId }),
-      
-      addToCart: (item) => set((state) => {
-        const cartId = state.activeCartId || 'default';
-        const currentCart = state.carts[cartId] || [];
-        
-        // Check if product already exists in cart
-        const existingItem = currentCart.find(
-          (cartItem) => cartItem.productId === item.productId
-        );
-        
-        if (existingItem) {
-          // Update quantity if exists
-          const updatedCart = currentCart.map((cartItem) =>
-            cartItem.productId === item.productId
-              ? { ...cartItem, quantity: cartItem.quantity + item.quantity }
-              : cartItem
+      cashboxId: null,
+      warehouseId: null,
+
+      // ── Sepet Eylemleri ──────────────────────────────────────────────────
+      addToCart: (product: AddToCartPayload) =>
+        set((state) => {
+          const existing = state.cart.find(
+            (i) => i.productId === product.productId && i.variantId === product.variantId
           );
-          const newTotal = calculateCartTotal(updatedCart);
-          return {
-            ...state,
-            carts: { ...state.carts, [cartId]: updatedCart },
-            cartTotal: newTotal,
-          };
-        } else {
-          const updatedCart = [...currentCart, item];
-          const newTotal = calculateCartTotal(updatedCart);
-          return {
-            ...state,
-            carts: { ...state.carts, [cartId]: updatedCart },
-            cartTotal: newTotal,
-          };
-        }
-      }),
 
-      removeFromCart: (cartId, productId) => set((state) => {
-        const currentCart = state.carts[cartId] || [];
-        const updatedCart = currentCart.filter((item) => item.productId !== productId);
-        const newTotal = calculateCartTotal(updatedCart);
-        return {
-          ...state,
-          carts: { ...state.carts, [cartId]: updatedCart },
-          cartTotal: newTotal,
-        };
-      }),
-
-      updateCartItem: (cartId, productId, quantity) => set((state) => {
-        const currentCart = state.carts[cartId] || [];
-        const updatedCart = currentCart.map((item) =>
-          item.productId === productId ? { ...item, quantity } : item
-        );
-        const newTotal = calculateCartTotal(updatedCart);
-        return {
-          ...state,
-          carts: { ...state.carts, [cartId]: updatedCart },
-          cartTotal: newTotal,
-        };
-      }),
-
-      clearCart: (cartId) => set((state) => {
-        const newCarts = { ...state.carts };
-        delete newCarts[cartId];
-        let newTotal = 0;
-        Object.values(newCarts).forEach((cart) => {
-          newTotal += calculateCartTotal(cart);
-        });
-        return { ...state, carts: newCarts, cartTotal: newTotal };
-      }),
-
-      switchCart: (cartId) => set((state) => {
-        const hasCart = state.carts[cartId];
-        if (!hasCart) {
-          return {
-            ...state,
-            carts: { ...state.carts, [cartId]: [] },
-            activeCartId: cartId,
-            cartTotal: 0,
-          };
-        }
-        return {
-          ...state,
-          activeCartId: cartId,
-          cartTotal: calculateCartTotal(state.carts[cartId] || []),
-        };
-      }),
-
-      deleteCart: (cartId) => set((state) => {
-        const newCarts = { ...state.carts };
-        delete newCarts[cartId];
-        const newActiveId = state.activeCartId === cartId ? null : state.activeCartId;
-        let newTotal = 0;
-        Object.values(newCarts).forEach((cart) => {
-          newTotal += calculateCartTotal(cart);
-        });
-        return {
-          ...state,
-          carts: newCarts,
-          activeCartId: newActiveId,
-          cartTotal: newTotal,
-        };
-      }),
-      
-      // Customer actions
-      setSelectedCustomer: (customer) => set({ selectedCustomer: customer }),
-      
-      clearSelectedCustomer: () => set({ selectedCustomer: null }),
-      
-      // Session actions
-      setSession: (sessionId, cashierId, cashboxId) => set({
-        activeSessionId: sessionId,
-        cashierId,
-        cashboxId,
-      }),
-      
-      // Payment actions
-      addPayment: (payment) => set((state) => {
-        const newPayments = [...state.payments, payment];
-        const newRemaining = state.cartTotal - newPayments.reduce(
-          (sum, p) => sum + p.amount,
-          0
-        );
-        
-        return {
-          ...state,
-          payments: newPayments,
-          remainingAmount: newRemaining,
-        };
-      }),
-      
-      removePayment: (index) => set((state) => {
-        const newPayments = state.payments.filter((_, i) => i !== index);
-        const totalPaid = newPayments.reduce((sum, p) => sum + p.amount, 0);
-        const newRemaining = state.cartTotal - totalPaid;
-        
-        return {
-          ...state,
-          payments: newPayments,
-          remainingAmount: newRemaining,
-        };
-      }),
-      
-      clearPayments: () => set((state) => ({
-        payments: [],
-        remainingAmount: state.cartTotal,
-      })),
-
-      setVariantDialogOpen: (open) => set({ variantDialogOpen: open }),
-      setSelectedProductForVariant: (product) => set({ selectedProductForVariant: product }),
-      setPaymentDialogOpen: (open) => set({ paymentDialogOpen: open }),
-      setReceiptDialogOpen: (open) => set({ receiptDialogOpen: open }),
-
-      completeCheckout: async () => {
-        try {
-          const state = usePosStore.getState();
-          const response = await fetch('/api/pos/cart/' + state.activeCartId + '/complete', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ payments: state.payments }),
-          });
-          if (response.ok) {
-            set({
-              carts: {},
-              activeCartId: null,
-              cartTotal: 0,
-              payments: [],
-              remainingAmount: 0,
-              paymentDialogOpen: false,
-              receiptDialogOpen: true,
-            });
+          let newCart: CartItem[];
+          if (existing) {
+            newCart = state.cart.map((i) =>
+              i.productId === product.productId && i.variantId === product.variantId
+                ? { ...i, quantity: i.quantity + (product.quantity ?? 1) }
+                : i
+            );
+          } else {
+            const newItem: CartItem = {
+              productId: product.productId,
+              name: product.name,
+              quantity: product.quantity ?? 1,
+              unitPrice: product.unitPrice,
+              vatRate: product.vatRate,
+              discountType: 'pct',
+              discountValue: 0,
+              discountAmount: 0,
+              variantId: product.variantId,
+              variantName: product.variantName,
+            };
+            newCart = [...state.cart, newItem];
           }
-        } catch (error) {
-          console.error('Checkout error:', error);
+
+          const cartTotals = recalcTotals(newCart, state.globalDiscount);
+          const totalPaid = state.payments.reduce((s, p) => s + p.amount, 0);
+
+          return {
+            cart: newCart,
+            cartTotals,
+            remaining: Math.max(0, cartTotals.grandTotal - totalPaid),
+          };
+        }),
+
+      removeFromCart: (productId: string) =>
+        set((state) => {
+          const newCart = state.cart.filter((i) => i.productId !== productId);
+          const cartTotals = recalcTotals(newCart, state.globalDiscount);
+          const totalPaid = state.payments.reduce((s, p) => s + p.amount, 0);
+          return {
+            cart: newCart,
+            cartTotals,
+            remaining: Math.max(0, cartTotals.grandTotal - totalPaid),
+          };
+        }),
+
+      updateQuantity: (productId: string, delta: number) =>
+        set((state) => {
+          const newCart = state.cart.map((i) =>
+            i.productId === productId
+              ? { ...i, quantity: Math.max(1, i.quantity + delta) }
+              : i
+          );
+          const cartTotals = recalcTotals(newCart, state.globalDiscount);
+          const totalPaid = state.payments.reduce((s, p) => s + p.amount, 0);
+          return {
+            cart: newCart,
+            cartTotals,
+            remaining: Math.max(0, cartTotals.grandTotal - totalPaid),
+          };
+        }),
+
+      applyItemDiscount: (productId: string, type: 'pct' | 'amt', value: number) =>
+        set((state) => {
+          const newCart = state.cart.map((i) =>
+            i.productId === productId
+              ? { ...i, discountType: type, discountValue: value }
+              : i
+          );
+          const cartTotals = recalcTotals(newCart, state.globalDiscount);
+          const totalPaid = state.payments.reduce((s, p) => s + p.amount, 0);
+          return {
+            cart: newCart,
+            cartTotals,
+            remaining: Math.max(0, cartTotals.grandTotal - totalPaid),
+          };
+        }),
+
+      applyGlobalDiscount: (type: 'pct' | 'amt', value: number) =>
+        set((state) => {
+          const globalDiscount: GlobalDiscount = { type, value };
+          const cartTotals = recalcTotals(state.cart, globalDiscount);
+          const totalPaid = state.payments.reduce((s, p) => s + p.amount, 0);
+          return {
+            globalDiscount,
+            cartTotals,
+            remaining: Math.max(0, cartTotals.grandTotal - totalPaid),
+          };
+        }),
+
+      clearGlobalDiscount: () =>
+        set((state) => {
+          const globalDiscount: GlobalDiscount = { type: 'pct', value: 0 };
+          const cartTotals = recalcTotals(state.cart, globalDiscount);
+          const totalPaid = state.payments.reduce((s, p) => s + p.amount, 0);
+          return {
+            globalDiscount,
+            cartTotals,
+            remaining: Math.max(0, cartTotals.grandTotal - totalPaid),
+          };
+        }),
+
+      setCartNote: (note: string) => set({ cartNote: note }),
+
+      clearCart: () =>
+        set({
+          cart: [],
+          cartTotals: EMPTY_TOTALS,
+          cartNote: '',
+          payments: [],
+          remaining: 0,
+          globalDiscount: { type: 'pct', value: 0 },
+          selectedCustomer: null,
+          selectedSalesperson: null,
+          paymentDialogOpen: false,
+        }),
+
+      // ── Seçim Eylemleri ──────────────────────────────────────────────────
+      setSelectedCustomer: (customer: SelectedPerson | null) =>
+        set({ selectedCustomer: customer }),
+
+      setSelectedSalesperson: (person: SelectedPerson | null) =>
+        set({ selectedSalesperson: person }),
+
+      // ── Ödeme Eylemleri ──────────────────────────────────────────────────
+      addPayment: (payment: PosPayment) =>
+        set((state) => {
+          const newPayments = [...state.payments, payment];
+          const totalPaid = newPayments.reduce((s, p) => s + p.amount, 0);
+          return {
+            payments: newPayments,
+            remaining: Math.max(0, state.cartTotals.grandTotal - totalPaid),
+          };
+        }),
+
+      removePayment: (index: number) =>
+        set((state) => {
+          const newPayments = state.payments.filter((_, i) => i !== index);
+          const totalPaid = newPayments.reduce((s, p) => s + p.amount, 0);
+          return {
+            payments: newPayments,
+            remaining: Math.max(0, state.cartTotals.grandTotal - totalPaid),
+          };
+        }),
+
+      clearPayments: () =>
+        set((state) => ({
+          payments: [],
+          remaining: state.cartTotals.grandTotal,
+        })),
+
+      // ── Oturum Eylemleri ─────────────────────────────────────────────────
+      setCashbox: (id: string | null) => set({ cashboxId: id }),
+      setWarehouse: (id: string | null) => set({ warehouseId: id }),
+      setVariantDialogOpen: (open: boolean) => set({ variantDialogOpen: open }),
+      setSelectedProductForVariant: (product) =>
+        set({ selectedProductForVariant: product }),
+      setReceiptDialogOpen: (open: boolean) => set({ receiptDialogOpen: open }),
+      setPaymentDialogOpen: (open: boolean) => set({ paymentDialogOpen: open }),
+
+      // ── Ödeme Tamamlama ──────────────────────────────────────────────────
+      completeCheckout: async (): Promise<CheckoutResult> => {
+        const state = get();
+
+        if (state.cart.length === 0) {
+          throw new Error('Sepet boş');
         }
+        if (!state.selectedCustomer) {
+          throw new Error('Lütfen bir müşteri seçiniz.');
+        }
+
+        // Adım 1: Taslak oluştur
+        const draftRes = await axios.post('/pos/cart/draft', {
+          accountId: state.selectedCustomer.id,
+          salesAgentId: state.selectedSalesperson?.id ?? null,
+          salespersonId: state.selectedSalesperson?.id ?? null, // backup
+          warehouseId: state.warehouseId,
+          cashboxId: state.cashboxId,
+          notes: state.cartNote || undefined,
+          note: state.cartNote || undefined, // backup
+          items: state.cart.map((item) => ({
+            productId: item.productId,
+            productName: item.name,
+            quantity: item.quantity,
+            unitPrice: item.unitPrice,
+            vatRate: item.vatRate,
+            discountType: item.discountType === 'amt' ? 'fixed' : item.discountType,
+            discountValue: item.discountValue,
+            variantId: item.variantId ?? undefined,
+          })),
+          globalDiscount:
+            state.globalDiscount.value > 0
+              ? {
+                type: state.globalDiscount.type === 'amt' ? 'fixed' : state.globalDiscount.type,
+                value: state.globalDiscount.value
+              }
+              : undefined,
+        });
+
+        const invoiceId: string = draftRes.data.id;
+        console.log('Draft created:', draftRes.data);
+        console.log('Completing checkout for invoiceId:', invoiceId);
+
+        // Adım 2: Tamamla
+        const completeRes = await axios.post(`/pos/cart/${invoiceId}/complete`, {
+          payments: state.payments.map((p) => ({
+            paymentMethod: p.method === 'credit_card'
+              ? 'CREDIT_CARD'
+              : p.method === 'transfer'
+                ? 'BANK_TRANSFER'
+                : p.method === 'other'
+                  ? 'LOAN_ACCOUNT'
+                  : p.method.toUpperCase(),
+            amount: p.amount,
+            ...(p.bankAccountId && { bankAccountId: p.bankAccountId }),
+            ...(p.cashboxId && { cashboxId: p.cashboxId }),
+            ...(p.giftCardId && { giftCardId: p.giftCardId }),
+            ...(p.installmentCount && { installmentCount: p.installmentCount }),
+          })),
+          ...(state.cashboxId && { cashboxId: state.cashboxId }),
+        });
+
+        // Başarılı
+        state.clearCart();
+        state.setReceiptDialogOpen(true);
+        return {
+          invoiceId: completeRes.data.invoiceId,
+          invoiceNumber: completeRes.data.invoiceNumber,
+          grandTotal: completeRes.data.grandTotal,
+          status: 'success',
+        };
       },
     }),
     {
-      name: 'pos-storage',
+      name: 'pos-v2',
     }
   )
 );
-
-// Helper function to calculate cart total
-function calculateCartTotal(items: CartItem[]): number {
-  return items.reduce((total, item) => {
-    const itemTotal = item.quantity * item.unitPrice;
-    const discount = itemTotal * (item.discountRate || 0) / 100;
-    const vat = (itemTotal - discount) * item.vatRate / 100;
-    return total + (itemTotal - discount + vat);
-  }, 0);
-}

@@ -79,7 +79,7 @@ export default function InvoiceDataGrid({
                 columns={columns}
                 loading={loading}
                 rowCount={rowCount}
-                pageSizeOptions={[10, 25, 50, 100]}
+                pageSizeOptions={[25, 50, 100]}
                 paginationModel={paginationModel}
                 paginationMode="server"
                 onPaginationModelChange={onPaginationModelChange}

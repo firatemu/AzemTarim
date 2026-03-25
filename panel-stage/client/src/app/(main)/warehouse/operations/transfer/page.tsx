@@ -95,7 +95,7 @@ function TransferPageContent() {
 
   const fetchProducts = async () => {
     try {
-      const response = await axios.get('/product', {
+      const response = await axios.get('/products', {
         params: { limit: 1000 } // Tüm ürünleri getir
       });
       // Backend { data, meta } yapısında döndürüyor
@@ -108,7 +108,7 @@ function TransferPageContent() {
 
   const fetchWarehouses = async () => {
     try {
-      const response = await axios.get('/warehouse', { params: { active: true } });
+      const response = await axios.get('/warehouses', { params: { active: true } });
       setWarehouses(Array.isArray(response.data) ? response.data : []);
     } catch (error) {
       console.error('Depo listesi alınamadı:', error);
@@ -267,7 +267,7 @@ function TransferPageContent() {
 
     try {
       setLoading(true);
-      await axios.post('/stock-move/transfer', {
+      await axios.post('/stock-movements/transfer', {
         productId: formData.productId,
         fromWarehouseId: formData.fromWarehouseId,
         fromLocationId: formData.fromLocationId,

@@ -10,7 +10,7 @@ import { CipherService } from '../../common/services/cipher.service';
 @Injectable()
 export class TenantsService {
   constructor(private prisma: PrismaService,
-    private cipherService: CipherService, private readonly tenantResolver: TenantResolverService) { }
+    private cipherService: CipherService, public readonly tenantResolver: TenantResolverService) { }
 
   async create(createTenantDto: CreateTenantDto) {
     return this.prisma.tenant.create({

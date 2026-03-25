@@ -117,7 +117,7 @@ export async function getProfitByInvoice(
 export async function getProfitByProduct(
   filters?: GetProfitQuery,
 ): Promise<ProfitByProductItem[]> {
-  const response = await axios.get('/invoice-profits/by-product', {
+  const response = await axios.get('/invoices-profits/by-product', {
     params: filters,
   });
   return response.data;
@@ -129,7 +129,7 @@ export async function getProfitByProduct(
 export async function getProfitList(
   filters?: GetProfitQuery,
 ): Promise<ProfitListItem[]> {
-  const response = await axios.get('/invoice-profits/list', {
+  const response = await axios.get('/invoices-profits/list', {
     params: filters,
   });
   return response.data;

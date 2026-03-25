@@ -38,7 +38,7 @@ import {
 } from '@mui/icons-material';
 import PictureAsPdf from '@mui/icons-material/PictureAsPdf';
 
-import MainLayout from '@/components/Layout/MainLayout';
+import { StandardPage } from '@/components/common';
 import axios from '@/lib/axios';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
@@ -360,7 +360,7 @@ export default function RaporlamaPage() {
   );
 
   return (
-    <MainLayout>
+    <StandardPage maxWidth={false}>
       <Box ref={reportRef}>
         <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 2 }}>
           <Box>
@@ -828,6 +828,6 @@ export default function RaporlamaPage() {
           </Grid>
         )}
       </Box>
-    </MainLayout>
+    </StandardPage>
   );
 }

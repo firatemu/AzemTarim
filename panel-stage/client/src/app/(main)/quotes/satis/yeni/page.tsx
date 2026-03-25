@@ -95,7 +95,7 @@ export default function YeniSatisTeklifiPage() {
 
   const fetchProducts = async () => {
     try {
-      const response = await axios.get('/product', {
+      const response = await axios.get('/products', {
         params: { limit: 1000 },
       });
       setProducts(response.data.data || []);
