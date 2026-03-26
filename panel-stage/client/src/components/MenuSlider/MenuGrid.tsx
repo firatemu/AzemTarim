@@ -8,6 +8,7 @@ import {
   TextField,
   InputAdornment,
   Container,
+  useTheme,
 } from '@mui/material';
 import { Search } from '@mui/icons-material';
 import { MenuItem } from './types';
@@ -34,6 +35,7 @@ export default function MenuGrid({
   onSubItemClick,
 }: MenuGridProps) {
   const router = useRouter();
+  const theme = useTheme();
   const [selectedSubMenu, setSelectedSubMenu] = useState<MenuItem | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -94,7 +96,9 @@ export default function MenuGrid({
       sx={{
         position: 'relative',
         minHeight: '100vh',
-        background: 'linear-gradient(135deg, #F5F7FA 0%, #E8EEF5 50%, #F0F4F8 100%)',
+        background: theme.palette.mode === 'light'
+          ? 'linear-gradient(135deg, #F5F7FA 0%, #E8EEF5 50%, #F0F4F8 100%)'
+          : 'linear-gradient(135deg, #0F172A 0%, #1E293B 50%, #1E293B 100%)',
         display: 'flex',
         flexDirection: 'column',
         pt: { xs: 4, md: 8 },
@@ -111,14 +115,23 @@ export default function MenuGrid({
           inset: 0,
           zIndex: 0,
           pointerEvents: 'none',
-          background: `
-            radial-gradient(at 40% 20%, rgba(227, 242, 253, 0.5) 0px, transparent 50%),
-            radial-gradient(at 80% 0%, rgba(224, 242, 241, 0.4) 0px, transparent 50%),
-            radial-gradient(at 0% 50%, rgba(252, 228, 236, 0.35) 0px, transparent 50%),
-            radial-gradient(at 80% 50%, rgba(243, 229, 245, 0.4) 0px, transparent 50%),
-            radial-gradient(at 0% 100%, rgba(255, 253, 231, 0.35) 0px, transparent 50%),
-            radial-gradient(at 80% 100%, rgba(232, 245, 233, 0.4) 0px, transparent 50%)
-          `,
+          background: theme.palette.mode === 'light'
+            ? `
+              radial-gradient(at 40% 20%, rgba(227, 242, 253, 0.5) 0px, transparent 50%),
+              radial-gradient(at 80% 0%, rgba(224, 242, 241, 0.4) 0px, transparent 50%),
+              radial-gradient(at 0% 50%, rgba(252, 228, 236, 0.35) 0px, transparent 50%),
+              radial-gradient(at 80% 50%, rgba(243, 229, 245, 0.4) 0px, transparent 50%),
+              radial-gradient(at 0% 100%, rgba(255, 253, 231, 0.35) 0px, transparent 50%),
+              radial-gradient(at 80% 100%, rgba(232, 245, 233, 0.4) 0px, transparent 50%)
+            `
+            : `
+              radial-gradient(at 40% 20%, rgba(30, 41, 59, 0.4) 0px, transparent 50%),
+              radial-gradient(at 80% 0%, rgba(15, 23, 42, 0.3) 0px, transparent 50%),
+              radial-gradient(at 0% 50%, rgba(51, 65, 85, 0.35) 0px, transparent 50%),
+              radial-gradient(at 80% 50%, rgba(30, 41, 59, 0.3) 0px, transparent 50%),
+              radial-gradient(at 0% 100%, rgba(15, 23, 42, 0.25) 0px, transparent 50%),
+              radial-gradient(at 80% 100%, rgba(30, 41, 59, 0.3) 0px, transparent 50%)
+            `,
           animation: 'meshMove 30s linear infinite',
           '@keyframes meshMove': {
             '0%': { backgroundPosition: '0% 0%, 0% 0%, 0% 0%, 0% 0%, 0% 0%, 0% 0%' },
@@ -140,14 +153,23 @@ export default function MenuGrid({
             borderRadius: '50%',
             top: `${[10, 20, 60, 70, 30, 80][i]}%`,
             left: `${[80, 15, 70, 20, 60, 85][i]}%`,
-            opacity: [0.12, 0.1, 0.11, 0.09, 0.1, 0.12][i],
-            background: [
+            opacity: theme.palette.mode === 'light'
+              ? [0.12, 0.1, 0.11, 0.09, 0.1, 0.12][i]
+              : [0.08, 0.06, 0.07, 0.05, 0.06, 0.08][i],
+            background: theme.palette.mode === 'light' ? [
               'radial-gradient(circle, rgba(187, 222, 251, 0.4), transparent)',
               'radial-gradient(circle, rgba(178, 223, 219, 0.35), transparent)',
               'radial-gradient(circle, rgba(248, 187, 208, 0.3), transparent)',
               'radial-gradient(circle, rgba(225, 190, 231, 0.35), transparent)',
               'radial-gradient(circle, rgba(255, 249, 196, 0.3), transparent)',
               'radial-gradient(circle, rgba(200, 230, 201, 0.35), transparent)',
+            ][i] : [
+              'radial-gradient(circle, rgba(30, 58, 138, 0.25), transparent)',
+              'radial-gradient(circle, rgba(15, 23, 42, 0.2), transparent)',
+              'radial-gradient(circle, rgba(51, 65, 85, 0.2), transparent)',
+              'radial-gradient(circle, rgba(30, 41, 59, 0.15), transparent)',
+              'radial-gradient(circle, rgba(15, 23, 42, 0.2), transparent)',
+              'radial-gradient(circle, rgba(30, 58, 138, 0.25), transparent)',
             ][i],
             filter: 'blur(60px)',
             zIndex: 0,
@@ -189,7 +211,7 @@ export default function MenuGrid({
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">
-                  <Search sx={{ color: '#94A3B8', fontSize: 24 }} />
+                  <Search sx={{ color: theme.palette.mode === 'light' ? '#94A3B8' : '#64748B', fontSize: 24 }} />
                 </InputAdornment>
               ),
             }}
@@ -197,23 +219,37 @@ export default function MenuGrid({
               maxWidth: '800px',
               '& .MuiOutlinedInput-root': {
                 borderRadius: '12px',
-                background: 'rgba(255, 255, 255, 0.8)',
+                background: theme.palette.mode === 'light'
+                  ? 'rgba(255, 255, 255, 0.8)'
+                  : 'rgba(30, 41, 59, 0.6)',
                 backdropFilter: 'blur(12px)',
-                color: '#1E293B',
+                color: theme.palette.mode === 'light' ? '#1E293B' : '#F1F5F9',
                 fontSize: '1.1rem',
-                border: '1px solid rgba(255, 255, 255, 0.9)',
+                border: theme.palette.mode === 'light'
+                  ? '1px solid rgba(255, 255, 255, 0.9)'
+                  : '1px solid rgba(255, 255, 255, 0.1)',
                 height: '56px',
                 '& fieldset': {
                   borderColor: 'transparent',
                 },
                 '&:hover': {
-                  background: 'rgba(255, 255, 255, 0.95)',
-                  border: '1px solid rgba(255, 255, 255, 1)',
+                  background: theme.palette.mode === 'light'
+                    ? 'rgba(255, 255, 255, 0.95)'
+                    : 'rgba(30, 41, 59, 0.8)',
+                  border: theme.palette.mode === 'light'
+                    ? '1px solid rgba(255, 255, 255, 1)'
+                    : '1px solid rgba(255, 255, 255, 0.15)',
                 },
                 '&.Mui-focused': {
-                  background: 'rgba(255, 255, 255, 1)',
-                  border: '1px solid #BBDEFB',
-                  boxShadow: '0 0 0 3px rgba(187, 222, 251, 0.2)',
+                  background: theme.palette.mode === 'light'
+                    ? 'rgba(255, 255, 255, 1)'
+                    : 'rgba(30, 41, 59, 0.9)',
+                  border: theme.palette.mode === 'light'
+                    ? '1px solid #BBDEFB'
+                    : '1px solid rgba(59, 130, 246, 0.5)',
+                  boxShadow: theme.palette.mode === 'light'
+                    ? '0 0 0 3px rgba(187, 222, 251, 0.2)'
+                    : '0 0 0 3px rgba(59, 130, 246, 0.15)',
                   '& fieldset': {
                     borderColor: 'transparent',
                   },
@@ -221,7 +257,7 @@ export default function MenuGrid({
               },
               '& .MuiOutlinedInput-input': {
                 '&::placeholder': {
-                  color: '#94A3B8',
+                  color: theme.palette.mode === 'light' ? '#94A3B8' : '#64748B',
                   opacity: 1,
                 },
               },

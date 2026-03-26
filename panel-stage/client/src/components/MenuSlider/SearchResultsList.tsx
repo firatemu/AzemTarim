@@ -7,6 +7,7 @@ import {
     IconButton,
     Collapse,
     Paper,
+    useTheme,
 } from '@mui/material';
 import {
     KeyboardArrowDown,
@@ -31,6 +32,7 @@ export default function SearchResultsList({
     results,
     onItemClick,
 }: SearchResultsListProps) {
+    const theme = useTheme();
     const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
 
     // Filter to show ONLY sub-items, exclude main menu items
@@ -70,7 +72,7 @@ export default function SearchResultsList({
 
     return (
         <Box sx={{ width: '100%', maxWidth: '900px', mx: 'auto', mt: 4 }}>
-            <Typography sx={{ color: '#475569', fontSize: '1rem', fontWeight: 600, mb: 3 }}>
+            <Typography sx={{ color: theme.palette.mode === 'light' ? '#475569' : '#CBD5E1', fontSize: '1rem', fontWeight: 600, mb: 3 }}>
                 "{subItemResults.length} sonuç bulundu"
             </Typography>
 
@@ -87,16 +89,24 @@ export default function SearchResultsList({
                                 alignItems: 'center',
                                 justifyContent: 'space-between',
                                 p: 2,
-                                bgcolor: 'rgba(255, 255, 255, 0.6)',
-                                border: '1px solid rgba(255, 255, 255, 0.8)',
+                                bgcolor: theme.palette.mode === 'light'
+                                    ? 'rgba(255, 255, 255, 0.6)'
+                                    : 'rgba(30, 41, 59, 0.6)',
+                                border: theme.palette.mode === 'light'
+                                    ? '1px solid rgba(255, 255, 255, 0.8)'
+                                    : '1px solid rgba(255, 255, 255, 0.1)',
                                 borderRadius: '12px',
                                 cursor: 'pointer',
                                 backdropFilter: 'blur(12px)',
                                 transition: 'all 0.2s ease',
                                 '&:hover': {
-                                    bgcolor: 'rgba(255, 255, 255, 0.8)',
+                                    bgcolor: theme.palette.mode === 'light'
+                                        ? 'rgba(255, 255, 255, 0.8)'
+                                        : 'rgba(30, 41, 59, 0.8)',
                                     transform: 'translateY(-2px)',
-                                    border: '1px solid rgba(255, 255, 255, 0.9)',
+                                    border: theme.palette.mode === 'light'
+                                        ? '1px solid rgba(255, 255, 255, 0.9)'
+                                        : '1px solid rgba(255, 255, 255, 0.15)',
                                 }
                             }}
                         >
@@ -116,15 +126,15 @@ export default function SearchResultsList({
                                     <ParentIcon sx={{ fontSize: 28, color: '#FFFFFF' }} />
                                 </Box>
                                 <Box>
-                                    <Typography sx={{ fontWeight: 700, fontSize: '1.1rem', color: '#1E293B' }}>
+                                    <Typography sx={{ fontWeight: 700, fontSize: '1.1rem', color: theme.palette.mode === 'light' ? '#1E293B' : '#F1F5F9' }}>
                                         {group.parentItem.label}
                                     </Typography>
-                                    <Typography sx={{ color: '#64748B', fontSize: '0.85rem' }}>
+                                    <Typography sx={{ color: theme.palette.mode === 'light' ? '#64748B' : '#94A3B8', fontSize: '0.85rem' }}>
                                         {group.items.length} sonuç
                                     </Typography>
                                 </Box>
                             </Box>
-                            <IconButton size="small" sx={{ color: '#64748B' }}>
+                            <IconButton size="small" sx={{ color: theme.palette.mode === 'light' ? '#64748B' : '#94A3B8' }}>
                                 {isExpanded(groupKey) ? <KeyboardArrowUp /> : <KeyboardArrowDown />}
                             </IconButton>
                         </Paper>
@@ -146,13 +156,21 @@ export default function SearchResultsList({
                                                 borderRadius: '12px',
                                                 cursor: 'pointer',
                                                 transition: 'all 0.2s ease',
-                                                bgcolor: 'rgba(255, 255, 255, 0.4)',
-                                                border: '1px solid rgba(255, 255, 255, 0.5)',
+                                                bgcolor: theme.palette.mode === 'light'
+                                                    ? 'rgba(255, 255, 255, 0.4)'
+                                                    : 'rgba(30, 41, 59, 0.4)',
+                                                border: theme.palette.mode === 'light'
+                                                    ? '1px solid rgba(255, 255, 255, 0.5)'
+                                                    : '1px solid rgba(255, 255, 255, 0.1)',
                                                 marginLeft: '24px', // Indent all items (sub-items)
                                                 '&:hover': {
-                                                    bgcolor: 'rgba(255, 255, 255, 0.7)',
+                                                    bgcolor: theme.palette.mode === 'light'
+                                                        ? 'rgba(255, 255, 255, 0.7)'
+                                                        : 'rgba(30, 41, 59, 0.6)',
                                                     transform: 'translateX(4px)',
-                                                    border: '1px solid rgba(255, 255, 255, 0.8)',
+                                                    border: theme.palette.mode === 'light'
+                                                        ? '1px solid rgba(255, 255, 255, 0.8)'
+                                                        : '1px solid rgba(255, 255, 255, 0.15)',
                                                 }
                                             }}
                                         >
@@ -172,10 +190,10 @@ export default function SearchResultsList({
                                                 <IconComponent sx={{ fontSize: 22, color: '#FFFFFF' }} />
                                             </Box>
                                             <Box sx={{ flex: 1 }}>
-                                                <Typography sx={{ color: '#1E293B', fontWeight: 600, fontSize: '1rem' }}>
+                                                <Typography sx={{ color: theme.palette.mode === 'light' ? '#1E293B' : '#F1F5F9', fontWeight: 600, fontSize: '1rem' }}>
                                                     {result.item.label}
                                                 </Typography>
-                                                <Typography sx={{ color: '#64748B', fontSize: '0.85rem' }}>
+                                                <Typography sx={{ color: theme.palette.mode === 'light' ? '#64748B' : '#94A3B8', fontSize: '0.85rem' }}>
                                                     {group.parentItem.label}
                                                 </Typography>
                                             </Box>
@@ -190,7 +208,7 @@ export default function SearchResultsList({
 
             {subItemResults.length === 0 && (
                 <Box sx={{ textAlign: 'center', py: 8 }}>
-                    <Typography sx={{ color: '#64748B', fontSize: '1rem' }}>
+                    <Typography sx={{ color: theme.palette.mode === 'light' ? '#64748B' : '#94A3B8', fontSize: '1rem' }}>
                         Sonuç bulunamadı
                     </Typography>
                 </Box>

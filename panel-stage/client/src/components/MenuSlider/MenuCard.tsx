@@ -2,12 +2,14 @@ import React from 'react';
 import {
   Box,
   Typography,
+  useTheme,
 } from '@mui/material';
 import { KeyboardArrowDown } from '@mui/icons-material';
 import { MenuCardProps } from './types';
 import { getIconComponent } from './utils';
 
 export default function MenuCard({ item, onClick }: MenuCardProps) {
+  const theme = useTheme();
   const IconComponent = getIconComponent(item.icon);
 
   return (
@@ -50,7 +52,7 @@ export default function MenuCard({ item, onClick }: MenuCardProps) {
       {/* Label */}
       <Typography
         sx={{
-          color: '#475569',
+          color: theme.palette.mode === 'light' ? '#475569' : '#CBD5E1',
           fontSize: { xs: '0.85rem', md: '0.95rem' },
           fontWeight: 600,
           textAlign: 'center',
@@ -65,7 +67,7 @@ export default function MenuCard({ item, onClick }: MenuCardProps) {
       {item.subItems && item.subItems.length > 0 && (
         <KeyboardArrowDown
           sx={{
-            color: '#94A3B8',
+            color: theme.palette.mode === 'light' ? '#94A3B8' : '#64748B',
             fontSize: 20,
             mt: 0.5
           }}

@@ -8,6 +8,7 @@ import {
   Grid,
   TextField,
   InputAdornment,
+  useTheme,
 } from '@mui/material';
 import {
   Close as CloseIcon,
@@ -22,6 +23,7 @@ export default function SubMenuDialog({
   parentItem,
   onSubItemClick,
 }: SubMenuDialogProps) {
+  const theme = useTheme();
   const [searchTerm, setSearchTerm] = useState('');
 
   const filteredSubItems = useMemo(() => {
@@ -43,10 +45,16 @@ export default function SubMenuDialog({
       fullWidth
       PaperProps={{
         sx: {
-          background: 'linear-gradient(135deg, #F5F7FA 0%, #E8EEF5 100%)',
-          border: '1px solid rgba(255, 255, 255, 0.8)',
+          background: theme.palette.mode === 'light'
+            ? 'linear-gradient(135deg, #F5F7FA 0%, #E8EEF5 100%)'
+            : 'linear-gradient(135deg, #1E293B 0%, #0F172A 100%)',
+          border: theme.palette.mode === 'light'
+            ? '1px solid rgba(255, 255, 255, 0.8)'
+            : '1px solid rgba(255, 255, 255, 0.1)',
           borderRadius: '20px',
-          boxShadow: '0 12px 48px rgba(0, 0, 0, 0.08)',
+          boxShadow: theme.palette.mode === 'light'
+            ? '0 12px 48px rgba(0, 0, 0, 0.08)'
+            : '0 12px 48px rgba(0, 0, 0, 0.3)',
           overflow: 'hidden',
         },
       }}
@@ -69,14 +77,14 @@ export default function SubMenuDialog({
             <ParentIcon sx={{ fontSize: 32, color: '#FFFFFF' }} />
           </Box>
           <Box sx={{ flex: 1 }}>
-            <Typography variant="h5" sx={{ fontWeight: 700, color: '#1E293B' }}>
+            <Typography variant="h5" sx={{ fontWeight: 700, color: theme.palette.mode === 'light' ? '#1E293B' : '#F1F5F9' }}>
               {parentItem.label}
             </Typography>
-            <Typography variant="body2" sx={{ color: '#64748B' }}>
+            <Typography variant="body2" sx={{ color: theme.palette.mode === 'light' ? '#64748B' : '#94A3B8' }}>
               {parentItem.section}
             </Typography>
           </Box>
-          <IconButton onClick={onClose} sx={{ color: '#64748B' }}>
+          <IconButton onClick={onClose} sx={{ color: theme.palette.mode === 'light' ? '#64748B' : '#94A3B8' }}>
             <CloseIcon />
           </IconButton>
         </Stack>
@@ -94,7 +102,7 @@ export default function SubMenuDialog({
           InputProps={{
             startAdornment: (
               <InputAdornment position="start">
-                <Search sx={{ color: '#94A3B8', fontSize: 22 }} />
+                <Search sx={{ color: theme.palette.mode === 'light' ? '#94A3B8' : '#64748B', fontSize: 22 }} />
               </InputAdornment>
             ),
           }}
@@ -102,23 +110,35 @@ export default function SubMenuDialog({
             mb: 4,
             '& .MuiOutlinedInput-root': {
               borderRadius: '10px',
-              background: 'rgba(255, 255, 255, 0.7)',
-              color: '#1E293B',
-              border: '1px solid rgba(255, 255, 255, 0.8)',
+              background: theme.palette.mode === 'light'
+                ? 'rgba(255, 255, 255, 0.7)'
+                : 'rgba(30, 41, 59, 0.6)',
+              color: theme.palette.mode === 'light' ? '#1E293B' : '#F1F5F9',
+              border: theme.palette.mode === 'light'
+                ? '1px solid rgba(255, 255, 255, 0.8)'
+                : '1px solid rgba(255, 255, 255, 0.1)',
               '& fieldset': { borderColor: 'transparent' },
               '&:hover': {
-                background: 'rgba(255, 255, 255, 0.85)',
-                border: '1px solid rgba(255, 255, 255, 0.9)',
+                background: theme.palette.mode === 'light'
+                  ? 'rgba(255, 255, 255, 0.85)'
+                  : 'rgba(30, 41, 59, 0.8)',
+                border: theme.palette.mode === 'light'
+                  ? '1px solid rgba(255, 255, 255, 0.9)'
+                  : '1px solid rgba(255, 255, 255, 0.15)',
               },
               '&.Mui-focused': {
-                background: 'rgba(255, 255, 255, 0.95)',
-                border: '1px solid #BBDEFB',
+                background: theme.palette.mode === 'light'
+                  ? 'rgba(255, 255, 255, 0.95)'
+                  : 'rgba(30, 41, 59, 0.9)',
+                border: theme.palette.mode === 'light'
+                  ? '1px solid #BBDEFB'
+                  : '1px solid rgba(59, 130, 246, 0.5)',
                 '& fieldset': { borderColor: 'transparent' },
               },
             },
             '& .MuiOutlinedInput-input': {
               '&::placeholder': {
-                color: '#94A3B8',
+                color: theme.palette.mode === 'light' ? '#94A3B8' : '#64748B',
                 opacity: 1,
               },
             },
@@ -138,13 +158,21 @@ export default function SubMenuDialog({
                     p: 2,
                     borderRadius: '12px',
                     cursor: 'pointer',
-                    bgcolor: 'rgba(255, 255, 255, 0.5)',
-                    border: '1px solid rgba(255, 255, 255, 0.6)',
+                    bgcolor: theme.palette.mode === 'light'
+                      ? 'rgba(255, 255, 255, 0.5)'
+                      : 'rgba(30, 41, 59, 0.5)',
+                    border: theme.palette.mode === 'light'
+                      ? '1px solid rgba(255, 255, 255, 0.6)'
+                      : '1px solid rgba(255, 255, 255, 0.1)',
                     transition: 'all 0.2s ease',
                     '&:hover': {
-                      bgcolor: 'rgba(255, 255, 255, 0.8)',
+                      bgcolor: theme.palette.mode === 'light'
+                        ? 'rgba(255, 255, 255, 0.8)'
+                        : 'rgba(30, 41, 59, 0.7)',
                       transform: 'translateY(-2px)',
-                      border: '1px solid rgba(255, 255, 255, 0.8)',
+                      border: theme.palette.mode === 'light'
+                        ? '1px solid rgba(255, 255, 255, 0.8)'
+                        : '1px solid rgba(255, 255, 255, 0.15)',
                     }
                   }}
                 >
@@ -163,7 +191,7 @@ export default function SubMenuDialog({
                   >
                     <SubIcon sx={{ fontSize: 22, color: '#FFFFFF' }} />
                   </Box>
-                  <Typography sx={{ color: '#1E293B', fontWeight: 600 }}>
+                  <Typography sx={{ color: theme.palette.mode === 'light' ? '#1E293B' : '#F1F5F9', fontWeight: 600 }}>
                     {subItem.label}
                   </Typography>
                 </Box>
@@ -173,7 +201,7 @@ export default function SubMenuDialog({
         </Grid>
 
         {searchTerm && filteredSubItems.length === 0 && (
-          <Typography sx={{ textAlign: 'center', color: 'rgba(255, 255, 255, 0.5)', py: 4 }}>
+          <Typography sx={{ textAlign: 'center', color: theme.palette.mode === 'light' ? '#64748B' : '#94A3B8', py: 4 }}>
             Sonuç bulunamadı
           </Typography>
         )}
