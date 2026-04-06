@@ -18,6 +18,7 @@ import { Print, Close, PictureAsPdf, ZoomIn, ZoomOut } from '@mui/icons-material
 import { useReactToPrint } from 'react-to-print';
 import axios from '@/lib/axios';
 import { numberToTurkishText } from '@/lib/number-to-text';
+import { useSnackbar } from 'notistack';
 
 interface TahsilatDetail {
   id: string;
@@ -94,6 +95,7 @@ const formatOdemeTipi = (tip: string) => {
 };
 
 export default function TahsilatPrintPage() {
+  const { enqueueSnackbar } = useSnackbar();
   const params = useParams();
   const router = useRouter();
   const id = params.id as string;
@@ -165,7 +167,7 @@ export default function TahsilatPrintPage() {
       pdf.save(`Makbuz-${receiptNo(tahsilat.id)}.pdf`);
     } catch (error) {
       console.error('PDF oluşturulamadı:', error);
-      alert('PDF oluşturulurken bir hata oluştu: ' + (error instanceof Error ? error.message : String(error)));
+      enqueueSnackbar('PDF oluşturulurken bir hata oluştu: ' + (error instanceof Error ? error.message : String(error)), { variant: 'error' });
     } finally {
       setExportLoading(false);
     }

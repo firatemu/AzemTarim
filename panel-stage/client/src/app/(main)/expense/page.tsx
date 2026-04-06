@@ -38,13 +38,9 @@ import {
   DialogContent,
   DialogTitle,
   FormControl,
-  Grid,
   IconButton,
-  InputLabel,
   MenuItem,
-  Paper,
   Select,
-  Snackbar,
   Table,
   TableBody,
   TableCell,
@@ -59,7 +55,10 @@ import {
   Divider,
   Popover,
   Menu,
+  Grid,
 } from '@mui/material';
+import { alpha } from '@mui/material/styles';
+import KPIStoreCard from '@/components/KPIStoreCard';
 import * as XLSX from 'xlsx';
 import { jsPDF } from 'jspdf';
 import { format } from 'date-fns';
@@ -69,6 +68,7 @@ import ExpensePrintForm from '@/components/PrintForm/ExpensePrintForm';
 import { DataGrid, GridColDef } from '@mui/x-data-grid';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
+import { useSnackbar } from 'notistack';
 import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 
 interface MasrafKategori {
@@ -439,11 +439,7 @@ export default function MasrafPage() {
   const [editMode, setEditMode] = useState(false);
   const [selectedMasraf, setSelectedMasraf] = useState<Masraf | null>(null);
   const [selectedKategori, setSelectedKategori] = useState<MasrafKategori | null>(null);
-  const [snackbar, setSnackbar] = useState({
-    open: false,
-    message: '',
-    severity: 'success' as 'success' | 'error' | 'info'
-  });
+  const { enqueueSnackbar } = useSnackbar();
 
   const [auditAnchor, setAuditAnchor] = useState<{ el: HTMLElement | null, data: any }>({ el: null, data: null });
 
@@ -470,12 +466,6 @@ export default function MasrafPage() {
     setFilterBitis(end);
   };
 
-  const showSnackbar = useCallback(
-    (message: string, severity: 'success' | 'error' | 'info') => {
-      setSnackbar({ open: true, message, severity });
-    },
-    [],
-  );
 
   const [filterKategori, setFilterKategori] = useState('');
   const [filterBaslangic, setFilterBaslangic] = useState('');
@@ -530,9 +520,9 @@ export default function MasrafPage() {
     if (masrafError) {
       const message =
         (masrafError as any)?.response?.data?.message || 'Kayıtlar yüklenirken hata oluştu';
-      showSnackbar(message, 'error');
+      enqueueSnackbar(message, { variant: 'error' });
     }
-  }, [masrafError, showSnackbar]);
+  }, [masrafError, enqueueSnackbar]);
 
   const { data: kategoriler = [], isLoading: kategorilerLoading } = useQuery<MasrafKategori[]>({
     queryKey: ['masraf-kategoriler'],
@@ -604,7 +594,7 @@ export default function MasrafPage() {
       const amountNumber = parseFloat(formData.amount);
 
       if (!formData.categoryId || !amountNumber || amountNumber <= 0) {
-        showSnackbar('Lütfen tüm zorunlu alanları doldurun', 'error');
+        enqueueSnackbar('Lütfen tüm zorunlu alanları doldurun', { variant: 'error' });
         return;
       }
 
@@ -618,10 +608,10 @@ export default function MasrafPage() {
 
       if (editMode && selectedMasraf) {
         await axios.put(`/expenses/${selectedMasraf.id}`, submitData);
-        showSnackbar('Masraf kaydı güncellendi', 'success');
+        enqueueSnackbar('Masraf kaydı güncellendi', { variant: 'success' });
       } else {
         await axios.post('/expenses', submitData);
-        showSnackbar('Masraf kaydı oluşturuldu', 'success');
+        enqueueSnackbar('Masraf kaydı oluşturuldu', { variant: 'success' });
       }
 
       handleCloseDialog();
@@ -630,7 +620,7 @@ export default function MasrafPage() {
         queryClient.invalidateQueries({ queryKey: ['masraf-stats'] }),
       ]);
     } catch (error: any) {
-      showSnackbar(error.response?.data?.message || 'İşlem sırasında hata oluştu', 'error');
+      enqueueSnackbar(error.response?.data?.message || 'İşlem sırasında hata oluştu', { variant: 'error' });
     } finally {
       setActionLoading(false);
     }
@@ -643,7 +633,7 @@ export default function MasrafPage() {
   const handleExportExcel = () => {
     try {
       if (masraflar.length === 0) {
-        showSnackbar('Dışa aktarılacak veri bulunamadı', 'info');
+        enqueueSnackbar('Dışa aktarılacak veri bulunamadı', { variant: 'info' });
         return;
       }
 
@@ -675,7 +665,7 @@ export default function MasrafPage() {
       setExportAnchorEl(null);
     } catch (error) {
       console.error('Excel export error:', error);
-      showSnackbar('Excel oluşturulurken hata oluştu', 'error');
+      enqueueSnackbar('Excel oluşturulurken hata oluştu', { variant: 'error' });
     }
   };
 
@@ -694,7 +684,7 @@ export default function MasrafPage() {
     try {
       setActionLoading(true);
       await axios.delete(`/expenses/${selectedMasraf.id}`);
-      showSnackbar('Masraf kaydı silindi', 'success');
+      enqueueSnackbar('Masraf kaydı silindi', { variant: 'success' });
       setOpenDelete(false);
       setSelectedMasraf(null);
       await Promise.all([
@@ -702,7 +692,7 @@ export default function MasrafPage() {
         queryClient.invalidateQueries({ queryKey: ['masraf-stats'] }),
       ]);
     } catch (error: any) {
-      showSnackbar(error.response?.data?.message || 'Silme işlemi sırasında hata oluştu', 'error');
+      enqueueSnackbar(error.response?.data?.message || 'Silme işlemi sırasında hata oluştu', { variant: 'error' });
     } finally {
       setActionLoading(false);
     }
@@ -733,7 +723,7 @@ export default function MasrafPage() {
   const handleKategoriSubmit = async () => {
     try {
       if (!kategoriFormData.name.trim()) {
-        showSnackbar('Kategori adı gereklidir', 'error');
+        enqueueSnackbar('Kategori adı gereklidir', { variant: 'error' });
         return;
       }
 
@@ -741,10 +731,10 @@ export default function MasrafPage() {
 
       if (kategoriEditMode && selectedKategori) {
         await axios.put(`/expenses/categoryler/${selectedKategori.id}`, kategoriFormData);
-        showSnackbar('Kategori güncellendi', 'success');
+        enqueueSnackbar('Kategori güncellendi', { variant: 'success' });
       } else {
         await axios.post('/expenses/categoryler', kategoriFormData);
-        showSnackbar('Kategori oluşturuldu', 'success');
+        enqueueSnackbar('Kategori oluşturuldu', { variant: 'success' });
       }
 
       setOpenKategoriDialog(false);
@@ -756,7 +746,7 @@ export default function MasrafPage() {
         queryClient.invalidateQueries({ queryKey: ['masraf-stats'] }),
       ]);
     } catch (error: any) {
-      showSnackbar(error.response?.data?.message || 'Kategori işlemi sırasında hata oluştu', 'error');
+      enqueueSnackbar(error.response?.data?.message || 'Kategori işlemi sırasında hata oluştu', { variant: 'error' });
     } finally {
       setActionLoading(false);
     }
@@ -768,7 +758,7 @@ export default function MasrafPage() {
     try {
       setActionLoading(true);
       await axios.delete(`/expenses/categoryler/${selectedKategori.id}`);
-      showSnackbar('Kategori silindi', 'success');
+      enqueueSnackbar('Kategori silindi', { variant: 'success' });
       setOpenKategoriDelete(false);
       setSelectedKategori(null);
       await Promise.all([
@@ -776,7 +766,7 @@ export default function MasrafPage() {
         queryClient.invalidateQueries({ queryKey: ['masraf-stats'] }),
       ]);
     } catch (error: any) {
-      showSnackbar(error.response?.data?.message || 'Kategori silinemedi', 'error');
+      enqueueSnackbar(error.response?.data?.message || 'Kategori silinemedi', { variant: 'error' });
     } finally {
       setActionLoading(false);
     }
@@ -967,134 +957,72 @@ export default function MasrafPage() {
   ], [handleOpenDialog, handleViewDetail]);
 
   return (
-    <StandardPage>
-      <Box sx={{ pb: 4 }}>
-        {/* Header */}
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, py: 1 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-            <Box sx={{
-              width: 44,
-              height: 44,
-              borderRadius: 3,
-              background: 'linear-gradient(135deg, var(--destructive), #f87171)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              boxShadow: '0 8px 16px -4px color-mix(in srgb, var(--destructive) 40%, transparent)',
-            }}>
-              <CurrencyLira sx={{ color: 'white', fontSize: 26 }} />
-            </Box>
-            <Box>
-              <Typography variant="h6" sx={{ fontWeight: 800, color: 'var(--foreground)', lineHeight: 1.2, letterSpacing: '-0.02em' }}>
-                Masraf Yönetimi
-              </Typography>
-              <Typography variant="caption" sx={{ color: 'var(--muted-foreground)', fontWeight: 500 }}>
-                Harcamalarınızı takip edin ve kategorize edin
-              </Typography>
-            </Box>
-          </Box>
-          <Box sx={{ display: 'flex', gap: 1.5 }}>
-            <Button
-              size="small"
-              variant="outlined"
-              startIcon={<Category />}
-              onClick={() => handleOpenKategoriDialog()}
-              sx={{
-                borderRadius: 2.5,
-                textTransform: 'none',
-                fontWeight: 600,
-                color: 'var(--secondary)',
-                borderColor: 'var(--secondary)',
-                px: 2,
-                '&:hover': {
-                  borderColor: 'var(--secondary)',
-                  bgcolor: 'color-mix(in srgb, var(--secondary) 8%, transparent)',
-                },
-              }}
-            >
-              Kategoriler
-            </Button>
-            <Button
-              size="small"
-              variant="contained"
-              startIcon={<Add />}
-              onClick={() => handleOpenDialog()}
-              sx={{
-                borderRadius: 2.5,
-                textTransform: 'none',
-                fontWeight: 600,
-                bgcolor: 'var(--destructive)',
-                color: 'var(--destructive-foreground)',
-                px: 2,
-                boxShadow: '0 4px 12px color-mix(in srgb, var(--destructive) 30%, transparent)',
-                '&:hover': {
-                  bgcolor: 'color-mix(in srgb, var(--destructive) 90%, black)',
-                  boxShadow: '0 6px 16px color-mix(in srgb, var(--destructive) 40%, transparent)',
-                },
-              }}
-            >
-              Yeni Masraf
-            </Button>
-          </Box>
+    <StandardPage
+      title="Gider Yönetimi"
+      headerActions={
+        <Box sx={{ display: 'flex', gap: 1.5 }}>
+          <Button
+            size="small"
+            variant="outlined"
+            startIcon={<Category />}
+            onClick={() => handleOpenKategoriDialog()}
+            sx={{ borderRadius: 2.5 }}
+          >
+            Kategoriler
+          </Button>
+          <Button
+            size="small"
+            variant="contained"
+            startIcon={<Add />}
+            onClick={() => handleOpenDialog()}
+            sx={{ borderRadius: 2.5, bgcolor: 'var(--destructive)', fontWeight: 700 }}
+          >
+            Yeni Masraf
+          </Button>
         </Box>
+      }
+    >
+      <Box sx={{ pb: 4 }}>
 
         {/* KPI / Metrics strip */}
         {/* KPI Stats */}
         <Grid container spacing={isMobile ? 1.5 : 2} sx={{ mb: 3 }}>
-          <Grid size={{ xs: 6, md: 3 }}>
-            <Paper variant="outlined" sx={{
-              p: 2, borderRadius: 4, height: '100%', bgcolor: 'var(--card)', border: '1px solid var(--border)',
-              position: 'relative', overflow: 'hidden',
-              '&::before': { content: '""', position: 'absolute', top: 0, left: 0, width: '4px', height: '100%', bgcolor: 'var(--destructive)' }
-            }}>
-              <Typography variant="caption" sx={{ color: 'var(--muted-foreground)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 0.5, fontSize: isMobile ? '0.65rem' : '0.75rem' }}>
-                <TrendingDown sx={{ fontSize: 14, color: 'var(--destructive)' }} /> TOPLAM MASRAF
-              </Typography>
-              <Typography variant="h5" sx={{ fontWeight: 800, color: 'var(--destructive)', mt: 0.5, fontSize: isMobile ? '1.1rem' : '1.5rem' }}>
-                {formatCurrency(stats?.toplamExpense || 0)}
-              </Typography>
-            </Paper>
+          <Grid item xs={12} sm={6} md={3}>
+            <KPIStoreCard
+              title="TOPLAM MASRAF"
+              value={formatCurrency(stats?.toplamExpense || 0)}
+              icon={<TrendingDown />}
+              color="error"
+            />
           </Grid>
-          <Grid size={{ xs: 6, md: 3 }}>
-            <Paper variant="outlined" sx={{ p: 2, borderRadius: 4, height: '100%', bgcolor: 'var(--card)', border: '1px solid var(--border)' }}>
-              <Typography variant="caption" sx={{ color: 'var(--muted-foreground)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 0.5, fontSize: isMobile ? '0.65rem' : '0.75rem' }}>
-                <TableRows sx={{ fontSize: 14, color: 'var(--primary)' }} /> KAYIT SAYISI
-              </Typography>
-              <Typography variant="h5" sx={{ fontWeight: 800, color: 'var(--foreground)', mt: 0.5, fontSize: isMobile ? '1.1rem' : '1.5rem' }}>
-                {stats?.toplamAdet || 0}
-              </Typography>
-            </Paper>
+          <Grid item xs={12} sm={6} md={3}>
+            <KPIStoreCard
+              title="KAYIT SAYISI"
+              value={String(stats?.toplamAdet || 0)}
+              icon={<TableRows />}
+              color="primary"
+            />
           </Grid>
-          <Grid size={{ xs: 6, md: 3 }}>
-            <Paper variant="outlined" sx={{ p: 2, borderRadius: 4, height: '100%', bgcolor: 'var(--card)', border: '1px solid var(--border)' }}>
-              <Typography variant="caption" sx={{ color: 'var(--muted-foreground)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 0.5, fontSize: isMobile ? '0.65rem' : '0.75rem' }}>
-                <Category sx={{ fontSize: 14, color: 'var(--secondary)' }} /> KATEGORİ
-              </Typography>
-              <Typography variant="h5" sx={{ fontWeight: 800, color: 'var(--foreground)', mt: 0.5, fontSize: isMobile ? '1.1rem' : '1.5rem' }}>
-                {kategoriler.length}
-              </Typography>
-            </Paper>
+          <Grid item xs={12} sm={6} md={3}>
+            <KPIStoreCard
+              title="KATEGORİ"
+              value={String(kategoriler.length)}
+              icon={<Category />}
+              color="secondary"
+            />
           </Grid>
-          <Grid size={{ xs: 6, md: 3 }}>
-            <Paper variant="outlined" sx={{ p: 2, borderRadius: 4, height: '100%', bgcolor: 'var(--card)', border: '1px solid var(--border)' }}>
-              <Typography variant="caption" sx={{ color: 'var(--muted-foreground)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 0.5, fontSize: isMobile ? '0.65rem' : '0.75rem' }}>
-                <TrendingUp sx={{ fontSize: 14, color: 'var(--chart-2)' }} /> ORTALAMA
-              </Typography>
-              <Typography variant="h5" sx={{ fontWeight: 800, color: 'var(--foreground)', mt: 0.5, fontSize: isMobile ? '1.1rem' : '1.5rem' }}>
-                {(stats?.toplamAdet ?? 0) > 0 ? formatCurrency((stats?.toplamExpense ?? 0) / (stats?.toplamAdet ?? 1)) : '₺0'}
-              </Typography>
-            </Paper>
+          <Grid item xs={12} sm={6} md={3}>
+            <KPIStoreCard
+              title="ORTALAMA"
+              value={(stats?.toplamAdet ?? 0) > 0 ? formatCurrency((stats?.toplamExpense ?? 0) / (stats?.toplamAdet ?? 1)) : '₺0'}
+              icon={<TrendingUp />}
+              color="info"
+            />
           </Grid>
         </Grid>
 
         {/* Toolbar */}
-        <Paper variant="outlined" sx={{
-          mb: 3,
-          borderRadius: 4,
-          bgcolor: 'var(--card)',
-          border: '1px solid var(--border)',
-          overflow: 'hidden'
-        }}>
+        <StandardCard sx={{ mb: 2 }}>
           <Stack
             direction={isTablet ? 'column' : 'row'}
             spacing={2}
@@ -1104,13 +1032,15 @@ export default function MasrafPage() {
               size="small"
               placeholder="Açıklama veya kategori ara..."
               sx={{ flex: 1 }}
+              value={categorySearch}
+              onChange={(e: any) => setCategorySearch(e.target.value)}
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">
-                    <Search sx={{ color: 'var(--muted-foreground)', fontSize: 20 }} />
+                    <Search sx={{ color: 'text.secondary', fontSize: 20 }} />
                   </InputAdornment>
                 ),
-                sx: { borderRadius: 2.5, bgcolor: 'var(--background)' }
+                sx: { borderRadius: 2.5 }
               }}
             />
 
@@ -1131,26 +1061,21 @@ export default function MasrafPage() {
                 onClick={() => handleQuickFilter('today')}
                 size="small"
                 variant={filterBaslangic === new Date().toISOString().split('T')[0] ? 'filled' : 'outlined'}
-                sx={{
-                  borderRadius: 2,
-                  fontWeight: 600,
-                  bgcolor: filterBaslangic === new Date().toISOString().split('T')[0] ? 'var(--primary)' : 'transparent',
-                  color: filterBaslangic === new Date().toISOString().split('T')[0] ? 'white' : 'var(--muted-foreground)',
-                }}
+                sx={{ borderRadius: 2, fontWeight: 600 }}
               />
               <Chip
                 label="Bu Hafta"
                 onClick={() => handleQuickFilter('week')}
                 size="small"
                 variant="outlined"
-                sx={{ borderRadius: 2, fontWeight: 600, color: 'var(--muted-foreground)' }}
+                sx={{ borderRadius: 2, fontWeight: 600 }}
               />
               <Chip
                 label="Bu Ay"
                 onClick={() => handleQuickFilter('month')}
                 size="small"
                 variant="outlined"
-                sx={{ borderRadius: 2, fontWeight: 600, color: 'var(--muted-foreground)' }}
+                sx={{ borderRadius: 2, fontWeight: 600 }}
               />
             </Stack>
 
@@ -1167,7 +1092,7 @@ export default function MasrafPage() {
                 label="Başlangıç"
                 fullWidth={isMobile}
                 value={filterBaslangic}
-                onChange={(e) => setFilterBaslangic(e.target.value)}
+                onChange={(e: any) => setFilterBaslangic(e.target.value)}
                 InputLabelProps={{ shrink: true }}
                 sx={{ '& .MuiInputBase-root': { borderRadius: 2.5 } }}
               />
@@ -1177,82 +1102,23 @@ export default function MasrafPage() {
                 label="Bitiş"
                 fullWidth={isMobile}
                 value={filterBitis}
-                onChange={(e) => setFilterBitis(e.target.value)}
+                onChange={(e: any) => setFilterBitis(e.target.value)}
                 InputLabelProps={{ shrink: true }}
                 sx={{ '& .MuiInputBase-root': { borderRadius: 2.5 } }}
               />
-
-              {isMobile && (
-                <Button
-                  fullWidth
-                  variant="outlined"
-                  startIcon={<Refresh />}
-                  onClick={() => {
-                    queryClient.invalidateQueries({ queryKey: ['masraflar'] });
-                    queryClient.invalidateQueries({ queryKey: ['masraf-stats'] });
-                  }}
-                  sx={{ borderRadius: 2.5, height: 40 }}
-                >
-                  Yenile
-                </Button>
-              )}
             </Stack>
-
-            {!isMobile && (
-              <IconButton
-                onClick={() => {
-                  queryClient.invalidateQueries({ queryKey: ['masraflar'] });
-                  queryClient.invalidateQueries({ queryKey: ['masraf-stats'] });
-                }}
-                sx={{ color: 'var(--primary)', bgcolor: 'color-mix(in srgb, var(--primary) 8%, transparent)', borderRadius: 2 }}
-              >
-                <Refresh />
-              </IconButton>
-            )}
 
             <Button
               variant="outlined"
               startIcon={<FileDownload />}
-              onClick={(e) => setExportAnchorEl(e.currentTarget)}
-              sx={{
-                borderRadius: 2.5,
-                textTransform: 'none',
-                borderColor: 'var(--border)',
-                color: 'var(--foreground)',
-                height: 40,
-                px: 2,
-                '&:hover': { borderColor: 'var(--primary)', bgcolor: 'color-mix(in srgb, var(--primary) 4%, transparent)' }
-              }}
+              onClick={(e: any) => setExportAnchorEl(e.currentTarget)}
+              sx={{ borderRadius: 2.5, height: 40, px: 2 }}
             >
               Dışa Aktar
             </Button>
-
-            <Menu
-              anchorEl={exportAnchorEl}
-              open={openExportMenu}
-              onClose={() => setExportAnchorEl(null)}
-              PaperProps={{
-                sx: {
-                  borderRadius: 3,
-                  mt: 1,
-                  border: '1px solid var(--border)',
-                  boxShadow: '0 8px 16px -4px rgba(0,0,0,0.1)'
-                }
-              }}
-            >
-              <MenuItem onClick={handleExportExcel} sx={{ gap: 1.5, py: 1.2 }}>
-                <TableChart sx={{ color: '#16a34a' }} />
-                Excel (.xlsx)
-              </MenuItem>
-              <MenuItem onClick={handleExportPdf} sx={{ gap: 1.5, py: 1.2 }}>
-                <PictureAsPdf sx={{ color: '#dc2626' }} />
-                PDF (.pdf)
-              </MenuItem>
-            </Menu>
           </Stack>
-        </Paper>
+        </StandardCard>
 
-        {/* Kategori Bazlı Özet - Minimalist Bar */}
         {stats && stats.categoryler && stats.categoryler.length > 0 && (
           <Box sx={{
             display: 'flex',
@@ -1261,72 +1127,58 @@ export default function MasrafPage() {
             pb: 1,
             mb: 1.5,
             '&::-webkit-scrollbar': { display: 'none' },
-            msOverflowStyle: 'none',
-            scrollbarWidth: 'none'
           }}>
-            {stats.categoryler.map((kat) => (
-              <Paper
-                key={kat.categoryId}
-                variant="outlined"
-                sx={{
-                  px: 1.8,
-                  py: 1.2,
-                  borderRadius: 3,
-                  minWidth: 'fit-content',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 1.5,
-                  bgcolor: 'var(--card)',
-                  borderColor: 'var(--border)',
-                  transition: 'all 0.2s',
-                  '&:hover': {
-                    borderColor: 'var(--primary)',
-                    bgcolor: 'color-mix(in srgb, var(--primary) 2%, var(--card))'
-                  }
-                }}
-              >
-                <Box sx={{
-                  width: 8,
-                  height: 8,
-                  borderRadius: '50%',
-                  bgcolor: 'var(--primary)',
-                  opacity: 0.6
-                }} />
-                <Typography variant="caption" sx={{ fontWeight: 600, color: 'var(--muted-foreground)', whiteSpace: 'nowrap' }}>
-                  {kat.name}
-                </Typography>
-                <Typography variant="subtitle2" sx={{ fontWeight: 800, color: 'var(--foreground)', whiteSpace: 'nowrap' }}>
-                  {formatCurrency(kat.toplam)}
-                </Typography>
-                <Box sx={{
-                  px: 0.8,
-                  py: 0.2,
-                  borderRadius: 1,
-                  bgcolor: 'var(--muted)',
-                  display: 'flex',
-                  alignItems: 'center'
-                }}>
-                  <Typography variant="caption" sx={{ fontWeight: 700, fontSize: '0.65rem', color: 'var(--muted-foreground)' }}>
-                    {kat.adet}
+            {stats.categoryler.map((kat: any) => (
+              <Box key={kat.categoryId}>
+                <StandardCard
+                  sx={{
+                    px: 1.8,
+                    py: 1.2,
+                    borderRadius: 3,
+                    minWidth: 'fit-content',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 1.5,
+                  }}
+                >
+                  <Box sx={{
+                    width: 8,
+                    height: 8,
+                    borderRadius: '50%',
+                    bgcolor: 'primary.main',
+                    opacity: 0.6
+                  }} />
+                  <Typography variant="caption" sx={{ fontWeight: 600, color: 'text.secondary', whiteSpace: 'nowrap' }}>
+                    {kat.name}
                   </Typography>
-                </Box>
-              </Paper>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 800, whiteSpace: 'nowrap' }}>
+                    {formatCurrency(kat.toplam)}
+                  </Typography>
+                  <Box sx={{
+                    px: 0.8,
+                    py: 0.2,
+                    borderRadius: 1,
+                    bgcolor: 'action.hover',
+                    display: 'flex',
+                    alignItems: 'center'
+                  }}>
+                    <Typography variant="caption" sx={{ fontWeight: 700, fontSize: '0.65rem', color: 'text.secondary' }}>
+                      {kat.adet}
+                    </Typography>
+                  </Box>
+                </StandardCard>
+              </Box>
             ))}
           </Box>
         )}
 
-        {/* DataGrid Area */}
-        <StandardCard padding={isMobile ? 0 : 1} sx={{ borderRadius: { xs: 2, md: 4 }, overflow: 'hidden', border: isMobile ? 'none' : '1px solid var(--border)' }}>
-          <Box sx={{ height: { xs: 500, md: 650 }, width: '100%' }}>
+        <StandardCard padding={0}>
+          <Box sx={{ height: 650, width: '100%' }}>
             <DataGrid
               rows={masraflar}
               columns={masrafColumns}
               loading={isMasrafLoading}
-              disableColumnMenu
               disableRowSelectionOnClick
-              density={isMobile ? 'compact' : 'standard'}
-              columnHeaderHeight={48}
-              rowHeight={isMobile ? 52 : 60}
               pageSizeOptions={[25, 50, 100]}
               initialState={{
                 pagination: {
@@ -1339,19 +1191,15 @@ export default function MasrafPage() {
               sx={{
                 border: 'none',
                 '& .MuiDataGrid-columnHeaders': {
-                  bgcolor: 'var(--muted)',
-                  color: 'var(--foreground)',
+                  bgcolor: 'background.neutral',
+                  color: 'text.primary',
                   fontWeight: 800,
-                  fontSize: isMobile ? '0.7rem' : '0.85rem',
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.05em',
                 },
                 '& .MuiDataGrid-cell': {
-                  borderColor: 'var(--border)',
-                  fontSize: isMobile ? '0.8rem' : '0.9rem',
+                  borderColor: 'divider',
                 },
                 '& .MuiDataGrid-row:hover': {
-                  bgcolor: 'color-mix(in srgb, var(--primary) 4%, transparent) !important',
+                  bgcolor: (theme: any) => alpha(theme.palette.primary.main, 0.04),
                 },
               }}
             />
@@ -1392,98 +1240,23 @@ export default function MasrafPage() {
           open={openDelete}
           onClose={() => setOpenDelete(false)}
           PaperProps={{
-            sx: {
-              bgcolor: 'var(--card)',
-              backgroundImage: 'none',
-              borderRadius: 'var(--radius-xl)',
-              border: '1px solid var(--border)',
-              boxShadow: 'var(--shadow-2xl)',
-              overflow: 'hidden',
-              minWidth: 320,
-            },
+            sx: { borderRadius: 3, p: 1 }
           }}
         >
-          <DialogTitle sx={{
-            fontWeight: 800,
-            color: 'var(--foreground)',
-            borderBottom: '1px solid var(--border)',
-            textAlign: 'center',
-            py: 2
-          }}>
-            Kayıt Silme Onayı
-          </DialogTitle>
-          <DialogContent sx={{ p: 3, bgcolor: 'var(--card)' }}>
-            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: 2, pt: 1 }}>
-              <Box sx={{
-                width: 56,
-                height: 56,
-                borderRadius: '50%',
-                bgcolor: 'color-mix(in srgb, var(--destructive) 10%, transparent)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: 'var(--destructive)',
-                mb: 1
-              }}>
-                <Delete sx={{ fontSize: 32 }} />
-              </Box>
-              <Typography variant="body1" sx={{ color: 'var(--foreground)', fontWeight: 500 }}>
-                Bu masraf kaydını silmek istediğinizden emin misiniz?
-              </Typography>
-              <Box sx={{
-                width: '100%',
-                p: 2,
-                bgcolor: 'var(--background)',
-                borderRadius: 'var(--radius-lg)',
-                border: '1px solid var(--border)',
-                textAlign: 'left'
-              }}>
-                <Typography variant="caption" display="block" sx={{ color: 'var(--muted-foreground)', mb: 0.5 }}>MASRAF DETAYI</Typography>
-                <Typography variant="body2" sx={{ fontWeight: 600, color: 'var(--foreground)' }}>
-                  {selectedMasraf?.category?.name} - {selectedMasraf && formatCurrency(selectedMasraf.amount)}
-                </Typography>
-                <Typography variant="caption" display="block" sx={{ color: 'var(--muted-foreground)', mt: 1 }}>TARİH</Typography>
-                <Typography variant="body2" sx={{ fontWeight: 600, color: 'var(--foreground)' }}>
-                  {selectedMasraf && formatDate(selectedMasraf.date)}
-                </Typography>
-              </Box>
-            </Box>
+          <DialogTitle sx={{ fontWeight: 800 }}>Masraf Kaydını Sil</DialogTitle>
+          <DialogContent>
+            <Typography>Bu masraf kaydını silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.</Typography>
           </DialogContent>
-          <DialogActions sx={{ p: 2, bgcolor: 'color-mix(in srgb, var(--primary) 2%, var(--card))', borderTop: '1px solid var(--border)', gap: 1.5 }}>
+          <DialogActions sx={{ p: 2, gap: 1 }}>
+            <Button onClick={() => setOpenDelete(false)} sx={{ borderRadius: 2 }}>İptal</Button>
             <Button
-              fullWidth
-              variant="outlined"
-              onClick={() => setOpenDelete(false)}
-              sx={{
-                borderRadius: 'var(--radius-lg)',
-                textTransform: 'none',
-                fontWeight: 600,
-                color: 'var(--foreground)',
-                borderColor: 'var(--border)',
-                '&:hover': { borderColor: 'var(--primary)', bgcolor: 'transparent' }
-              }}
-            >
-              Vazgeç
-            </Button>
-            <Button
-              fullWidth
               variant="contained"
+              color="error"
               onClick={handleDelete}
               disabled={actionLoading}
-              sx={{
-                borderRadius: 'var(--radius-lg)',
-                textTransform: 'none',
-                fontWeight: 700,
-                bgcolor: 'var(--destructive)',
-                color: 'var(--destructive-foreground)',
-                boxShadow: '0 4px 12px color-mix(in srgb, var(--destructive) 30%, transparent)',
-                '&:hover': {
-                  bgcolor: 'color-mix(in srgb, var(--destructive) 90%, black)',
-                  boxShadow: '0 6px 16px color-mix(in srgb, var(--destructive) 40%, transparent)',
-                }
-              }}
+              sx={{ borderRadius: 2, fontWeight: 700 }}
             >
-              Evet, Sil
+              Masrafı Sil
             </Button>
           </DialogActions>
         </Dialog>
@@ -1902,19 +1675,7 @@ export default function MasrafPage() {
             </Button>
           </DialogActions>
         </Dialog>
-
-        {/* Snackbar */}
-        <Snackbar
-          open={snackbar.open}
-          autoHideDuration={6000}
-          onClose={() => setSnackbar({ ...snackbar, open: false })}
-          anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-        >
-          <Alert onClose={() => setSnackbar({ ...snackbar, open: false })} severity={snackbar.severity} variant="filled">
-            {snackbar.message}
-          </Alert>
-        </Snackbar>
       </Box>
-    </StandardPage >
+    </StandardPage>
   );
 }

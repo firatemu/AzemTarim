@@ -73,15 +73,15 @@ export class AccountEffectService {
         // Cari hareket kaydı oluştur
         await tx.accountMovement.create({
             data: {
-                tenantId,
-                accountId: invoice.accountId,
+                tenant: { connect: { id: tenantId! } },
+                account: { connect: { id: invoice.accountId } },
                 type: direction === AccountMovementDirection.DEBIT ? DebitCredit.DEBIT : DebitCredit.CREDIT,
                 amount: invoice.grandTotal, // Orijinal döviz tutarı
                 balance: updatedAccount.balance, // Güncel TRY bakiyesi
                 documentType: DocumentType.INVOICE,
                 documentNo: invoice.invoiceNo,
-                invoiceId: invoice.id,
-                notes: operationType === 'CANCEL' ? `Cancelled: ${invoice.invoiceNo}` : `Approved: ${invoice.invoiceNo}`,
+                invoice: { connect: { id: invoice.id } },
+                notes: invoice.notes,
                 recordType: operationType === 'CANCEL' ? 'CANCEL_REVERSAL' : 'NORMAL',
             },
         });
@@ -104,7 +104,8 @@ export class AccountEffectService {
     async reverseAccountEffect(
         invoiceId: string,
         tenantId: string,
-        tx: Prisma.TransactionClient
+        tx: Prisma.TransactionClient,
+        isDraftRevert: boolean = false
     ): Promise<ReverseResult> {
         // Faturaya ait henüz tersi alınmamış cari hareketleri bul
         const originalMovements = await tx.accountMovement.findMany({
@@ -142,30 +143,38 @@ export class AccountEffectService {
                 },
             });
 
-            // Ters cari kayıt oluştur
-            await tx.accountMovement.create({
-                data: {
-                    tenantId,
-                    accountId: mov.accountId,
-                    type: reverseType,
-                    amount: mov.amount,
-                    balance: updatedAccount.balance,
-                    documentType: mov.documentType,
-                    documentNo: mov.documentNo,
-                    invoiceId: mov.invoiceId,
-                    notes: `Reversal of movement ${mov.id}`,
-                    isReversed: true,
-                    reversalOfId: mov.id,
-                    isReversal: true,
-                    recordType: 'UPDATE_REVERSAL',
-                },
-            });
+            if (isDraftRevert) {
+                // Taslağa dönüldüğünde ters kayıt atmak yerine orijinal hareketi soft-delete yap
+                await tx.accountMovement.update({
+                    where: { id: mov.id },
+                    data: { deletedAt: new Date() }
+                });
+            } else {
+                // İptal vb durumlarda Ters cari kayıt oluştur
+                await tx.accountMovement.create({
+                    data: {
+                        tenant: { connect: { id: tenantId } },
+                        account: { connect: { id: mov.accountId } },
+                        type: reverseType,
+                        amount: mov.amount,
+                        balance: updatedAccount.balance,
+                        documentType: mov.documentType,
+                        documentNo: mov.documentNo,
+                        invoice: mov.invoiceId ? { connect: { id: mov.invoiceId } } : undefined,
+                        notes: `Reversal of movement ${mov.id}`,
+                        isReversed: true,
+                        reversalOf: { connect: { id: mov.id } },
+                        isReversal: true,
+                        recordType: 'UPDATE_REVERSAL',
+                    },
+                });
 
-            // Orijinal kaydı tersi alınmış olarak işaretle
-            await tx.accountMovement.update({
-                where: { id: mov.id },
-                data: { isReversed: true },
-            });
+                // Orijinal kaydı tersi alınmış olarak işaretle
+                await tx.accountMovement.update({
+                    where: { id: mov.id },
+                    data: { isReversed: true },
+                });
+            }
         }
 
         return {

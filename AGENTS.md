@@ -128,6 +128,77 @@ Yeni bir tablo eklendiğinde aşağıdaki kurallar uygulanır:
    - Tarih/saat gösterimleri geçersiz değerde kırılmamalı; güvenli format helper kullanılmalı
    - Popover yüzeyi token tabanlı olmalı (`var(--card)`, `var(--border)`, `var(--muted-foreground)`)
 
+## 6.1) DataGrid Görünüm Standartları (Kompakt Kurumsal Tablo)
+
+Yeni bir `DataGrid` bileşeni oluşturulduğunda **aşağıdaki görünüm kuralları zorunludur**:
+
+### Satır Yüksekliği & Yoğunluk
+- `rowHeight={44}` — Tüm satırlar sabit 44px yüksekliğinde olmalı; `autoHeight` ile değişken yükseklik **kullanılmaz**.
+- `columnHeaderHeight={40}` — Başlık satırı 40px.
+- `density="compact"` — Genel kompakt mod etkin.
+
+### DataGrid `sx` Zorunlu Stilleri
+```tsx
+sx={{
+  border: 'none',
+  fontSize: '0.8125rem',
+  '& .MuiDataGrid-columnHeaders': {
+    bgcolor: 'color-mix(in srgb, var(--muted) 50%, transparent)',
+    fontSize: '0.75rem',
+    fontWeight: 700,
+    letterSpacing: '0.02em',
+    textTransform: 'uppercase',
+  },
+  '& .MuiDataGrid-cell': {
+    display: 'flex',
+    alignItems: 'center',   // ← dikey ortalama ZORUNLU
+    py: 0,
+    borderBottom: '1px solid color-mix(in srgb, var(--border) 60%, transparent)',
+  },
+  '& .MuiDataGrid-row': {
+    '&:hover': { bgcolor: 'color-mix(in srgb, var(--primary) 4%, transparent)' },
+  },
+  '& .MuiDataGrid-footerContainer': {
+    borderTop: '1px solid var(--border)',
+    minHeight: 40,
+  },
+}}
+```
+
+### renderCell İçerik Kuralları (KRİTİK)
+- **Tüm `renderCell` içerikleri tek satırda kalmalı** — `flexDirection: 'column'` **kullanılmaz**.
+- Bir hücrede birden fazla bilgi gösterilmesi gerekiyorsa bilgiler **aynı satırda yan yana** gösterilir.
+  - Ayraç olarak `·` (orta nokta) veya `/` kullanılır.
+  - İkincil/detay bilgi için `Tooltip` kullanılır; satıra ikinci satır eklenmez.
+- Uzun metin içeren sütunlarda mutlaka: `overflow: 'hidden'`, `textOverflow: 'ellipsis'`, `whiteSpace: 'nowrap'`.
+- `Box` wrapper'larında `display: 'flex'`, `alignItems: 'center'` standart olmalı.
+- Tutar sütunlarında kalan/detay tutar aynı satırda `variant="caption"` ile gösterilir ve `Tooltip` ile açıklanır.
+
+### Örnek (Doğru vs Yanlış)
+```tsx
+// ✅ DOĞRU: Tek satır, yatay hiza
+<Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, overflow: 'hidden' }}>
+  <Typography variant="caption" fontWeight={700} sx={{ whiteSpace: 'nowrap' }}>
+    {params.row.anaKategori}
+  </Typography>
+  {params.row.altKategori && (
+    <>
+      <Typography variant="caption" color="text.disabled">·</Typography>
+      <Typography variant="caption" color="text.secondary"
+        sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        {params.row.altKategori}
+      </Typography>
+    </>
+  )}
+</Box>
+
+// ❌ YANLIŞ: Dikey sütun — satır yükseklikleri bozulur
+<Box sx={{ display: 'flex', flexDirection: 'column' }}>
+  <Typography>{params.row.anaKategori}</Typography>
+  <Typography variant="caption">{params.row.altKategori}</Typography>
+</Box>
+```
+
 ## 7) Tablo Ekleme Kontrol Listesi
 
 - Arama var mı?
@@ -139,6 +210,119 @@ Yeni bir tablo eklendiğinde aşağıdaki kurallar uygulanır:
 - Sayısal kolon için footer sum/özet var mı?
 - Renkler tokenlarla dark/light uyumlu mu?
 - Üstte tabloyla uyumlu 3-4 KPI kart var mı?
+
+## 6.2) DataGrid Görünüm Standardı V2 — Finansal Belge Tablosu
+
+> **Ne zaman kullanılır?** Fatura, sipariş, irsaliye gibi **yüksek aksiyon sayısına** sahip finansal belge listelerinde tercih edilir. Temel fark: tablo kendi `Paper` wrapper'ı içinde gelir, sabit yükseklikte render edilir ve satıra tıklama ile detay açılır.
+
+### Bileşen Yapısı
+
+Tekrar eden tablolar için yeniden kullanılabilir bileşen oluşturulmalı:
+```
+components/<Domain>/
+  <Domain>DataGrid.tsx    ← DataGrid wrapper bileşeni
+  StatusBadge.tsx         ← Chip tabanlı durum etiketi
+  KPIHeader.tsx           ← Üst KPI kartlar topluluğu
+```
+
+### Wrapper Paper & Yükseklik
+```tsx
+<Paper elevation={0} sx={{ height: 650, width: '100%', border: '1px solid var(--border)', borderRadius: 2, overflow: 'hidden' }}>
+  <DataGrid ... />
+</Paper>
+```
+
+### DataGrid `sx` Stilleri (V2)
+```tsx
+sx={{
+  border: 'none',
+  '& .MuiDataGrid-columnHeaders': {
+    backgroundColor: 'var(--muted)',
+    color: 'var(--foreground)',
+    fontSize: '0.875rem',
+    fontWeight: 600,
+    borderBottom: '1px solid var(--border)',
+  },
+  '& .MuiDataGrid-row': {
+    cursor: onRowClick ? 'pointer' : 'default',
+    '&:hover': { backgroundColor: 'var(--muted/50)' },
+  },
+  '& .MuiDataGrid-cell': {
+    borderBottom: '1px solid var(--border)',
+    color: 'var(--foreground)',
+    fontSize: '0.875rem',
+    display: 'flex',
+    alignItems: 'center',    // ← dikey hizalama ZORUNLU
+  },
+  '& .MuiDataGrid-footerContainer': { borderTop: '1px solid var(--border)' },
+}}
+```
+
+### Zorunlu DataGrid Props (V2)
+```tsx
+paginationMode="server"    // Server-side pagination zorunlu
+sortingMode="server"
+filterMode="server"
+pageSizeOptions={[25, 50, 100]}
+checkboxSelection           // Toplu işlem desteği
+onRowClick={...}            // Satıra tıklayınca detay açar
+slots={{ toolbar: CustomToolbar }}
+```
+
+### Toolbar (V2) — Built-in GridToolbar
+```tsx
+function CustomToolbar() {
+  return (
+    <GridToolbarContainer sx={{ p: 1, borderBottom: '1px solid var(--border)' }}>
+      <GridToolbarColumnsButton />
+      <GridToolbarFilterButton />
+      <GridToolbarDensitySelector />
+      <GridToolbarExport
+        printOptions={{ disableToolbarButton: true }}
+        csvOptions={{ fileName: 'export', delimiter: ';', utf8WithBom: true }}
+      />
+    </GridToolbarContainer>
+  );
+}
+```
+
+### Filtre Paneli — Accordion
+```tsx
+<Accordion>
+  <AccordionSummary expandIcon={<ExpandMore />}>
+    <FilterList /> Filtreler
+  </AccordionSummary>
+  <AccordionDetails>
+    {/* tarih aralığı, durum, cari, satış elemanı filtreleri */}
+  </AccordionDetails>
+</Accordion>
+```
+
+### Aksiyon Menüsü Kuralı (V2)
+- `MoreHoriz` (yatay 3 nokta) ikonlu `IconButton` + `Menu`.
+- Aksiyon listesi belge durumuna göre `disabled` hesaplanır.
+- Tehlikeli aksiyonlar `color: 'var(--destructive)'`.
+- Menü: `minWidth: 280`, `borderRadius: 3`, token tabanlı `boxShadow`.
+- `divider: true` olan satırlardan önce `<Divider />` eklenir.
+
+### StatusBadge Bileşeni
+- Her domain kendi `StatusBadge.tsx` bileşenini içerir.
+- `switch/case` ile tüm durum kodları etiket + renk eşlenir.
+- Hard-coded renkler yerine MUI `color` prop veya token `sx` kullanılır.
+
+### V1 vs V2 Karşılaştırması
+
+| Özellik | V1 (Kompakt) | V2 (Finansal Belge) |
+|---|---|---|
+| `rowHeight` | 44px sabit | DataGrid default |
+| `density` | `compact` | Default |
+| Wrapper | `Paper variant="outlined"` | `Paper elevation={0}` + border |
+| Yükseklik | `autoHeight` | Sabit px (örn: 650) |
+| Toolbar | Basit export | `GridToolbarExport` + CSV config |
+| Filtre paneli | Inline `Paper` içi | `Accordion` |
+| Aksiyon ikonu | `MoreVert` (dikey) | `MoreHoriz` (yatay) |
+| Satır tıklama | — | `onRowClick` detay/dialog |
+| Durum gösterimi | `Chip` inline | Ayrı `StatusBadge` bileşeni |
 
 ## 8) Özelleştirilmiş AI Rolleri (Skills)
 

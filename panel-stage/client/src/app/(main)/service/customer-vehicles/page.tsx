@@ -5,7 +5,6 @@ import {
   Box,
   Typography,
   Button,
-  Paper,
   Table,
   TableBody,
   TableCell,
@@ -22,13 +21,17 @@ import {
   Alert,
   CircularProgress,
   InputAdornment,
+  Stack,
+  alpha,
+  Tooltip,
 } from '@mui/material';
-import { Add, Edit, Delete, Search, Visibility } from '@mui/icons-material';
+import { Add, Edit, Delete, Search, Visibility, DirectionsCar } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { useDebounce } from '@/hooks/useDebounce';
 import axios from '@/lib/axios';
 import CustomerVehicleDialog from '@/components/servis/CustomerVehicleDialog';
 import type { CustomerVehicle } from '@/types/servis';
+import { StandardPage, StandardCard } from '@/components/common';
 
 export default function MusteriAraclariPage() {
   const router = useRouter();
@@ -118,108 +121,102 @@ export default function MusteriAraclariPage() {
   };
 
   return (
-    <>
-      <Typography
-        variant="h4"
-        sx={{
-          fontWeight: 700,
-          fontSize: '1.875rem',
-          color: 'var(--foreground)',
-          letterSpacing: '-0.02em',
-          mb: 1,
-        }}
-      >
-        Müşteri Araçları
-      </Typography>
-      <Typography variant="body1" sx={{ mb: 3, color: 'var(--muted-foreground)', fontSize: '0.875rem' }}>
-        Müşteri araçlarını görüntüleyin ve yönetin
-      </Typography>
+    <StandardPage>
+      <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <Box>
+          <Typography variant="h5" fontWeight="800" sx={{ letterSpacing: '-0.02em', display: 'flex', alignItems: 'center', gap: 1.5 }}>
+            <DirectionsCar sx={{ fontSize: 32, color: 'primary.main' }} />
+            Müşteri Araçları
+          </Typography>
+          <Typography variant="body2" color="text.secondary">Servis kaydı açılacak müşteri araçlarını yönetin.</Typography>
+        </Box>
+        <Button
+          variant="contained"
+          startIcon={<Add />}
+          onClick={handleCreate}
+          sx={{ borderRadius: 2 }}
+        >
+          Yeni Araç
+        </Button>
+      </Box>
 
-      <Paper
-        sx={{
-          borderRadius: 'var(--radius)',
-          border: '1px solid var(--border)',
-          overflow: 'hidden',
-        }}
-      >
-        <Box sx={{ p: 2, display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
+      <StandardCard sx={{ p: 0 }}>
+        <Box sx={{ p: 2.5, display: 'flex', gap: 2, alignItems: 'center', borderBottom: 1, borderColor: 'divider' }}>
           <TextField
-            id="musteri-araclari-search"
+            fullWidth
             size="small"
             placeholder="Plaka, şase no, marka veya model ile ara..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            sx={{ width: { xs: '100%', md: 320 } }}
+            sx={{ maxWidth: 400, '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">
-                  <Search fontSize="small" />
+                  <Search fontSize="small" color="disabled" />
                 </InputAdornment>
               ),
             }}
           />
-          <Button
-            variant="contained"
-            startIcon={<Add />}
-            onClick={handleCreate}
-            sx={{
-              bgcolor: 'var(--primary)',
-              color: 'var(--primary-foreground)',
-              textTransform: 'none',
-              fontWeight: 600,
-            }}
-          >
-            Yeni Araç
-          </Button>
         </Box>
 
         <TableContainer>
           <Table>
-            <TableHead>
+            <TableHead sx={{ bgcolor: alpha('#000', 0.02) }}>
               <TableRow>
-                <TableCell sx={{ fontWeight: 600 }}>Plaka</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>Şase No</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>Marka / Model</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>Yıl</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>KM</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>Müşteri</TableCell>
-                <TableCell align="right" sx={{ fontWeight: 600 }}>
-                  İşlemler
-                </TableCell>
+                <TableCell sx={{ fontWeight: 800 }}>Plaka</TableCell>
+                <TableCell sx={{ fontWeight: 800 }}>Şase No</TableCell>
+                <TableCell sx={{ fontWeight: 800 }}>Marka / Model</TableCell>
+                <TableCell sx={{ fontWeight: 800 }}>Yıl</TableCell>
+                <TableCell sx={{ fontWeight: 800 }}>KM</TableCell>
+                <TableCell sx={{ fontWeight: 800 }}>Müşteri</TableCell>
+                <TableCell align="right" sx={{ fontWeight: 800 }}>İşlemler</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
+                  <TableCell colSpan={7} align="center" sx={{ py: 6 }}>
                     <CircularProgress size={32} />
                   </TableCell>
                 </TableRow>
               ) : vehicles.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} align="center" sx={{ py: 4, color: 'var(--muted-foreground)' }}>
-                    Kayıt bulunamadı
+                  <TableCell colSpan={7} align="center" sx={{ py: 10 }}>
+                    <DirectionsCar sx={{ fontSize: 48, color: 'text.disabled', mb: 2 }} />
+                    <Typography color="text.secondary" fontWeight={700}>Henüz araç kaydı bulunmuyor</Typography>
                   </TableCell>
                 </TableRow>
               ) : (
                 vehicles.map((v) => (
-                  <TableRow key={v.id} hover>
-                    <TableCell>{v.plaka}</TableCell>
-                    <TableCell>{v.saseno || '-'}</TableCell>
-                    <TableCell>{`${v.aracMarka} ${v.aracModel}`}</TableCell>
-                    <TableCell>{v.yil ?? '-'}</TableCell>
-                    <TableCell>{v.km != null ? v.km.toLocaleString('tr-TR') : '-'}</TableCell>
-                    <TableCell>{v.cari?.unvan ?? v.cari?.cariKodu ?? '-'}</TableCell>
+                  <TableRow key={v.id} hover sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
+                    <TableCell>
+                      <Box sx={{ bgcolor: alpha('#6366f1', 0.08), px: 1, py: 0.5, borderRadius: 1.5, display: 'inline-block', border: '1px solid', borderColor: alpha('#6366f1', 0.1) }}>
+                        <Typography variant="body2" fontWeight="800" color="primary">{v.plaka}</Typography>
+                      </Box>
+                    </TableCell>
+                    <TableCell><Typography variant="body2" sx={{ fontFamily: 'monospace' }}>{v.saseno || '-'}</Typography></TableCell>
+                    <TableCell><Typography variant="body2" fontWeight="600">{`${v.aracMarka} ${v.aracModel}`}</Typography></TableCell>
+                    <TableCell><Typography variant="body2">{v.yil ?? '-'}</Typography></TableCell>
+                    <TableCell><Typography variant="body2">{v.km != null ? v.km.toLocaleString('tr-TR') : '-'}</Typography></TableCell>
+                    <TableCell><Typography variant="body2" color="text.secondary">{v.cari?.unvan ?? v.cari?.cariKodu ?? '-'}</Typography></TableCell>
                     <TableCell align="right">
-                      <IconButton size="small" onClick={() => router.push(`/servis/musteri-araclari/${v.id}`)} title="Detay">
-                        <Visibility fontSize="small" />
-                      </IconButton>
-                      <IconButton size="small" onClick={() => handleEdit(v)} title="Düzenle">
-                        <Edit fontSize="small" />
-                      </IconButton>
-                      <IconButton size="small" onClick={() => handleDeleteClick(v)} color="error" title="Sil">
-                        <Delete fontSize="small" />
-                      </IconButton>
+                      <Stack direction="row" spacing={0.5} justifyContent="flex-end">
+                        <Tooltip title="Detay">
+                          <IconButton size="small" onClick={() => router.push(`/service/customer-vehicles/${v.id}`)} sx={{ borderRadius: 1.5 }}>
+                            <Visibility fontSize="small" color="action" />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Düzenle">
+                          <IconButton size="small" onClick={() => handleEdit(v)} sx={{ borderRadius: 1.5 }}>
+                            <Edit fontSize="small" color="primary" />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Sil">
+                          <IconButton size="small" onClick={() => handleDeleteClick(v)} sx={{ borderRadius: 1.5 }}>
+                            <Delete fontSize="small" color="error" />
+                          </IconButton>
+                        </Tooltip>
+                      </Stack>
                     </TableCell>
                   </TableRow>
                 ))
@@ -227,7 +224,7 @@ export default function MusteriAraclariPage() {
             </TableBody>
           </Table>
         </TableContainer>
-      </Paper>
+      </StandardCard>
 
       <CustomerVehicleDialog
         open={openDialog}
@@ -237,17 +234,18 @@ export default function MusteriAraclariPage() {
         cariler={cariler}
       />
 
-      <Dialog open={openDelete} onClose={() => setOpenDelete(false)}>
-        <DialogTitle>Silme Onayı</DialogTitle>
+      <Dialog open={openDelete} onClose={() => setOpenDelete(false)} PaperProps={{ sx: { borderRadius: 3 } }}>
+        <DialogTitle sx={{ fontWeight: 800 }}>Silme Onayı</DialogTitle>
         <DialogContent>
           <Typography>
-            {selectedVehicle?.plaka} plakalı araç silinecek. Bu işlem geri alınamaz. Devam etmek istiyor musunuz?
+            <Typography component="span" fontWeight="800" color="error">{selectedVehicle?.plaka}</Typography> plakalı araç silinecek. <br />
+            Bu işlem geri alınamaz. Devam etmek istiyor musunuz?
           </Typography>
         </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setOpenDelete(false)}>İptal</Button>
-          <Button onClick={handleDeleteConfirm} color="error" variant="contained">
-            Sil
+        <DialogActions sx={{ p: 2.5, pt: 0 }}>
+          <Button onClick={() => setOpenDelete(false)} sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700 }}>İptal</Button>
+          <Button onClick={handleDeleteConfirm} color="error" variant="contained" sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700 }}>
+            Evet, Sil
           </Button>
         </DialogActions>
       </Dialog>
@@ -256,12 +254,11 @@ export default function MusteriAraclariPage() {
         open={snackbar.open}
         autoHideDuration={4000}
         onClose={() => setSnackbar((p) => ({ ...p, open: false }))}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
       >
-        <Alert severity={snackbar.severity} onClose={() => setSnackbar((p) => ({ ...p, open: false }))}>
+        <Alert severity={snackbar.severity as any} sx={{ borderRadius: 2, boxShadow: 3 }} onClose={() => setSnackbar((p) => ({ ...p, open: false }))}>
           {snackbar.message}
         </Alert>
       </Snackbar>
-    </>
+    </StandardPage>
   );
 }

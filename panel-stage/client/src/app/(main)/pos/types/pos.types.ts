@@ -67,6 +67,7 @@ export interface PosState {
     receiptDialogOpen: boolean;
     paymentDialogOpen: boolean;
     selectedProductForVariant: AddToCartPayload | null;
+    receiptData: any | null;
     cashboxId: string | null;
     warehouseId: string | null;
 

@@ -29,7 +29,7 @@ const DEFAULT_TEMPLATES: Partial<Record<ModuleType, { name: string; prefix: stri
   [ModuleType.WORK_ORDER]: { name: 'İş Emri No', prefix: 'IE', digitCount: 5 },
   [ModuleType.SERVICE_INVOICE]: { name: 'Servis Faturası No', prefix: 'SF', digitCount: 5 },
   [ModuleType.POS_CONSOLE]: { name: 'POS İşlem No', prefix: 'POS', digitCount: 5 },
-  [ModuleType.CHECK_BILL_JOURNAL]: { name: 'Bordro / Fiş No', prefix: 'BRD', digitCount: 6 },
+  [ModuleType.CHECK_BILL_JOURNAL]: { name: 'Bordro Numaralandırma', prefix: 'BRD', digitCount: 6 },
   [ModuleType.CHECK_BILL_DOCUMENT]: { name: 'Çek/Senet No', prefix: 'EVR', digitCount: 6 },
 };
 

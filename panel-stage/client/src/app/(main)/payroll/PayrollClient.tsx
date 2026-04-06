@@ -1,19 +1,47 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Box, Button, TextField, MenuItem, InputAdornment, Card, CardContent, Typography, Grid, Paper, Stack, Chip, IconButton, Tooltip } from '@mui/material';
+import {
+    Box,
+    Button,
+    TextField,
+    MenuItem,
+    InputAdornment,
+    Card,
+    CardContent,
+    Typography,
+    Paper,
+    Stack,
+    Chip,
+    IconButton,
+    Tooltip,
+    alpha,
+    useTheme,
+    Grid,
+    Divider,
+    FormControl,
+    InputLabel,
+    Select
+} from '@mui/material';
 import { DataGrid, GridColDef, GridRenderCellParams, GridActionsCellItem } from '@mui/x-data-grid';
 import { useJournals } from '@/hooks/use-journals';
 import { JournalType } from '@/types/check-bill';
 import { JOURNAL_TYPE_LABEL, JOURNAL_TYPE_DESCRIPTION } from '@/lib/labels';
 import { formatAmount, formatDate } from '@/lib/format';
 import { useRouter } from 'next/navigation';
-import AddIcon from '@mui/icons-material/Add';
-import SearchIcon from '@mui/icons-material/Search';
-import VisibilityIcon from '@mui/icons-material/Visibility';
-import RefreshIcon from '@mui/icons-material/Refresh';
-import DownloadIcon from '@mui/icons-material/Download';
-import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
+import {
+    Add as AddIcon,
+    Search as SearchIcon,
+    Visibility as VisibilityIcon,
+    Refresh as RefreshIcon,
+    Download as DownloadIcon,
+    ReceiptLong as ReceiptLongIcon,
+    History as HistoryIcon,
+    AccountBalance as BankIcon,
+    Person as PersonIcon,
+    PointOfSale as EntryIcon,
+    LocalShipping as ExitIcon
+} from '@mui/icons-material';
 import StandardPage from '@/components/common/StandardPage';
 
 const AVAILABLE_TYPES = [
@@ -26,15 +54,18 @@ const AVAILABLE_TYPES = [
 ];
 
 export default function PayrollClient() {
+    const theme = useTheme();
     const router = useRouter();
     const [search, setSearch] = useState('');
     const [type, setType] = useState<string>('');
 
     // Fetch logic with react-query
-    const { data: journals, isLoading } = useJournals({
+    const { data: journalsResponse, isLoading, refetch } = useJournals({
         search: search.length >= 3 ? search : undefined,
         type: type ? (type as JournalType) : undefined,
     });
+
+    const journals = Array.isArray(journalsResponse) ? journalsResponse : [];
 
     const columns: GridColDef[] = [
         {
@@ -46,7 +77,7 @@ export default function PayrollClient() {
                     variant="text"
                     color="primary"
                     onClick={() => router.push(`/payroll/${params.row.id}`)}
-                    sx={{ fontWeight: 'bold' }}
+                    sx={{ fontWeight: 800, textTransform: 'none' }}
                 >
                     {params.value}
                 </Button>
@@ -54,28 +85,52 @@ export default function PayrollClient() {
         },
         {
             field: 'type',
-            headerName: 'Tür',
+            headerName: 'İşlem Türü',
             width: 200,
-            valueGetter: (value: any) => JOURNAL_TYPE_LABEL[value as JournalType] || value,
+            renderCell: (params) => (
+                <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.secondary' }}>
+                    {JOURNAL_TYPE_LABEL[params.value as JournalType] || params.value}
+                </Typography>
+            )
         },
         {
             field: 'date',
             headerName: 'Tarih',
             width: 120,
-            valueGetter: (value: string) => formatDate(value),
+            renderCell: (params) => (
+                <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                    {formatDate(params.value)}
+                </Typography>
+            )
         },
         {
             field: 'account',
             headerName: 'Cari / Banka',
             width: 250,
-            valueGetter: (value: any, row: any) => row.account?.title || row.bankAccount?.name || '-',
+            renderCell: (params) => {
+                const title = params.row.account?.title || params.row.bankAccount?.name || '-';
+                const isBank = !!params.row.bankAccount;
+                return (
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        {isBank ? <BankIcon sx={{ fontSize: 16, color: 'info.main' }} /> : <PersonIcon sx={{ fontSize: 16, color: 'warning.main' }} />}
+                        <Typography variant="body2" sx={{ fontWeight: 700 }}>{title}</Typography>
+                    </Box>
+                );
+            }
         },
         {
             field: 'documentCount',
-            headerName: 'Evrak Sayısı',
-            width: 120,
+            headerName: 'Evrak',
+            width: 90,
             align: 'center',
             headerAlign: 'center',
+            renderCell: (params) => (
+                <Chip
+                    label={`${params.value} Adet`}
+                    size="small"
+                    sx={{ fontWeight: 800, bgcolor: alpha(theme.palette.divider, 0.4) }}
+                />
+            )
         },
         {
             field: 'totalAmount',
@@ -83,94 +138,92 @@ export default function PayrollClient() {
             width: 150,
             align: 'right',
             headerAlign: 'right',
-            valueGetter: (value: number) => formatAmount(value),
+            renderCell: (params) => (
+                <Typography variant="body2" sx={{ fontWeight: 800, color: 'primary.main' }}>
+                    {formatAmount(params.value)}
+                </Typography>
+            )
         },
         {
             field: 'actions',
             type: 'actions',
             headerName: 'İşlemler',
-            width: 100,
+            width: 80,
             getActions: (params) => [
                 <GridActionsCellItem
                     key="view"
                     icon={<VisibilityIcon />}
                     label="Görüntüle"
                     onClick={() => router.push(`/payroll/${params.row.id}`)}
-                    showInMenu
                 />
             ],
         },
     ];
 
-    const handleRefresh = () => {
-        // useJournals uses react-query, so we could trigger a refetch if needed
-        // but typically search/type state changes trigger it automatically
-    };
-
     return (
-        <StandardPage
-            title="Bordro Yönetimi"
-        >
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
-                <Box sx={{
-                    width: 40, height: 40, borderRadius: 2,
-                    background: 'linear-gradient(135deg, var(--primary), var(--secondary))',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    color: 'white'
-                }}>
-                    <ReceiptLongIcon />
-                </Box>
-                <Typography variant="h6" sx={{ fontWeight: 700, color: 'var(--foreground)', lineHeight: 1.2 }}>
-                    Bordro Listesi
-                </Typography>
+        <Box>
+            {/* KPI Stats Strip */}
+            <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 2, mb: 4 }}>
+                {[
+                    { label: 'Toplam Bordro', value: journals.length, color: 'primary.main', icon: <ReceiptLongIcon /> },
+                    { label: 'Bu Ay Oluşturulan', value: 0, color: 'info.main', icon: <HistoryIcon /> },
+                    { label: 'İşlemdeki Evrak', value: journals.reduce((acc, curr) => acc + (curr.documentCount || 0), 0), color: 'warning.main', icon: <VisibilityIcon /> },
+                    { label: 'Genel Toplam', value: journals.reduce((acc, curr) => acc + (curr.totalAmount || 0), 0), color: 'success.main', icon: <Typography variant="h6" sx={{ fontWeight: 900 }}>₺</Typography>, isPrice: true },
+                ].map((kpi, idx) => (
+                    <Box key={idx} sx={{
+                        p: 2,
+                        borderRadius: 3,
+                        bgcolor: alpha(theme.palette.background.paper, 0.4),
+                        border: '1px solid',
+                        borderColor: 'divider',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 2
+                    }}>
+                        <Box sx={{
+                            width: 44,
+                            height: 44,
+                            borderRadius: 2.5,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            bgcolor: alpha(theme.palette.primary.main, 0.08),
+                            color: kpi.color
+                        }}>
+                            {kpi.icon}
+                        </Box>
+                        <Box>
+                            <Typography variant="caption" sx={{ fontWeight: 700, color: 'text.secondary', display: 'block', lineHeight: 1 }}>{kpi.label}</Typography>
+                            <Typography variant="h6" sx={{ fontWeight: 900, color: kpi.color }}>
+                                {kpi.isPrice ? formatAmount(kpi.value as number) : kpi.value}
+                            </Typography>
+                        </Box>
+                    </Box>
+                ))}
             </Box>
 
-            {/* KPI Metrics Strip */}
-            <Paper variant="outlined" sx={{ mb: 2, p: 1.5, display: 'flex', flexWrap: 'wrap', gap: 0, bgcolor: 'var(--card)', borderColor: 'var(--border)', borderRadius: 'var(--radius)' }}>
-                <Box sx={{ flex: '1 1 120px', px: 1.5, borderRight: '1px solid var(--border)' }}>
-                    <Typography variant="caption" color="var(--muted-foreground)" sx={{ fontWeight: 600, textTransform: 'uppercase' }}>Toplam Bordro</Typography>
-                    <Typography variant="h6" sx={{ fontWeight: 700 }}>{journals?.length || 0}</Typography>
-                </Box>
-                <Box sx={{ flex: '1 1 120px', px: 1.5, borderRight: '1px solid var(--border)' }}>
-                    <Typography variant="caption" color="var(--muted-foreground)" sx={{ fontWeight: 600, textTransform: 'uppercase' }}>Bu Ay</Typography>
-                    <Typography variant="h6" sx={{ fontWeight: 700 }}>0</Typography>
-                </Box>
-                <Box sx={{ flex: '1 1 120px', px: 1.5, borderRight: '1px solid var(--border)' }}>
-                    <Typography variant="caption" color="var(--muted-foreground)" sx={{ fontWeight: 600, textTransform: 'uppercase' }}>Bekleyen Tahsilat</Typography>
-                    <Typography variant="h6" sx={{ fontWeight: 700, color: 'var(--primary)' }}>₺ 0,00</Typography>
-                </Box>
-                <Box sx={{ flex: '1 1 120px', px: 1.5 }}>
-                    <Typography variant="caption" color="var(--muted-foreground)" sx={{ fontWeight: 600, textTransform: 'uppercase' }}>Toplam Tutar</Typography>
-                    <Typography variant="h6" sx={{ fontWeight: 700 }}>
-                        {formatAmount(journals?.reduce((acc, curr) => acc + (curr.totalAmount || 0), 0) || 0)}
-                    </Typography>
-                </Box>
-            </Paper>
-
-            {/* Quick Actions (Dashboard layout per user request, but minimalist) */}
-            <Box mb={3}>
-                <Typography variant="subtitle2" mb={1.5} color="var(--muted-foreground)" fontWeight={600}>HIZLI İŞLEMLER</Typography>
-                <Grid container spacing={1.5}>
+            {/* Quick Actions Grid */}
+            <Box sx={{ mb: 4 }}>
+                <Typography variant="overline" sx={{ fontWeight: 900, color: 'text.disabled', letterSpacing: 2, mb: 2, display: 'block' }}>HIZLI BORDRO OLUŞTUR</Typography>
+                <Grid container spacing={2}>
                     {AVAILABLE_TYPES.map(t => (
-                        <Grid size={{ xs: 12, sm: 4, md: 2 }} key={t}>
+                        <Grid key={t} size={{ xs: 12, sm: 4, md: 2 }}>
                             <Card
                                 variant="outlined"
                                 sx={{
                                     cursor: 'pointer',
-                                    height: '100%',
-                                    borderColor: 'var(--border)',
-                                    bgcolor: 'var(--card)',
-                                    borderRadius: 'var(--radius)',
-                                    '&:hover': { borderColor: 'var(--primary)', bgcolor: 'rgba(var(--primary-rgb), 0.04)' },
-                                    transition: 'all 0.2s ease'
+                                    borderRadius: 3,
+                                    bgcolor: 'background.paper',
+                                    transition: 'all 0.2s',
+                                    '&:hover': { transform: 'translateY(-2px)', borderColor: 'primary.main', boxShadow: `0 8px 16px ${alpha(theme.palette.primary.main, 0.08)}` }
                                 }}
                                 onClick={() => router.push(`/payroll/new?type=${t}`)}
                             >
-                                <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 } }}>
-                                    <Typography variant="caption" color="var(--primary)" fontWeight="bold" sx={{ display: 'block', mb: 0.5 }}>
+                                <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
+                                    <Typography variant="caption" sx={{ color: 'primary.main', fontWeight: 900, display: 'block', mb: 0.5, opacity: 0.8 }}>
                                         {JOURNAL_TYPE_LABEL[t].split(' ')[0]}
                                     </Typography>
-                                    <Typography variant="body2" fontWeight={600} sx={{ fontSize: '0.8rem', lineHeight: 1.2 }}>
+                                    <Typography variant="body2" sx={{ fontWeight: 700, lineHeight: 1.2, fontSize: '0.75rem' }}>
                                         {JOURNAL_TYPE_LABEL[t]}
                                     </Typography>
                                 </CardContent>
@@ -180,38 +233,48 @@ export default function PayrollClient() {
                 </Grid>
             </Box>
 
-            {/* Toolbar */}
-            <Paper variant="outlined" sx={{ mb: 2, bgcolor: 'var(--card)', borderColor: 'var(--border)', borderRadius: 'var(--radius)' }}>
-                <Box sx={{ p: 2, display: 'flex', flexWrap: 'wrap', gap: 1.5, alignItems: 'center' }}>
-                    <TextField
-                        id="payroll-search"
-                        size="small"
-                        placeholder="Bordro No veya Cari Ara..."
-                        value={search}
-                        onChange={(e) => setSearch(e.target.value)}
-                        InputProps={{
+            {/* Filter Toolbar */}
+            <Box sx={{
+                mb: 2,
+                p: 2,
+                borderRadius: 3,
+                bgcolor: 'background.paper',
+                border: '1px solid',
+                borderColor: 'divider',
+                display: 'flex',
+                gap: 2,
+                flexWrap: 'wrap',
+                alignItems: 'center'
+            }}>
+                <TextField
+                    id="payroll-search"
+                    size="small"
+                    placeholder="Bordro no, cari veya banka ara..."
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    sx={{ width: 320, '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+                    slotProps={{
+                        input: {
                             startAdornment: (
                                 <InputAdornment position="start">
-                                    <SearchIcon sx={{ color: 'var(--muted-foreground)' }} />
+                                    <SearchIcon sx={{ color: 'text.disabled' }} />
                                 </InputAdornment>
                             ),
-                        }}
-                        sx={{
-                            width: 300,
-                            '& .MuiOutlinedInput-root': { bgcolor: 'var(--background)', borderRadius: 2 }
-                        }}
-                    />
-                    <TextField
-                        id="payroll-type"
-                        select
-                        size="small"
-                        label="İşlem Türü"
+                        }
+                    }}
+                />
+
+                <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
+
+                <FormControl size="small" sx={{ minWidth: 220 }}>
+                    <InputLabel id="payroll-type-label">İşlem Türü</InputLabel>
+                    <Select
+                        labelId="payroll-type-label"
+                        id="payroll-type-select"
                         value={type}
-                        onChange={(e) => setType(e.target.value)}
-                        sx={{
-                            width: 200,
-                            '& .MuiOutlinedInput-root': { bgcolor: 'var(--background)', borderRadius: 2 }
-                        }}
+                        onChange={(e) => setType(e.target.value as string)}
+                        label="İşlem Türü"
+                        sx={{ borderRadius: 2 }}
                     >
                         <MenuItem value="">Tümü</MenuItem>
                         {Object.keys(JOURNAL_TYPE_LABEL).map((key) => (
@@ -219,67 +282,65 @@ export default function PayrollClient() {
                                 {JOURNAL_TYPE_LABEL[key as JournalType]}
                             </MenuItem>
                         ))}
-                    </TextField>
+                    </Select>
+                </FormControl>
 
-                    <Stack direction="row" spacing={1}>
-                        <Chip label="Bugün" size="small" variant="outlined" sx={{ borderRadius: 1.5, fontWeight: 500, cursor: 'pointer', '&:hover': { bgcolor: 'var(--muted)' } }} />
-                        <Chip label="Bu Hafta" size="small" variant="outlined" sx={{ borderRadius: 1.5, fontWeight: 500, cursor: 'pointer', '&:hover': { bgcolor: 'var(--muted)' } }} />
-                        <Chip label="Bu Ay" size="small" variant="outlined" sx={{ borderRadius: 1.5, fontWeight: 500, cursor: 'pointer', '&:hover': { bgcolor: 'var(--muted)' } }} />
-                    </Stack>
+                <Stack direction="row" spacing={1}>
+                    <Chip label="Bugün" size="small" variant="outlined" sx={{ borderRadius: 1.5, fontWeight: 700, cursor: 'pointer' }} />
+                    <Chip label="Bu Ay" size="small" variant="outlined" sx={{ borderRadius: 1.5, fontWeight: 700, cursor: 'pointer' }} />
+                </Stack>
 
-                    <Box sx={{ flexGrow: 1 }} />
+                {(search || type) && (
+                    <Button
+                        size="small"
+                        variant="text"
+                        onClick={() => { setSearch(''); setType(''); }}
+                        sx={{ fontWeight: 800, textTransform: 'none' }}
+                    >
+                        Temizle
+                    </Button>
+                )}
+            </Box>
 
-                    <Box sx={{ display: 'flex', gap: 1 }}>
-                        <Button
-                            variant="outlined"
-                            size="small"
-                            startIcon={<RefreshIcon />}
-                            onClick={handleRefresh}
-                            sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 600, bgcolor: 'var(--background)', color: 'var(--foreground)', borderColor: 'var(--border)' }}
-                        >
-                            Yenile
-                        </Button>
-                        <Button
-                            variant="outlined"
-                            size="small"
-                            startIcon={<DownloadIcon />}
-                            sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 600, bgcolor: 'var(--background)', color: 'var(--foreground)', borderColor: 'var(--border)' }}
-                        >
-                            Excel
-                        </Button>
-                    </Box>
-                </Box>
-            </Paper>
-
-            {/* DataGrid Wrapper */}
-            <Paper variant="outlined" sx={{ overflow: 'hidden', bgcolor: 'var(--card)', borderColor: 'var(--border)', borderRadius: 'var(--radius)' }}>
+            {/* DataGrid */}
+            <Box sx={{
+                height: 600,
+                bgcolor: 'background.paper',
+                borderRadius: 4,
+                border: '1px solid',
+                borderColor: 'divider',
+                overflow: 'hidden',
+                boxShadow: '0 4px 20px rgba(0,0,0,0.05)'
+            }}>
                 <DataGrid
-                    rows={journals || []}
+                    rows={journals}
                     columns={columns}
                     loading={isLoading}
-                    disableRowSelectionOnClick
                     pageSizeOptions={[25, 50, 100]}
                     initialState={{
                         pagination: { paginationModel: { pageSize: 25 } },
                         sorting: { sortModel: [{ field: 'date', sort: 'desc' }] },
                     }}
+                    disableRowSelectionOnClick
                     sx={{
                         border: 'none',
                         '& .MuiDataGrid-columnHeaders': {
-                            bgcolor: 'var(--muted)',
-                            color: 'var(--muted-foreground)',
-                            fontWeight: 700,
-                            borderBottom: '1px solid var(--border)'
+                            bgcolor: alpha(theme.palette.primary.main, 0.04),
+                            borderBottom: '1px solid',
+                            borderColor: 'divider',
                         },
                         '& .MuiDataGrid-cell': {
-                            borderBottom: '1px solid var(--border)'
+                            borderColor: 'divider',
                         },
-                        '& .MuiDataGrid-row:hover': {
-                            bgcolor: 'rgba(var(--primary-rgb), 0.02)'
+                        '& .MuiDataGrid-columnHeaderTitle': {
+                            fontWeight: 900,
+                            color: 'text.secondary',
+                            fontSize: '0.75rem',
+                            letterSpacing: 1,
                         }
                     }}
                 />
-            </Paper>
-        </StandardPage>
+            </Box>
+        </Box>
     );
 }

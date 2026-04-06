@@ -52,7 +52,8 @@ Bir phase bitmeden sonrakine geçme.
 /reports/bank              → Banka Dağılımı
 /reports/collection        → Tahsilat Performansı
 /reports/overdue           → Vadesi Geçmiş
-/settings/check-bill       → Modül Ayarları
+/settings/parameters#cek-senet → Çek/Senet ayarları (vade, bildirim, varsayılan banka/kasa)
+/settings/number-templates       → Bordro numaralandırma (CHECK_BILL_JOURNAL şablonu)
 ```
 
 ---

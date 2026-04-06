@@ -105,9 +105,9 @@ export class StockEffectService {
             // Stok hareketi kaydı oluştur
             const movement = await tx.productMovement.create({
                 data: {
-                    tenantId,
-                    productId: item.productId,
-                    warehouseId,
+                    tenant: { connect: { id: tenantId } },
+                    product: { connect: { id: item.productId } },
+                    warehouse: { connect: { id: warehouseId } },
                     movementType,
                     quantity: Math.round(
                         Number(
@@ -117,7 +117,7 @@ export class StockEffectService {
                         ),
                     ),
                     unitPrice: item.unitPrice,
-                    invoiceItemId: item.id,
+                    invoiceItem: { connect: { id: item.id } },
                     notes: operationType === 'CANCEL' ? `Cancelled: ${invoice.invoiceNo}` : `Approved: ${invoice.invoiceNo}`,
                     recordType: operationType === 'CANCEL' ? 'CANCEL_REVERSAL' : 'NORMAL',
                 },
@@ -153,7 +153,8 @@ export class StockEffectService {
     async reverseStockEffects(
         invoiceId: string,
         tenantId: string,
-        tx: Prisma.TransactionClient
+        tx: Prisma.TransactionClient,
+        isDraftRevert: boolean = false
     ): Promise<ReverseResult> {
         // Faturaya ait henüz tersi alınmamış hareketleri bul
         const originalMovements = await tx.productMovement.findMany({
@@ -191,28 +192,36 @@ export class StockEffectService {
                 mov.product?.name || 'Unknown'
             );
 
-            // Ters kayıt oluştur
-            await tx.productMovement.create({
-                data: {
-                    tenantId,
-                    productId: mov.productId,
-                    warehouseId: mov.warehouseId,
-                    movementType: reverseMovementType,
-                    quantity: reverseDirection === StockMovementDirection.OUT ? -quantity.toNumber() : quantity.toNumber(),
-                    unitPrice: mov.unitPrice,
-                    invoiceItemId: mov.invoiceItemId,
-                    notes: `Reversal of movement ${mov.id}`,
-                    isReversed: true, // Bu kayıt bir geri almadır
-                    reversalOfId: mov.id,
-                    recordType: 'UPDATE_REVERSAL',
-                },
-            });
+            if (isDraftRevert) {
+                // Taslağa dönüldüğünde ters kayıt atmak yerine orijinal hareketi soft-delete yap
+                await tx.productMovement.update({
+                    where: { id: mov.id },
+                    data: { deletedAt: new Date() }
+                });
+            } else {
+                // Ters kayıt oluştur
+                await tx.productMovement.create({
+                    data: {
+                        tenant: { connect: { id: tenantId } },
+                        product: { connect: { id: mov.productId } },
+                        warehouse: mov.warehouseId ? { connect: { id: mov.warehouseId } } : undefined,
+                        movementType: reverseMovementType,
+                        quantity: reverseDirection === StockMovementDirection.OUT ? -quantity.toNumber() : quantity.toNumber(),
+                        unitPrice: mov.unitPrice,
+                        invoiceItem: mov.invoiceItemId ? { connect: { id: mov.invoiceItemId } } : undefined,
+                        notes: `Reversal of movement ${mov.id}`,
+                        isReversed: true, // Bu kayıt bir geri almadır
+                        reversalOf: { connect: { id: mov.id } },
+                        recordType: 'UPDATE_REVERSAL',
+                    },
+                });
 
-            // Orijinal kaydı tersi alınmış olarak işaretle
-            await tx.productMovement.update({
-                where: { id: mov.id },
-                data: { isReversed: true },
-            });
+                // Orijinal kaydı tersi alınmış olarak işaretle
+                await tx.productMovement.update({
+                    where: { id: mov.id },
+                    data: { isReversed: true },
+                });
+            }
         }
 
         return {
@@ -299,12 +308,12 @@ export class StockEffectService {
 
         await tx.stockMove.create({
             data: {
-                tenantId,
-                productId: item.productId,
-                fromWarehouseId: direction === StockMovementDirection.OUT ? warehouseId : null,
-                fromLocationId: direction === StockMovementDirection.OUT ? defaultLocation.id : null,
-                toWarehouseId: warehouseId,
-                toLocationId: defaultLocation.id,
+                tenant: { connect: { id: tenantId } },
+                product: { connect: { id: item.productId } },
+                fromWarehouse: direction === StockMovementDirection.OUT ? { connect: { id: warehouseId } } : undefined,
+                fromLocation: direction === StockMovementDirection.OUT ? { connect: { id: defaultLocation.id } } : undefined,
+                toWarehouse: { connect: { id: warehouseId } },
+                toLocation: { connect: { id: defaultLocation.id } },
                 quantity: baseQuantity.toNumber(),
                 moveType: direction === StockMovementDirection.OUT ? 'SALE' : 'PUT_AWAY',
                 refType: 'INVOICE',

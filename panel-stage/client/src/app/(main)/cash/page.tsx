@@ -32,7 +32,15 @@ import {
   CardContent,
   Grid,
   LinearProgress,
+  alpha,
+  useTheme,
 } from '@mui/material';
+import {
+  DataGrid,
+  GridColDef,
+  GridRenderCellParams
+} from '@mui/x-data-grid';
+import { trTR } from '@mui/x-data-grid/locales';
 import {
   Add,
   Edit,
@@ -44,6 +52,12 @@ import {
   ToggleOff,
   AccountBalanceWallet,
   RefreshOutlined,
+  TrendingUp,
+  TrendingDown,
+  Person,
+  Search,
+  Close,
+  Refresh,
 } from '@mui/icons-material';
 import axios from '@/lib/axios';
 import { useRouter } from 'next/navigation';
@@ -192,241 +206,278 @@ export default function KasaPage() {
     return new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY' }).format(amount);
   };
 
+  const theme = useTheme();
+
   const getKasaIcon = (type: string) => {
-    return <Payments sx={{ color: 'var(--chart-2)' }} />;
+    return <Payments sx={{ color: theme.palette.primary.main }} />;
   };
 
   const getKasaColor = (type: string) => {
-    return 'var(--chart-2)';
+    return theme.palette.primary.main;
   };
 
   const getKasaTipLabel = (type: string) => {
     return 'Nakit Kasa';
   };
 
-  return (
-    <StandardPage maxWidth={false}>
-      {/* Header & Aksiyon Butonları */}
-      <Box sx={{ mb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1.5 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Box sx={{ width: 40, height: 40, borderRadius: 2, background: 'linear-gradient(135deg, var(--primary), var(--secondary))', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <AccountBalanceWallet sx={{ color: 'var(--primary-foreground)', fontSize: 20 }} />
-          </Box>
-          <Typography variant="h6" fontWeight={700} color="var(--foreground)">
-            Kasa Yönetimi
-          </Typography>
-        </Box>
-        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
-          <Button
+  const headerActions = (
+    <Stack direction="row" spacing={1}>
+      <Button
+        variant="outlined"
+        size="small"
+        startIcon={showInactive ? <ToggleOff /> : <ToggleOn />}
+        onClick={() => setShowInactive(!showInactive)}
+        sx={{
+          textTransform: 'none',
+          fontWeight: 600,
+          borderRadius: 2,
+          color: showInactive ? theme.palette.error.main : theme.palette.success.main,
+          borderColor: alpha(showInactive ? theme.palette.error.main : theme.palette.success.main, 0.4),
+          '&:hover': {
+            borderColor: showInactive ? theme.palette.error.main : theme.palette.success.main,
+            bgcolor: alpha(showInactive ? theme.palette.error.main : theme.palette.success.main, 0.05),
+          },
+        }}
+      >
+        {showInactive ? 'Aktifleri Göster' : 'Pasifleri Göster'}
+      </Button>
+      <Button
+        variant="contained"
+        size="small"
+        startIcon={<Add />}
+        onClick={openAddDialog}
+        sx={{
+          bgcolor: theme.palette.secondary.main,
+          color: theme.palette.secondary.contrastText,
+          textTransform: 'none',
+          fontWeight: 600,
+          borderRadius: 2,
+          boxShadow: 'none',
+          '&:hover': { bgcolor: theme.palette.secondary.dark, boxShadow: 'none' },
+        }}
+      >
+        Yeni Kasa Ekle
+      </Button>
+    </Stack>
+  );
+
+  const columns: GridColDef[] = [
+    {
+      field: 'type',
+      headerName: 'Tip',
+      width: 120,
+      renderCell: (params: GridRenderCellParams) => (
+        <Box sx={{ display: 'flex', alignItems: 'center', height: '100%', gap: 1 }}>
+          {getKasaIcon(params.value)}
+          <Chip
+            label={getKasaTipLabel(params.value)}
+            size="small"
             variant="outlined"
-            size="small"
-            startIcon={showInactive ? <ToggleOff /> : <ToggleOn />}
-            onClick={() => setShowInactive(!showInactive)}
             sx={{
-              textTransform: 'none',
-              fontWeight: 600,
-              boxShadow: 'none',
-              color: showInactive ? 'var(--primary)' : 'var(--chart-2)',
-              borderColor: showInactive ? 'var(--primary)' : 'var(--chart-2)',
-              '&:hover': {
-                bgcolor: showInactive
-                  ? 'color-mix(in srgb, var(--primary) 10%, transparent)'
-                  : 'color-mix(in srgb, var(--chart-2) 10%, transparent)',
-                boxShadow: 'none',
-              },
+              height: 20,
+              fontSize: '0.7rem',
+              fontWeight: 700,
+              borderRadius: 1,
+              bgcolor: alpha(getKasaColor(params.value), 0.1),
+              color: getKasaColor(params.value),
+              borderColor: alpha(getKasaColor(params.value), 0.2),
             }}
-          >
-            {showInactive ? 'Aktifleri Göster' : 'Pasifleri Göster'}
-          </Button>
-          <Button
-            variant="contained"
-            size="small"
-            startIcon={<Add />}
-            onClick={openAddDialog}
-            sx={{
-              bgcolor: 'var(--secondary)',
-              color: 'var(--secondary-foreground)',
-              textTransform: 'none',
-              fontWeight: 600,
-              boxShadow: 'none',
-              '&:hover': { bgcolor: 'var(--secondary-hover)', boxShadow: 'none' },
-            }}
-          >
-            Yeni Kasa Ekle
-          </Button>
-        </Stack>
-      </Box>
+          />
+        </Box>
+      ),
+    },
+    {
+      field: 'code',
+      headerName: 'Kasa Kodu',
+      width: 130,
+      renderCell: (params) => (
+        <Typography variant="body2" sx={{ fontWeight: 700, color: theme.palette.primary.main }}>
+          {params.value}
+        </Typography>
+      ),
+    },
+    {
+      field: 'name',
+      headerName: 'Kasa Adı',
+      flex: 1,
+      minWidth: 200,
+      renderCell: (params) => (
+        <Box sx={{ display: 'flex', alignItems: 'center', height: '100%', gap: 1 }}>
+          <Typography variant="body2" sx={{ fontWeight: 600 }}>{params.value}</Typography>
+          {params.row.isRetail && (
+            <Chip
+              label="Perakende"
+              size="small"
+              sx={{ height: 18, fontSize: '0.65rem', fontWeight: 800, bgcolor: alpha(theme.palette.warning.main, 0.1), color: theme.palette.warning.dark }}
+            />
+          )}
+        </Box>
+      ),
+    },
+    {
+      field: 'balance',
+      headerName: 'Bakiye',
+      width: 150,
+      align: 'right',
+      headerAlign: 'right',
+      renderCell: (params) => (
+        <Typography
+          variant="body2"
+          sx={{
+            fontWeight: 800,
+            color: params.value >= 0 ? theme.palette.success.main : theme.palette.error.main,
+          }}
+        >
+          {formatCurrency(params.value)}
+        </Typography>
+      ),
+    },
+    {
+      field: 'isActive',
+      headerName: 'Durum',
+      width: 100,
+      align: 'center',
+      headerAlign: 'center',
+      renderCell: (params) => (
+        <Chip
+          label={params.value ? 'Aktif' : 'Pasif'}
+          size="small"
+          sx={{
+            fontWeight: 600,
+            borderRadius: 1.5,
+            bgcolor: params.value ? alpha(theme.palette.success.main, 0.1) : alpha(theme.palette.grey[500], 0.1),
+            color: params.value ? theme.palette.success.main : theme.palette.grey[700],
+          }}
+        />
+      ),
+    },
+    {
+      field: 'actions',
+      headerName: 'İşlemler',
+      width: 150,
+      align: 'center',
+      headerAlign: 'center',
+      sortable: false,
+      renderCell: (params) => (
+        <Box sx={{ display: 'flex', justifyContent: 'center', gap: 0.5, alignItems: 'center', height: '100%' }}>
+          <Tooltip title="Detay">
+            <IconButton
+              size="small"
+              onClick={() => router.push(`/cash/${params.row.id}`)}
+              sx={{ color: theme.palette.info.main, bgcolor: alpha(theme.palette.info.main, 0.05) }}
+            >
+              <Visibility fontSize="small" />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title="Düzenle">
+            <IconButton
+              size="small"
+              onClick={() => openEditDialog(params.row)}
+              sx={{ color: theme.palette.warning.main, bgcolor: alpha(theme.palette.warning.main, 0.05) }}
+            >
+              <Edit fontSize="small" />
+            </IconButton>
+          </Tooltip>
+          {(!params.row._count?.movements || params.row._count.movements === 0) && (
+            <Tooltip title="Sil">
+              <IconButton
+                size="small"
+                onClick={() => openDeleteDialog(params.row)}
+                sx={{ color: theme.palette.error.main, bgcolor: alpha(theme.palette.error.main, 0.05) }}
+              >
+                <Delete fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          )}
+        </Box>
+      ),
+    },
+  ];
 
-      {/* Loading bar */}
-      {loading && <LinearProgress sx={{ mb: 2, borderRadius: 1, height: 3 }} />}
-
-      {/* KPI Kartları */}
-      <Paper variant="outlined" sx={{ mb: 2, p: 1.5, display: 'flex', flexWrap: 'wrap', gap: 0 }}>
+  return (
+    <StandardPage title="Kasa Yönetimi" headerActions={headerActions}>
+      {/* KPI Kartları - MODERNIZE */}
+      <Grid container spacing={2} sx={{ mb: 3 }}>
         {[
-          { label: 'Toplam Kasa', value: kasalar.length },
-          { label: 'Aktif Kasa', value: kasalar.filter(k => k.isActive).length },
-          { label: 'Toplam Bakiye', value: formatCurrency(totalBalance) },
-          { label: 'Toplam Hareket', value: totalMovements },
+          { label: 'Toplam Kasa', value: kasalar.length, icon: AccountBalanceWallet, color: theme.palette.primary.main },
+          { label: 'Aktif Kasa', value: kasalar.filter(k => k.isActive).length, icon: Person, color: theme.palette.success.main },
+          { label: 'Toplam Bakiye', value: formatCurrency(totalBalance), icon: TrendingUp, color: theme.palette.info.main },
+          { label: 'Toplam Hareket', value: totalMovements, icon: TrendingDown, color: theme.palette.warning.main },
         ].map((item, i) => (
-          <Box
-            key={item.label}
-            sx={{
-              flex: '1 1 120px',
-              px: 1.5,
-              borderRight: i < 3 ? '1px solid var(--divider, var(--border))' : 'none',
-            }}
-          >
-            <Typography variant="caption" color="var(--muted-foreground)" fontWeight={500}>
-              {item.label}
-            </Typography>
-            <Typography variant="h6" fontWeight={700} sx={{ color: 'var(--foreground)' }}>
-              {item.value}
-            </Typography>
-          </Box>
+          <Grid item xs={12} sm={6} md={3} key={i}>
+            <StandardCard>
+              <Stack direction="row" spacing={2} alignItems="center">
+                <Box
+                  sx={{
+                    width: 44,
+                    height: 44,
+                    borderRadius: 2,
+                    background: alpha(item.color as string, 0.1),
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <item.icon sx={{ color: item.color }} />
+                </Box>
+                <Box>
+                  <Typography variant="h6" fontWeight="800">
+                    {item.value}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    {item.label}
+                  </Typography>
+                </Box>
+              </Stack>
+            </StandardCard>
+          </Grid>
         ))}
-      </Paper>
+      </Grid>
 
       {/* Tablo Kartı */}
-      <StandardCard padding={0} sx={{ boxShadow: 'none', overflow: 'hidden' }}>
-        {/* Tablo Satır Özeti */}
-        <Box sx={{ px: 2, py: 1, borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Typography variant="caption" color="text.secondary">
-            Toplam <b>{kasalar.length}</b> kasa listeleniyor
-          </Typography>
+      {/* 6. DATAGRID */}
+      <StandardCard padding={0}>
+        <Box sx={{ height: 'auto', minHeight: 600, width: '100%' }}>
+          <DataGrid
+            rows={kasalar}
+            columns={columns}
+            getRowId={(row) => row.id}
+            initialState={{
+              pagination: {
+                paginationModel: { pageSize: 25, page: 0 },
+              },
+            }}
+            pageSizeOptions={[25, 50, 100]}
+            disableRowSelectionOnClick
+            loading={loading}
+            localeText={trTR.components.MuiDataGrid.defaultProps.localeText}
+            sx={{
+              border: 'none',
+              '& .MuiDataGrid-columnHeaders': {
+                bgcolor: alpha(theme.palette.primary.main, 0.04),
+                borderBottom: `1px solid ${theme.palette.divider}`,
+                '& .MuiDataGrid-columnHeaderTitle': {
+                  fontWeight: 700,
+                  fontSize: '0.75rem',
+                  color: theme.palette.text.secondary,
+                  textTransform: 'uppercase',
+                  letterSpacing: 0.05,
+                },
+              },
+              '& .MuiDataGrid-cell': {
+                borderBottom: `1px solid ${alpha(theme.palette.divider, 0.5)}`,
+                fontSize: '0.875rem',
+              },
+              '& .MuiDataGrid-row:hover': {
+                bgcolor: alpha(theme.palette.primary.main, 0.02),
+              },
+              '& .MuiDataGrid-footerContainer': {
+                borderTop: `1px solid ${theme.palette.divider}`,
+                bgcolor: alpha(theme.palette.background.paper, 0.4),
+              },
+            }}
+          />
         </Box>
-
-        {/* Table */}
-        <TableContainer sx={{ borderRadius: 0 }}>
-          <Table>
-            <TableHead sx={{ bgcolor: 'var(--muted)' }}>
-              <TableRow>
-                <TableCell sx={{ fontWeight: 600 }}>Tip</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>Kasa Kodu</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>Kasa Adı</TableCell>
-                <TableCell align="right" sx={{ fontWeight: 600 }}>Bakiye</TableCell>
-                <TableCell align="center" sx={{ fontWeight: 600 }}>Durum</TableCell>
-                <TableCell align="center" sx={{ fontWeight: 600 }}>İşlemler</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {loading ? (
-                <TableRow>
-                  <TableCell colSpan={7} align="center" sx={{ py: 8 }}>
-                    <CircularProgress />
-                  </TableCell>
-                </TableRow>
-              ) : kasalar.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={7} align="center" sx={{ py: 8 }}>
-                    <Typography variant="body1" color="text.secondary">
-                      {showInactive ? 'Kullanım dışı kasa bulunamadı' : 'Kasa bulunamadı'}
-                    </Typography>
-                  </TableCell>
-                </TableRow>
-              ) : (
-                kasalar.map((kasa) => (
-                  <TableRow key={kasa.id} hover>
-                    <TableCell>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        {getKasaIcon(kasa.type)}
-                        <Chip
-                          label={getKasaTipLabel(kasa.type)}
-                          size="small"
-                          sx={{
-                            bgcolor: `${getKasaColor(kasa.type)}20`,
-                            color: getKasaColor(kasa.type),
-                            fontWeight: 600,
-                          }}
-                        />
-                      </Box>
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body2" fontWeight="600">
-                        {kasa.code}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                          {kasa.name}
-                        </Typography>
-                        {kasa.isRetail && (
-                          <Chip
-                            label="Perakende"
-                            size="small"
-                            variant="outlined"
-                            sx={{
-                              height: 20,
-                              fontSize: '0.625rem',
-                              fontWeight: 700,
-                              color: 'var(--chart-5)',
-                              borderColor: 'var(--chart-5)',
-                              bgcolor: 'color-mix(in srgb, var(--chart-5) 5%, transparent)',
-                            }}
-                          />
-                        )}
-                      </Box>
-                    </TableCell>
-                    <TableCell align="right">
-                      <Typography variant="body2" fontWeight="700" color={kasa.balance >= 0 ? 'success.main' : 'error.main'}>
-                        {formatCurrency(kasa.balance)}
-                      </Typography>
-                    </TableCell>
-                    <TableCell align="center">
-                      <Chip
-                        label={kasa.isActive ? 'Aktif' : 'Pasif'}
-                        size="small"
-                        color={kasa.isActive ? 'success' : 'default'}
-                      />
-                    </TableCell>
-                    <TableCell align="center">
-                      <Box sx={{ display: 'flex', justifyContent: 'center', gap: 0.5 }}>
-                        <Tooltip title="Detay / Hesapları Yönet">
-                          <IconButton
-                            size="small"
-                            onClick={() => router.push(`/cash/${kasa.id}`)}
-                            sx={{
-                              color: '#3b82f6',
-                              '&:hover': { bgcolor: 'color-mix(in srgb, var(--chart-1) 15%, transparent)' }
-                            }}
-                          >
-                            <Visibility fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                        <Tooltip title="Düzenle">
-                          <IconButton
-                            size="small"
-                            onClick={() => openEditDialog(kasa)}
-                            sx={{
-                              color: '#f59e0b',
-                              '&:hover': { bgcolor: 'color-mix(in srgb, var(--chart-2) 15%, transparent)' }
-                            }}
-                          >
-                            <Edit fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                        {(!kasa._count?.movements || kasa._count.movements === 0) && (
-                          <Tooltip title="Sil">
-                            <IconButton
-                              size="small"
-                              onClick={() => openDeleteDialog(kasa)}
-                              sx={{
-                                color: '#ef4444',
-                                '&:hover': { bgcolor: 'color-mix(in srgb, var(--destructive) 15%, transparent)' }
-                              }}
-                            >
-                              <Delete fontSize="small" />
-                            </IconButton>
-                          </Tooltip>
-                        )}
-                      </Box>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </TableContainer>
       </StandardCard>
 
       {/* Add/Edit Dialog */}

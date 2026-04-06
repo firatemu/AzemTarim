@@ -36,7 +36,7 @@ export class B2bCatalogController {
     private readonly prisma: PrismaService,
     private readonly price: B2bPriceService,
     private readonly schemaBridge: B2bTenantSchemaBridgeService,
-  ) {}
+  ) { }
 
   private parsePricingAt(iso?: string): Date {
     if (!iso?.trim()) {
@@ -88,14 +88,14 @@ export class B2bCatalogController {
       ...(category ? { category } : {}),
       ...(search
         ? {
-            OR: [
-              { name: { contains: search, mode: 'insensitive' } },
-              { stockCode: { contains: search, mode: 'insensitive' } },
-              { brand: { contains: search, mode: 'insensitive' } },
-              { oemCode: { contains: search, mode: 'insensitive' } },
-              { supplierCode: { contains: search, mode: 'insensitive' } },
-            ],
-          }
+          OR: [
+            { name: { contains: search, mode: 'insensitive' } },
+            { stockCode: { contains: search, mode: 'insensitive' } },
+            { brand: { contains: search, mode: 'insensitive' } },
+            { oemCode: { contains: search, mode: 'insensitive' } },
+            { supplierCode: { contains: search, mode: 'insensitive' } },
+          ],
+        }
         : {}),
     };
 
@@ -132,15 +132,16 @@ export class B2bCatalogController {
           pricingRef,
         );
         const stocks = await this.prisma.b2BStock.findMany({
-          where: { tenantId, productId: p.id, isAvailable: true },
+          where: { tenantId, productId: p.id },
           orderBy: [{ displayOrder: 'asc' }, { warehouseName: 'asc' }],
           select: {
             warehouseId: true,
             warehouseName: true,
             isAvailable: true,
+            quantity: true,
           },
         });
-        const inStock = stocks.length > 0;
+        const inStock = stocks.some((s) => Number(s.quantity) > 0);
         const warehouses = collapseWarehouses ? [] : stocks;
         return {
           ...p,
@@ -213,7 +214,7 @@ export class B2bCatalogController {
       productId,
       pricingRef,
     );
-    const stocks = product.stocks.filter((s) => s.isAvailable);
+    const stocks = product.stocks.filter((s) => Number(s.quantity) > 0);
     const presentation = collapseWarehouses ? 'COMBINED' : 'INDIVIDUAL';
     const warehouses = collapseWarehouses ? [] : stocks;
     return {

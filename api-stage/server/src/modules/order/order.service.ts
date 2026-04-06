@@ -16,6 +16,7 @@ import { SalesWaybillService } from '../sales-waybill/sales-waybill.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderDto } from './dto/update-order.dto';
 import { UnitSetService } from '../unit-set/unit-set.service';
+import { StatusCalculatorService } from '../shared/status-calculator/status-calculator.service';
 
 @Injectable()
 export class OrderService {
@@ -26,6 +27,7 @@ export class OrderService {
     private salesWaybillService: SalesWaybillService,
     private codeTemplateService: CodeTemplateService,
     private unitSetService: UnitSetService,
+    private statusCalculator: StatusCalculatorService,
   ) { }
 
   private async createLog(
@@ -36,9 +38,10 @@ export class OrderService {
     ipAddress?: string,
     userAgent?: string,
     tx?: Prisma.TransactionClient,
+    tenantId?: string,
   ) {
     const prisma = tx || this.prisma;
-    const tenantId = await this.tenantResolver.resolveForQuery();
+    const resolvedTenantId = tenantId ?? await this.tenantResolver.resolveForQuery();
     await prisma.salesOrderLog.create({
       data: {
         orderId,
@@ -47,7 +50,7 @@ export class OrderService {
         changes: changes ? JSON.stringify(changes) : null,
         ipAddress,
         userAgent,
-        tenantId: tenantId!, // Ensure tenantId is not null
+        tenantId: resolvedTenantId ?? undefined,
       },
     });
   }
@@ -93,7 +96,21 @@ export class OrderService {
         where,
         skip,
         take: limit,
-        include: {
+        select: {
+          id: true,
+          orderNo: true,
+          date: true,
+          dueDate: true,
+          status: true,
+          totalAmount: true,
+          vatAmount: true,
+          grandTotal: true,
+          discount: true,
+          notes: true,
+          invoiceNo: true,
+          deliveryNoteId: true,
+          createdAt: true,
+          updatedAt: true,
           account: {
             select: {
               id: true,
@@ -116,6 +133,26 @@ export class OrderService {
               username: true,
             },
           },
+          deliveryNotes: {
+            select: {
+              id: true,
+              deliveryNoteNo: true,
+              invoiceNos: true,
+            },
+          },
+          items: {
+            select: {
+              id: true,
+              quantity: true,
+              deliveredQuantity: true,
+            },
+          },
+          deliveryNote: {
+            select: {
+              id: true,
+              deliveryNoteNo: true,
+            },
+          },
           _count: {
             select: {
               items: true,
@@ -124,17 +161,33 @@ export class OrderService {
         },
         orderBy: { createdAt: 'desc' },
       });
-      data = data.filter((item: any) => item.account !== null);
+      const total = await (model as any).count({ where });
+
+      const mappedData = data.map((item: any) => {
+        const allInvoices = new Set<string>();
+        if (item.invoiceNo) allInvoices.add(item.invoiceNo);
+
+        item.deliveryNotes?.forEach((dn: any) => {
+          if (dn.invoiceNos && Array.isArray(dn.invoiceNos)) {
+            dn.invoiceNos.forEach((inv: string) => {
+              if (inv) allInvoices.add(inv);
+            });
+          }
+        });
+
+        return {
+          ...item,
+          invoiceNos: Array.from(allInvoices),
+        };
+      });
+
+      return {
+        data: mappedData,
+        meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
+      };
     } catch (error: any) {
       throw error;
     }
-
-    const total = await (model as any).count({ where });
-
-    return {
-      data,
-      meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
-    };
   }
 
   async findOne(id: string) {
@@ -193,6 +246,12 @@ export class OrderService {
 
     if (!order) {
       throw new NotFoundException(`Order not found: ${id}`);
+    }
+
+    // Recalculate status
+    if (order.id && tenantId) {
+      await this.statusCalculator.recalculateOrderStatus(order.id, String(tenantId))
+        .catch(err => console.error('[OrderService] Recalculate order status failed:', err?.message));
     }
 
     return order;
@@ -258,37 +317,52 @@ export class OrderService {
       totalAmount = totalAmount.add(lineTotal);
       vatAmount = vatAmount.add(lineVat);
 
-      return {
+      const data: any = {
         productId: item.productId,
         quantity: item.quantity,
         unitPrice: item.unitPrice,
         vatRate: item.vatRate,
         vatAmount: lineVat,
-        totalAmount: lineTotal.add(lineVat),
       };
+
+      if (isProcurement) {
+        data.amount = lineTotal.add(lineVat);
+      } else {
+        data.totalAmount = lineTotal.add(lineVat);
+      }
+
+      return data;
     });
 
     const discount = new Prisma.Decimal(orderData.discount || 0);
     const grandTotal = totalAmount.add(vatAmount).sub(discount);
 
     return this.prisma.$transaction(async (prisma) => {
-      const order = await (prisma as any)[isProcurement ? 'procurementOrder' : 'salesOrder'].create({
-        data: {
-          orderNo: orderData.orderNo,
-          date: orderData.date ? new Date(orderData.date) : new Date(),
-          accountId: orderData.accountId,
-          tenantId: finalTenantId,
-          totalAmount,
-          vatAmount,
-          grandTotal,
-          discount,
-          notes: orderData.notes,
-          status: orderData.status as any,
-          createdBy: userId,
-          items: {
-            create: itemsWithCalculations,
-          },
+      const createData: any = {
+        orderNo: orderData.orderNo,
+        date: orderData.date ? new Date(orderData.date) : new Date(),
+        accountId: orderData.accountId,
+        tenantId: finalTenantId,
+        totalAmount,
+        vatAmount,
+        grandTotal,
+        discount,
+        notes: orderData.notes,
+        dueDate: orderData.dueDate ? new Date(orderData.dueDate) : null,
+        status: orderData.status as any,
+        createdBy: userId,
+        items: {
+          create: itemsWithCalculations,
         },
+      };
+
+      // Only add type for sales orders (procurement orders don't have type field)
+      if (!isProcurement) {
+        createData.type = orderType;
+      }
+
+      const order = await (prisma as any)[isProcurement ? 'procurementOrder' : 'salesOrder'].create({
+        data: createData,
         include: {
           account: true,
           items: {
@@ -308,7 +382,14 @@ export class OrderService {
           ipAddress,
           userAgent,
           prisma,
+          finalTenantId ?? undefined,
         );
+      }
+
+      // Recalculate status after creation
+      if (order.id && finalTenantId) {
+        await this.statusCalculator.recalculateOrderStatus(order.id, String(finalTenantId))
+          .catch(err => console.error('[OrderService] Recalculate order status after create failed:', err?.message));
       }
 
       return order;
@@ -329,17 +410,21 @@ export class OrderService {
     }
 
     const { items, ...orderData } = updateOrderDto;
-    const isProcurement = (order as any).orderType === OrderType.PURCHASE || !('deliveryNoteId' in order);
+    const isProcurement = !('type' in order);
     const modelName = isProcurement ? 'procurementOrder' : 'salesOrder';
+    const itemsModelName = isProcurement ? 'procurementOrderItem' : 'salesOrderItem';
+    const { orderType, ...actualOrderData } = orderData;
+    if (!isProcurement && orderType) {
+      (actualOrderData as any).type = orderType;
+    }
 
     if (!items) {
-      const updated = await (this.prisma as any)[modelName].updateMany({
+      const updated = await (this.prisma as any)[modelName].update({
         where: {
           id,
-          ...buildTenantWhereClause(order.tenantId ?? undefined),
         },
         data: {
-          ...orderData,
+          ...actualOrderData,
           updatedBy: userId,
         },
       });
@@ -359,18 +444,15 @@ export class OrderService {
     }
 
     return this.prisma.$transaction(async (prisma) => {
-      const itemsModelName = isProcurement ? 'procurementOrderItem' : 'salesOrderItem';
-
-      await (prisma as any)[itemsModelName].deleteMany({
-        where: {
-          orderId: id,
-          ...buildTenantWhereClause(order.tenantId ?? undefined),
-        },
+      // 1. Fetch current items to perform sync
+      const currentItems = await (prisma as any)[itemsModelName].findMany({
+        where: { orderId: id },
       });
 
       // Validate quantities for unit divisibility
+      const productIds = items.map((i) => i.productId);
       const products = await this.prisma.product.findMany({
-        where: { id: { in: items.map((i) => i.productId) } },
+        where: { id: { in: productIds } },
         select: { id: true, unitId: true },
       });
 
@@ -383,41 +465,101 @@ export class OrderService {
 
       let totalAmount = new Prisma.Decimal(0);
       let vatAmount = new Prisma.Decimal(0);
+      const newItemsToCreate: any[] = [];
+      const itemsToUpdate: { id: string; data: any }[] = [];
+      const processedExistingItemIds = new Set<string>();
 
-      const itemsWithCalculations = items.map((item) => {
+      // 2. Identify items to update or create
+      for (const item of items) {
         const lineTotal = new Prisma.Decimal(item.quantity).mul(item.unitPrice);
         const lineVat = lineTotal.mul(item.vatRate).div(100);
 
         totalAmount = totalAmount.add(lineTotal);
         vatAmount = vatAmount.add(lineVat);
 
-        return {
+        // Try to match with an existing item that hasn't been processed yet
+        const existingItem = currentItems.find(
+          (ci) => ci.productId === item.productId && !processedExistingItemIds.has(ci.id)
+        );
+
+        const itemData: any = {
           productId: item.productId,
           quantity: item.quantity,
           unitPrice: item.unitPrice,
           vatRate: item.vatRate,
           vatAmount: lineVat,
-          totalAmount: lineTotal.add(lineVat),
+          discountRate: item.discountRate || 0,
+          discountAmount: item.discountAmount || 0,
+          discountType: item.discountType || 'pct',
+          unit: item.unit,
         };
-      });
+
+        if (isProcurement) {
+          itemData.amount = lineTotal.add(lineVat);
+        } else {
+          itemData.totalAmount = lineTotal.add(lineVat);
+        }
+
+        if (existingItem) {
+          // Validate: cannot reduce quantity below delivered amount
+          if (Number(item.quantity) < Number(existingItem.deliveredQuantity || 0)) {
+            throw new BadRequestException(
+              `Ürün miktarı (${item.quantity}), sevk edilen miktardan (${existingItem.deliveredQuantity}) az olamaz.`
+            );
+          }
+
+          itemsToUpdate.push({
+            id: existingItem.id,
+            data: itemData,
+          });
+          processedExistingItemIds.add(existingItem.id);
+        } else {
+          newItemsToCreate.push(itemData);
+        }
+      }
+
+      // 3. Identify items to delete (those not in new list and not delivered)
+      const itemIdsToDelete = currentItems
+        .filter((ci) => !processedExistingItemIds.has(ci.id))
+        .map((ci) => {
+          if (Number(ci.deliveredQuantity || 0) > 0) {
+            throw new BadRequestException(
+              `Sevk işlemi yapılmış kalemler silinemez (Ürün ID: ${ci.productId}).`
+            );
+          }
+          return ci.id;
+        });
+
+      // 4. Perform DB operations
+      if (itemIdsToDelete.length > 0) {
+        await (prisma as any)[itemsModelName].deleteMany({
+          where: { id: { in: itemIdsToDelete } },
+        });
+      }
+
+      for (const update of itemsToUpdate) {
+        await (prisma as any)[itemsModelName].update({
+          where: { id: update.id },
+          data: update.data,
+        });
+      }
 
       const discount = new Prisma.Decimal(orderData.discount ?? order.discount);
       const grandTotal = totalAmount.add(vatAmount).sub(discount);
 
-      const updated = await (prisma as any)[modelName].updateMany({
+      const updated = await (prisma as any)[modelName].update({
         where: {
           id,
-          ...buildTenantWhereClause(order.tenantId ?? undefined),
         },
         data: {
-          ...orderData,
+          ...actualOrderData,
           totalAmount,
           vatAmount,
           grandTotal,
           discount,
           updatedBy: userId,
           items: {
-            create: itemsWithCalculations,
+            create: newItemsToCreate,
           },
         },
       });
@@ -431,7 +573,15 @@ export class OrderService {
           ipAddress,
           userAgent,
           prisma,
+          order.tenantId ?? undefined,
         );
+      }
+
+      // Recalculate status after update
+      const tenantId = await this.tenantResolver.resolveForQuery();
+      if (id && tenantId) {
+        await this.statusCalculator.recalculateOrderStatus(id, String(tenantId))
+          .catch(err => console.error('[OrderService] Recalculate order status after update failed:', err?.message));
       }
 
       return updated;
@@ -571,7 +721,16 @@ export class OrderService {
     ipAddress?: string,
     userAgent?: string,
   ) {
-    return this.changeStatus(id, SalesOrderStatus.CANCELLED, userId, ipAddress, userAgent);
+    const result = await this.changeStatus(id, SalesOrderStatus.CANCELLED, userId, ipAddress, userAgent);
+
+    // Recalculate status
+    const tenantId = await this.tenantResolver.resolveForQuery();
+    if (id && tenantId) {
+      await this.statusCalculator.recalculateOrderStatus(id, String(tenantId))
+        .catch(err => console.error('[OrderService] Recalculate order status after cancel failed:', err?.message));
+    }
+
+    return result;
   }
 
   async findDeleted(
@@ -642,6 +801,21 @@ export class OrderService {
       throw new BadRequestException('Cancelled order cannot be invoiced');
     }
 
+    // Sevk oranı kontrolü - %100 sevk edilmemiş sipariş faturalandırılamaz
+    if (order.items && order.items.length > 0) {
+      const totalQuantity = order.items.reduce((sum: number, item: any) => sum + (Number(item.quantity) || 0), 0);
+      const totalDelivered = order.items.reduce((sum: number, item: any) => sum + (Number(item.deliveredQuantity) || 0), 0);
+
+      if (totalQuantity > 0) {
+        const shipmentRatio = (totalDelivered / totalQuantity) * 100;
+        if (shipmentRatio < 99.9) {
+          throw new BadRequestException(
+            `Sipariş %${shipmentRatio.toFixed(1)} sevk edilmiş. Faturalandırılabilmesi için tamamen sevk edilmelidir.`
+          );
+        }
+      }
+    }
+
     const isProcurement = !('deliveryNoteId' in order);
     const modelName = isProcurement ? 'procurementOrder' : 'salesOrder';
 
@@ -666,6 +840,13 @@ export class OrderService {
         ipAddress,
         userAgent,
       );
+    }
+
+    // Recalculate status
+    const tenantId = await this.tenantResolver.resolveForQuery();
+    if (id && tenantId) {
+      await this.statusCalculator.recalculateOrderStatus(id, String(tenantId))
+        .catch(err => console.error('[OrderService] Recalculate order status after markInvoiced failed:', err?.message));
     }
 
     return updated;
@@ -754,6 +935,9 @@ export class OrderService {
     userId?: string,
     ipAddress?: string,
     userAgent?: string,
+    warehouseId?: string,
+    notes?: string,
+    deliveryNoteNo?: string,
   ) {
     const tenantId = await this.tenantResolver.resolveForQuery();
     const order = await this.prisma.salesOrder.findFirst({
@@ -775,46 +959,104 @@ export class OrderService {
     }
 
     if (order.status === 'INVOICED' || order.status === 'CANCELLED') {
-      throw new BadRequestException('Invoiced or cancelled orders cannot be shipped');
+      throw new BadRequestException('Faturalanmış veya iptal edilmiş siparişler sevk edilemez');
     }
 
-    return this.prisma.$transaction(async (prisma) => {
+    // Validate quantities before transaction
+    for (const shipItem of shippedItems) {
+      const item = order.items.find((i) => i.id === shipItem.itemId);
+      if (!item) {
+        throw new NotFoundException(`Sipariş kalemi bulunamadı: ${shipItem.itemId}`);
+      }
+      const newDeliveredQuantity = (item.deliveredQuantity || 0) + shipItem.shippedQuantity;
+      if (newDeliveredQuantity > Number(item.quantity)) {
+        throw new BadRequestException(
+          `${item.product.name} için sevk miktarı (${newDeliveredQuantity}) sipariş miktarını (${item.quantity}) aşamaz`,
+        );
+      }
+    }
+
+    // Generate delivery note number if not provided
+    let finalDeliveryNoteNo = deliveryNoteNo;
+    if (!finalDeliveryNoteNo) {
+      try {
+        const code = await this.codeTemplateService.getPreviewCode('SALES_WAYBILL' as any);
+        finalDeliveryNoteNo = code;
+      } catch {
+        const year = new Date().getFullYear();
+        const count = await this.prisma.salesDeliveryNote.count({
+          where: { ...buildTenantWhereClause(order.tenantId ?? undefined) },
+        });
+        finalDeliveryNoteNo = `IRS-${year}-${String(count + 1).padStart(3, '0')}`;
+      }
+    }
+
+    const result = await this.prisma.$transaction(async (prisma) => {
+      let subtotal = new Prisma.Decimal(0);
+      let totalVatAmount = new Prisma.Decimal(0);
+      const deliveryNoteItems: any[] = [];
+
       for (const shipItem of shippedItems) {
-        const item = order.items.find((i) => i.id === shipItem.itemId);
-
-        if (!item) {
-          throw new NotFoundException(`Order item not found: ${shipItem.itemId}`);
-        }
-
+        const item = order.items.find((i) => i.id === shipItem.itemId)!;
         const newDeliveredQuantity = (item.deliveredQuantity || 0) + shipItem.shippedQuantity;
 
-        if (newDeliveredQuantity > Number(item.quantity)) {
-          throw new BadRequestException(
-            `${item.product.name} shipped quantity (${newDeliveredQuantity}) cannot exceed order quantity (${item.quantity})`,
-          );
-        }
-
-        await (prisma as any).salesOrderItem.updateMany({
-          where: {
-            id: item.id,
-            ...buildTenantWhereClause(order.tenantId ?? undefined),
-          },
+        await (prisma as any).salesOrderItem.update({
+          where: { id: item.id },
           data: { deliveredQuantity: newDeliveredQuantity },
+        });
+
+        const lineSubtotal = new Prisma.Decimal(shipItem.shippedQuantity).mul(item.unitPrice);
+        const lineVat = lineSubtotal.mul(item.vatRate).div(100);
+        const lineTotal = lineSubtotal.add(lineVat);
+
+        subtotal = subtotal.add(lineSubtotal);
+        totalVatAmount = totalVatAmount.add(lineVat);
+
+        deliveryNoteItems.push({
+          productId: item.productId,
+          quantity: shipItem.shippedQuantity,
+          unitPrice: item.unitPrice,
+          vatRate: item.vatRate,
+          vatAmount: lineVat,
+          totalAmount: lineTotal,
+          tenantId: order.tenantId ?? undefined,
         });
       }
 
-      const updatedOrder = await (prisma as any).salesOrder.findFirst({
-        where: {
-          id,
-          ...buildTenantWhereClause(order.tenantId ?? undefined),
+      const grandTotal = subtotal.add(totalVatAmount);
+
+      // Create SalesDeliveryNote automatically
+      const deliveryNote = await (prisma as any).salesDeliveryNote.create({
+        data: {
+          deliveryNoteNo: finalDeliveryNoteNo,
+          date: new Date(),
+          tenantId: order.tenantId,
+          accountId: order.accountId,
+          warehouseId: warehouseId ?? null,
+          sourceType: 'ORDER' as any,
+          sourceId: order.id,
+          status: 'NOT_INVOICED' as any,
+          subtotal,
+          vatAmount: totalVatAmount,
+          grandTotal,
+          discount: new Prisma.Decimal(0),
+          notes: notes ?? `${order.orderNo} nolu siparişten sevk`,
+          createdBy: userId,
+          items: {
+            create: deliveryNoteItems,
+          },
         },
-        include: { items: true },
       });
 
-      const allShipped = updatedOrder.items.every(
+      // Determine new order status
+      const updatedItems = await (prisma as any).salesOrderItem.findMany({
+        where: { orderId: id },
+      });
+
+      const allShipped = updatedItems.every(
         (k: any) => (k.deliveredQuantity || 0) >= Number(k.quantity),
       );
-      const someShipped = updatedOrder.items.some(
+      const someShipped = updatedItems.some(
         (k: any) => (k.deliveredQuantity || 0) > 0,
       );
 
@@ -825,12 +1067,9 @@ export class OrderService {
         newStatus = SalesOrderStatus.PARTIALLY_SHIPPED;
       }
 
-      if (newStatus && updatedOrder.status !== newStatus) {
-        await (prisma as any).salesOrder.updateMany({
-          where: {
-            id,
-            ...buildTenantWhereClause(order.tenantId ?? undefined),
-          },
+      if (newStatus && order.status !== newStatus) {
+        await (prisma as any).salesOrder.update({
+          where: { id },
           data: { status: newStatus },
         });
       }
@@ -839,14 +1078,32 @@ export class OrderService {
         id,
         LogAction.UPDATE,
         userId,
-        { shippedItems },
+        { shippedItems, deliveryNoteId: deliveryNote.id, deliveryNoteNo: finalDeliveryNoteNo },
         ipAddress,
         userAgent,
         prisma,
+        order.tenantId ?? undefined,
       );
 
-      return this.findOne(id);
-    });
+      // Return minimal data from transaction
+      return {
+        deliveryNoteId: deliveryNote.id,
+        deliveryNoteNo: finalDeliveryNoteNo,
+      };
+    }, { timeout: 10000 });
+
+    // Recalculate status cascade AFTER transaction commits
+    if (id && tenantId) {
+      await this.statusCalculator.recalculateOrderStatus(id, String(tenantId))
+        .catch(err => console.error('[OrderService] Recalculate order status after ship failed:', err?.message));
+    }
+
+    // Fetch full order data AFTER transaction commits
+    const updatedOrder = await this.findOne(id);
+    return {
+      ...updatedOrder,
+      shipDeliveryNote: { id: result.deliveryNoteId, deliveryNoteNo: result.deliveryNoteNo },
+    };
   }
 
   async createDeliveryNoteFromOrder(
@@ -856,16 +1113,36 @@ export class OrderService {
     userAgent?: string,
   ) {
     const order = await this.findOne(id);
-    // This logic needs more detailed implementation based on SalesWaybillService
-    // Placeholder to maintain functionality
-    return { orderId: id, message: 'Delivery note creation logic to be implemented' };
+    if (!order) {
+      throw new NotFoundException(`Sipariş bulunamadı: ${id}`);
+    }
+
+    const shippedItems = (order.items || [])
+      .map((item: any) => ({
+        itemId: item.id,
+        shippedQuantity: Number(item.quantity) - (item.deliveredQuantity || 0),
+      }))
+      .filter((item: any) => item.shippedQuantity > 0);
+
+    if (shippedItems.length === 0) {
+      throw new BadRequestException('Sevk edilecek miktar kalmadı veya sipariş kapalı.');
+    }
+
+    const result = await this.ship(id, shippedItems, userId, ipAddress, userAgent);
+    return {
+      ...result,
+      id: result.shipDeliveryNote?.id, // Frontend redirects to /sales-waybills/:id
+    };
   }
 
-  async findOrdersForInvoice(accountId?: string, search?: string) {
+
+  async findOrdersForInvoice(accountId?: string, search?: string, orderType: OrderType = OrderType.SALE) {
     const tenantId = await this.tenantResolver.resolveForQuery();
+    const isProcurement = orderType === OrderType.PURCHASE;
+
     const where: any = {
       deletedAt: null,
-      status: 'SEVK_EDILDI',
+      status: isProcurement ? { in: ['SIPARIS_VERILDI', 'SEVK_EDILDI', 'BEKLEMEDE', 'KISMI_SEVK'] } : { in: ['SHIPPED', 'PARTIALLY_SHIPPED'] },
       ...buildTenantWhereClause(tenantId ?? undefined),
     };
 
@@ -881,7 +1158,8 @@ export class OrderService {
       ];
     }
 
-    const orders = await this.prisma.salesOrder.findMany({
+    const model = isProcurement ? this.prisma.procurementOrder : this.prisma.salesOrder;
+    const orders = await (model as any).findMany({
       where,
       include: {
         account: {
@@ -889,9 +1167,7 @@ export class OrderService {
         },
         items: {
           include: {
-            product: {
-              select: { id: true, code: true, name: true },
-            },
+            product: true,
           },
         },
       },
@@ -901,6 +1177,127 @@ export class OrderService {
     return {
       data: orders,
       total: orders.length,
+    };
+  }
+
+  async findOrdersForDeliveryNote(accountId?: string, search?: string, orderType: OrderType = OrderType.SALE) {
+    const tenantId = await this.tenantResolver.resolveForQuery();
+    const isProcurement = orderType === OrderType.PURCHASE;
+
+    const where: any = {
+      deletedAt: null,
+      status: isProcurement ? 'ONAYLANDI' : 'APPROVED',
+      ...buildTenantWhereClause(tenantId ?? undefined),
+    };
+
+    if (accountId) {
+      where.accountId = accountId;
+    }
+
+    if (search) {
+      where.OR = [
+        { orderNo: { contains: search, mode: 'insensitive' } },
+        { account: { title: { contains: search, mode: 'insensitive' } } },
+        { account: { code: { contains: search, mode: 'insensitive' } } },
+      ];
+    }
+
+    const model = isProcurement ? this.prisma.procurementOrder : this.prisma.salesOrder;
+    const orders = await (model as any).findMany({
+      where,
+      include: {
+        account: {
+          select: { id: true, code: true, title: true },
+        },
+        items: {
+          include: {
+            product: true,
+          },
+        },
+      },
+      orderBy: { date: 'desc' },
+    });
+
+    return {
+      data: orders,
+      total: orders.length,
+    };
+  }
+
+  async getStats(
+    orderType: OrderType = OrderType.SALE,
+    startDate?: Date,
+    endDate?: Date,
+    status?: string,
+    accountId?: string,
+  ) {
+    const tenantId = await this.tenantResolver.resolveForQuery();
+    const isProcurement = orderType === OrderType.PURCHASE;
+    const model = isProcurement ? this.prisma.procurementOrder : this.prisma.salesOrder;
+
+    const baseWhere: any = {
+      deletedAt: null,
+      ...buildTenantWhereClause(tenantId ?? undefined),
+    };
+
+    if (accountId) {
+      baseWhere.accountId = accountId;
+    }
+
+    if (status) {
+      baseWhere.status = status;
+    }
+
+    // Monthly orders (current month)
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+
+    const monthlyWhere = {
+      ...baseWhere,
+      date: {
+        gte: startOfMonth,
+        lte: endOfMonth,
+      },
+    };
+
+    const [monthlyOrders, pendingOrders, completedOrders] = await Promise.all([
+      (model as any).aggregate({
+        where: monthlyWhere,
+        _count: { id: true },
+        _sum: { grandTotal: true },
+      }),
+      (model as any).aggregate({
+        where: {
+          ...baseWhere,
+          status: isProcurement ? 'PENDING' : SalesOrderStatus.PENDING,
+        },
+        _count: { id: true },
+        _sum: { grandTotal: true },
+      }),
+      (model as any).aggregate({
+        where: {
+          ...baseWhere,
+          status: isProcurement ? 'SHIPPED' : SalesOrderStatus.SHIPPED,
+        },
+        _count: { id: true },
+        _sum: { grandTotal: true },
+      }),
+    ]);
+
+    return {
+      monthlyOrders: {
+        totalAmount: Number(monthlyOrders._sum.grandTotal || 0),
+        count: monthlyOrders._count.id,
+      },
+      pendingOrders: {
+        totalAmount: Number(pendingOrders._sum.grandTotal || 0),
+        count: pendingOrders._count.id,
+      },
+      completedOrders: {
+        totalAmount: Number(completedOrders._sum.grandTotal || 0),
+        count: completedOrders._count.id,
+      },
     };
   }
 }

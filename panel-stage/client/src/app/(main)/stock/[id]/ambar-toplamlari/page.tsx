@@ -64,7 +64,7 @@ export default function AmbarToplamlariPage() {
     const fetchStockHistory = useCallback(async () => {
         setDataLoading(true);
         try {
-            const response = await axios.get(`/warehouses/products/${productId}/stock-history`, {
+            const response = await axios.get(`/warehouses/product/${productId}/stock-history`, {
                 params: { date }
             });
             setStockHistory(response.data);

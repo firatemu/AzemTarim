@@ -89,8 +89,8 @@ export const menuItems = [
         icon: 'ShoppingCart',
         color: '#0891b2',
         subItems: [
-          { id: 'orders-sales', label: 'Satış Siparişleri', icon: 'PointOfSale', path: '/orders/satis', color: '#0891b2' },
-          { id: 'orders-purchase', label: 'Satın Alma Siparişleri', icon: 'ShoppingCart', path: '/orders/satin-alma', color: '#06b6d4' },
+          { id: 'orders-sales', label: 'Satış Siparişleri', icon: 'PointOfSale', path: '/orders/sales', color: '#0891b2' },
+          { id: 'orders-purchase', label: 'Satın Alma Siparişleri', icon: 'ShoppingCart', path: '/purchase-orders', color: '#06b6d4' },
         ],
       },
       {
@@ -136,9 +136,13 @@ export const menuItems = [
         icon: 'Payment',
         color: '#8b5cf6',
         subItems: [
-          { id: 'checks-promissory-notes-list', label: 'Çek/Senet Listesi', icon: 'Payment', path: '/checks-promissory-notes', color: '#8b5cf6' },
+          { id: 'checks-promissory-notes-list', label: 'Çek/Senet Listesi', icon: 'Payment', path: '/checks', color: '#8b5cf6' },
+          { id: 'checks-new', label: 'Yeni evrak', icon: 'Add', path: '/checks/new', color: '#a78bfa' },
+          { id: 'checks-reports', label: 'Çek/Senet Raporları', icon: 'Assessment', path: '/checks/reports', color: '#7c3aed' },
+          { id: 'payroll-bordro', label: 'Bordro (çek/senet)', icon: 'Description', path: '/payroll', color: '#6366f1' },
         ],
       },
+      { id: 'payments', label: 'Ödemeler', icon: 'SwapHoriz', path: '/payments', color: '#14b8a6' },
       { id: 'cash', label: 'Kasa', icon: 'AccountBalance', path: '/cash', color: '#f59e0b' },
     ],
   },
@@ -254,6 +258,7 @@ export const menuItems = [
       { id: 'b2b-admin-settings', label: 'Ayarlar', icon: 'Settings', path: '/b2b-admin/settings', color: '#0d9488' },
       { id: 'b2b-admin-customers', label: 'B2B cariler', icon: 'People', path: '/b2b-admin/customers', color: '#0d9488' },
       { id: 'b2b-admin-classes', label: 'Müşteri sınıfları', icon: 'Category', path: '/b2b-admin/customer-classes', color: '#0d9488' },
+      { id: 'b2b-admin-discount-groups', label: 'İskonto grupları', icon: 'Discount', path: '/b2b-admin/discount-groups', color: '#f59e0b' },
       { id: 'b2b-admin-sales', label: 'Plasiyerler', icon: 'Badge', path: '/b2b-admin/salespersons', color: '#0d9488' },
       { id: 'b2b-admin-products', label: 'B2B ürünler', icon: 'Inventory', path: '/b2b-admin/products', color: '#0d9488' },
       { id: 'b2b-admin-discounts', label: 'İndirimler', icon: 'LocalOffer', path: '/b2b-admin/discounts', color: '#0d9488' },
@@ -262,6 +267,7 @@ export const menuItems = [
       { id: 'b2b-admin-ads', label: 'Reklamlar', icon: 'Campaign', path: '/b2b-admin/advertisements', color: '#0d9488' },
       { id: 'b2b-admin-reports', label: 'Raporlar', icon: 'Assessment', path: '/b2b-admin/reports', color: '#0d9488' },
       { id: 'b2b-admin-sync', label: 'Senkron', icon: 'Sync', path: '/b2b-admin/sync', color: '#0d9488' },
+      { id: 'b2b-admin-sync-loops', label: 'Döngüler', icon: 'SwapHoriz', path: '/b2b-admin/sync-loops', color: '#0d9488' },
     ],
   },
 
@@ -276,6 +282,7 @@ export const menuItems = [
     bgColor: '#f0fdfa',
     subItems: [
       { id: 'reporting-general', label: 'Genel Özet', icon: 'Assessment', path: '/reporting', color: '#14b8a6' },
+      { id: 'reporting-portfolio', label: 'Portföy Raporu (çek/senet)', icon: 'Assessment', path: '/reports/portfolio', color: '#8b5cf6' },
       { id: 'reporting-sales-staff', label: 'Satış Elemanı Performansı', icon: 'People', path: '/reporting/satis-elemani', color: '#8b5cf6' },
       { id: 'reporting-accounts-risk', label: 'Cari Risk Limitleri', icon: 'Assessment', path: '/reporting/cari-risk-limitleri', color: '#f59e0b' },
     ],
@@ -305,6 +312,7 @@ export const menuItems = [
     color: '#6b7280',
     bgColor: '#f9fafb',
     subItems: [
+      { id: 'settings-check-bill', label: 'Çek/Senet Ayarları', icon: 'Settings', path: '/settings/parameters#cek-senet', color: '#8b5cf6' },
       { id: 'settings-quick-menu', label: 'Hızlı Menü', icon: 'FlashOn', path: '/settings/quick-menu', color: '#f59e0b' },
       { id: 'settings-sales-staff', label: 'Satış Elemanları', icon: 'People', path: '/settings/sales-staff', color: '#8b5cf6' },
       { id: 'settings-number-templates', label: 'Numara Şablonları', icon: 'Settings', path: '/settings/number-templates', color: '#6b7280' },

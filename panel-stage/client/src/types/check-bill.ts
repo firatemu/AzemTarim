@@ -11,7 +11,8 @@ export enum PortfolioType {
 export enum CheckBillStatus {
     IN_PORTFOLIO = 'IN_PORTFOLIO',
     UNPAID = 'UNPAID',
-    GIVEN_TO_BANK = 'GIVEN_TO_BANK',
+    /** Doc v2: bankaya tevdi (DB: eski GIVEN_TO_BANK) */
+    SENT_TO_BANK = 'SENT_TO_BANK',
     COLLECTED = 'COLLECTED',
     PAID = 'PAID',
     ENDORSED = 'ENDORSED',
@@ -21,6 +22,12 @@ export enum CheckBillStatus {
     IN_BANK_GUARANTEE = 'IN_BANK_GUARANTEE',
     PARTIAL_PAID = 'PARTIAL_PAID',
     PROTESTED = 'PROTESTED',
+    DISCOUNTED = 'DISCOUNTED',
+    LEGAL_FOLLOWUP = 'LEGAL_FOLLOWUP',
+    WRITTEN_OFF = 'WRITTEN_OFF',
+    CANCELLED = 'CANCELLED',
+    RECOURSE = 'RECOURSE',
+    GIVEN_TO_CUSTOMER = 'GIVEN_TO_CUSTOMER',
 }
 
 export enum JournalType {
@@ -35,6 +42,13 @@ export enum JournalType {
     ACCOUNT_DOCUMENT_ENDORSEMENT = 'ACCOUNT_DOCUMENT_ENDORSEMENT',
     DEBIT_DOCUMENT_EXIT = 'DEBIT_DOCUMENT_EXIT',
     RETURN_PAYROLL = 'RETURN_PAYROLL',
+    BANK_DISCOUNT_SUBMISSION = 'BANK_DISCOUNT_SUBMISSION',
+    PARTIAL_COLLECTION = 'PARTIAL_COLLECTION',
+    PROTEST_ENTRY = 'PROTEST_ENTRY',
+    LEGAL_TRANSFER = 'LEGAL_TRANSFER',
+    WRITE_OFF = 'WRITE_OFF',
+    REVERSAL = 'REVERSAL',
+    RETURN_FROM_BANK = 'RETURN_FROM_BANK',
 }
 
 export enum BankAccountType {
@@ -114,6 +128,7 @@ export interface CheckBill {
     amount: number;
     remainingAmount: number;
     dueDate: string;
+    issueDate?: string;
     bank?: string;
     branch?: string;
     accountNo?: string;
@@ -130,6 +145,8 @@ export interface CheckBill {
     collectionDate?: string;
     notes?: string;
     lastJournalId?: string;
+    /** Risk skoru (at-risk listesi) */
+    riskScore?: number | null;
     createdAt: string;
     updatedAt: string;
     endorsements?: CheckBillEndorsement[];
@@ -164,6 +181,10 @@ export interface CheckBillFilters {
     dueDateTo?: string;
     isProtested?: boolean;
     search?: string;
+    skip?: number;
+    take?: number;
+    sortBy?: 'dueDate' | 'amount' | 'createdAt';
+    sortOrder?: 'asc' | 'desc';
 }
 
 export interface JournalFilters {
@@ -172,4 +193,43 @@ export interface JournalFilters {
     dateTo?: string;
     accountId?: string;
     search?: string;
+}
+
+export interface ChecksListResponse {
+    items: CheckBill[];
+    total: number;
+    skip: number;
+    take: number;
+}
+
+export interface CheckBillTimelineEvent {
+    at: string;
+    kind: string;
+    title: string;
+    payload?: Record<string, unknown>;
+}
+
+export interface CheckBillTimelineResponse {
+    checkBillId: string;
+    events: CheckBillTimelineEvent[];
+}
+
+export interface CheckBillGlEntryRow {
+    id: string;
+    checkBillId: string;
+    accountingDate: string;
+    debitAmount?: unknown;
+    creditAmount?: unknown;
+    debitAccountCode?: string;
+    creditAccountCode?: string;
+    description?: string | null;
+    glJournalNo?: string;
+}
+
+export interface CheckBillDocumentsResponse {
+    checkBillId: string;
+    attachmentUrls?: string[] | null;
+    tags?: string[] | null;
+    internalRef?: string | null;
+    externalRef?: string | null;
 }

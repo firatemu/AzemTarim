@@ -18,6 +18,8 @@ import {
   IconButton,
   Alert,
   AlertTitle,
+  alpha,
+  useTheme
 } from '@mui/material';
 import { Close, Warning } from '@mui/icons-material';
 import { usePosStore } from '@/stores/posStore';
@@ -44,7 +46,11 @@ function mapUiCodeToPosPayment(code: string): Pick<PosPayment, 'method' | 'label
   }
 }
 
+const fmt = (n: number) =>
+  new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY' }).format(n);
+
 export default function PaymentDialog() {
+  const theme = useTheme();
   const {
     paymentDialogOpen,
     setPaymentDialogOpen,
@@ -66,7 +72,6 @@ export default function PaymentDialog() {
   const [error, setError] = useState('');
 
   const handleAddPayment = () => {
-    // Önceki hataları temizle
     setError('');
 
     if (!amount || parseFloat(amount) <= 0) {
@@ -78,9 +83,8 @@ export default function PaymentDialog() {
     const currentTotalPaid = payments.reduce((sum, p) => sum + p.amount, 0);
     const newTotalPaid = currentTotalPaid + paymentAmount;
 
-    // Ödenen tutar sepet toplamından fazla olamaz kontrolü
-    if (newTotalPaid > cartTotal) {
-      setError(`Ödenen tutar (₺${newTotalPaid.toFixed(2)}) sepet toplamından (₺${cartTotal.toFixed(2)}) büyük olamaz!`);
+    if (newTotalPaid > cartTotal + 0.001) {
+      setError(`Ödenen tutar (${fmt(newTotalPaid)}) sepet toplamından (${fmt(cartTotal)}) büyük olamaz!`);
       return;
     }
 
@@ -96,15 +100,13 @@ export default function PaymentDialog() {
 
     addPayment(payment);
 
-    // Reset form
     setPaymentMethod('');
     setAmount('');
     setCashboxId('');
     setBankAccountId('');
     setGiftCardId('');
 
-    // Close dialog if remaining amount is 0
-    if (cartTotal - newTotalPaid <= 0) {
+    if (Math.abs(cartTotal - newTotalPaid) < 0.01) {
       setPaymentDialogOpen(false);
     }
   };
@@ -119,177 +121,185 @@ export default function PaymentDialog() {
     setError('');
   };
 
-  const totalPaid = payments.reduce((sum, p) => sum + p.amount, 0);
-
   return (
-    <Dialog open={paymentDialogOpen} onClose={handleClose} maxWidth="sm" fullWidth>
-      <DialogTitle>
-        Ödeme Ekle
+    <Dialog
+      open={paymentDialogOpen}
+      onClose={handleClose}
+      maxWidth="xs"
+      fullWidth
+      PaperProps={{
+        sx: { borderRadius: 4, bgcolor: 'background.paper', p: 1 }
+      }}
+    >
+      <DialogTitle sx={{ fontWeight: 800, fontSize: '1.25rem' }}>
+        Parçalı / Karma Ödeme
       </DialogTitle>
+
       <DialogContent>
         {error && (
-          <Alert 
-            severity="warning" 
-            sx={{ 
-              mb: 2, 
-              borderRadius: 2,
-              borderLeft: '6px solid #f57c00',
-              '& .MuiAlert-icon': {
-                fontSize: '32px'
-              },
-              '& .MuiAlert-message': {
-                py: 1
-              }
-            }}
-            icon={<Warning sx={{ fontSize: '32px' }} />}
+          <Alert
+            severity="warning"
+            variant="filled"
+            sx={{ mb: 2, borderRadius: 2, fontWeight: 600 }}
           >
-            <AlertTitle sx={{ fontWeight: 'bold', fontSize: '1rem', mb: 0.5 }}>
-              ⚠️ Uyarı
-            </AlertTitle>
-            <Typography variant="body1" sx={{ fontWeight: 600 }}>
-              {error}
-            </Typography>
+            {error}
           </Alert>
         )}
 
-        <Box sx={{ mb: 3 }}>
-          <Typography variant="body2" gutterBottom>
-            Kalan Tutar: ₺{remaining.toFixed(2)}
+        <Box sx={{ mb: 3, p: 2, bgcolor: alpha(theme.palette.primary.main, 0.05), borderRadius: 3, border: '1px solid', borderColor: alpha(theme.palette.primary.main, 0.1) }}>
+          <Typography variant="caption" sx={{ fontWeight: 800, color: 'text.secondary', display: 'block', mb: 0.5 }}>
+            ÖDEME BEKLEYEN TUTAR
+          </Typography>
+          <Typography variant="h4" sx={{ fontWeight: 900, color: 'primary.main' }}>
+            {fmt(remaining)}
           </Typography>
         </Box>
 
         <Grid container spacing={2}>
-          {/* Payment Method */}
-          <Grid size={{ xs: 12 }}>
+          <Grid size={12}>
+            <Typography variant="caption" sx={{ fontWeight: 700, color: 'text.secondary', mb: 0.5, display: 'block' }}>ÖDEME YÖNTEMİ</Typography>
             <Select
               fullWidth
-              size="medium"
+              size="small"
               value={paymentMethod}
               onChange={(e) => setPaymentMethod(e.target.value as string)}
               displayEmpty
+              sx={{ borderRadius: 2 }}
             >
+              <MenuItem value="" disabled>Yöntem Seçin</MenuItem>
               <MenuItem value="NAKIT">Nakit</MenuItem>
               <MenuItem value="KREDI_KARTI">Kredi Kartı</MenuItem>
-              <MenuItem value="BANKA_HAVALESI">Banka Havaleyi</MenuItem>
+              <MenuItem value="BANKA_HAVALESI">Banka Havalesi</MenuItem>
               <MenuItem value="CEK">Çek</MenuItem>
               <MenuItem value="SENET">Senet</MenuItem>
               <MenuItem value="HEDIYE_KARTI">Hediye Kartı</MenuItem>
-              <MenuItem value="KREDI_HESABI">Kredi Hesabı</MenuItem>
+              <MenuItem value="KREDI_HESABI">Cari Kredi</MenuItem>
             </Select>
           </Grid>
 
-          {/* Amount */}
-          <Grid size={{ xs: 12 }}>
+          <Grid size={12}>
+            <Typography variant="caption" sx={{ fontWeight: 700, color: 'text.secondary', mb: 0.5, display: 'block' }}>TUTAR</Typography>
             <TextField
               fullWidth
-              size="medium"
+              size="small"
               type="number"
-              label="Tutar"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
               InputProps={{
                 startAdornment: <InputAdornment position="start">₺</InputAdornment>,
+                sx: { borderRadius: 2, fontWeight: 700 }
               }}
             />
           </Grid>
 
-          {/* Conditional fields based on payment method */}
           {paymentMethod === 'NAKIT' && (
-            <Grid size={{ xs: 12 }}>
+            <Grid size={12}>
+              <Typography variant="caption" sx={{ fontWeight: 700, color: 'text.secondary', mb: 0.5, display: 'block' }}>KASA</Typography>
               <Select
                 fullWidth
-                size="medium"
+                size="small"
                 value={cashboxId}
                 onChange={(e) => setCashboxId(e.target.value as string)}
                 displayEmpty
+                sx={{ borderRadius: 2 }}
               >
-                <MenuItem value="">Kasa Seçin</MenuItem>
-                {/* Will load kasas dynamically */}
+                <MenuItem value="">Varsayılan Kasa</MenuItem>
               </Select>
             </Grid>
           )}
 
           {paymentMethod === 'BANKA_HAVALESI' && (
-            <Grid size={{ xs: 12 }}>
+            <Grid size={12}>
+              <Typography variant="caption" sx={{ fontWeight: 700, color: 'text.secondary', mb: 0.5, display: 'block' }}>BANKA HESABI</Typography>
               <Select
                 fullWidth
-                size="medium"
+                size="small"
                 value={bankAccountId}
                 onChange={(e) => setBankAccountId(e.target.value as string)}
                 displayEmpty
+                sx={{ borderRadius: 2 }}
               >
-                <MenuItem value="">Banka Hesabı Seçin</MenuItem>
-                {/* Will load bank accounts dynamically */}
+                <MenuItem value="">Hesap Seçin</MenuItem>
               </Select>
             </Grid>
           )}
 
           {paymentMethod === 'HEDIYE_KARTI' && (
-            <Grid size={{ xs: 12 }}>
+            <Grid size={12}>
+              <Typography variant="caption" sx={{ fontWeight: 700, color: 'text.secondary', mb: 0.5, display: 'block' }}>KART NO</Typography>
               <TextField
                 fullWidth
-                size="medium"
-                label="Hediye Kart ID"
+                size="small"
                 value={giftCardId}
                 onChange={(e) => setGiftCardId(e.target.value)}
+                sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
               />
             </Grid>
           )}
         </Grid>
 
-        <Divider sx={{ my: 2 }} />
+        <Divider sx={{ my: 3 }} />
 
-        {/* Payment History */}
-        <Box sx={{ mt: 2 }}>
-          <Typography variant="body2" gutterBottom>
-            Ödeme Geçmişi:
+        <Box>
+          <Typography variant="caption" sx={{ fontWeight: 800, color: 'text.secondary', mb: 1.5, display: 'block' }}>
+            EKLENEN ÖDEMELER
           </Typography>
-          {payments.map((payment, index) => (
-            <Box
-              key={index}
-              sx={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                p: 1,
-                bgcolor: 'action.hover',
-                borderRadius: 1,
-                mb: 1,
-              }}
-            >
-              <Box>
-                <Typography variant="caption">{payment.label}</Typography>
-                <Typography variant="body1">₺{payment.amount.toFixed(2)}</Typography>
-              </Box>
-              <IconButton size="small" onClick={() => removePayment(index)}>
-                <Close />
-              </IconButton>
+          {payments.length === 0 ? (
+            <Typography variant="caption" sx={{ color: 'text.disabled', fontStyle: 'italic' }}>Henüz ödeme eklenmedi.</Typography>
+          ) : (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+              {payments.map((payment, index) => (
+                <Box
+                  key={index}
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    p: 1.5,
+                    bgcolor: alpha(theme.palette.background.default, 0.6),
+                    borderRadius: 2,
+                    border: '1px solid',
+                    borderColor: 'divider'
+                  }}
+                >
+                  <Box>
+                    <Typography variant="caption" sx={{ fontWeight: 800, color: 'text.secondary' }}>{payment.label}</Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 700 }}>{fmt(payment.amount)}</Typography>
+                  </Box>
+                  <IconButton size="small" onClick={() => removePayment(index)} sx={{ color: 'error.main' }}>
+                    <Close fontSize="small" />
+                  </IconButton>
+                </Box>
+              ))}
             </Box>
-          ))}
+          )}
         </Box>
       </DialogContent>
-      <DialogActions>
-        <Button onClick={handleClose} size="large">
-          İptal
+
+      <DialogActions sx={{ p: 3, gap: 1 }}>
+        <Button
+          onClick={handleClose}
+          sx={{ py: 1.25, px: 3, borderRadius: 2.5, fontWeight: 700, textTransform: 'none', color: 'text.secondary' }}
+        >
+          Kapat
+        </Button>
+        <Button
+          onClick={() => {
+            if (confirm('Tüm ödemeler silinsin mi?')) clearPayments();
+          }}
+          variant="outlined"
+          color="error"
+          sx={{ py: 1.25, px: 2, borderRadius: 2.5, fontWeight: 700, textTransform: 'none' }}
+        >
+          Temizle
         </Button>
         <Button
           onClick={handleAddPayment}
           variant="contained"
-          size="large"
           disabled={!amount || parseFloat(amount) <= 0}
-          color="primary"
+          sx={{ py: 1.25, px: 4, borderRadius: 2.5, fontWeight: 800, textTransform: 'none' }}
         >
-          Ekle
-        </Button>
-        <Button
-          onClick={() => {
-            setPaymentDialogOpen(false);
-            clearPayments();
-          }}
-          variant="outlined"
-          size="large"
-          color="error"
-        >
-          Temizle
+          Ödeme Ekle
         </Button>
       </DialogActions>
     </Dialog>

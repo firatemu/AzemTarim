@@ -1,17 +1,11 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import * as React from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   Box,
   Typography,
   Button,
-  Paper,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
   TextField,
   FormControl,
   InputLabel,
@@ -21,16 +15,23 @@ import {
   CircularProgress,
   InputAdornment,
   Autocomplete,
+  Stack,
+  Tooltip,
+  Grid,
 } from '@mui/material';
-import { Add, Search, Visibility, Download } from '@mui/icons-material';
+import { Add, Search, Visibility, Download, FilterList } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
+import { DataGrid, GridColDef, GridPaginationModel } from '@mui/x-data-grid';
+import { trTR } from '@mui/x-data-grid/locales';
 import { useDebounce } from '@/hooks/useDebounce';
 import axios from '@/lib/axios';
 import * as XLSX from 'xlsx';
 import WorkOrderStatusChip from '@/components/servis/WorkOrderStatusChip';
 import PartWorkflowStatusChip from '@/components/servis/PartWorkflowStatusChip';
 import { useAuthStore } from '@/stores/authStore';
+import { StandardPage, StandardCard } from '@/components/common';
 import type { WorkOrder, WorkOrderStatus, PartWorkflowStatus } from '@/types/servis';
+import { useTabStore } from '@/stores/tabStore';
 
 const STATUS_OPTIONS: { value: '' | WorkOrderStatus; label: string }[] = [
   { value: '', label: 'Tümü' },
@@ -47,8 +48,10 @@ const STATUS_OPTIONS: { value: '' | WorkOrderStatus; label: string }[] = [
 
 export default function IsEmirleriPage() {
   const router = useRouter();
+  const { addTab } = useTabStore();
   const { user } = useAuthStore();
   const isTechnician = user?.role === 'TECHNICIAN';
+
   const [workOrders, setWorkOrders] = useState<WorkOrder[]>([]);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<'' | WorkOrderStatus>('');
@@ -58,10 +61,19 @@ export default function IsEmirleriPage() {
   const [cariler, setCariler] = useState<{ id: string; cariKodu?: string; unvan?: string }[]>([]);
   const debouncedSearch = useDebounce(search, 500);
   const [loading, setLoading] = useState(false);
+  const [rowCount, setRowCount] = useState(0);
+  const [paginationModel, setPaginationModel] = useState<GridPaginationModel>({
+    page: 0,
+    pageSize: 25,
+  });
+
+  useEffect(() => {
+    addTab({ id: 'service-work-orders', label: 'İş Emirleri', path: '/service/work-orders' });
+  }, []);
 
   useEffect(() => {
     fetchWorkOrders();
-  }, [debouncedSearch, statusFilter, cariId, createdAtFrom, createdAtTo]);
+  }, [debouncedSearch, statusFilter, cariId, createdAtFrom, createdAtTo, paginationModel]);
 
   useEffect(() => {
     const fetchCariler = async () => {
@@ -86,11 +98,13 @@ export default function IsEmirleriPage() {
           cariId: cariId || undefined,
           createdAtFrom: createdAtFrom || undefined,
           createdAtTo: createdAtTo || undefined,
-          limit: 500,
+          page: paginationModel.page + 1,
+          limit: paginationModel.pageSize,
         },
       });
       const data = res.data?.data ?? res.data;
       setWorkOrders(Array.isArray(data) ? data : []);
+      setRowCount(res.data?.meta?.total || (Array.isArray(data) ? data.length : 0));
     } catch {
       setWorkOrders([]);
     } finally {
@@ -145,189 +159,123 @@ export default function IsEmirleriPage() {
     }
   };
 
-  const formatCurrency = (n: number) =>
-    new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY' }).format(Number(n));
-
-  const formatDate = (d: string) => new Date(d).toLocaleDateString('tr-TR');
+  const columns: GridColDef[] = [
+    { field: 'workOrderNo', headerName: 'İş Emri No', width: 130, renderCell: (p: any) => <Typography fontWeight="600">{p.value}</Typography> },
+    {
+      field: 'vehicle', headerName: 'Araç', width: 220, renderCell: (p: any) => {
+        const v = p.row.customerVehicle;
+        return v ? `${v.plaka} - ${v.aracMarka} ${v.aracModel}` : '-';
+      }
+    },
+    { field: 'customer', headerName: 'Müşteri', flex: 1, minWidth: 200, renderCell: (p: any) => p.row.cari?.unvan || p.row.cari?.cariKodu || '-' },
+    { field: 'technician', headerName: 'Teknisyen', width: 180, renderCell: (p: any) => p.row.technician?.fullName || '-' },
+    { field: 'status', headerName: 'Durum', width: 180, renderCell: (p: any) => <WorkOrderStatusChip status={p.value} /> },
+    {
+      field: 'partStatus', headerName: 'Parça Durumu', width: 180, renderCell: (p: any) => {
+        const s = p.row.partWorkflowStatus ?? (p.row.status === 'PART_WAITING' ? 'PARTS_PENDING' : p.row.status === 'PARTS_SUPPLIED' ? 'ALL_PARTS_SUPPLIED' : 'NOT_STARTED');
+        return <PartWorkflowStatusChip status={s} />
+      }
+    },
+    { field: 'createdAt', headerName: 'Tarih', width: 120, renderCell: (p: any) => new Date(p.value).toLocaleDateString('tr-TR') },
+    {
+      field: 'actions',
+      headerName: 'İşlem',
+      width: 80,
+      sortable: false,
+      align: 'right',
+      renderCell: (params: any) => (
+        <Tooltip title="Detay">
+          <IconButton
+            size="small"
+            onClick={() => router.push(`/service/work-orders/${params.row.id}`)}
+          >
+            <Visibility fontSize="small" />
+          </IconButton>
+        </Tooltip>
+      ),
+    },
+  ];
 
   return (
-    <>
-      <Typography
-        variant="h4"
-        sx={{
-          fontWeight: 700,
-          fontSize: '1.875rem',
-          color: 'var(--foreground)',
-          letterSpacing: '-0.02em',
-          mb: 1,
-        }}
-      >
-        İş Emirleri
-      </Typography>
-      <Typography variant="body1" sx={{ mb: 3, color: 'var(--muted-foreground)', fontSize: '0.875rem' }}>
-        Servis iş emirlerini oluşturun ve takip edin
-      </Typography>
+    <StandardPage>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+        <Box>
+          <Typography variant="h4" fontWeight="800" sx={{ letterSpacing: '-0.02em' }}>İş Emirleri</Typography>
+          <Typography variant="body2" color="text.secondary">Servis iş emirlerini oluşturun ve takip edin</Typography>
+        </Box>
+        <Stack direction="row" spacing={2}>
+          <Button variant="outlined" startIcon={<Download />} onClick={handleExportExcel} sx={{ borderRadius: 2 }}>Excel</Button>
+          {!isTechnician && (
+            <Button variant="contained" startIcon={<Add />} onClick={() => router.push('/service/work-orders/yeni')} sx={{ borderRadius: 2, px: 3 }}>Yeni İş Emri</Button>
+          )}
+        </Stack>
+      </Box>
 
-      <Paper
-        sx={{
-          borderRadius: 'var(--radius)',
-          border: '1px solid var(--border)',
-          overflow: 'hidden',
-        }}
-      >
-        <Box sx={{ p: 2, display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
-          <TextField
-            id="work-order-search"
-            size="small"
-            placeholder="İş emri no, plaka veya açıklama ile ara..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            sx={{ width: { xs: '100%', md: 280 } }}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <Search fontSize="small" />
-                </InputAdornment>
-              ),
+      <StandardCard sx={{ mb: 3 }}>
+        <Grid container spacing={2} alignItems="center">
+          <Grid item xs={12} md={3}>
+            <TextField
+              fullWidth
+              size="small"
+              placeholder="Ara..."
+              value={search}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearch(e.target.value)}
+              InputProps={{ startAdornment: <InputAdornment position="start"><Search fontSize="small" /></InputAdornment> }}
+            />
+          </Grid>
+          <Grid item xs={12} md={2}>
+            <FormControl fullWidth size="small">
+              <InputLabel>Durum</InputLabel>
+              <Select value={statusFilter} label="Durum" onChange={(e: any) => setStatusFilter(e.target.value as any)}>
+                {STATUS_OPTIONS.map(o => <MenuItem key={o.value || 'all'} value={o.value}>{o.label}</MenuItem>)}
+              </Select>
+            </FormControl>
+          </Grid>
+          <Grid item xs={12} md={3}>
+            <Autocomplete
+              size="small"
+              options={cariler}
+              getOptionLabel={(c: any) => `${c.cariKodu || ''} - ${c.unvan || c.id}`.trim()}
+              value={cariler.find((c: any) => c.id === cariId) || null}
+              onChange={(_: any, v: any) => setCariId(v?.id || '')}
+              renderInput={(p: any) => <TextField {...p} label="Müşteri" />}
+            />
+          </Grid>
+          <Grid item xs={12} md={2}>
+            <TextField fullWidth size="small" type="date" label="Başlangıç" value={createdAtFrom} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCreatedAtFrom(e.target.value)} InputLabelProps={{ shrink: true }} />
+          </Grid>
+          <Grid item xs={12} md={2}>
+            <TextField fullWidth size="small" type="date" label="Bitiş" value={createdAtTo} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCreatedAtTo(e.target.value)} InputLabelProps={{ shrink: true }} />
+          </Grid>
+        </Grid>
+      </StandardCard>
+
+      <StandardCard padding={0}>
+        <Box sx={{ height: 650, width: '100%' }}>
+          <DataGrid
+            rows={workOrders}
+            columns={columns}
+            loading={loading}
+            rowCount={rowCount}
+            paginationModel={paginationModel}
+            onPaginationModelChange={setPaginationModel}
+            paginationMode="server"
+            pageSizeOptions={[25, 50, 100]}
+            disableRowSelectionOnClick
+            localeText={trTR.components.MuiDataGrid.defaultProps.localeText}
+            sx={{
+              border: 'none',
+              '& .MuiDataGrid-columnHeaders': {
+                bgcolor: 'var(--muted)',
+                borderBottom: '1px solid var(--border)',
+              },
+              '& .MuiDataGrid-cell': {
+                borderBottom: '1px solid var(--border)',
+              },
             }}
           />
-          <FormControl size="small" sx={{ minWidth: 160 }}>
-            <InputLabel id="status-filter-label">Durum</InputLabel>
-            <Select
-              labelId="status-filter-label"
-              id="status-filter-select"
-              value={statusFilter}
-              label="Durum"
-              onChange={(e) => setStatusFilter(e.target.value as '' | WorkOrderStatus)}
-            >
-              {STATUS_OPTIONS.map((o) => (
-                <MenuItem key={o.value || 'all'} value={o.value}>
-                  {o.label}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-          <Autocomplete
-            id="customer-filter-autocomplete"
-            size="small"
-            options={cariler}
-            getOptionLabel={(c) => `${c.cariKodu || ''} - ${c.unvan || c.id}`.trim() || c.id}
-            value={cariler.find((c) => c.id === cariId) ?? null}
-            onChange={(_, v) => setCariId(v?.id ?? '')}
-            renderInput={(params) => <TextField {...params} id="customer-filter-input" label="Müşteri" />}
-            sx={{ minWidth: 200 }}
-          />
-          <TextField
-            id="date-from-filter"
-            size="small"
-            label="Başlangıç"
-            type="date"
-            value={createdAtFrom}
-            onChange={(e) => setCreatedAtFrom(e.target.value)}
-            InputLabelProps={{ shrink: true }}
-            sx={{ width: 150 }}
-          />
-          <TextField
-            id="date-to-filter"
-            size="small"
-            label="Bitiş"
-            type="date"
-            value={createdAtTo}
-            onChange={(e) => setCreatedAtTo(e.target.value)}
-            InputLabelProps={{ shrink: true }}
-            sx={{ width: 150 }}
-          />
-          <Button
-            variant="outlined"
-            startIcon={<Download />}
-            onClick={handleExportExcel}
-            sx={{ textTransform: 'none' }}
-          >
-            Excel
-          </Button>
-          {!isTechnician && (
-            <Button
-              variant="contained"
-              startIcon={<Add />}
-              onClick={() => router.push('/servis/is-emirleri/yeni')}
-              sx={{
-                bgcolor: 'var(--primary)',
-                color: 'var(--primary-foreground)',
-                textTransform: 'none',
-                fontWeight: 600,
-              }}
-            >
-              Yeni İş Emri
-            </Button>
-          )}
         </Box>
-
-        <TableContainer>
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableCell sx={{ fontWeight: 600 }}>İş Emri No</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>Araç</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>Müşteri</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>Teknisyen</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>Servis durumu</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>Parça Durumu</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>Tarih</TableCell>
-                <TableCell align="right" sx={{ fontWeight: 600 }}>
-                  İşlem
-                </TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {loading ? (
-                <TableRow>
-                  <TableCell colSpan={8} align="center" sx={{ py: 4 }}>
-                    <CircularProgress size={32} />
-                  </TableCell>
-                </TableRow>
-              ) : workOrders.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={8} align="center" sx={{ py: 4, color: 'var(--muted-foreground)' }}>
-                    Kayıt bulunamadı
-                  </TableCell>
-                </TableRow>
-              ) : (
-                workOrders.map((wo) => {
-                  const partStatus: PartWorkflowStatus = wo.partWorkflowStatus ?? (wo.status === 'PART_WAITING' ? 'PARTS_PENDING' : wo.status === 'PARTS_SUPPLIED' ? 'ALL_PARTS_SUPPLIED' : 'NOT_STARTED');
-                  return (
-                  <TableRow key={wo.id} hover>
-                    <TableCell>{wo.workOrderNo}</TableCell>
-                    <TableCell>
-                      {wo.customerVehicle
-                        ? `${wo.customerVehicle.plaka} - ${wo.customerVehicle.aracMarka} ${wo.customerVehicle.aracModel}`
-                        : '-'}
-                    </TableCell>
-                    <TableCell>{wo.cari?.unvan ?? wo.cari?.cariKodu ?? '-'}</TableCell>
-                    <TableCell>{wo.technician?.fullName ?? '-'}</TableCell>
-                    <TableCell>
-                      <WorkOrderStatusChip status={wo.status} />
-                    </TableCell>
-                    <TableCell>
-                      <PartWorkflowStatusChip status={partStatus} />
-                    </TableCell>
-                    <TableCell>{formatDate(wo.createdAt)}</TableCell>
-                    <TableCell align="right">
-                      <IconButton
-                        size="small"
-                        onClick={() => router.push(`/servis/is-emirleri/${wo.id}`)}
-                        title="Detay"
-                      >
-                        <Visibility fontSize="small" />
-                      </IconButton>
-                    </TableCell>
-                  </TableRow>
-                  );
-                })
-              )}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      </Paper>
-    </>
+      </StandardCard>
+    </StandardPage>
   );
 }

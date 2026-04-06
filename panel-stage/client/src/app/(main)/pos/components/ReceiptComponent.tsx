@@ -12,6 +12,8 @@ import {
   IconButton,
   Divider,
   Grid,
+  alpha,
+  useTheme
 } from '@mui/material';
 import { Close, Print } from '@mui/icons-material';
 
@@ -41,6 +43,8 @@ export default function ReceiptComponent({
   onClose,
   receiptData,
 }: ReceiptComponentProps) {
+  const theme = useTheme();
+
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('tr-TR', {
       style: 'currency',
@@ -56,177 +60,132 @@ export default function ReceiptComponent({
   };
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
-      <DialogTitle>
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Typography variant="h6">FİŞ</Typography>
-          <IconButton onClick={onClose}>
-            <Close />
-          </IconButton>
-        </Box>
+    <Dialog
+      open={open}
+      onClose={onClose}
+      maxWidth="xs"
+      fullWidth
+      PaperProps={{
+        sx: { borderRadius: 4, bgcolor: 'background.paper' }
+      }}
+    >
+      <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', pb: 1 }}>
+        <Typography variant="h6" sx={{ fontWeight: 800 }}>Satış Fişi</Typography>
+        <IconButton onClick={onClose} size="small">
+          <Close />
+        </IconButton>
       </DialogTitle>
+
       <DialogContent sx={{ pb: 0 }}>
-        <Box sx={{ p: 3, bgcolor: '#f5f5f5' }}>
+        <Box sx={{ p: 2, bgcolor: alpha(theme.palette.background.default, 0.4), borderRadius: 3, border: '1px solid', borderColor: 'divider' }}>
           {/* Header */}
-          <Box sx={{ textAlign: 'center', mb: 2 }}>
-            <Typography variant="h5" fontWeight="bold">
-              OtoMuhasebe ERP
+          <Box sx={{ textAlign: 'center', mb: 3 }}>
+            <Typography variant="h5" sx={{ fontWeight: 900, color: 'text.primary', letterSpacing: 1 }}>
+              OtoMuhasebe
             </Typography>
-            <Typography variant="body2">POS SATIŞ FİŞİ</Typography>
+            <Typography variant="caption" sx={{ fontWeight: 700, color: 'text.secondary', textTransform: 'uppercase' }}>BILGI FIŞI</Typography>
           </Box>
 
-          <Divider />
+          <Divider sx={{ mb: 2 }} />
 
           {/* Invoice Info */}
-          <Box sx={{ mb: 2 }}>
+          <Box sx={{ mb: 2, gap: 0.5, display: 'flex', flexDirection: 'column' }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-              <Typography variant="body2">
-                Fatura No:
-              </Typography>
-              <Typography variant="body1" fontWeight="bold">
-                {receiptData.invoiceNumber}
-              </Typography>
+              <Typography variant="caption" sx={{ fontWeight: 700, color: 'text.secondary' }}>Fatura No</Typography>
+              <Typography variant="caption" sx={{ fontWeight: 800, fontFamily: 'monospace' }}>{receiptData.invoiceNumber}</Typography>
             </Box>
             <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-              <Typography variant="body2">
-                Tarih:
-              </Typography>
-              <Typography variant="body1">
-                {formatDate(receiptData.date)}
-              </Typography>
+              <Typography variant="caption" sx={{ fontWeight: 700, color: 'text.secondary' }}>Tarih</Typography>
+              <Typography variant="caption" sx={{ fontWeight: 700 }}>{formatDate(receiptData.date)}</Typography>
             </Box>
             {receiptData.cashierName && (
               <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                <Typography variant="body2">
-                  Kasiyer:
-                </Typography>
-                <Typography variant="body1">
-                  {receiptData.cashierName}
-                </Typography>
+                <Typography variant="caption" sx={{ fontWeight: 700, color: 'text.secondary' }}>Kasiyer</Typography>
+                <Typography variant="caption" sx={{ fontWeight: 700 }}>{receiptData.cashierName}</Typography>
               </Box>
             )}
           </Box>
 
-          <Divider />
+          <Divider sx={{ mb: 2 }} />
 
           {/* Items */}
           <Box sx={{ mb: 2 }}>
-            <Typography variant="subtitle2" fontWeight="bold" gutterBottom>
-              Ürünler
-            </Typography>
+            <Typography variant="caption" sx={{ fontWeight: 800, color: 'text.primary', mb: 1, display: 'block' }}>ÜRÜNLER</Typography>
             {receiptData.items.map((item, index) => (
-              <Grid container key={index} sx={{ borderBottom: '1px dashed #ccc', py: 1 }}>
-                <Grid size={{ xs: 6 }}>
-                  <Typography variant="body2" align="left">
-                    {item.productName}
+              <Box key={index} sx={{ py: 1, borderBottom: '1px dashed', borderColor: 'divider' }}>
+                <Typography sx={{ fontSize: '0.8125rem', fontWeight: 800, mb: 0.5 }}>{item.productName}</Typography>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Typography variant="caption" sx={{ fontWeight: 600, color: 'text.secondary' }}>
+                    {item.quantity} adet × {formatCurrency(item.unitPrice)}
                   </Typography>
-                </Grid>
-                <Grid size={{ xs: 2 }}>
-                  <Typography variant="body1" align="right">
-                    {item.quantity} x
-                  </Typography>
-                </Grid>
-                <Grid size={{ xs: 2 }}>
-                  <Typography variant="body1" align="right">
-                    ₺{item.unitPrice.toFixed(2)}
-                  </Typography>
-                </Grid>
-                <Grid size={{ xs: 2 }}>
-                  <Typography variant="body1" align="right">
-                    = ₺{item.amount.toFixed(2)}
-                  </Typography>
-                </Grid>
-              </Grid>
-            ))}
-          </Box>
-
-          <Divider />
-
-          {/* Totals */}
-          <Box sx={{ mb: 2 }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-              <Typography variant="body2">
-                Ara Toplam:
-              </Typography>
-              <Typography variant="body1" fontWeight="bold">
-                {formatCurrency(receiptData.subtotal)}
-              </Typography>
-            </Box>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-              <Typography variant="body2">
-                İndirim:
-              </Typography>
-              <Typography variant="body1">
-                {formatCurrency(receiptData.discount)}
-              </Typography>
-            </Box>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-              <Typography variant="body2">
-                KDV:
-              </Typography>
-              <Typography variant="body1" fontWeight="bold">
-                {formatCurrency(receiptData.vatAmount)}
-              </Typography>
-            </Box>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-              <Typography variant="body2">
-                GENEL TOPLAM:
-              </Typography>
-              <Typography variant="h6" fontWeight="bold" color="error.main">
-                {formatCurrency(receiptData.grandTotal)}
-              </Typography>
-            </Box>
-          </Box>
-
-          <Divider />
-
-          {/* Payment Methods */}
-          <Box>
-            <Typography variant="subtitle2" fontWeight="bold" gutterBottom>
-              Ödeme Yöntemleri:
-            </Typography>
-            {receiptData.paymentMethods.map((method, index) => (
-              <Box
-                key={index}
-                sx={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  py: 0.5,
-                }}
-              >
-                <Typography variant="body2">{method}</Typography>
+                  <Typography sx={{ fontSize: '0.875rem', fontWeight: 800 }}>{formatCurrency(item.amount)}</Typography>
+                </Box>
               </Box>
             ))}
           </Box>
 
-          <Divider />
+          {/* Totals */}
+          <Box sx={{ mb: 2, pt: 1, gap: 0.5, display: 'flex', flexDirection: 'column' }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+              <Typography variant="caption" sx={{ fontWeight: 600, color: 'text.secondary' }}>Ara Toplam</Typography>
+              <Typography variant="caption" sx={{ fontWeight: 700 }}>{formatCurrency(receiptData.subtotal)}</Typography>
+            </Box>
+            {receiptData.discount > 0 && (
+              <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                <Typography variant="caption" sx={{ fontWeight: 700, color: 'warning.main' }}>İndirim</Typography>
+                <Typography variant="caption" sx={{ fontWeight: 700, color: 'warning.main' }}>−{formatCurrency(receiptData.discount)}</Typography>
+              </Box>
+            )}
+            <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+              <Typography variant="caption" sx={{ fontWeight: 600, color: 'text.secondary' }}>KDV</Typography>
+              <Typography variant="caption" sx={{ fontWeight: 700 }}>{formatCurrency(receiptData.vatAmount)}</Typography>
+            </Box>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 1, pt: 1, borderTop: '2px solid', borderColor: 'text.primary' }}>
+              <Typography sx={{ fontWeight: 900, fontSize: '0.875rem' }}>GENEL TOPLAM</Typography>
+              <Typography sx={{ fontWeight: 900, fontSize: '1.25rem', color: 'primary.main' }}>{formatCurrency(receiptData.grandTotal)}</Typography>
+            </Box>
+          </Box>
+
+          <Divider sx={{ mb: 2 }} />
+
+          {/* Payment Methods */}
+          <Box sx={{ mb: 1 }}>
+            <Typography variant="caption" sx={{ fontWeight: 800, color: 'text.secondary', mb: 0.5, display: 'block' }}>ÖDEME YÖNTEMLERI</Typography>
+            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+              {receiptData.paymentMethods.map((method, index) => (
+                <Typography key={index} variant="caption" sx={{ fontWeight: 700, bgcolor: 'action.hover', px: 1, py: 0.25, borderRadius: 1 }}>
+                  {method}
+                </Typography>
+              ))}
+            </Box>
+          </Box>
 
           {/* Footer */}
-          <Box sx={{ mt: 2, textAlign: 'center' }}>
-            <Typography variant="caption" color="text.secondary">
-              * Teslim eden ve ürünler için yasal garanti süresi 6 aydır
+          <Box sx={{ mt: 3, textAlign: 'center' }}>
+            <Typography variant="caption" sx={{ color: 'text.disabled', fontStyle: 'italic', display: 'block', lineHeight: 1.4 }}>
+              * Bilgi amaçlıdır, mali değeri yoktur.
             </Typography>
-            <Typography variant="caption" color="text.secondary">
-              * İade koşulları uygundur
+            <Typography variant="caption" sx={{ color: 'text.disabled', fontStyle: 'italic', display: 'block', lineHeight: 1.4 }}>
+              * İade ve değişim fiş ile yapılır.
             </Typography>
           </Box>
         </Box>
       </DialogContent>
-      <DialogActions>
+
+      <DialogActions sx={{ p: 3, pt: 2, gap: 1.5 }}>
         <Button
+          fullWidth
           variant="contained"
           color="primary"
           startIcon={<Print />}
-          onClick={onClose}
-          size="large"
-          fullWidth
+          onClick={() => window.print()}
+          sx={{ py: 1.5, borderRadius: 3, fontWeight: 800, textTransform: 'none' }}
         >
           Yazdır
         </Button>
         <Button
-          variant="outlined"
           onClick={onClose}
-          size="large"
+          sx={{ py: 1.5, px: 3, borderRadius: 3, fontWeight: 700, textTransform: 'none', color: 'text.secondary', border: '1px solid', borderColor: 'divider' }}
         >
           Kapat
         </Button>

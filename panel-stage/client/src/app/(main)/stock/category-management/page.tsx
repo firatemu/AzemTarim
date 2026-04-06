@@ -5,7 +5,6 @@ import {
   Box,
   Typography,
   Button,
-  Paper,
   Table,
   TableBody,
   TableCell,
@@ -27,9 +26,12 @@ import {
   AccordionSummary,
   AccordionDetails,
   InputAdornment,
+  Stack,
+  alpha,
 } from '@mui/material';
-import { Add, Edit, Delete, Category, ExpandMore, Search } from '@mui/icons-material';
-import MainLayout from '@/components/Layout/MainLayout';
+import { Add, Delete, Category, ExpandMore, Search, AutoAwesome } from '@mui/icons-material';
+import { StandardPage, StandardCard } from '@/components/common';
+import { useTheme } from '@mui/material/styles';
 import axios from '@/lib/axios';
 
 interface KategoriData {
@@ -44,7 +46,7 @@ interface AltKategoriDialogProps {
   onSave: (anaKategori: string, altKategori: string) => void;
 }
 
-// Alt Kategori Ekleme Dialog Component - Local State ile Ping Sorunu Çözümü
+// Alt Kategori Ekleme Dialog Component
 const AltKategoriDialog = React.memo(({
   open,
   anaKategori,
@@ -53,7 +55,6 @@ const AltKategoriDialog = React.memo(({
 }: AltKategoriDialogProps) => {
   const [localAltKategori, setLocalAltKategori] = useState('');
 
-  // Dialog açıldığında local state'i sıfırla
   React.useEffect(() => {
     if (open) {
       setLocalAltKategori('');
@@ -74,8 +75,14 @@ const AltKategoriDialog = React.memo(({
   if (!open) return null;
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle component="div">
+    <Dialog
+      open={open}
+      onClose={onClose}
+      maxWidth="xs"
+      fullWidth
+      PaperProps={{ sx: { borderRadius: 3 } }}
+    >
+      <DialogTitle sx={{ fontWeight: 700 }}>
         {anaKategori} - Alt Kategori Ekle
       </DialogTitle>
       <DialogContent>
@@ -103,16 +110,12 @@ const AltKategoriDialog = React.memo(({
           />
         </Box>
       </DialogContent>
-      <DialogActions>
+      <DialogActions sx={{ p: 2.5 }}>
         <Button onClick={onClose}>İptal</Button>
         <Button
           onClick={handleLocalSave}
           variant="contained"
           disabled={!localAltKategori.trim()}
-          sx={{
-            bgcolor: '#191970',
-            '&:hover': { bgcolor: '#0f0f40' }
-          }}
         >
           Ekle
         </Button>
@@ -129,7 +132,7 @@ interface AnaKategoriDialogProps {
   onSave: (anaKategori: string) => void;
 }
 
-// Ana Kategori Ekleme Dialog Component - Local State ile Ping Sorunu Çözümü
+// Ana Kategori Ekleme Dialog Component
 const AnaKategoriDialog = React.memo(({
   open,
   onClose,
@@ -137,7 +140,6 @@ const AnaKategoriDialog = React.memo(({
 }: AnaKategoriDialogProps) => {
   const [localAnaKategori, setLocalAnaKategori] = useState('');
 
-  // Dialog açıldığında local state'i sıfırla
   React.useEffect(() => {
     if (open) {
       setLocalAnaKategori('');
@@ -158,8 +160,14 @@ const AnaKategoriDialog = React.memo(({
   if (!open) return null;
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle component="div">
+    <Dialog
+      open={open}
+      onClose={onClose}
+      maxWidth="xs"
+      fullWidth
+      PaperProps={{ sx: { borderRadius: 3 } }}
+    >
+      <DialogTitle sx={{ fontWeight: 700 }}>
         Yeni Ana Kategori Ekle
       </DialogTitle>
       <DialogContent>
@@ -169,7 +177,7 @@ const AnaKategoriDialog = React.memo(({
             label="Ana Kategori Adı"
             value={localAnaKategori}
             onChange={handleLocalChange}
-            placeholder="Örn: Fren Sistemleri, Motor Parçaları"
+            placeholder="Örn: Fren Sistemleri"
             required
             autoFocus
             onKeyPress={(e) => {
@@ -180,16 +188,12 @@ const AnaKategoriDialog = React.memo(({
           />
         </Box>
       </DialogContent>
-      <DialogActions>
+      <DialogActions sx={{ p: 2.5 }}>
         <Button onClick={onClose}>İptal</Button>
         <Button
           onClick={handleLocalSave}
           variant="contained"
           disabled={!localAnaKategori.trim()}
-          sx={{
-            bgcolor: '#191970',
-            '&:hover': { bgcolor: '#0f0f40' }
-          }}
         >
           Ekle
         </Button>
@@ -201,6 +205,7 @@ const AnaKategoriDialog = React.memo(({
 AnaKategoriDialog.displayName = 'AnaKategoriDialog';
 
 export default function KategoriYonetimiPage() {
+  const theme = useTheme();
   const [kategoriler, setKategoriler] = useState<KategoriData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -219,15 +224,13 @@ export default function KategoriYonetimiPage() {
       console.log('[KategoriYonetimiPage] Kategoriler yükleniyor...');
       const response = await axios.get('/categories');
       console.log('[KategoriYonetimiPage] API yanıtı:', response.data);
-      const kategoriler = (response.data || []).map((kategori: any) => ({
+      const mappedKategoriler = (response.data || []).map((kategori: any) => ({
         anaKategori: kategori.mainCategory || '',
         altKategoriler: kategori.subCategories || [],
       }));
-      console.log('[KategoriYonetimiPage] Yüklenen kategori sayısı:', kategoriler.length);
-      setKategoriler(kategoriler);
+      setKategoriler(mappedKategoriler);
     } catch (error: any) {
       console.error('[KategoriYonetimiPage] Kategoriler yüklenemedi:', error);
-      console.error('[KategoriYonetimiPage] Hata detayı:', error.response?.data);
       setError(error.response?.data?.message || 'Kategoriler yüklenirken bir hata oluştu');
       setKategoriler([]);
     } finally {
@@ -239,342 +242,304 @@ export default function KategoriYonetimiPage() {
     fetchKategoriler();
   }, [fetchKategoriler]);
 
-  // Ana kategori ekleme dialog'unu aç
   const handleOpenAnaKategoriDialog = useCallback(() => {
     setOpenAnaKategoriDialog(true);
   }, []);
 
-  // Ana kategori ekleme dialog'unu kapat
   const handleCloseAnaKategoriDialog = useCallback(() => {
     setOpenAnaKategoriDialog(false);
   }, []);
 
-  // Ana kategori kaydet
   const handleSaveAnaKategori = useCallback(async (anaKategori: string) => {
     try {
       await axios.post('/categories/main-category', {
         mainCategory: anaKategori,
       });
-
-      // Başarı mesajı
-      alert(`✅ Ana kategori "${anaKategori}" başarıyla eklendi.`);
-
-      // Listeyi yenile
       await fetchKategoriler();
       handleCloseAnaKategoriDialog();
     } catch (error: any) {
       console.error('Ana kategori eklenemedi:', error);
-      alert(`❌ Hata: ${error.response?.data?.message || 'Ana kategori eklenirken bir hata oluştu'}`);
+      setError(error.response?.data?.message || 'Ana kategori eklenirken bir hata oluştu');
     }
   }, [fetchKategoriler, handleCloseAnaKategoriDialog]);
 
-  // Alt kategori ekleme dialog'unu aç
   const handleOpenAltKategoriDialog = useCallback((anaKategori: string) => {
     setSelectedAnaKategori(anaKategori);
     setOpenAltKategoriDialog(true);
   }, []);
 
-  // Alt kategori ekleme dialog'unu kapat
   const handleCloseAltKategoriDialog = useCallback(() => {
     setOpenAltKategoriDialog(false);
     setSelectedAnaKategori('');
   }, []);
 
-  // Alt kategori kaydet
   const handleSaveAltKategori = useCallback(async (anaKategori: string, altKategori: string) => {
     try {
       const encodedAnaKategori = encodeURIComponent(anaKategori);
       await axios.post(`/categories/${encodedAnaKategori}/subcategory`, {
         subCategory: altKategori,
       });
-
-      // Başarı mesajı
-      alert(`✅ Alt kategori "${altKategori}" başarıyla eklendi.`);
-
-      // Listeyi yenile
       await fetchKategoriler();
       handleCloseAltKategoriDialog();
     } catch (error: any) {
       console.error('Alt kategori eklenemedi:', error);
-      alert(`❌ Hata: ${error.response?.data?.message || 'Alt kategori eklenirken bir hata oluştu'}`);
+      setError(error.response?.data?.message || 'Alt kategori eklenirken bir hata oluştu');
     }
   }, [fetchKategoriler, handleCloseAltKategoriDialog]);
 
-  // Alt kategoriyi sil
   const handleDeleteAltKategori = useCallback(async (anaKategori: string, altKategori: string) => {
-    const confirmMessage = `Bu alt kategoriyi silmek istediğinizden emin misiniz?\n\n` +
-      `Alt kategori "${altKategori}" silindiğinde, bu kategoriyi kullanan tüm ürünlerden alt kategori bilgisi kaldırılacaktır.`;
-
-    if (!confirm(confirmMessage)) {
-      return;
-    }
+    if (!confirm(`"${altKategori}" alt kategorisini silmek istediğinizden emin misiniz?`)) return;
 
     try {
       setDeleting({ anaKategori, altKategori });
       const encodedAnaKategori = encodeURIComponent(anaKategori);
       const encodedAltKategori = encodeURIComponent(altKategori);
       await axios.delete(`/categories/${encodedAnaKategori}/subcategory/${encodedAltKategori}`);
-
-      // Başarı mesajı
-      alert(`✅ Alt kategori "${altKategori}" başarıyla silindi.`);
-
-      // Listeyi yenile
       await fetchKategoriler();
     } catch (error: any) {
       console.error('Alt kategori silinemedi:', error);
-      alert(`❌ Hata: ${error.response?.data?.message || 'Alt kategori silinirken bir hata oluştu'}`);
+      setError(error.response?.data?.message || 'Alt kategori silinirken bir hata oluştu');
     } finally {
       setDeleting(null);
     }
   }, [fetchKategoriler]);
 
-  // Accordion açma/kapatma
   const handleAccordionChange = useCallback((kategori: string) => (event: React.SyntheticEvent, isExpanded: boolean) => {
     setExpandedKategori(isExpanded ? kategori : false);
   }, []);
 
-  // Kategori filtreleme
   const filteredKategoriler = useMemo(() => {
-    if (!searchQuery.trim()) {
-      return kategoriler;
-    }
-
+    if (!searchQuery.trim()) return kategoriler;
     const query = searchQuery.toLowerCase().trim();
     return kategoriler.filter((kategori) => {
-      // Ana kategori adında arama
-      if (kategori.anaKategori && kategori.anaKategori.toLowerCase().includes(query)) {
-        return true;
-      }
-      // Alt kategorilerde arama
-      return kategori.altKategoriler && kategori.altKategoriler.some((altKategori) =>
-        altKategori.toLowerCase().includes(query)
-      );
+      if (kategori.anaKategori.toLowerCase().includes(query)) return true;
+      return kategori.altKategoriler.some((alt) => alt.toLowerCase().includes(query));
     }).map((kategori) => {
-      // Eğer arama alt kategoride yapıldıysa, sadece eşleşen alt kategorileri göster
-      if (kategori.anaKategori && kategori.anaKategori.toLowerCase().includes(query)) {
-        return kategori;
-      }
-      // Sadece eşleşen alt kategorileri filtrele
+      if (kategori.anaKategori.toLowerCase().includes(query)) return kategori;
       return {
         anaKategori: kategori.anaKategori,
-        altKategoriler: (kategori.altKategoriler || []).filter((altKategori) =>
-          altKategori.toLowerCase().includes(query)
-        ),
+        altKategoriler: kategori.altKategoriler.filter((alt) => alt.toLowerCase().includes(query)),
       };
     });
   }, [kategoriler, searchQuery]);
 
   return (
-    <MainLayout>
-      <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Box>
-          <Typography variant="h4" fontWeight="bold">
-            Kategori Yönetimi
-          </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-            Ana kategoriler ve alt kategoriler oluşturun, düzenleyin. Kategoriler stoklardan otomatik olarak toplanır.
-          </Typography>
-        </Box>
+    <StandardPage
+      title="Kategori Yönetimi"
+      subtitle="Ürün gruplarını ve hiyerarşiyi yönetin"
+      headerActions={
         <Button
           variant="contained"
           startIcon={<Add />}
           onClick={handleOpenAnaKategoriDialog}
           sx={{
-            bgcolor: '#191970',
-            '&:hover': { bgcolor: '#0f0f40' }
+            background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
+            boxShadow: '0 8px 24px rgba(99, 102, 241, 0.3)',
+            borderRadius: 2,
+            px: 3,
+            fontWeight: 600,
+            textTransform: 'none',
+            '&:hover': {
+              background: 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)',
+              transform: 'translateY(-2px)',
+            },
           }}
         >
           Yeni Ana Kategori Ekle
         </Button>
-      </Box>
+      }
+    >
+      {/* İstatistik ve Arama */}
+      <Grid container spacing={2.5} sx={{ mb: 3 }}>
+        <Grid item xs={12} md={4}>
+          <StandardCard>
+            <Stack direction="row" spacing={2} alignItems="center">
+              <Box
+                sx={{
+                  width: 48,
+                  height: 48,
+                  borderRadius: 2,
+                  background: alpha(theme.palette.primary.main, 0.1),
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <Category color="primary" />
+              </Box>
+              <Box>
+                <Typography variant="h5" fontWeight="800">
+                  {kategoriler.length}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Ana Kategori
+                </Typography>
+              </Box>
+            </Stack>
+          </StandardCard>
+        </Grid>
+        <Grid item xs={12} md={8}>
+          <StandardCard sx={{ height: '100%', display: 'flex', alignItems: 'center', py: 1 }}>
+            <TextField
+              fullWidth
+              placeholder="Kategori veya alt kategori ara..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <Search color="action" />
+                  </InputAdornment>
+                ),
+              }}
+              size="small"
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  borderRadius: 2,
+                },
+              }}
+            />
+          </StandardCard>
+        </Grid>
+      </Grid>
 
       {error && (
-        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
+        <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError(null)}>
           {error}
         </Alert>
       )}
 
-      {/* Kategori Arama */}
-      {!loading && kategoriler.length > 0 && (
-        <Paper sx={{ p: 2, mb: 3 }}>
-          <TextField
-            fullWidth
-            placeholder="Kategori ara... (Ana kategori veya alt kategori adı)"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <Search color="action" />
-                </InputAdornment>
-              ),
-            }}
-            sx={{
-              '& .MuiOutlinedInput-root': {
-                bgcolor: 'background.paper',
-              },
-            }}
-          />
-          {searchQuery && (
-            <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
-              {filteredKategoriler.length} kategori bulundu
-            </Typography>
-          )}
-        </Paper>
-      )}
-
       {loading ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 8 }}>
-          <CircularProgress size={40} />
-          <Typography variant="body2" color="text.secondary" sx={{ ml: 2 }}>
-            Kategoriler yükleniyor...
-          </Typography>
+        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', py: 8 }}>
+          <CircularProgress size={48} sx={{ mb: 2 }} />
+          <Typography color="text.secondary">Kategoriler yükleniyor...</Typography>
         </Box>
-      ) : kategoriler.length === 0 ? (
-        <Paper sx={{ p: 4, textAlign: 'center' }}>
-          <Typography variant="body2" color="text.secondary">
-            Henüz kategori eklenmemiş. Kategoriler, stok ekleme sayfasından eklenen ürünlerden otomatik olarak oluşur.
-          </Typography>
-        </Paper>
       ) : filteredKategoriler.length === 0 ? (
-        <Paper sx={{ p: 4, textAlign: 'center' }}>
-          <Typography variant="body2" color="text.secondary">
-            Arama kriterinize uygun kategori bulunamadı.
+        <StandardCard sx={{ py: 6, textAlign: 'center' }}>
+          <AutoAwesome sx={{ fontSize: 48, color: 'text.disabled', mb: 2, opacity: 0.5 }} />
+          <Typography color="text.secondary">
+            {searchQuery ? 'Arama kriterine uygun kategori bulunamadı' : 'Henüz kategori eklenmemiş'}
           </Typography>
-        </Paper>
+        </StandardCard>
       ) : (
-        <Grid container spacing={3}>
+        <Grid container spacing={2}>
           {filteredKategoriler.map((kategori) => (
-            <Grid size={{ xs: 12, md: 6 }} key={kategori.anaKategori}>
+            <Grid item xs={12} md={6} key={kategori.anaKategori}>
               <Accordion
                 expanded={expandedKategori === kategori.anaKategori}
                 onChange={handleAccordionChange(kategori.anaKategori)}
                 sx={{
-                  '&:before': {
-                    display: 'none',
-                  },
-                  boxShadow: 2,
-                  borderRadius: 2,
-                  '&.Mui-expanded': {
-                    margin: 0,
-                  },
+                  background: alpha(theme.palette.background.paper, 0.6),
+                  backdropFilter: 'blur(20px)',
+                  border: '1px solid',
+                  borderColor: 'divider',
+                  borderRadius: '12px !important',
+                  mb: 1,
+                  boxShadow: 'none',
+                  '&:before': { display: 'none' },
+                  '&.Mui-expanded': { m: '0 0 12px 0' },
                 }}
               >
                 <AccordionSummary
                   expandIcon={<ExpandMore />}
                   sx={{
-                    bgcolor: 'var(--muted)',
-                    borderRadius: expandedKategori === kategori.anaKategori ? '8px 8px 0 0' : '8px',
-                    '&:hover': {
-                      bgcolor: 'var(--muted)',
-                    },
+                    px: 2.5,
+                    py: 1,
                     '&.Mui-expanded': {
-                      bgcolor: 'color-mix(in srgb, var(--chart-1) 15%, transparent)',
-                      borderRadius: '8px 8px 0 0',
+                      borderBottom: '1px solid',
+                      borderColor: 'divider',
                     },
                   }}
                 >
-                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', pr: 2 }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', flex: 1 }}>
-                      <Category sx={{ color: '#06b6d4', mr: 1.5 }} />
-                      <Typography variant="h6" fontWeight="600">
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', pr: 1 }}>
+                    <Stack direction="row" spacing={1.5} alignItems="center">
+                      <Box
+                        sx={{
+                          width: 36,
+                          height: 36,
+                          borderRadius: 1.5,
+                          background: 'linear-gradient(135deg, #06b6d4 0%, #3b82f6 100%)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          color: '#fff',
+                        }}
+                      >
+                        <Category fontSize="small" />
+                      </Box>
+                      <Typography variant="subtitle1" fontWeight="700">
                         {kategori.anaKategori}
                       </Typography>
-                    </Box>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    </Stack>
+                    <Stack direction="row" spacing={1} alignItems="center">
                       <Chip
-                        label={`${(kategori.altKategoriler || []).length} alt kategori`}
+                        label={kategori.altKategoriler.length}
+                        size="small"
+                        sx={{
+                          fontWeight: 700,
+                          bgcolor: alpha(theme.palette.info.main, 0.1),
+                          color: 'info.main',
+                        }}
+                      />
+                      <IconButton
                         size="small"
                         color="primary"
-                        variant="outlined"
-                      />
-                      <Tooltip title="Alt Kategori Ekle">
-                        <IconButton
-                          component="span"
-                          size="small"
-                          color="primary"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleOpenAltKategoriDialog(kategori.anaKategori);
-                          }}
-                          sx={{
-                            bgcolor: 'var(--card)',
-                            '&:hover': { bgcolor: 'color-mix(in srgb, var(--chart-1) 15%, transparent)' }
-                          }}
-                        >
-                          <Add fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                    </Box>
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleOpenAltKategoriDialog(kategori.anaKategori);
+                        }}
+                        sx={{
+                          bgcolor: alpha(theme.palette.primary.main, 0.1),
+                          '&:hover': { bgcolor: alpha(theme.palette.primary.main, 0.2) },
+                        }}
+                      >
+                        <Add fontSize="small" />
+                      </IconButton>
+                    </Stack>
                   </Box>
                 </AccordionSummary>
                 <AccordionDetails sx={{ p: 0 }}>
-                  <TableContainer>
-                    <Table size="small">
-                      <TableHead>
-                        <TableRow sx={{ bgcolor: 'var(--muted)' }}>
-                          <TableCell><strong>Alt Kategori</strong></TableCell>
-                          <TableCell align="right"><strong>İşlemler</strong></TableCell>
+                  <Table size="small">
+                    <TableBody>
+                      {kategori.altKategoriler.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={2} align="center" sx={{ py: 3 }}>
+                            <Typography variant="body2" color="text.secondary">
+                              Alt kategori bulunmuyor
+                            </Typography>
+                          </TableCell>
                         </TableRow>
-                      </TableHead>
-                      <TableBody>
-                        {(kategori.altKategoriler || []).length === 0 ? (
-                          <TableRow>
-                            <TableCell colSpan={2} align="center" sx={{ py: 3 }}>
-                              <Typography variant="body2" color="text.secondary">
-                                Henüz alt kategori eklenmemiş
+                      ) : (
+                        kategori.altKategoriler.map((alt) => (
+                          <TableRow
+                            key={alt}
+                            sx={{ '&:last-child td': { border: 0 } }}
+                          >
+                            <TableCell sx={{ pl: 3, py: 1.5 }}>
+                              <Typography variant="body2" fontWeight="500">
+                                {alt}
                               </Typography>
-                              <Button
+                            </TableCell>
+                            <TableCell align="right" sx={{ pr: 2 }}>
+                              <IconButton
                                 size="small"
-                                variant="outlined"
-                                startIcon={<Add />}
-                                onClick={() => handleOpenAltKategoriDialog(kategori.anaKategori)}
-                                sx={{ mt: 2 }}
+                                color="error"
+                                onClick={() => handleDeleteAltKategori(kategori.anaKategori, alt)}
+                                disabled={deleting?.anaKategori === kategori.anaKategori && deleting?.altKategori === alt}
+                                sx={{ bgcolor: alpha(theme.palette.error.main, 0.05) }}
                               >
-                                Alt Kategori Ekle
-                              </Button>
+                                {deleting?.anaKategori === kategori.anaKategori && deleting?.altKategori === alt ? (
+                                  <CircularProgress size={16} />
+                                ) : (
+                                  <Delete fontSize="small" />
+                                )}
+                              </IconButton>
                             </TableCell>
                           </TableRow>
-                        ) : (
-                          (kategori.altKategoriler || []).map((altKategori) => (
-                            <TableRow
-                              key={altKategori}
-                              hover
-                              sx={{
-                                '&:hover': {
-                                  bgcolor: 'var(--muted)',
-                                },
-                                '&:last-child td': {
-                                  borderBottom: 'none',
-                                },
-                              }}
-                            >
-                              <TableCell>
-                                <Typography variant="body2">
-                                  {altKategori}
-                                </Typography>
-                              </TableCell>
-                              <TableCell align="right">
-                                <IconButton
-                                  size="small"
-                                  color="error"
-                                  onClick={() => handleDeleteAltKategori(kategori.anaKategori, altKategori)}
-                                  title="Sil"
-                                  disabled={deleting?.anaKategori === kategori.anaKategori && deleting?.altKategori === altKategori}
-                                >
-                                  {deleting?.anaKategori === kategori.anaKategori && deleting?.altKategori === altKategori ? (
-                                    <CircularProgress size={20} />
-                                  ) : (
-                                    <Delete fontSize="small" />
-                                  )}
-                                </IconButton>
-                              </TableCell>
-                            </TableRow>
-                          ))
-                        )}
-                      </TableBody>
-                    </Table>
-                  </TableContainer>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
                 </AccordionDetails>
               </Accordion>
             </Grid>
@@ -582,21 +547,19 @@ export default function KategoriYonetimiPage() {
         </Grid>
       )}
 
-      {/* Ana Kategori Ekleme Dialog */}
+      {/* Dialoglar */}
       <AnaKategoriDialog
         open={openAnaKategoriDialog}
         onClose={handleCloseAnaKategoriDialog}
         onSave={handleSaveAnaKategori}
       />
 
-      {/* Alt Kategori Ekleme Dialog */}
       <AltKategoriDialog
         open={openAltKategoriDialog}
         anaKategori={selectedAnaKategori}
         onClose={handleCloseAltKategoriDialog}
         onSave={handleSaveAltKategori}
       />
-    </MainLayout>
+    </StandardPage>
   );
 }
-

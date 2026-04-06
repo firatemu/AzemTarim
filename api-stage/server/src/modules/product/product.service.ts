@@ -88,30 +88,6 @@ export class ProductService {
           data: createData,
         });
 
-        // Fiyat Kartlarını Oluştur (SALE ve PURCHASE)
-        if (dto.salePrice != null) {
-          await tx.priceCard.create({
-            data: {
-              tenantId: finalTenantId as string,
-              productId: product.id,
-              type: 'SALE',
-              price: dto.salePrice,
-              currency: 'TRY',
-            } as any
-          });
-        }
-
-        if (dto.purchasePrice != null) {
-          await tx.priceCard.create({
-            data: {
-              tenantId: finalTenantId as string,
-              productId: product.id,
-              type: 'PURCHASE',
-              price: dto.purchasePrice,
-              currency: 'TRY',
-            } as any
-          });
-        }
 
         return product;
       });
@@ -305,6 +281,8 @@ export class ProductService {
             ...product,
             code: product.code,
             name: product.name,
+            stokKodu: product.code,
+            stokAdi: product.name,
             birim: product.unit,
             marka: product.brand ?? undefined,
             anaKategori: product.mainCategory ?? undefined,
@@ -452,6 +430,8 @@ export class ProductService {
 
     return {
       ...product,
+      stokKodu: product.code,
+      stokAdi: product.name,
       purchasePrice: Number(latestPurchasePriceCard?.price ?? 0),
       salePrice: Number(latestSalePriceCard?.price ?? 0),
       vatRate: Number((product as any).vatRate ?? 20),
@@ -530,30 +510,6 @@ export class ProductService {
 
         console.log('[DEBUG product.service.update] Ürün güncellendi:', JSON.stringify(product, null, 2));
 
-        // Fiyat Kartlarını Güncelle (Yeni Kart Oluştur)
-        if (dto.salePrice != null) {
-          await tx.priceCard.create({
-            data: {
-              tenantId: existing.tenantId,
-              productId: product.id,
-              type: 'SALE',
-              price: dto.salePrice,
-              currency: 'TRY',
-            } as any
-          });
-        }
-
-        if (dto.purchasePrice != null) {
-          await tx.priceCard.create({
-            data: {
-              tenantId: existing.tenantId,
-              productId: product.id,
-              type: 'PURCHASE',
-              price: dto.purchasePrice,
-              currency: 'TRY',
-            } as any
-          });
-        }
 
         return product;
       });

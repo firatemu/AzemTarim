@@ -1,11 +1,8 @@
-'use client';
-
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
     Box,
     Typography,
-    Paper,
     Table,
     TableBody,
     TableCell,
@@ -15,7 +12,6 @@ import {
     Button,
     Chip,
     CircularProgress,
-    Alert,
     Divider,
     Stack,
     IconButton,
@@ -24,20 +20,24 @@ import {
     DialogContent,
     DialogActions,
     TextField,
-    Grid,
 } from '@mui/material';
 import {
     ArrowBack,
     CheckCircle,
     LocalShipping,
     Cancel as CancelIcon,
-    RotateLeft,
-    ContentPaste,
     Print as PrintIcon,
+    SwapHoriz,
+    Inventory,
+    Person,
+    History,
+    Description,
 } from '@mui/icons-material';
-import MainLayout from '@/components/Layout/MainLayout';
+import { StandardPage, StandardCard } from '@/components/common';
 import WarehouseTransferPrintForm from '@/components/PrintForm/WarehouseTransferPrintForm';
 import axios from '@/lib/axios';
+import { useSnackbar } from 'notistack';
+import Grid from '@mui/material/Grid';
 
 interface WarehouseTransferItem {
     id: string;
@@ -88,21 +88,15 @@ interface WarehouseTransfer {
     }>;
 }
 
-const statusColors: Record<string, any> = {
-    HAZIRLANIYOR: 'warning',
-    YOLDA: 'info',
-    TAMAMLANDI: 'success',
-    IPTAL: 'error',
-};
-
-const statusLabels: Record<string, string> = {
-    HAZIRLANIYOR: 'Hazırlanıyor',
-    YOLDA: 'Yolda',
-    TAMAMLANDI: 'Tamamlandı',
-    IPTAL: 'İptal',
+const statusConfig: Record<string, { label: string; color: any; icon: any }> = {
+    HAZIRLANIYOR: { label: 'Hazırlanıyor', color: 'warning', icon: <Description sx={{ fontSize: 16 }} /> },
+    YOLDA: { label: 'Yolda', color: 'info', icon: <LocalShipping sx={{ fontSize: 16 }} /> },
+    TAMAMLANDI: { label: 'Tamamlandı', color: 'success', icon: <CheckCircle sx={{ fontSize: 16 }} /> },
+    IPTAL: { label: 'İptal', color: 'error', icon: <CancelIcon sx={{ fontSize: 16 }} /> },
 };
 
 export default function WarehouseTransferDetayPage() {
+    const { enqueueSnackbar } = useSnackbar();
     const params = useParams();
     const router = useRouter();
     const id = params.id as string;
@@ -145,7 +139,7 @@ export default function WarehouseTransferDetayPage() {
             }
             await fetchTransfer();
         } catch (err: any) {
-            alert(err.response?.data?.message || 'İşlem başarısız');
+            enqueueSnackbar(err.response?.data?.message || 'İşlem başarısız', { variant: 'error' });
         } finally {
             setActionLoading(false);
         }
@@ -161,214 +155,281 @@ export default function WarehouseTransferDetayPage() {
 
     if (loading) {
         return (
-            <MainLayout>
+            <StandardPage>
                 <Box sx={{ display: 'flex', justifyContent: 'center', p: 10 }}>
                     <CircularProgress />
                 </Box>
-            </MainLayout>
+            </StandardPage>
         );
     }
 
     if (error || !transfer) {
         return (
-            <MainLayout>
+            <StandardPage>
                 <Box sx={{ p: 3 }}>
-                    <Alert severity="error" sx={{ mb: 2 }}>{error || 'Transfer bulunamadı'}</Alert>
-                    <Button startIcon={<ArrowBack />} onClick={() => router.back()}>Geri Dön</Button>
+                    <Alert severity="error" sx={{ mb: 2, borderRadius: 2 }}>{error || 'Transfer bulunamadı'}</Alert>
+                    <Button startIcon={<ArrowBack />} onClick={() => router.back()} variant="outlined" sx={{ borderRadius: 2 }}>Geri Dön</Button>
                 </Box>
-            </MainLayout>
+            </StandardPage>
         );
     }
 
+    const config = statusConfig[transfer.durum] || { label: transfer.durum, color: 'default', icon: null };
+
     return (
-        <MainLayout>
-            <Box sx={{ p: 3 }}>
-                {/* Header */}
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-                    <Stack direction="row" spacing={2} alignItems="center">
-                        <IconButton onClick={() => router.back()}>
-                            <ArrowBack />
-                        </IconButton>
-                        <Box>
-                            <Typography variant="h4" fontWeight="bold">
+        <StandardPage>
+            {/* Header */}
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+                <Stack direction="row" spacing={2} alignItems="center">
+                    <Button
+                        startIcon={<ArrowBack />}
+                        onClick={() => router.back()}
+                        variant="outlined"
+                        sx={{ borderRadius: 2 }}
+                    >
+                        Geri
+                    </Button>
+                    <Box>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 0.5 }}>
+                            <Typography variant="h5" fontWeight="800" sx={{ letterSpacing: '-0.02em' }}>
                                 Transfer Detayı
                             </Typography>
-                            <Typography variant="body2" color="text.secondary">
-                                {transfer.transferNo}
-                            </Typography>
+                            <Chip
+                                icon={config.icon}
+                                label={config.label}
+                                color={config.color as any}
+                                size="small"
+                                variant="tonal"
+                                sx={{ fontWeight: 700, borderRadius: 1.5 }}
+                            />
                         </Box>
-                    </Stack>
+                        <Typography variant="body2" color="text.secondary" fontWeight={600}>
+                            {transfer.transferNo}
+                        </Typography>
+                    </Box>
+                </Stack>
 
-                    <Box sx={{ display: 'flex', gap: 1 }}>
-                        {transfer.durum === 'HAZIRLANIYOR' && (
-                            <Button
-                                variant="contained"
-                                color="success"
-                                startIcon={<CheckCircle />}
-                                onClick={() => handleAction('approve')}
-                                disabled={actionLoading}
-                            >
-                                Onayla & Sevk Et
-                            </Button>
-                        )}
-                        {transfer.durum === 'YOLDA' && (
-                            <Button
-                                variant="contained"
-                                color="info"
-                                startIcon={<LocalShipping />}
-                                onClick={() => handleAction('complete')}
-                                disabled={actionLoading}
-                            >
-                                Transferi Tamamla
-                            </Button>
-                        )}
-                        {(transfer.durum === 'HAZIRLANIYOR' || transfer.durum === 'YOLDA') && (
-                            <Button
-                                variant="outlined"
-                                color="error"
-                                startIcon={<CancelIcon />}
-                                onClick={() => setCancelDialogOpen(true)}
-                                disabled={actionLoading}
-                            >
-                                İptal Et
-                            </Button>
-                        )}
+                <Stack direction="row" spacing={1.5}>
+                    {transfer.durum === 'HAZIRLANIYOR' && (
+                        <Button
+                            variant="contained"
+                            color="success"
+                            startIcon={<CheckCircle />}
+                            onClick={() => handleAction('approve')}
+                            disabled={actionLoading}
+                            sx={{ borderRadius: 2, fontWeight: 700 }}
+                        >
+                            Onayla & Sevk Et
+                        </Button>
+                    )}
+                    {transfer.durum === 'YOLDA' && (
+                        <Button
+                            variant="contained"
+                            color="info"
+                            startIcon={<LocalShipping />}
+                            onClick={() => handleAction('complete')}
+                            disabled={actionLoading}
+                            sx={{ borderRadius: 2, fontWeight: 700 }}
+                        >
+                            Transferi Tamamla
+                        </Button>
+                    )}
+                    {(transfer.durum === 'HAZIRLANIYOR' || transfer.durum === 'YOLDA') && (
                         <Button
                             variant="outlined"
-                            startIcon={<PrintIcon />}
-                            onClick={() => setPrintOpen(true)}
+                            color="error"
+                            startIcon={<CancelIcon />}
+                            onClick={() => setCancelDialogOpen(true)}
+                            disabled={actionLoading}
+                            sx={{ borderRadius: 2, fontWeight: 700 }}
                         >
-                            Yazdır / İndir
+                            İptal Et
                         </Button>
-                    </Box>
-                </Box>
-
-                <Grid container spacing={3}>
-                    {/* Main Info */}
-                    <Grid size={{ xs: 12, md: 4 }}>
-                        <Paper sx={{ p: 3, height: '100%' }}>
-                            <Typography variant="h6" gutterBottom>Genel Bilgiler</Typography>
-                            <Stack spacing={2}>
-                                <Box>
-                                    <Typography variant="caption" color="text.secondary">Durum</Typography>
-                                    <Box sx={{ mt: 0.5 }}>
-                                        <Chip label={statusLabels[transfer.durum]} color={statusColors[transfer.durum]} size="small" />
-                                    </Box>
-                                </Box>
-                                <Box>
-                                    <Typography variant="caption" color="text.secondary">Tarih</Typography>
-                                    <Typography variant="body2" fontWeight="bold">
-                                        {formatDate(transfer.tarih)}
-                                    </Typography>
-                                </Box>
-                                <Box>
-                                    <Typography variant="caption" color="text.secondary">Transfer Rotası</Typography>
-                                    <Typography variant="body2" fontWeight="bold">
-                                        {transfer.fromWarehouse.name} ➔ {transfer.toWarehouse.name}
-                                    </Typography>
-                                </Box>
-
-                                <Divider />
-
-                                <Box>
-                                    <Typography variant="caption" color="text.secondary">Sürücü & Plaka</Typography>
-                                    <Typography variant="body2">
-                                        {transfer.driverName || '-'} {transfer.vehiclePlate ? `(${transfer.vehiclePlate})` : ''}
-                                    </Typography>
-                                </Box>
-                                <Box>
-                                    <Typography variant="caption" color="text.secondary">Açıklama</Typography>
-                                    <Typography variant="body2">{transfer.aciklama || '-'}</Typography>
-                                </Box>
-                            </Stack>
-                        </Paper>
-                    </Grid>
-
-                    {/* Staff Info */}
-                    <Grid size={{ xs: 12, md: 4 }}>
-                        <Paper sx={{ p: 3, height: '100%' }}>
-                            <Typography variant="h6" gutterBottom>Görevli Bilgileri</Typography>
-                            <Stack spacing={2}>
-                                <Box>
-                                    <Typography variant="caption" color="text.secondary">Hazırlayan</Typography>
-                                    <Typography variant="body2">{transfer.hazirlayanUser?.fullName || '-'}</Typography>
-                                </Box>
-                                <Box>
-                                    <Typography variant="caption" color="text.secondary">Onaylayan</Typography>
-                                    <Typography variant="body2">{transfer.onaylayanUser?.fullName || '-'}</Typography>
-                                </Box>
-                                <Box>
-                                    <Typography variant="caption" color="text.secondary">Teslim Alan</Typography>
-                                    <Typography variant="body2">{transfer.teslimAlanUser?.fullName || '-'}</Typography>
-                                </Box>
-                            </Stack>
-                        </Paper>
-                    </Grid>
-
-                    {/* History Logs */}
-                    <Grid size={{ xs: 12, md: 4 }}>
-                        <Paper sx={{ p: 3, height: '100%' }}>
-                            <Typography variant="h6" gutterBottom>İşlem Geçmişi</Typography>
-                            <Stack spacing={2}>
-                                {transfer.logs.map((log: any) => (
-                                    <Box key={log.id} sx={{ position: 'relative', pb: 1, borderBottom: '1px solid #f0f0f0' }}>
-                                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-                                            {formatDateTime(log.createdAt)}
-                                        </Typography>
-                                        <Typography variant="body2" fontWeight="bold">
-                                            {log.user?.fullName || 'Sistem'}
-                                        </Typography>
-                                        <Typography variant="caption" sx={{ display: 'block', color: 'primary.main' }}>
-                                            {log.actionType === 'CREATE' ? 'Oluşturuldu' : log.actionType === 'UPDATE' ? 'Güncellendi' : log.actionType}
-                                        </Typography>
-                                    </Box>
-                                ))}
-                            </Stack>
-                        </Paper>
-                    </Grid>
-
-                    {/* Bottom Row: Items Table (Full Width) */}
-                    <Grid size={{ xs: 12 }}>
-                        <Paper sx={{ p: 3 }}>
-                            <Typography variant="h6" gutterBottom>Transfer Edilen Malzemeler</Typography>
-                            <TableContainer>
-                                <Table size="small">
-                                    <TableHead>
-                                        <TableRow>
-                                            <TableCell>Stok Kodu</TableCell>
-                                            <TableCell>Marka</TableCell>
-                                            <TableCell>Stok Adı</TableCell>
-                                            <TableCell>Çıkış Rafı</TableCell>
-                                            <TableCell>Giriş Rafı</TableCell>
-                                            <TableCell align="right">Miktar</TableCell>
-                                        </TableRow>
-                                    </TableHead>
-                                    <TableBody>
-                                        {transfer.kalemler.map((item: WarehouseTransferItem) => (
-                                            <TableRow key={item.id}>
-                                                <TableCell>{item.stok?.stokKodu || '-'}</TableCell>
-                                                <TableCell>{(item.stok as any).marka || '-'}</TableCell>
-                                                <TableCell>{item.stok?.stokAdi || '-'}</TableCell>
-                                                <TableCell>{item.fromLocation?.code || '-'}</TableCell>
-                                                <TableCell>{item.toLocation?.code || '-'}</TableCell>
-                                                <TableCell align="right" sx={{ fontWeight: 'bold' }}>
-                                                    {item.miktar} {item.stok?.birim || ''}
-                                                </TableCell>
-                                            </TableRow>
-                                        ))}
-                                    </TableBody>
-                                </Table>
-                            </TableContainer>
-                        </Paper>
-                    </Grid>
-                </Grid>
+                    )}
+                    <Button
+                        variant="outlined"
+                        startIcon={<PrintIcon />}
+                        onClick={() => setPrintOpen(true)}
+                        sx={{ borderRadius: 2, fontWeight: 700 }}
+                    >
+                        Yazdır
+                    </Button>
+                </Stack>
             </Box>
 
-            {/* Cancel Dialog */}
-            <Dialog open={cancelDialogOpen} onClose={() => setCancelDialogOpen(false)} fullWidth maxWidth="xs">
-                <DialogTitle component="div">Transfer İptali</DialogTitle>
+            <Grid container spacing={3}>
+                <Grid size={{ xs: 12, md: 4 }}>
+                    <StandardCard sx={{ height: '100%' }}>
+                        <Typography variant="subtitle2" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2.5 }}>
+                            <Inventory sx={{ fontSize: 18 }} /> Genel Bilgiler
+                        </Typography>
+                        <Stack spacing={2.5}>
+                            <Box>
+                                <Typography variant="caption" color="text.secondary" display="block" gutterBottom>Transfer Tarihi</Typography>
+                                <Typography variant="body2" fontWeight="700">
+                                    {formatDate(transfer.tarih)}
+                                </Typography>
+                            </Box>
+                            <Box>
+                                <Typography variant="caption" color="text.secondary" display="block" gutterBottom>Güzergah</Typography>
+                                <Stack direction="row" spacing={1.5} alignItems="center">
+                                    <Box sx={{ px: 1.5, py: 0.5, bgcolor: 'action.hover', borderRadius: 1.5, border: '1px solid', borderColor: 'divider' }}>
+                                        <Typography variant="body2" fontWeight="700">{transfer.fromWarehouse.name}</Typography>
+                                    </Box>
+                                    <SwapHoriz color="disabled" />
+                                    <Box sx={{ px: 1.5, py: 0.5, bgcolor: 'primary.lighter', borderRadius: 1.5, border: '1px solid', borderColor: 'primary.light' }}>
+                                        <Typography variant="body2" fontWeight="700" color="primary.main">{transfer.toWarehouse.name}</Typography>
+                                    </Box>
+                                </Stack>
+                            </Box>
+
+                            <Divider sx={{ borderStyle: 'dashed' }} />
+
+                            <Box>
+                                <Typography variant="caption" color="text.secondary" display="block" gutterBottom>Lojistik</Typography>
+                                <Stack spacing={1}>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                        <LocalShipping sx={{ fontSize: 16, color: 'text.secondary' }} />
+                                        <Typography variant="body2">
+                                            {transfer.driverName || '-'}
+                                            {transfer.vehiclePlate && <Chip label={transfer.vehiclePlate} size="small" sx={{ ml: 1, height: 20, fontSize: '0.65rem', fontWeight: 700 }} />}
+                                        </Typography>
+                                    </Box>
+                                </Stack>
+                            </Box>
+                            <Box>
+                                <Typography variant="caption" color="text.secondary" display="block" gutterBottom>Açıklama</Typography>
+                                <Typography variant="body2" sx={{ fontStyle: transfer.aciklama ? 'normal' : 'italic', color: transfer.aciklama ? 'text.primary' : 'text.disabled' }}>
+                                    {transfer.aciklama || 'Açıklama belirtilmemiş'}
+                                </Typography>
+                            </Box>
+                        </Stack>
+                    </StandardCard>
+                </Grid>
+
+                <Grid size={{ xs: 12, md: 4 }}>
+                    <StandardCard sx={{ height: '100%' }}>
+                        <Typography variant="subtitle2" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2.5 }}>
+                            <Person sx={{ fontSize: 18 }} /> Yetkili Bilgileri
+                        </Typography>
+                        <Stack spacing={2.5}>
+                            <Box>
+                                <Typography variant="caption" color="text.secondary" display="block" gutterBottom>Hazırlayan</Typography>
+                                <Typography variant="body2" fontWeight="600">{transfer.hazirlayanUser?.fullName || '-'}</Typography>
+                            </Box>
+                            <Box>
+                                <Typography variant="caption" color="text.secondary" display="block" gutterBottom>Onaylayan</Typography>
+                                <Typography variant="body2" fontWeight="600">{transfer.onaylayanUser?.fullName || '-'}</Typography>
+                            </Box>
+                            <Box>
+                                <Typography variant="caption" color="text.secondary" display="block" gutterBottom>Teslim Alan</Typography>
+                                <Typography variant="body2" fontWeight="600">{transfer.teslimAlanUser?.fullName || '-'}</Typography>
+                            </Box>
+                        </Stack>
+                    </StandardCard>
+                </Grid>
+
+                <Grid size={{ xs: 12, md: 4 }}>
+                    <StandardCard sx={{ height: '100%' }}>
+                        <Typography variant="subtitle2" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2.5 }}>
+                            <History sx={{ fontSize: 18 }} /> İşlem Geçmişi
+                        </Typography>
+                        <Stack spacing={0}>
+                            {transfer.logs.map((log: any, index: number) => (
+                                <Box key={log.id} sx={{
+                                    position: 'relative',
+                                    pb: 1.5,
+                                    pl: 2.5,
+                                    '&:before': {
+                                        content: '""',
+                                        position: 'absolute',
+                                        left: 0,
+                                        top: 8,
+                                        width: 8,
+                                        height: 8,
+                                        borderRadius: '50%',
+                                        bgcolor: index === 0 ? 'primary.main' : 'divider'
+                                    },
+                                    '&:after': {
+                                        content: index === transfer.logs.length - 1 ? 'none' : '""',
+                                        position: 'absolute',
+                                        left: 3.5,
+                                        top: 16,
+                                        width: 1,
+                                        height: 'calc(100% - 8px)',
+                                        bgcolor: 'divider'
+                                    }
+                                }}>
+                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                        <Typography variant="caption" fontWeight={700} color={index === 0 ? 'primary.main' : 'text.primary'}>
+                                            {log.actionType === 'CREATE' ? 'Kayıt Oluşturuldu' : log.actionType === 'UPDATE' ? 'Güncellendi' : log.actionType}
+                                        </Typography>
+                                        <Typography variant="caption" color="text.disabled">
+                                            {formatDateTime(log.createdAt)}
+                                        </Typography>
+                                    </Box>
+                                    <Typography variant="caption" display="block" color="text.secondary">
+                                        İşlemi Yapan: <strong>{log.user?.fullName || 'Sistem'}</strong>
+                                    </Typography>
+                                </Box>
+                            ))}
+                        </Stack>
+                    </StandardCard>
+                </Grid>
+
+                <Grid size={{ xs: 12 }}>
+                    <StandardCard padding={0}>
+                        <Box sx={{ p: 2.5 }}>
+                            <Typography variant="subtitle2" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                <SwapHoriz sx={{ fontSize: 18 }} /> Transfer Kalemleri
+                            </Typography>
+                        </Box>
+                        <Divider />
+                        <TableContainer>
+                            <Table size="small">
+                                <TableHead sx={{ bgcolor: 'action.hover' }}>
+                                    <TableRow>
+                                        <TableCell sx={{ fontWeight: 700 }}>Stok Kodu</TableCell>
+                                        <TableCell sx={{ fontWeight: 700 }}>Malzeme Adı</TableCell>
+                                        <TableCell sx={{ fontWeight: 700 }}>Marka</TableCell>
+                                        <TableCell sx={{ fontWeight: 700 }}>Çıkış Rafı</TableCell>
+                                        <TableCell sx={{ fontWeight: 700 }}>Giriş Rafı</TableCell>
+                                        <TableCell align="right" sx={{ fontWeight: 700 }}>Miktar</TableCell>
+                                    </TableRow>
+                                </TableHead>
+                                <TableBody>
+                                    {transfer.kalemler.map((item: WarehouseTransferItem) => (
+                                        <TableRow key={item.id} hover>
+                                            <TableCell sx={{ fontWeight: 600, color: 'primary.main' }}>{item.stok?.stokKodu || '-'}</TableCell>
+                                            <TableCell sx={{ fontWeight: 500 }}>{item.stok?.stokAdi || '-'}</TableCell>
+                                            <TableCell>{(item.stok as any).marka || '-'}</TableCell>
+                                            <TableCell>
+                                                {item.fromLocation?.code ? (
+                                                    <Chip label={item.fromLocation.code} size="small" variant="outlined" sx={{ height: 20, fontSize: '0.65rem', fontWeight: 700 }} />
+                                                ) : '-'}
+                                            </TableCell>
+                                            <TableCell>
+                                                {item.toLocation?.code ? (
+                                                    <Chip label={item.toLocation.code} size="small" variant="outlined" color="primary" sx={{ height: 20, fontSize: '0.65rem', fontWeight: 700 }} />
+                                                ) : '-'}
+                                            </TableCell>
+                                            <TableCell align="right" sx={{ fontWeight: 800 }}>
+                                                {item.miktar} {item.stok?.birim || ''}
+                                            </TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                        </TableContainer>
+                    </StandardCard>
+                </Grid>
+            </Grid>
+
+            {/* İptal Dialog */}
+            <Dialog open={cancelDialogOpen} onClose={() => setCancelDialogOpen(false)} fullWidth maxWidth="xs" PaperProps={{ sx: { borderRadius: 3 } }}>
+                <DialogTitle sx={{ fontWeight: 800 }}>Transfer İptali</DialogTitle>
                 <DialogContent>
-                    <Typography variant="body2" sx={{ mb: 2 }}>Bu transferi iptal etmek istediğinizden emin misiniz? Bu işlem geri alınamaz.</Typography>
+                    <Typography variant="body2" sx={{ mb: 2, color: 'text.secondary' }}>Bu transferi iptal etmek istediğinizden emin misiniz? Bu işlem stok hareketlerini geri alacaktır.</Typography>
                     <TextField
                         fullWidth
                         label="İptal Nedeni"
@@ -376,15 +437,18 @@ export default function WarehouseTransferDetayPage() {
                         rows={3}
                         value={cancelReason}
                         onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCancelReason(e.target.value)}
+                        placeholder="İptal sebebini buraya yazınız..."
+                        sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
                     />
                 </DialogContent>
-                <DialogActions>
-                    <Button onClick={() => setCancelDialogOpen(false)}>Vazgeç</Button>
+                <DialogActions sx={{ px: 3, pb: 2.5 }}>
+                    <Button onClick={() => setCancelDialogOpen(false)} variant="outlined" sx={{ borderRadius: 2 }}>Vazgeç</Button>
                     <Button
                         color="error"
                         variant="contained"
                         onClick={() => handleAction('cancel')}
                         disabled={!cancelReason || actionLoading}
+                        sx={{ borderRadius: 2, fontWeight: 700 }}
                     >
                         İptal Et
                     </Button>
@@ -396,7 +460,7 @@ export default function WarehouseTransferDetayPage() {
                 transfer={transfer}
                 onClose={() => setPrintOpen(false)}
             />
-        </MainLayout>
+        </StandardPage>
     );
 }
 

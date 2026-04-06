@@ -5,7 +5,6 @@ import {
   Box,
   Typography,
   Button,
-  Paper,
   Table,
   TableBody,
   TableCell,
@@ -21,13 +20,14 @@ import {
   Pagination,
   Snackbar,
   Alert,
-  Card,
-  CardContent,
-  CardHeader,
   Collapse,
   IconButton,
   Chip,
   InputAdornment,
+  Stack,
+  alpha,
+  Divider,
+  Paper,
 } from '@mui/material';
 import {
   Inventory2,
@@ -38,10 +38,15 @@ import {
   ExpandLess,
   Search,
   Assignment,
+  Build,
+  Message,
+  DirectionsCar,
+  Timer,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { useDebounce } from '@/hooks/useDebounce';
 import axios from '@/lib/axios';
+import { StandardPage, StandardCard } from '@/components/common';
 import PartRequestStatusChip from '@/components/servis/PartRequestStatusChip';
 import SupplyPartRequestDialog from '@/components/servis/SupplyPartRequestDialog';
 import AddPartDirectDialog from '@/components/servis/AddPartDirectDialog';
@@ -291,37 +296,34 @@ export default function ParcaTedarikYonetimiPage() {
   };
 
   return (
-    <>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
-        <Inventory2 sx={{ fontSize: 32, color: 'var(--primary)' }} />
-        <Box>
-          <Typography variant="h5" sx={{ fontWeight: 600 }}>
-            Parça Tedarik ve Yönetimi
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Tamamlanmamış iş emirlerine parça ekleyin ve teknisyen taleplerini karşılayın
-          </Typography>
-        </Box>
+    <StandardPage>
+      <Box sx={{ mb: 4 }}>
+        <Typography variant="h5" fontWeight="800" sx={{ letterSpacing: '-0.02em', display: 'flex', alignItems: 'center', gap: 1.5 }}>
+          <Inventory2 sx={{ fontSize: 32, color: 'primary.main' }} />
+          Parça Tedarik ve Yönetimi
+        </Typography>
+        <Typography variant="body2" color="text.secondary">Tamamlanmamış iş emirlerine parça ekleyin ve teknisyen taleplerini karşılayın.</Typography>
       </Box>
 
-      <Paper sx={{ p: 2, mb: 3, borderRadius: 'var(--radius)', border: '1px solid var(--border)' }}>
-        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, alignItems: 'center' }}>
+      <StandardCard sx={{ mb: 4 }}>
+        <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems="center">
           <TextField
             id="parts-supply-search"
             size="small"
             placeholder="İş emri no, plaka veya açıklama ile ara..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            sx={{ width: { xs: '100%', md: 280 } }}
+            sx={{ width: { xs: '100%', md: 350 } }}
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">
-                  <Search fontSize="small" />
+                  <Search fontSize="small" sx={{ color: 'text.disabled' }} />
                 </InputAdornment>
               ),
+              sx: { borderRadius: 2 }
             }}
           />
-          <FormControl size="small" sx={{ minWidth: 200 }}>
+          <FormControl size="small" sx={{ minWidth: 250 }}>
             <InputLabel id="part-workflow-filter-label">Parça Durumu</InputLabel>
             <Select
               labelId="part-workflow-filter-label"
@@ -332,17 +334,16 @@ export default function ParcaTedarikYonetimiPage() {
                 setPartWorkflowFilter(e.target.value as '' | PartWorkflowStatus);
                 setPage(1);
               }}
+              sx={{ borderRadius: 2 }}
             >
               <MenuItem value="">Tümü</MenuItem>
-              <MenuItem value="NOT_STARTED">Henüz başlamadı</MenuItem>
-              <MenuItem value="PARTS_SUPPLIED_DIRECT">Parçalar temin edildi</MenuItem>
-              <MenuItem value="PARTS_PENDING">Parça bekleniyor</MenuItem>
-              <MenuItem value="PARTIALLY_SUPPLIED">Kısmi tedarik edildi</MenuItem>
-              <MenuItem value="ALL_PARTS_SUPPLIED">Tüm parçalar tedarik edildi</MenuItem>
+              {Object.entries(PART_WORKFLOW_LABELS).map(([value, label]) => (
+                <MenuItem key={value} value={value}>{label}</MenuItem>
+              ))}
             </Select>
           </FormControl>
-        </Box>
-      </Paper>
+        </Stack>
+      </StandardCard>
 
       {loading ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
@@ -359,281 +360,311 @@ export default function ParcaTedarikYonetimiPage() {
           </Typography>
         </Paper>
       ) : (
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-          {workOrders.map((wo) => {
-            const expanded = expandedIds.has(wo.id);
-            const partItemsList = partItems(wo);
-            const partRequestsList = wo.partRequests ?? [];
-            const pendingList = pendingRequests(wo);
+        <>
+          <Stack spacing={3}>
+            {workOrders.map((wo) => {
+              const expanded = expandedIds.has(wo.id);
+              const partItemsList = partItems(wo);
+              const partRequestsList = wo.partRequests ?? [];
+              const pendingList = pendingRequests(wo);
 
-            return (
-              <Card
-                key={wo.id}
-                variant="outlined"
-                sx={{ borderRadius: 'var(--radius)', overflow: 'hidden' }}
-              >
-                <CardHeader
-                  sx={{ py: 1.5, '& .MuiCardHeader-content': { minWidth: 0 } }}
-                  action={
-                    <IconButton onClick={() => toggleExpand(wo.id)} size="small">
-                      {expanded ? <ExpandLess /> : <ExpandMore />}
-                    </IconButton>
-                  }
-                  title={
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
+              return (
+                <StandardCard
+                  key={wo.id}
+                  sx={{
+                    p: 0,
+                    overflow: 'hidden',
+                    border: '1px solid',
+                    borderColor: expanded ? 'primary.light' : 'divider',
+                    transition: 'all 0.2s',
+                    '&:hover': { borderColor: 'primary.main', boxShadow: '0 4px 12px rgba(99, 102, 241, 0.08)' }
+                  }}
+                >
+                  <Box sx={{ p: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between', bgcolor: expanded ? alpha('#6366f1', 0.02) : 'transparent' }}>
+                    <Stack direction="row" spacing={2} alignItems="center" sx={{ flex: 1, minWidth: 0 }}>
                       <Button
                         size="small"
+                        variant="text"
                         startIcon={<Visibility />}
-                        onClick={() => router.push(`/servis/is-emirleri/${wo.id}`)}
-                        sx={{ textTransform: 'none', fontWeight: 600 }}
+                        onClick={() => router.push(`/service/work-orders/${wo.id}`)}
+                        sx={{ textTransform: 'none', fontWeight: 800, color: 'primary.main', fontSize: '0.925rem' }}
                       >
                         {wo.workOrderNo}
                       </Button>
-                      <Typography variant="body2" color="text.secondary">
-                        {wo.customerVehicle
-                          ? `${wo.customerVehicle.plaka} - ${wo.customerVehicle.aracMarka} ${wo.customerVehicle.aracModel}`
-                          : '-'}
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        {wo.cari?.unvan ?? wo.cari?.cariKodu ?? '-'}
-                      </Typography>
-                      <Chip
-                        size="small"
-                        label={`Araç: ${VEHICLE_WORKFLOW_LABELS[(wo as any).vehicleWorkflowStatus as VehicleWorkflowStatus ?? 'WAITING']}`}
-                        color={
-                          (wo as any).vehicleWorkflowStatus === 'IN_PROGRESS'
-                            ? 'info'
-                            : (wo as any).vehicleWorkflowStatus === 'READY'
-                              ? 'success'
-                              : 'default'
-                        }
-                        variant="outlined"
-                      />
-                      <Chip
-                        size="small"
-                        label={`Parça: ${PART_WORKFLOW_LABELS[wo.partWorkflowStatus ?? 'NOT_STARTED']}`}
-                        color={
-                          pendingList.length > 0 ||
-                            wo.partWorkflowStatus === 'PARTS_PENDING' ||
-                            wo.partWorkflowStatus === 'PARTIALLY_SUPPLIED'
-                            ? 'warning'
-                            : wo.partWorkflowStatus === 'ALL_PARTS_SUPPLIED' || wo.partWorkflowStatus === 'PARTS_SUPPLIED_DIRECT'
-                              ? 'success'
-                              : 'default'
-                        }
-                      />
-                      {pendingList.length > 0 && (
+                      <Stack spacing={0.2} sx={{ minWidth: 0 }}>
+                        <Typography variant="body2" fontWeight={700} noWrap>
+                          {wo.customerVehicle
+                            ? `${wo.customerVehicle.plaka} - ${wo.customerVehicle.aracMarka} ${wo.customerVehicle.aracModel}`
+                            : '-'}
+                        </Typography>
+                        <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 500 }} noWrap>
+                          {wo.cari?.unvan ?? wo.cari?.cariKodu ?? '-'}
+                        </Typography>
+                      </Stack>
+                      <Stack direction="row" spacing={1} sx={{ ml: 1 }}>
                         <Chip
                           size="small"
-                          label={`${pendingList.length} talep bekliyor`}
-                          color="warning"
+                          icon={<DirectionsCar sx={{ fontSize: '14px !important' }} />}
+                          label={VEHICLE_WORKFLOW_LABELS[(wo as any).vehicleWorkflowStatus as VehicleWorkflowStatus ?? 'WAITING']}
+                          color={
+                            (wo as any).vehicleWorkflowStatus === 'IN_PROGRESS'
+                              ? 'info'
+                              : (wo as any).vehicleWorkflowStatus === 'READY'
+                                ? 'success'
+                                : 'default'
+                          }
                           variant="outlined"
+                          sx={{ fontWeight: 700, borderRadius: 1.5, height: 24 }}
                         />
-                      )}
-                    </Box>
-                  }
-                />
-                <Collapse in={expanded}>
-                  <CardContent sx={{ pt: 0, borderTop: 1, borderColor: 'divider' }}>
-                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                      {(wo.diagnosisNotes || wo.supplyResponseNotes) && (
+                        <Chip
+                          size="small"
+                          icon={<Inventory2 sx={{ fontSize: '14px !important' }} />}
+                          label={PART_WORKFLOW_LABELS[wo.partWorkflowStatus ?? 'NOT_STARTED']}
+                          color={
+                            pendingList.length > 0 ||
+                              wo.partWorkflowStatus === 'PARTS_PENDING' ||
+                              wo.partWorkflowStatus === 'PARTIALLY_SUPPLIED'
+                              ? 'warning'
+                              : wo.partWorkflowStatus === 'ALL_PARTS_SUPPLIED' || wo.partWorkflowStatus === 'PARTS_SUPPLIED_DIRECT'
+                                ? 'success'
+                                : 'default'
+                          }
+                          sx={{ fontWeight: 700, borderRadius: 1.5, height: 24 }}
+                        />
+                        {pendingList.length > 0 && (
+                          <Chip
+                            size="small"
+                            icon={<Timer sx={{ fontSize: '14px !important' }} />}
+                            label={`${pendingList.length} TALEP`}
+                            color="warning"
+                            variant="contained"
+                            sx={{ fontWeight: 800, borderRadius: 1.5, height: 24 }}
+                          />
+                        )}
+                      </Stack>
+                    </Stack>
+                    <IconButton onClick={() => toggleExpand(wo.id)} size="small" sx={{ ml: 2, bgcolor: alpha('#000', 0.02) }}>
+                      {expanded ? <ExpandLess /> : <ExpandMore />}
+                    </IconButton>
+                  </Box>
+
+                  <Collapse in={expanded}>
+                    <Box sx={{ p: 3, pt: 1, borderTop: '1px solid', borderColor: 'divider' }}>
+                      <Stack spacing={4}>
+                        {/* Teknisyen Yazışması */}
                         <Box>
-                          <Typography variant="subtitle2" sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 1 }}>
-                            Teknisyen – Parça yazışması
+                          <Typography variant="subtitle2" sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2, fontWeight: 800, color: 'text.secondary' }}>
+                            <Message fontSize="small" /> TEKNİSYEN & TEDARİK YAZIŞMASI
                           </Typography>
-                          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, alignItems: 'stretch' }}>
-                            {wo.diagnosisNotes && (
-                              <Paper
-                                variant="outlined"
-                                sx={{
-                                  p: 2,
-                                  bgcolor: 'var(--muted)',
-                                  borderLeft: '4px solid',
-                                  borderLeftColor: 'primary.main',
-                                  borderRadius: 1,
-                                  alignSelf: 'flex-start',
-                                  maxWidth: '85%',
-                                }}
-                              >
-                                <Typography variant="caption" color="text.secondary">Teknisyen isteği (yapılacaklar)</Typography>
-                                <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', mt: 0.5 }}>{wo.diagnosisNotes}</Typography>
-                              </Paper>
-                            )}
-                            {wo.supplyResponseNotes && (
-                              <Paper
-                                variant="outlined"
-                                sx={{
-                                  p: 2,
-                                  bgcolor: 'var(--muted)',
-                                  borderRight: '4px solid',
-                                  borderRightColor: 'grey.400',
-                                  borderRadius: 1,
-                                  alignSelf: 'flex-end',
-                                  maxWidth: '85%',
-                                }}
-                              >
-                                <Typography variant="caption" color="text.secondary">Sizin yanıtınız</Typography>
-                                <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', mt: 0.5 }}>{wo.supplyResponseNotes}</Typography>
-                              </Paper>
-                            )}
-                          </Box>
-                          <Box sx={{ mt: 2 }}>
-                            <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 0.5 }}>Teknisyene yanıt yazın (isteğe göre işleme devam edecek)</Typography>
+
+                          {(wo.diagnosisNotes || wo.supplyResponseNotes) ? (
+                            <Stack spacing={2} sx={{ mb: 3 }}>
+                              {wo.diagnosisNotes && (
+                                <Box sx={{ display: 'flex', justifyContent: 'flex-start' }}>
+                                  <Box sx={{
+                                    p: 2,
+                                    bgcolor: alpha('#6366f1', 0.05),
+                                    borderRadius: '16px 16px 16px 4px',
+                                    border: '1px solid',
+                                    borderColor: alpha('#6366f1', 0.1),
+                                    maxWidth: '85%'
+                                  }}>
+                                    <Typography variant="caption" sx={{ color: 'primary.main', fontWeight: 800, display: 'block', mb: 0.5 }}>TEKNİSYEN İSTEĞİ</Typography>
+                                    <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', fontWeight: 500 }}>{wo.diagnosisNotes}</Typography>
+                                  </Box>
+                                </Box>
+                              )}
+                              {wo.supplyResponseNotes && (
+                                <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+                                  <Box sx={{
+                                    p: 2,
+                                    bgcolor: alpha('#10b981', 0.05),
+                                    borderRadius: '16px 16px 4px 16px',
+                                    border: '1px solid',
+                                    borderColor: alpha('#10b981', 0.1),
+                                    maxWidth: '85%'
+                                  }}>
+                                    <Typography variant="caption" sx={{ color: 'success.main', fontWeight: 800, display: 'block', mb: 0.5 }}>TEDARİK YANITI</Typography>
+                                    <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', fontWeight: 500 }}>{wo.supplyResponseNotes}</Typography>
+                                  </Box>
+                                </Box>
+                              )}
+                            </Stack>
+                          ) : (
+                            <Alert severity="info" sx={{ mb: 2, borderRadius: 2 }}>
+                              Henüz bir yazışma kaydı bulunmuyor.
+                            </Alert>
+                          )}
+
+                          <Box sx={{ mt: 2, p: 2, bgcolor: alpha('#eff6ff', 0.5), borderRadius: 2 }}>
+                            <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 700, display: 'block', mb: 1 }}>TEKNİSYENE YANIT YAZIN</Typography>
                             <TextField
                               fullWidth
                               multiline
-                              rows={3}
+                              rows={2}
                               size="small"
-                              placeholder="Parça durumu, süre veya açıklama yazın..."
+                              placeholder="Parça durumu, tahmini süre veya diğer açıklamaları yazın..."
                               value={responseNotesByWo[wo.id] ?? ''}
                               onChange={(e) => setResponseNotesByWo((prev) => ({ ...prev, [wo.id]: e.target.value }))}
-                              sx={{ mb: 1 }}
+                              sx={{ mb: 1.5, '& .MuiOutlinedInput-root': { bgcolor: 'background.paper', borderRadius: 2 } }}
                             />
                             <Button
                               size="small"
                               variant="contained"
                               disabled={responseSubmittingId === wo.id}
                               onClick={() => handleSendResponse(wo.id)}
-                              startIcon={responseSubmittingId === wo.id ? <CircularProgress size={16} /> : null}
+                              startIcon={responseSubmittingId === wo.id ? <CircularProgress size={16} /> : <Message />}
+                              sx={{ fontWeight: 700, borderRadius: 1.5, px: 3 }}
                             >
                               {responseSubmittingId === wo.id ? 'Gönderiliyor...' : 'Yanıtı Gönder'}
                             </Button>
                           </Box>
                         </Box>
-                      )}
-                      {!wo.diagnosisNotes && !wo.supplyResponseNotes && (wo.status === 'PENDING_APPROVAL' || wo.status === 'WAITING_DIAGNOSIS') && (
+
+                        {/* Eklenen Parçalar */}
                         <Box>
-                          <Typography variant="subtitle2" sx={{ mb: 1 }}>Teknisyen – Parça yazışması</Typography>
-                          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>Teknisyen henüz teşhis/isteğini göndermedi. İş emri detayından &quot;Teşhis ve Ek İşlemler&quot; sekmesinde not alıp onaya gönderebilir.</Typography>
-                          <Button size="small" variant="outlined" startIcon={<Visibility />} onClick={() => router.push(`/servis/is-emirleri/${wo.id}`)}>
-                            İş emrine git
-                          </Button>
+                          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5 }}>
+                            <Typography variant="subtitle2" sx={{ display: 'flex', alignItems: 'center', gap: 1, fontWeight: 800, color: 'text.secondary' }}>
+                              <Assignment fontSize="small" /> İŞ EMRİNE EKLENEN PARÇALAR
+                            </Typography>
+                            <Button
+                              size="small"
+                              startIcon={<Add />}
+                              variant="outlined"
+                              onClick={() => {
+                                setAddPartWorkOrder(wo);
+                                setOpenAddPartDialog(true);
+                              }}
+                              sx={{ fontWeight: 700, borderRadius: 1.5, textTransform: 'none' }}
+                            >
+                              Stoktan Parça Ekle
+                            </Button>
+                          </Box>
+                          <TableContainer sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2 }}>
+                            <Table size="small">
+                              <TableHead sx={{ bgcolor: alpha('#000', 0.02) }}>
+                                <TableRow>
+                                  <TableCell sx={{ fontWeight: 800, py: 1.5 }}>AÇIKLAMA</TableCell>
+                                  <TableCell sx={{ fontWeight: 800, py: 1.5 }}>STOK</TableCell>
+                                  <TableCell sx={{ fontWeight: 800, py: 1.5 }} align="right">MİKTAR</TableCell>
+                                </TableRow>
+                              </TableHead>
+                              <TableBody>
+                                {partItemsList.length === 0 ? (
+                                  <TableRow>
+                                    <TableCell colSpan={3} align="center" sx={{ py: 3, color: 'text.disabled' }}>
+                                      Henüz parça eklenmedi
+                                    </TableCell>
+                                  </TableRow>
+                                ) : (
+                                  partItemsList.map((item) => (
+                                    <TableRow key={item.id} hover sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
+                                      <TableCell sx={{ fontWeight: 600 }}>{item.description}</TableCell>
+                                      <TableCell>
+                                        <Typography variant="body2" color="primary.main" fontWeight={700}>
+                                          {item.stok ? `${item.stok.stokKodu}` : '-'}
+                                        </Typography>
+                                        {item.stok?.stokAdi && (
+                                          <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block' }}>{item.stok.stokAdi}</Typography>
+                                        )}
+                                      </TableCell>
+                                      <TableCell align="right" sx={{ fontWeight: 800 }}>{item.quantity}</TableCell>
+                                    </TableRow>
+                                  ))
+                                )}
+                              </TableBody>
+                            </Table>
+                          </TableContainer>
                         </Box>
-                      )}
-                      <Box>
-                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
-                          <Typography variant="subtitle2" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                            <Assignment fontSize="small" /> İş Emrine Eklenen Parçalar
+
+                        {/* Parça Talepleri */}
+                        <Box>
+                          <Typography variant="subtitle2" sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5, fontWeight: 800, color: 'text.secondary' }}>
+                            <LocalShipping fontSize="small" /> TEKNİSYEN PARÇA TALEPLERİ
                           </Typography>
-                          <Button
-                            size="small"
-                            startIcon={<Add />}
-                            variant="outlined"
-                            onClick={() => {
-                              setAddPartWorkOrder(wo);
-                              setOpenAddPartDialog(true);
-                            }}
-                          >
-                            Stoktan Parça Ekle
-                          </Button>
+                          <TableContainer sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2 }}>
+                            <Table size="small">
+                              <TableHead sx={{ bgcolor: alpha('#000', 0.02) }}>
+                                <TableRow>
+                                  <TableCell sx={{ fontWeight: 800, py: 1.5 }}>AÇIKLAMA</TableCell>
+                                  <TableCell sx={{ fontWeight: 800, py: 1.5 }}>STOK ADAYI</TableCell>
+                                  <TableCell sx={{ fontWeight: 800, py: 1.5 }} align="right">MİKTAR</TableCell>
+                                  <TableCell sx={{ fontWeight: 800, py: 1.5 }}>TALEP EDEN</TableCell>
+                                  <TableCell sx={{ fontWeight: 800, py: 1.5 }}>DURUM</TableCell>
+                                  <TableCell align="right" sx={{ fontWeight: 800, py: 1.5 }}>İŞLEM</TableCell>
+                                </TableRow>
+                              </TableHead>
+                              <TableBody>
+                                {partRequestsList.length === 0 ? (
+                                  <TableRow>
+                                    <TableCell colSpan={6} align="center" sx={{ py: 3, color: 'text.disabled' }}>
+                                      Parça talebi bulunmuyor
+                                    </TableCell>
+                                  </TableRow>
+                                ) : (
+                                  partRequestsList.map((pr) => (
+                                    <TableRow key={pr.id} hover sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
+                                      <TableCell sx={{ fontWeight: 600 }}>{pr.description}</TableCell>
+                                      <TableCell>
+                                        {pr.stok ? (
+                                          <Typography variant="body2" color="primary.main" fontWeight={700}>
+                                            {pr.stok.stokKodu}
+                                          </Typography>
+                                        ) : (
+                                          <Typography variant="caption" color="text.secondary">Stok seçilmedi</Typography>
+                                        )}
+                                      </TableCell>
+                                      <TableCell align="right" sx={{ fontWeight: 800 }}>{pr.requestedQty}</TableCell>
+                                      <TableCell>
+                                        <Typography variant="body2" fontWeight={500}>{pr.requestedByUser?.fullName ?? '-'}</Typography>
+                                      </TableCell>
+                                      <TableCell>
+                                        <PartRequestStatusChip status={pr.status} />
+                                      </TableCell>
+                                      <TableCell align="right">
+                                        {pr.status === 'REQUESTED' && (
+                                          <Button
+                                            size="small"
+                                            variant="contained"
+                                            color="warning"
+                                            startIcon={<LocalShipping />}
+                                            onClick={() => {
+                                              setSupplyPartRequest(pr);
+                                              setOpenSupplyDialog(true);
+                                            }}
+                                            sx={{ fontWeight: 700, borderRadius: 1.5, textTransform: 'none' }}
+                                          >
+                                            Tedarik Et
+                                          </Button>
+                                        )}
+                                      </TableCell>
+                                    </TableRow>
+                                  ))
+                                )}
+                              </TableBody>
+                            </Table>
+                          </TableContainer>
                         </Box>
-                        <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 1 }}>
-                          <Table size="small">
-                            <TableHead>
-                              <TableRow>
-                                <TableCell sx={{ fontWeight: 600 }}>Açıklama</TableCell>
-                                <TableCell sx={{ fontWeight: 600 }}>Stok</TableCell>
-                                <TableCell sx={{ fontWeight: 600 }} align="right">Miktar</TableCell>
-                              </TableRow>
-                            </TableHead>
-                            <TableBody>
-                              {partItemsList.length === 0 ? (
-                                <TableRow>
-                                  <TableCell colSpan={3} align="center" sx={{ py: 2, color: 'text.secondary' }}>
-                                    Henüz parça eklenmedi
-                                  </TableCell>
-                                </TableRow>
-                              ) : (
-                                partItemsList.map((item) => (
-                                  <TableRow key={item.id}>
-                                    <TableCell>{item.description}</TableCell>
-                                    <TableCell>
-                                      {item.stok ? `${item.stok.stokKodu} - ${item.stok.stokAdi}` : '-'}
-                                    </TableCell>
-                                    <TableCell align="right">{item.quantity}</TableCell>
-                                  </TableRow>
-                                ))
-                              )}
-                            </TableBody>
-                          </Table>
-                        </TableContainer>
-                      </Box>
-
-                      <Box>
-                        <Typography variant="subtitle2" sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 1 }}>
-                          <LocalShipping fontSize="small" /> Teknisyen Parça Talepleri
-                        </Typography>
-                        <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 1 }}>
-                          <Table size="small">
-                            <TableHead>
-                              <TableRow>
-                                <TableCell sx={{ fontWeight: 600 }}>Açıklama</TableCell>
-                                <TableCell sx={{ fontWeight: 600 }}>Stok</TableCell>
-                                <TableCell sx={{ fontWeight: 600 }} align="right">Miktar</TableCell>
-                                <TableCell sx={{ fontWeight: 600 }}>Talep Eden</TableCell>
-                                <TableCell sx={{ fontWeight: 600 }}>Durum</TableCell>
-                                <TableCell align="right" sx={{ fontWeight: 600 }}>İşlem</TableCell>
-                              </TableRow>
-                            </TableHead>
-                            <TableBody>
-                              {partRequestsList.length === 0 ? (
-                                <TableRow>
-                                  <TableCell colSpan={6} align="center" sx={{ py: 2, color: 'text.secondary' }}>
-                                    Parça talebi bulunmuyor
-                                  </TableCell>
-                                </TableRow>
-                              ) : (
-                                partRequestsList.map((pr) => (
-                                  <TableRow key={pr.id}>
-                                    <TableCell>{pr.description}</TableCell>
-                                    <TableCell>
-                                      {pr.stok ? `${pr.stok.stokKodu} - ${pr.stok.stokAdi}` : '-'}
-                                    </TableCell>
-                                    <TableCell align="right">{pr.requestedQty}</TableCell>
-                                    <TableCell>{pr.requestedByUser?.fullName ?? '-'}</TableCell>
-                                    <TableCell>
-                                      <PartRequestStatusChip status={pr.status} />
-                                    </TableCell>
-                                    <TableCell align="right">
-                                      {pr.status === 'REQUESTED' && (
-                                        <Button
-                                          size="small"
-                                          variant="contained"
-                                          startIcon={<LocalShipping />}
-                                          onClick={() => {
-                                            setSupplyPartRequest(pr);
-                                            setOpenSupplyDialog(true);
-                                          }}
-                                        >
-                                          Tedarik Et
-                                        </Button>
-                                      )}
-                                    </TableCell>
-                                  </TableRow>
-                                ))
-                              )}
-                            </TableBody>
-                          </Table>
-                        </TableContainer>
-                      </Box>
+                      </Stack>
                     </Box>
-                  </CardContent>
-                </Collapse>
-              </Card>
-            );
-          })}
-
+                  </Collapse>
+                </StandardCard>
+              );
+            })}
+          </Stack>
           {totalPages > 1 && (
-            <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4, mb: 2 }}>
               <Pagination
                 count={totalPages}
                 page={page}
-                onChange={(_, p) => setPage(p)}
+                onChange={(_, p: number) => setPage(p)}
                 color="primary"
+                size="large"
+                sx={{ '& .MuiPaginationItem-root': { fontWeight: 700 } }}
               />
             </Box>
           )}
-        </Box>
+        </>
       )}
 
       <SupplyPartRequestDialog
@@ -662,13 +693,18 @@ export default function ParcaTedarikYonetimiPage() {
       <Snackbar
         open={snackbar.open}
         autoHideDuration={4000}
-        onClose={() => setSnackbar((p) => ({ ...p, open: false }))}
+        onClose={() => setSnackbar((p: any) => ({ ...p, open: false }))}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
       >
-        <Alert severity={snackbar.severity} onClose={() => setSnackbar((p) => ({ ...p, open: false }))}>
+        <Alert
+          severity={snackbar.severity}
+          onClose={() => setSnackbar((p: any) => ({ ...p, open: false }))}
+          variant="filled"
+          sx={{ borderRadius: 2, fontWeight: 600 }}
+        >
           {snackbar.message}
         </Alert>
       </Snackbar>
-    </>
+    </StandardPage>
   );
 }

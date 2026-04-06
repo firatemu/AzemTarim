@@ -7,6 +7,7 @@ import { B2bAdminAdvertisementsController } from './b2b-admin-advertisements.con
 import { B2bAdminCustomerClassesController } from './b2b-admin-customer-classes.controller';
 import { B2bAdminCustomersController } from './b2b-admin-customers.controller';
 import { B2bAdminDeliveryMethodsController } from './b2b-admin-delivery-methods.controller';
+import { B2bAdminDiscountGroupsController } from './b2b-admin-discount-groups.controller';
 import { B2bAdminDiscountsController } from './b2b-admin-discounts.controller';
 import { B2bAdminOrdersController } from './b2b-admin-orders.controller';
 import { B2bAdminProductsController } from './b2b-admin-products.controller';
@@ -18,6 +19,7 @@ import { B2bAdminCustomerClassService } from './services/b2b-admin-customer-clas
 import { B2bAdminCustomerService } from './services/b2b-admin-customer.service';
 import { B2bAdminDeliveryService } from './services/b2b-admin-delivery.service';
 import { B2bAdminDiscountService } from './services/b2b-admin-discount.service';
+import { B2bAdminDiscountGroupService } from './services/b2b-admin-discount-group.service';
 import { B2bAdminOrderService } from './services/b2b-admin-order.service';
 import { B2bAdminProductService } from './services/b2b-admin-product.service';
 import { B2bAdminReportService } from './services/b2b-admin-report.service';
@@ -31,6 +33,7 @@ import { B2BSchemaProvisioningService } from './services/b2b-schema-provisioning
     B2bAdminSettingsController,
     B2bAdminCustomersController,
     B2bAdminCustomerClassesController,
+    B2bAdminDiscountGroupsController,
     B2bAdminSalespersonsController,
     B2bAdminProductsController,
     B2bAdminDiscountsController,
@@ -45,6 +48,7 @@ import { B2BSchemaProvisioningService } from './services/b2b-schema-provisioning
     B2BSchemaProvisioningService,
     B2bAdminCustomerService,
     B2bAdminCustomerClassService,
+    B2bAdminDiscountGroupService,
     B2bAdminSalespersonService,
     B2bAdminProductService,
     B2bAdminDiscountService,

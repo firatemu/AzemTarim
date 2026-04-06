@@ -1,21 +1,36 @@
 'use client';
 
 import React, { useMemo } from 'react';
-import { Box, Card, CardContent, Typography, Grid, Table, TableBody, TableCell, TableHead, TableRow, LinearProgress, Chip } from '@mui/material';
+import {
+    Box,
+    Typography,
+    Grid,
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableRow,
+    LinearProgress,
+    Chip,
+    alpha,
+    useTheme
+} from '@mui/material';
 import { useChecks } from '@/hooks/use-checks';
 import { CheckBillStatus } from '@/types/check-bill';
 import { STATUS_LABEL, STATUS_MUI_COLOR } from '@/lib/labels';
 import { formatAmount } from '@/lib/format';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip, Legend } from 'recharts';
+import StandardCard from '@/components/common/StandardCard';
 
 export default function ReportPortfolioClient() {
-    const { data: checks, isLoading } = useChecks();
+    const theme = useTheme();
+    const { data: checksList, isLoading } = useChecks();
+    const checks = checksList?.items ?? [];
 
     const chartData = useMemo(() => {
-        if (!checks) return [];
+        if (!checks.length) return [];
 
         const grouped = checks.reduce((acc, curr) => {
-            // Aggregate by status (IN_PORTFOLIO, COLLECTED, etc.)
             const status = curr.status;
             if (!acc[status]) {
                 acc[status] = { status, count: 0, amount: 0 };
@@ -26,127 +41,141 @@ export default function ReportPortfolioClient() {
         }, {} as Record<string, { status: CheckBillStatus; count: number; amount: number }>);
 
         const dataArray = Object.values(grouped).sort((a, b) => b.amount - a.amount);
-
-        // Total calculation for percentage
         const totalAmount = dataArray.reduce((sum, item) => sum + item.amount, 0);
 
         return dataArray.map(item => ({
             ...item,
             label: STATUS_LABEL[item.status],
-            color: getThemeColorByName(STATUS_MUI_COLOR[item.status]),
+            color: getThemeColorByName(STATUS_MUI_COLOR[item.status], theme),
             percentage: totalAmount > 0 ? (item.amount / totalAmount) * 100 : 0
         }));
 
-    }, [checks]);
+    }, [checks, theme]);
 
     const totalPortfolioAmount = chartData.reduce((sum, d) => sum + d.amount, 0);
 
-    if (isLoading) return <Typography>Rapor yükleniyor...</Typography>;
-    if (!checks || checks.length === 0) return <Typography>Raporlanacak kayıt bulunamadı.</Typography>;
+    if (isLoading) return (
+        <Box sx={{ display: 'flex', justifyContent: 'center', p: 8 }}>
+            <Typography variant="body2" sx={{ fontWeight: 700, color: 'text.secondary' }}>Rapor yükleniyor...</Typography>
+        </Box>
+    );
+
+    if (!checks || checks.length === 0) return (
+        <StandardCard title="Bilgi">
+            <Typography variant="body2" sx={{ color: 'text.secondary', fontWeight: 500 }}>
+                Raporlanacak kayıt bulunamadı.
+            </Typography>
+        </StandardCard>
+    );
 
     return (
         <Grid container spacing={3}>
             <Grid size={{ xs: 12, md: 5 }}>
-                <Card variant="outlined" sx={{ height: '100%' }}>
-                    <CardContent>
-                        <Typography variant="h6" gutterBottom>Portföy Dağılımı</Typography>
-                        <Box sx={{ height: 400, width: '100%', position: 'relative' }}>
-                            <ResponsiveContainer width="100%" height="100%">
-                                <PieChart>
-                                    <Pie
-                                        data={chartData}
-                                        dataKey="amount"
-                                        nameKey="label"
-                                        cx="50%"
-                                        cy="50%"
-                                        innerRadius={80}
-                                        outerRadius={140}
-                                        stroke="none"
-                                    >
-                                        {chartData.map((entry, index) => (
-                                            <Cell key={`cell-${index}`} fill={entry.color} />
-                                        ))}
-                                    </Pie>
-                                    <RechartsTooltip
-                                        formatter={(value: number) => formatAmount(value)}
-                                        contentStyle={{ borderRadius: 8, borderColor: '#e0e0e0' }}
-                                    />
-                                    <Legend verticalAlign="bottom" height={36} />
-                                </PieChart>
-                            </ResponsiveContainer>
-                            <Box
-                                position="absolute"
-                                top="45%"
-                                left="0"
-                                width="100%"
-                                textAlign="center"
-                                sx={{ pointerEvents: 'none' }}
-                            >
-                                <Typography variant="body2" color="text.secondary">Toplam Hacim</Typography>
-                                <Typography variant="h6" fontWeight="bold">{formatAmount(totalPortfolioAmount)}</Typography>
-                            </Box>
+                <StandardCard title="Portföy Dağılımı" sx={{ height: '100%' }}>
+                    <Box sx={{ height: 400, width: '100%', position: 'relative', mt: 2 }}>
+                        <ResponsiveContainer width="100%" height="100%">
+                            <PieChart>
+                                <Pie
+                                    data={chartData}
+                                    dataKey="amount"
+                                    nameKey="label"
+                                    cx="50%"
+                                    cy="50%"
+                                    innerRadius={80}
+                                    outerRadius={140}
+                                    stroke="none"
+                                >
+                                    {chartData.map((entry, index) => (
+                                        <Cell key={`cell-${index}`} fill={entry.color} />
+                                    ))}
+                                </Pie>
+                                <RechartsTooltip
+                                    formatter={(value: number) => formatAmount(value)}
+                                    contentStyle={{
+                                        borderRadius: 12,
+                                        border: '1px solid var(--border)',
+                                        backgroundColor: 'var(--card)',
+                                        color: 'var(--foreground)',
+                                        boxShadow: 'var(--shadow-lg)'
+                                    }}
+                                />
+                                <Legend
+                                    verticalAlign="bottom"
+                                    height={36}
+                                    formatter={(value: string) => <span style={{ fontWeight: 700, fontSize: 12, color: 'var(--muted-foreground)' }}>{value.toUpperCase()}</span>}
+                                />
+                            </PieChart>
+                        </ResponsiveContainer>
+                        <Box
+                            position="absolute"
+                            top="45%"
+                            left="0"
+                            width="100%"
+                            textAlign="center"
+                            sx={{ pointerEvents: 'none' }}
+                        >
+                            <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 800, letterSpacing: 1 }}>TOPLAM HACİM</Typography>
+                            <Typography variant="h5" sx={{ fontWeight: 900, color: 'primary.main', mt: 0.5 }}>{formatAmount(totalPortfolioAmount)}</Typography>
                         </Box>
-                    </CardContent>
-                </Card>
+                    </Box>
+                </StandardCard>
             </Grid>
 
             <Grid size={{ xs: 12, md: 7 }}>
-                <Card variant="outlined" sx={{ height: '100%' }}>
-                    <CardContent>
-                        <Typography variant="h6" gutterBottom>Durum Dağılım Tablosu</Typography>
-                        <Table size="small">
-                            <TableHead>
-                                <TableRow>
-                                    <TableCell>Durum</TableCell>
-                                    <TableCell align="center">Evrak Sayısı</TableCell>
-                                    <TableCell align="right">Toplam Tutar</TableCell>
-                                    <TableCell width="25%">Oran</TableCell>
-                                </TableRow>
-                            </TableHead>
-                            <TableBody>
-                                {chartData.map((row) => (
-                                    <TableRow key={row.status}>
-                                        <TableCell>
-                                            <Chip
-                                                label={row.label}
-                                                size="small"
-                                                color={STATUS_MUI_COLOR[row.status] || 'default'}
-                                                variant="outlined"
+                <StandardCard title="Durum Dağılım Tablosu" sx={{ height: '100%' }}>
+                    <Table size="medium" sx={{ mt: 1 }}>
+                        <TableHead sx={{ bgcolor: alpha(theme.palette.primary.main, 0.04) }}>
+                            <TableRow>
+                                <TableCell sx={{ fontWeight: 900, color: 'text.secondary', fontSize: '0.75rem', letterSpacing: 1 }}>DURUM</TableCell>
+                                <TableCell align="center" sx={{ fontWeight: 900, color: 'text.secondary', fontSize: '0.75rem', letterSpacing: 1 }}>EVRAK SAYISI</TableCell>
+                                <TableCell align="right" sx={{ fontWeight: 900, color: 'text.secondary', fontSize: '0.75rem', letterSpacing: 1 }}>TOPLAM TUTAR</TableCell>
+                                <TableCell width="25%" sx={{ fontWeight: 900, color: 'text.secondary', fontSize: '0.75rem', letterSpacing: 1 }}>ORAN</TableCell>
+                            </TableRow>
+                        </TableHead>
+                        <TableBody>
+                            {chartData.map((row) => (
+                                <TableRow key={row.status} hover>
+                                    <TableCell>
+                                        <Chip
+                                            label={row.label}
+                                            size="small"
+                                            color={STATUS_MUI_COLOR[row.status] || 'default'}
+                                            variant="outlined"
+                                            sx={{ fontWeight: 800, borderRadius: 1.5 }}
+                                        />
+                                    </TableCell>
+                                    <TableCell align="center" sx={{ fontWeight: 800 }}>{row.count}</TableCell>
+                                    <TableCell align="right" sx={{ fontWeight: 900, fontFamily: 'monospace' }}>{formatAmount(row.amount)}</TableCell>
+                                    <TableCell>
+                                        <Box display="flex" alignItems="center" gap={1.5}>
+                                            <LinearProgress
+                                                variant="determinate"
+                                                value={row.percentage}
+                                                color={STATUS_MUI_COLOR[row.status] === 'default' ? 'inherit' : STATUS_MUI_COLOR[row.status] as any}
+                                                sx={{ flexGrow: 1, borderRadius: 4, height: 6, opacity: 0.8 }}
                                             />
-                                        </TableCell>
-                                        <TableCell align="center">{row.count}</TableCell>
-                                        <TableCell align="right">{formatAmount(row.amount)}</TableCell>
-                                        <TableCell>
-                                            <Box display="flex" alignItems="center" gap={1}>
-                                                <LinearProgress
-                                                    variant="determinate"
-                                                    value={row.percentage}
-                                                    color={STATUS_MUI_COLOR[row.status] === 'default' ? 'inherit' : STATUS_MUI_COLOR[row.status] as any}
-                                                    sx={{ flexGrow: 1, borderRadius: 4, height: 6 }}
-                                                />
-                                                <Typography variant="caption">{row.percentage.toFixed(1)}%</Typography>
-                                            </Box>
-                                        </TableCell>
-                                    </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
-                    </CardContent>
-                </Card>
+                                            <Typography variant="caption" sx={{ fontWeight: 800, minWidth: 40, textAlign: 'right' }}>{row.percentage.toFixed(1)}%</Typography>
+                                        </Box>
+                                    </TableCell>
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
+                </StandardCard>
             </Grid>
         </Grid>
     );
 }
 
-// Minimal helper to get actual hex value for pie chart colors matching MUI variants
-function getThemeColorByName(colorName: string): string {
+// Helper to get theme colors
+function getThemeColorByName(colorName: string, theme: any): string {
     switch (colorName) {
-        case 'primary': return '#3f51b5';
-        case 'secondary': return '#f50057';
-        case 'success': return '#4caf50';
-        case 'error': return '#f44336';
-        case 'warning': return '#ff9800';
-        case 'info': return '#2196f3';
-        default: return '#9e9e9e';
+        case 'primary': return theme.palette.primary.main;
+        case 'secondary': return theme.palette.secondary.main;
+        case 'success': return theme.palette.success.main;
+        case 'error': return theme.palette.error.main;
+        case 'warning': return theme.palette.warning.main;
+        case 'info': return theme.palette.info.main;
+        default: return theme.palette.grey[500];
     }
 }

@@ -2,32 +2,32 @@
 
 export const dynamic = 'force-dynamic';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
-  Card,
   TextField,
   Button,
   Typography,
   Alert,
   InputAdornment,
   IconButton,
-  Fade,
-  Stack,
   Checkbox,
   FormControlLabel,
-  Link,
   CircularProgress,
+  Link,
+  Divider,
+  Grid,
 } from '@mui/material';
 import {
   Person,
   Lock,
   Visibility,
   VisibilityOff,
-  LoginOutlined,
-  AccountBalance,
-  TrendingUp,
-  CloudDone,
+  ArrowForwardRounded,
+  BusinessCenter,
+  Assessment,
+  Settings,
+  Support,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/stores/authStore';
@@ -41,53 +41,13 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [mounted, setMounted] = useState(false);
-  const [currentSlide, setCurrentSlide] = useState(0);
-
-  // 3D Tilt state
-  const [rotate, setRotate] = useState({ x: 0, y: 0 });
-  const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
-
-  // Magnetic button state
-  const buttonRef = useRef<HTMLButtonElement>(null);
-  const [buttonTranslate, setButtonTranslate] = useState({ x: 0, y: 0 });
 
   const router = useRouter();
   const setAuth = useAuthStore((s) => s.setAuth);
 
-  // Content slides
-  const slides = [
-    {
-      title: 'Kurumsal Kaynak Planlama',
-      description: 'Stok, fatura, cari ve çok daha fazlası - tek bir platformda',
-      icon: <AccountBalance sx={{ fontSize: 48, color: '#FFFFFF' }} />,
-      gradient: 'linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%)',
-    },
-    {
-      title: 'Gerçek Zamanlı Analitik',
-      description: 'Anlık raporlama ve dashboard ile kararlarınızı güçlendirin',
-      icon: <TrendingUp sx={{ fontSize: 48, color: '#FFFFFF' }} />,
-      gradient: 'linear-gradient(135deg, #14b8a6 0%, #0d9488 100%)',
-    },
-    {
-      title: 'Mobil Uyumlu',
-      description: 'Her yerden erişim ile işletmenizi yönetiminizi kesintisiz sürdürün',
-      icon: <CloudDone sx={{ fontSize: 48, color: '#FFFFFF' }} />,
-      gradient: 'linear-gradient(135deg, #059669 0%, #047857 100%)',
-    },
-  ];
-
   useEffect(() => {
     setMounted(true);
   }, []);
-
-  // Auto-rotate slides
-  useEffect(() => {
-    if (!mounted) return;
-    const timer = setInterval(() => {
-      setCurrentSlide((prev) => (prev + 1) % slides.length);
-    }, 5000);
-    return () => clearInterval(timer);
-  }, [mounted]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -138,42 +98,12 @@ export default function LoginPage() {
     }
   };
 
-  const handleCardMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    const centerX = rect.width / 2;
-    const centerY = rect.height / 2;
-    const rotateX = (y - centerY) / 20;
-    const rotateY = (centerX - x) / 20;
-    setRotate({ x: rotateX, y: rotateY });
-
-    // Update mouse position for spotlight
-    setMousePosition({ x, y });
-  };
-
-  const handleCardMouseLeave = () => {
-    setRotate({ x: 0, y: 0 });
-  };
-
-  const handleButtonMouseMove = (e: React.MouseEvent<HTMLButtonElement>) => {
-    if (!buttonRef.current) return;
-    const rect = buttonRef.current.getBoundingClientRect();
-    const x = e.clientX - rect.left - rect.width / 2;
-    const y = e.clientY - rect.top - rect.height / 2;
-    setButtonTranslate({ x: x * 0.2, y: y * 0.2 });
-  };
-
-  const handleButtonMouseLeave = () => {
-    setButtonTranslate({ x: 0, y: 0 });
-  };
-
   if (!mounted) {
     return (
       <Box
         sx={{
           minHeight: '100vh',
-          bgcolor: 'rgb(30, 58, 138)',
+          bgcolor: '#0F172A',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -182,540 +112,588 @@ export default function LoginPage() {
     );
   }
 
+  const features = [
+    { icon: <BusinessCenter />, title: 'Fatura Yönetimi', desc: 'E-Fatura ve E-İrsaliye entegrasyonu' },
+    { icon: <Assessment />, title: 'Raporlama', desc: 'Detaylı finansal raporlar ve analizler' },
+    { icon: <Settings />, title: 'Stok Takibi', desc: 'Gerçek zamanlı envanter yönetimi' },
+    { icon: <Support />, title: '7/24 Destek', desc: 'Uzman ekibimizle her zaman yanınızdayız' },
+  ];
+
   return (
     <Box
       sx={{
         minHeight: '100vh',
         display: 'flex',
-        flexDirection: { xs: 'column', md: 'row' },
-        bgcolor: 'rgb(30, 58, 138)',
-        position: 'relative',
-        overflow: 'hidden',
+        bgcolor: '#F8FAFC',
       }}
     >
-      {/* Animated Gradient Mesh Background */}
-      <Box
-        aria-hidden
-        sx={{
-          position: 'absolute',
-          inset: 0,
-          zIndex: 0,
-          pointerEvents: 'none',
-          background: `
-            radial-gradient(at 40% 20%, hsla(228, 89%, 56%, 0.25) 0px, transparent 50%),
-            radial-gradient(at 80% 0%, hsla(189, 100%, 56%, 0.25) 0px, transparent 50%),
-            radial-gradient(at 0% 50%, hsla(355, 85%, 63%, 0.15) 0px, transparent 50%),
-            radial-gradient(at 80% 50%, hsla(340, 100%, 76%, 0.15) 0px, transparent 50%),
-            radial-gradient(at 0% 100%, hsla(269, 100%, 77%, 0.25) 0px, transparent 50%),
-            radial-gradient(at 80% 100%, hsla(225, 100%, 77%, 0.25) 0px, transparent 50%)
-          `,
-          animation: 'meshMove 20s linear infinite',
-          '@keyframes meshMove': {
-            '0%': { backgroundPosition: '0% 0%, 0% 0%, 0% 0%, 0% 0%, 0% 0%, 0% 0%' },
-            '50%': { backgroundPosition: '100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%, 100% 100%' },
-            '100%': { backgroundPosition: '0% 0%, 0% 0%, 0% 0%, 0% 0%, 0% 0%, 0% 0%' },
-          },
-        }}
-      />
-
-      {/* Floating Orbs */}
-      {[...Array(6)].map((_, i) => (
-        <Box
-          key={i}
-          aria-hidden
-          sx={{
-            position: 'absolute',
-            width: [300, 250, 200, 180, 150, 120][i],
-            height: [300, 250, 200, 180, 150, 120][i],
-            borderRadius: '50%',
-            top: `${[10, 20, 60, 70, 30, 80][i]}%`,
-            left: `${[80, 15, 70, 20, 60, 85][i]}%`,
-            opacity: [0.08, 0.06, 0.07, 0.05, 0.06, 0.08][i],
-            background: [
-              'radial-gradient(circle, rgba(14, 165, 233, 0.4), transparent)',
-              'radial-gradient(circle, rgba(20, 184, 166, 0.4), transparent)',
-              'radial-gradient(circle, rgba(5, 150, 105, 0.4), transparent)',
-              'radial-gradient(circle, rgba(6, 182, 212, 0.4), transparent)',
-              'radial-gradient(circle, rgba(2, 132, 199, 0.4), transparent)',
-              'radial-gradient(circle, rgba(13, 148, 136, 0.4), transparent)',
-            ][i],
-            filter: 'blur(40px)',
-            zIndex: 0,
-            pointerEvents: 'none',
-            animation: `float ${[25, 30, 20, 28, 22, 26][i]}s ease-in-out infinite`,
-            animationDelay: `${i * 2}s`,
-            '@keyframes float': {
-              '0%, 100%': {
-                transform: 'translate(0, 0) scale(1)',
-              },
-              '33%': {
-                transform: 'translate(30px, -30px) scale(1.05)',
-              },
-              '66%': {
-                transform: 'translate(-20px, 20px) scale(0.95)',
-              },
-            },
-          }}
-        />
-      ))}
-
-      {/* Sol Panel - Content Slider */}
+      {/* Sol Panel - Kurumsal Banner */}
       <Box
         sx={{
-          display: { xs: 'none', md: 'flex' },
-          flexDirection: 'column',
-          justifyContent: 'center',
-          alignItems: 'center',
-          flex: '0 0 45%',
-          maxWidth: 600,
-          px: { md: 6, lg: 10 },
-          py: 6,
+          display: { xs: 'none', lg: 'flex' },
+          flex: '0 0 48%',
+          bgcolor: 'linear-gradient(135deg, #1E293B 0%, #0F172A 100%)',
           position: 'relative',
-          zIndex: 1,
+          overflow: 'hidden',
         }}
       >
-        <Fade in={true} key={currentSlide} timeout={800}>
-          <Stack spacing={4} alignItems="center">
-            {/* Animated Icon Box */}
-            <Box
-              sx={{
-                p: 4,
-                borderRadius: '28px',
-                background: slides[currentSlide].gradient,
-                boxShadow: `0 20px 60px ${slides[currentSlide].gradient.split(', ')[1].replace(')', ', 0.3)')}`,
-                animation: 'iconFloat 4s ease-in-out infinite',
-                '@keyframes iconFloat': {
-                  '0%, 100%': { transform: 'translateY(0) scale(1)' },
-                  '50%': { transform: 'translateY(-10px) scale(1.02)' },
-                },
-              }}
-            >
-              {slides[currentSlide].icon}
-            </Box>
+        {/* Background Pattern */}
+        <Box
+          sx={{
+            position: 'absolute',
+            inset: 0,
+            opacity: 0.03,
+            backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
+          }}
+        />
 
-            {/* Slide Content */}
-            <Stack spacing={2} alignItems="center" textAlign="center">
-              <Typography
-                variant="h3"
+        {/* Gradient Overlay */}
+        <Box
+          sx={{
+            position: 'absolute',
+            inset: 0,
+            background: 'linear-gradient(180deg, rgba(15, 23, 42, 0.8) 0%, rgba(30, 41, 59, 0.4) 100%)',
+          }}
+        />
+
+        {/* Content */}
+        <Box
+          sx={{
+            position: 'relative',
+            zIndex: 1,
+            p: { lg: 5, xl: 6 },
+            height: '100%',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'space-between',
+          }}
+        >
+          {/* Logo & Title */}
+          <Box>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
+              <Box
                 sx={{
-                  fontWeight: 800,
-                  color: '#FFFFFF',
-                  letterSpacing: '-0.03em',
-                  textShadow: '0 4px 20px rgba(0, 0, 0, 0.3)',
+                  width: 42,
+                  height: 42,
+                  bgcolor: '#3B82F6',
+                  borderRadius: 2,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  boxShadow: '0 8px 24px rgba(59, 130, 246, 0.3)',
                 }}
               >
-                {slides[currentSlide].title}
-              </Typography>
+                <Typography variant="h6" sx={{ color: '#fff', fontWeight: 700 }}>
+                  Ö
+                </Typography>
+              </Box>
               <Typography
                 variant="h6"
                 sx={{
-                  color: 'rgba(255, 255, 255, 0.9)',
-                  fontWeight: 400,
-                  maxWidth: 400,
-                  lineHeight: 1.6,
+                  color: '#FFFFFF',
+                  fontWeight: 700,
+                  letterSpacing: '-0.02em',
                 }}
               >
-                {slides[currentSlide].description}
+                OtoMuhasebe
               </Typography>
-            </Stack>
+            </Box>
 
-            {/* Slide Indicators */}
-            <Stack direction="row" spacing={1.5}>
-              {slides.map((_, index) => (
-                <Box
-                  key={index}
-                  sx={{
-                    width: index === currentSlide ? 24 : 8,
-                    height: 8,
-                    borderRadius: '4px',
-                    background: index === currentSlide ? '#FFFFFF' : 'rgba(255, 255, 255, 0.3)',
-                    transition: 'all 0.3s ease',
-                    cursor: 'pointer',
-                    '&:hover': {
-                      background: 'rgba(255, 255, 255, 0.6)',
-                    },
-                  }}
-                  onClick={() => setCurrentSlide(index)}
-                />
+            <Typography
+              variant="h4"
+              sx={{
+                color: '#FFFFFF',
+                fontWeight: 700,
+                fontSize: '1.75rem',
+                lineHeight: 1.2,
+                mb: 2,
+                letterSpacing: '-0.02em',
+              }}
+            >
+              Kurumsal
+              <br />
+              <Box component="span" sx={{ color: '#3B82F6' }}>
+                Çözümler
+              </Box>
+              <br />
+              Platformu
+            </Typography>
+
+            <Typography
+              variant="body2"
+              sx={{
+                color: 'rgba(255, 255, 255, 0.7)',
+                fontSize: '0.875rem',
+                lineHeight: 1.6,
+                maxWidth: 320,
+              }}
+            >
+              Türkiye'nin en kapsamlı ERP çözümü ile işletmenizi dijital geleceğe taşıyın.
+            </Typography>
+          </Box>
+
+          {/* Feature Cards */}
+          <Box sx={{ mt: 5 }}>
+            <Grid container spacing={2}>
+              {features.map((feature, index) => (
+                <Grid item xs={6} key={index}>
+                  <Box
+                    sx={{
+                      p: 2,
+                      bgcolor: 'rgba(255, 255, 255, 0.05)',
+                      backdropFilter: 'blur(10px)',
+                      borderRadius: 2,
+                      border: '1px solid rgba(255, 255, 255, 0.1)',
+                      transition: 'all 0.3s ease',
+                      '&:hover': {
+                        bgcolor: 'rgba(255, 255, 255, 0.1)',
+                        transform: 'translateY(-2px)',
+                        borderColor: 'rgba(59, 130, 246, 0.3)',
+                      },
+                    }}
+                  >
+                    <Box
+                      sx={{
+                        width: 32,
+                        height: 32,
+                        borderRadius: 1.5,
+                        bgcolor: 'rgba(59, 130, 246, 0.2)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        mb: 1.5,
+                        color: '#3B82F6',
+                      }}
+                    >
+                      {feature.icon}
+                    </Box>
+                    <Typography
+                      variant="caption"
+                      sx={{
+                        color: '#FFFFFF',
+                        fontWeight: 600,
+                        mb: 0.5,
+                        fontSize: '0.8rem',
+                        display: 'block',
+                      }}
+                    >
+                      {feature.title}
+                    </Typography>
+                    <Typography
+                      variant="caption"
+                      sx={{
+                        color: 'rgba(255, 255, 255, 0.5)',
+                        lineHeight: 1.4,
+                        display: 'block',
+                        fontSize: '0.7rem',
+                      }}
+                    >
+                      {feature.desc}
+                    </Typography>
+                  </Box>
+                </Grid>
               ))}
-            </Stack>
-          </Stack>
-        </Fade>
+            </Grid>
+          </Box>
+
+          {/* Bottom Info */}
+          <Box
+            sx={{
+              pt: 3,
+              borderTop: '1px solid rgba(255, 255, 255, 0.1)',
+            }}
+          >
+            <Typography
+              variant="caption"
+              sx={{
+                color: 'rgba(255, 255, 255, 0.4)',
+                display: 'block',
+                mb: 0.5,
+                fontSize: '0.7rem',
+              }}
+            >
+              Güvenli bağlantı · 256-bit SSL şifreleme
+            </Typography>
+            <Typography
+              variant="caption"
+              sx={{ color: 'rgba(255, 255, 255, 0.4)', fontSize: '0.7rem' }}
+            >
+              © {new Date().getFullYear()} OtoMuhasebe ERP
+            </Typography>
+          </Box>
+        </Box>
       </Box>
 
-      {/* Sağ Panel - Glass Form Card */}
+      {/* Sağ Panel - Login Form */}
       <Box
         sx={{
           flex: 1,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          px: { xs: 2, sm: 3 },
-          py: { xs: 4, md: 6 },
+          p: { xs: 2, sm: 3, md: 4 },
           position: 'relative',
-          zIndex: 1,
         }}
       >
-        <Fade in={mounted} timeout={600}>
-          <Card
-            elevation={0}
-            onMouseMove={handleCardMouseMove}
-            onMouseLeave={handleCardMouseLeave}
+        {/* Mobile Logo */}
+        <Box
+          sx={{
+            display: { lg: 'none' },
+            position: 'absolute',
+            top: 24,
+            left: 24,
+            alignItems: 'center',
+            gap: 2,
+          }}
+        >
+          <Box
             sx={{
-              width: '100%',
-              maxWidth: 440,
-              borderRadius: '24px',
-              background: 'rgba(255, 255, 255, 0.12)',
-              backdropFilter: 'blur(24px)',
-              border: '1px solid rgba(255, 255, 255, 0.25)',
-              boxShadow: `
-                0 8px 32px rgba(0, 0, 0, 0.15),
-                inset 0 1px 0 rgba(255, 255, 255, 0.3)
-              `,
-              overflow: 'visible',
-              transform: `perspective(1000px) rotateX(${rotate.x}deg) rotateY(${rotate.y}deg)`,
-              transition: 'transform 0.15s ease-out',
-              position: 'relative',
-              '&::before': {
-                content: '""',
-                position: 'absolute',
-                inset: 0,
-                borderRadius: '24px',
-                background: `radial-gradient(600px circle at ${mousePosition.x}px ${mousePosition.y}px, rgba(255, 255, 255, 0.15), transparent 40%)`,
-                pointerEvents: 'none',
-                opacity: 0.6,
-              },
+              width: 40,
+              height: 40,
+              bgcolor: '#3B82F6',
+              borderRadius: 2,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
             }}
           >
-            <Box sx={{ p: { xs: 3, sm: 4 } }}>
-              {/* Header */}
-              <Stack spacing={1} sx={{ mb: 4 }}>
+            <Typography variant="h6" sx={{ color: '#fff', fontWeight: 700 }}>
+              Ö
+            </Typography>
+          </Box>
+          <Typography
+            variant="h6"
+            sx={{
+              color: '#1E293B',
+              fontWeight: 700,
+            }}
+          >
+            OtoMuhasebe
+          </Typography>
+        </Box>
+
+        {/* Form Container */}
+        <Box
+          sx={{
+            width: '100%',
+            maxWidth: 380,
+          }}
+        >
+          {/* Header */}
+          <Box sx={{ mb: 4 }}>
+            <Typography
+              variant="h5"
+              sx={{
+                color: '#1E293B',
+                fontWeight: 700,
+                fontSize: { xs: '1.5rem', sm: '1.75rem' },
+                mb: 1.5,
+                letterSpacing: '-0.02em',
+              }}
+            >
+              Hoş geldiniz
+            </Typography>
+            <Typography
+              variant="body2"
+              sx={{
+                color: '#64748B',
+                fontSize: '0.9rem',
+              }}
+            >
+              Hesabınıza giriş yaparak yönetim paneline erişin
+            </Typography>
+          </Box>
+
+          {error && (
+            <Alert
+              severity="error"
+              sx={{
+                mb: 3,
+                borderRadius: 2,
+                bgcolor: '#FEF2F2',
+                color: '#991B1B',
+                border: '1px solid #FECACA',
+                '& .MuiAlert-icon': {
+                  color: '#DC2626',
+                },
+              }}
+            >
+              {error}
+            </Alert>
+          )}
+
+          <form onSubmit={handleSubmit}>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+              {/* Username Field */}
+              <Box>
                 <Typography
-                  variant="h4"
+                  component="label"
                   sx={{
-                    fontWeight: 800,
-                    color: '#FFFFFF',
-                    letterSpacing: '-0.03em',
-                    textShadow: '0 2px 10px rgba(0, 0, 0, 0.2)',
+                    display: 'block',
+                    fontSize: '0.8rem',
+                    fontWeight: 600,
+                    color: '#334155',
+                    mb: 1,
                   }}
                 >
-                  OtoMuhasebe ERP
+                  Kullanıcı Adı veya E-posta
                 </Typography>
-                <Typography variant="body1" sx={{ color: 'rgba(255, 255, 255, 0.85)', fontWeight: 400 }}>
-                  İşletmenizi yönetmek için güvenli giriş
+                <TextField
+                  fullWidth
+                  placeholder="ornek@firma.com"
+                  variant="outlined"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  required
+                  disabled={loading}
+                  autoComplete="username"
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <Person sx={{ color: '#94A3B8', fontSize: 18 }} />
+                      </InputAdornment>
+                    ),
+                  }}
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      bgcolor: '#FFFFFF',
+                      borderRadius: 2,
+                      transition: 'all 0.2s ease',
+                      '& fieldset': {
+                        borderColor: '#E2E8F0',
+                        borderWidth: 1.5,
+                      },
+                      '&:hover': {
+                        '& fieldset': {
+                          borderColor: '#CBD5E1',
+                        },
+                      },
+                      '&.Mui-focused': {
+                        '& fieldset': {
+                          borderColor: '#3B82F6',
+                          borderWidth: 2,
+                        },
+                      },
+                    },
+                    '& .MuiInputBase-input': {
+                      py: 1.25,
+                      fontSize: '0.9rem',
+                      fontWeight: 500,
+                      color: '#1E293B',
+                    },
+                    '& .MuiInputLabel-root': {
+                      color: '#64748B',
+                      fontWeight: 500,
+                    },
+                  }}
+                />
+              </Box>
+
+              {/* Password Field */}
+              <Box>
+                <Typography
+                  component="label"
+                  sx={{
+                    display: 'block',
+                    fontSize: '0.8rem',
+                    fontWeight: 600,
+                    color: '#334155',
+                    mb: 1,
+                  }}
+                >
+                  Şifre
                 </Typography>
-              </Stack>
-
-              {error && (
-                <Fade in={!!error}>
-                  <Alert
-                    severity="error"
-                    sx={{
-                      mb: 2,
-                      borderRadius: '12px',
-                      background: 'rgba(239, 68, 68, 0.15)',
-                      backdropFilter: 'blur(10px)',
-                      border: '1px solid rgba(239, 68, 68, 0.3)',
-                      color: '#FFFFFF',
-                      '& .MuiAlert-icon': {
-                        color: '#FCA5A5',
-                      },
-                    }}
-                  >
-                    {error}
-                  </Alert>
-                </Fade>
-              )}
-
-              <form onSubmit={handleSubmit}>
-                <Stack spacing={3}>
-                  {/* Username Field with Spotlight */}
-                  <TextField
-                    fullWidth
-                    label="Kullanıcı adı veya e-posta"
-                    variant="outlined"
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value)}
-                    required
-                    disabled={loading}
-                    autoComplete="username"
-                    InputProps={{
-                      startAdornment: (
-                        <InputAdornment position="start">
-                          <Person sx={{
-                            color: '#FFFFFF',
-                            fontSize: 26,
-                            filter: 'drop-shadow(0 0 8px rgba(0, 0, 0, 0.5))'
-                          }} />
-                        </InputAdornment>
-                      ),
-                    }}
-                    sx={{
-                      '& .MuiOutlinedInput-root': {
-                        borderRadius: '12px',
-                        background: 'rgba(255, 255, 255, 0.1)',
-                        backdropFilter: 'blur(10px)',
-                        color: '#FFFFFF',
-                        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                        '& fieldset': {
-                          borderColor: 'rgba(255, 255, 255, 0.2)',
-                          borderWidth: '1px',
-                        },
-                        '&:hover': {
-                          background: 'rgba(255, 255, 255, 0.15)',
-                          '& fieldset': {
-                            borderColor: 'rgba(255, 255, 255, 0.4)',
-                          },
-                        },
-                        '&.Mui-focused fieldset': {
-                          borderColor: 'rgba(14, 165, 233, 0.8)',
-                          borderWidth: '2px',
-                        },
-                      },
-                      '& .MuiInputLabel-root': {
-                        color: '#FFFFFF',
-                        fontWeight: 500,
-                        fontSize: '1rem',
-                        textShadow: '0 1px 4px rgba(0, 0, 0, 0.5)',
-                        transform: 'translateY(0)',
-                        transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-                      },
-                      '& .MuiInputLabel-root.Mui-focused': {
-                        color: '#FFFFFF',
-                        fontWeight: 600,
-                        fontSize: '1.05rem',
-                        transform: 'translateY(-24px) scale(0.95)',
-                        textShadow: '0 0 16px rgba(255, 255, 255, 0.4), 0 1px 3px rgba(0, 0, 0, 0.3)',
-                      },
-                      '& .MuiInputLabel-shrink': {
-                        transform: 'translateY(-24px) scale(0.95)',
-                        color: '#FFFFFF',
-                        fontWeight: 500,
-                        fontSize: '1rem',
-                      },
-                      '& .MuiInputBase-input': {
-                        color: '#FFFFFF',
-                        fontWeight: 700,
-                        fontSize: '1.1rem',
-                      },
-                      '& .MuiInputBase-input::placeholder': {
-                        color: 'rgba(255, 255, 255, 0.9)',
-                        fontWeight: 700,
-                        opacity: 1,
-                      },
-                      '& .MuiOutlinedInput-notchedOutline': {
-                        borderRadius: '8px',
-                      },
-                    }}
-                  />
-
-                  {/* Password Field with Spotlight */}
-                  <TextField
-                    fullWidth
-                    label="Şifre"
-                    type={showPassword ? 'text' : 'password'}
-                    variant="outlined"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                    disabled={loading}
-                    autoComplete="current-password"
-                    InputProps={{
-                      startAdornment: (
-                        <InputAdornment position="start">
-                          <Lock sx={{
-                            color: '#FFFFFF',
-                            fontSize: 26,
-                            filter: 'drop-shadow(0 0 8px rgba(0, 0, 0, 0.5))'
-                          }} />
-                        </InputAdornment>
-                      ),
-                      endAdornment: (
-                        <InputAdornment position="end">
-                          <IconButton
-                            type="button"
-                            onClick={() => setShowPassword(!showPassword)}
-                            edge="end"
-                            aria-label={showPassword ? 'Şifreyi gizle' : 'Şifreyi göster'}
-                            sx={{
-                              color: '#FFFFFF',
-                              fontSize: 24,
-                              transition: 'all 0.2s ease',
-                              filter: 'drop-shadow(0 0 6px rgba(0, 0, 0, 0.4))',
-                              '&:hover': {
-                                color: '#FFFFFF',
-                                background: 'rgba(255, 255, 255, 0.2)',
-                                filter: 'drop-shadow(0 0 12px rgba(255, 255, 255, 0.5))',
-                              },
-                            }}
-                          >
-                            {showPassword ? <VisibilityOff /> : <Visibility />}
-                          </IconButton>
-                        </InputAdornment>
-                      ),
-                    }}
-                    sx={{
-                      '& .MuiOutlinedInput-root': {
-                        borderRadius: '12px',
-                        background: 'rgba(255, 255, 255, 0.1)',
-                        backdropFilter: 'blur(10px)',
-                        color: '#FFFFFF',
-                        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                        '& fieldset': {
-                          borderColor: 'rgba(255, 255, 255, 0.2)',
-                          borderWidth: '1px',
-                        },
-                        '&:hover': {
-                          background: 'rgba(255, 255, 255, 0.15)',
-                          '& fieldset': {
-                            borderColor: 'rgba(255, 255, 255, 0.4)',
-                          },
-                        },
-                        '&.Mui-focused fieldset': {
-                          borderColor: 'rgba(14, 165, 233, 0.8)',
-                          borderWidth: '2px',
-                        },
-                      },
-                      '& .MuiInputLabel-root': {
-                        color: '#FFFFFF',
-                        fontWeight: 500,
-                        fontSize: '1rem',
-                        textShadow: '0 1px 4px rgba(0, 0, 0, 0.5)',
-                        transform: 'translateY(0)',
-                        transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-                      },
-                      '& .MuiInputLabel-root.Mui-focused': {
-                        color: '#FFFFFF',
-                        fontWeight: 600,
-                        fontSize: '1.05rem',
-                        transform: 'translateY(-24px) scale(0.95)',
-                        textShadow: '0 0 16px rgba(255, 255, 255, 0.4), 0 1px 3px rgba(0, 0, 0, 0.3)',
-                      },
-                      '& .MuiInputLabel-shrink': {
-                        transform: 'translateY(-24px) scale(0.95)',
-                        color: '#FFFFFF',
-                        fontWeight: 500,
-                        fontSize: '1rem',
-                      },
-                      '& .MuiInputBase-input': {
-                        color: '#FFFFFF',
-                        fontWeight: 700,
-                        fontSize: '1.1rem',
-                      },
-                      '& .MuiInputBase-input::placeholder': {
-                        color: 'rgba(255, 255, 255, 0.9)',
-                        fontWeight: 700,
-                        opacity: 1,
-                      },
-                      '& .MuiOutlinedInput-notchedOutline': {
-                        borderRadius: '8px',
-                      },
-                    }}
-                  />
-
-                  {/* Remember Me & Forgot Password */}
-                  <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 1 }}>
-                    <FormControlLabel
-                      control={
-                        <Checkbox
-                          checked={rememberMe}
-                          onChange={(e) => setRememberMe(e.target.checked)}
-                          sx={{
-                            color: 'rgb(203, 213, 225)',
-                            '&.Mui-checked': {
-                              color: '#0ea5e9',
-                            },
-                          }}
-                        />
-                      }
-                      label={
-                        <Typography
-                          variant="body2"
-                          sx={{ color: 'rgba(255, 255, 255, 0.9)', fontWeight: 500 }}
+                <TextField
+                  fullWidth
+                  placeholder="••••••••"
+                  type={showPassword ? 'text' : 'password'}
+                  variant="outlined"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  disabled={loading}
+                  autoComplete="current-password"
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <Lock sx={{ color: '#94A3B8', fontSize: 18 }} />
+                      </InputAdornment>
+                    ),
+                    endAdornment: (
+                      <InputAdornment position="end">
+                        <IconButton
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          edge="end"
+                          aria-label={showPassword ? 'Şifreyi gizle' : 'Şifreyi göster'}
+                          sx={{ color: '#94A3B8' }}
                         >
-                          Beni hatırla
-                        </Typography>
-                      }
-                    />
-                    <Box sx={{ flex: 1 }} />
-                    <Link
-                      href="/forgot-password"
+                          {showPassword ? <VisibilityOff /> : <Visibility />}
+                        </IconButton>
+                      </InputAdornment>
+                    ),
+                  }}
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      bgcolor: '#FFFFFF',
+                      borderRadius: 2,
+                      transition: 'all 0.2s ease',
+                      '& fieldset': {
+                        borderColor: '#E2E8F0',
+                        borderWidth: 1.5,
+                      },
+                      '&:hover': {
+                        '& fieldset': {
+                          borderColor: '#CBD5E1',
+                        },
+                      },
+                      '&.Mui-focused': {
+                        '& fieldset': {
+                          borderColor: '#3B82F6',
+                          borderWidth: 2,
+                        },
+                      },
+                    },
+                    '& .MuiInputBase-input': {
+                      py: 1.25,
+                      fontSize: '0.9rem',
+                      fontWeight: 500,
+                      color: '#1E293B',
+                    },
+                  }}
+                />
+              </Box>
+
+              {/* Remember & Forgot */}
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={rememberMe}
+                      onChange={(e) => setRememberMe(e.target.checked)}
                       sx={{
-                        color: 'rgb(203, 213, 225)',
-                        textDecoration: 'none',
-                        fontWeight: 600,
-                        fontSize: '0.875rem',
-                        transition: 'all 0.2s ease',
-                        '&:hover': {
-                          color: '#FFFFFF',
-                          textDecoration: 'underline',
+                        color: '#CBD5E1',
+                        '&.Mui-checked': {
+                          color: '#3B82F6',
+                        },
+                        '& .MuiSvgIcon-root': {
+                          borderRadius: 1.5,
                         },
                       }}
+                    />
+                  }
+                  label={
+                    <Typography
+                      variant="body2"
+                      sx={{ color: '#475569', fontWeight: 500, fontSize: '0.875rem' }}
                     >
-                      Şifremi unuttum
-                    </Link>
-                  </Stack>
+                      Beni hatırla
+                    </Typography>
+                  }
+                />
+                <Link
+                  href="/forgot-password"
+                  sx={{
+                    color: '#3B82F6',
+                    textDecoration: 'none',
+                    fontWeight: 600,
+                    fontSize: '0.875rem',
+                    transition: 'color 0.2s ease',
+                    '&:hover': {
+                      color: '#2563EB',
+                      textDecoration: 'underline',
+                    },
+                  }}
+                >
+                  Şifremi unuttum?
+                </Link>
+              </Box>
 
-                  {/* Magnetic Animated Button */}
-                  <Button
-                    ref={buttonRef}
-                    fullWidth
-                    variant="contained"
-                    size="large"
-                    type="submit"
-                    disabled={loading}
-                    onMouseMove={handleButtonMouseMove}
-                    onMouseLeave={handleButtonMouseLeave}
-                    startIcon={loading ? <CircularProgress size={20} color="inherit" /> : <LoginOutlined />}
-                    sx={{
-                      mt: 2,
-                      py: 1.5,
-                      borderRadius: '12px',
-                      textTransform: 'none',
-                      fontWeight: 600,
-                      fontSize: '1rem',
-                      background: 'linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%)',
-                      color: '#FFFFFF',
-                      boxShadow: '0 8px 24px rgba(14, 165, 233, 0.4)',
-                      transform: `translate(${buttonTranslate.x}px, ${buttonTranslate.y}px)`,
-                      transition: 'transform 0.1s ease-out, background 0.3s ease, box-shadow 0.3s ease',
-                      '&:hover': {
-                        background: 'linear-gradient(135deg, #0284c7 0%, #0ea5e9 100%)',
-                        boxShadow: '0 12px 32px rgba(14, 165, 233, 0.5)',
-                      },
-                      '&:active': {
-                        transform: `translate(${buttonTranslate.x * 0.5}px, ${buttonTranslate.y * 0.5}px)`,
-                      },
-                      '&:disabled': {
-                        opacity: 0.7,
-                        transform: 'none',
-                        background: 'rgba(203, 213, 225, 0.3)',
-                        boxShadow: 'none',
-                      },
-                    }}
-                  >
-                    {loading ? 'Giriş yapılıyor…' : 'Giriş yap'}
-                  </Button>
-                </Stack>
-              </form>
-
-              {/* Footer */}
-              <Typography
-                variant="caption"
-                component="p"
+              {/* Submit Button */}
+              <Button
+                fullWidth
+                variant="contained"
+                size="medium"
+                type="submit"
+                disabled={loading || !username || !password}
+                endIcon={
+                  loading ? (
+                    <CircularProgress size={16} color="inherit" />
+                  ) : (
+                    <ArrowForwardRounded />
+                  )
+                }
                 sx={{
-                  mt: 4,
-                  textAlign: 'center',
-                  color: 'rgba(255, 255, 255, 0.6)',
-                  letterSpacing: '0.01em',
-                  fontWeight: 400,
+                  py: 1.5,
+                  mt: 0.5,
+                  borderRadius: 2,
+                  textTransform: 'none',
+                  fontWeight: 600,
+                  fontSize: '0.95rem',
+                  bgcolor: '#3B82F6',
+                  boxShadow: '0 4px 14px rgba(59, 130, 246, 0.4)',
+                  transition: 'all 0.2s ease',
+                  '&:hover': {
+                    bgcolor: '#2563EB',
+                    boxShadow: '0 6px 20px rgba(59, 130, 246, 0.5)',
+                    transform: 'translateY(-1px)',
+                  },
+                  '&:active': {
+                    transform: 'translateY(0)',
+                  },
+                  '&:disabled': {
+                    bgcolor: '#CBD5E1',
+                    boxShadow: 'none',
+                  },
                 }}
               >
-                © {new Date().getFullYear()} Oto Muhasebe · Kurumsal Kaynak Planlama Çözümü
-              </Typography>
+                {loading ? 'Giriş yapılıyor...' : 'Giriş yap'}
+              </Button>
             </Box>
-          </Card>
-        </Fade>
+          </form>
+
+          {/* Footer */}
+          <Box
+            sx={{
+              mt: 4,
+              pt: 3,
+              borderTop: '1px solid #E2E8F0',
+              textAlign: 'center',
+            }}
+          >
+            <Typography
+              variant="caption"
+              sx={{
+                color: '#94A3B8',
+                display: 'block',
+                mb: 0.5,
+                fontWeight: 500,
+                fontSize: '0.75rem',
+              }}
+            >
+              ERP Çözüm Ortağınız
+            </Typography>
+            <Typography
+              variant="caption"
+              sx={{ color: '#CBD5E1', fontSize: '0.75rem' }}
+            >
+              Yardıma mı ihtiyacınız var?{' '}
+              <Link
+                href="#"
+                sx={{
+                  color: '#3B82F6',
+                  textDecoration: 'none',
+                  fontWeight: 600,
+                  '&:hover': {
+                    textDecoration: 'underline',
+                  },
+                }}
+              >
+                Destek ekibiyle iletişime geçin
+              </Link>
+            </Typography>
+          </Box>
+        </Box>
       </Box>
     </Box>
   );

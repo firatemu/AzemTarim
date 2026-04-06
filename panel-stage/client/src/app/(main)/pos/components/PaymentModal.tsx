@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { Dialog, Box, Typography, TextField, MenuItem, CircularProgress, Alert } from '@mui/material';
+import { Dialog, Box, Typography, TextField, MenuItem, CircularProgress, Alert, Button, alpha, useTheme, Grid } from '@mui/material';
 import axios from '@/lib/axios';
 import type { PosPayment } from '../types/pos.types';
 
@@ -32,6 +32,7 @@ export function PaymentModal({
     onClose,
     onConfirm,
 }: PaymentModalProps) {
+    const theme = useTheme();
     const [display, setDisplay] = useState('0');
     const [errorMsg, setErrorMsg] = useState('');
     const [loadingPaymentSource, setLoadingPaymentSource] = useState(false);
@@ -145,7 +146,7 @@ export function PaymentModal({
         }
         window.addEventListener('keydown', onKeyDown);
         return () => window.removeEventListener('keydown', onKeyDown);
-    }, [open, handleNp]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [open, handleNp]);
 
     const baseChips = [50, 100, 200, 500].filter((a) => a >= effectiveRemaining);
     const chips = [...new Set([effectiveRemaining, ...baseChips])].filter((a) => a > 0).slice(0, 5);
@@ -200,106 +201,64 @@ export function PaymentModal({
         <Dialog
             open={open}
             onClose={onClose}
+            maxWidth="xs"
+            fullWidth
             PaperProps={{
-                sx: { background: 'transparent', boxShadow: 'none', overflow: 'visible' },
-            }}
-            BackdropProps={{
-                sx: { backdropFilter: 'blur(4px)', background: 'var(--backdrop)' },
+                sx: { borderRadius: 4, overflow: 'hidden', bgcolor: 'background.paper', p: 3 },
             }}
         >
-            <style>{`
-                .payment-modal-root {
-                    --surface: #ffffff;
-                    --surface2: #f3f6fb;
-                    --surface3: #e9eef7;
-                    --border: rgba(15, 23, 42, 0.10);
-                    --text: #0f172a;
-                    --muted: rgba(15, 23, 42, 0.62);
-                    --accent: #4f46e5;
-                    --accent-g: rgba(79, 70, 229, 0.10);
-                    --accent-l: #6366f1;
-                    --red: #ef4444;
-                    --shadow-lg: 0 24px 48px rgba(2, 6, 23, 0.16);
-                    --backdrop: rgba(2, 6, 23, 0.48);
-                }
-            `}</style>
-            <div
-                className="payment-modal-root"
-                style={{
-                    background: 'var(--surface)',
-                    border: '1px solid var(--border)',
-                    borderRadius: '16px',
-                    padding: '24px',
-                    width: 'min(380px, 92vw)',
-                    maxWidth: '92vw',
-                    boxShadow: 'var(--shadow-lg)',
-                }}
-            >
-                <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', marginBottom: 6 }}>
+            <Box>
+                <Typography variant="h6" sx={{ fontWeight: 800, color: 'text.primary', mb: 0.5 }}>
                     {method ? METHOD_LABELS[method] : ''} Ödeme
-                </div>
-                <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 14 }}>
-                    Kalan: <span style={{ fontWeight: 600, color: 'var(--text)' }}>{fmt(effectiveRemaining)}</span>
-                </div>
+                </Typography>
+                <Typography variant="body2" sx={{ color: 'text.secondary', mb: 2.5 }}>
+                    Kalan: <Typography component="span" sx={{ fontWeight: 800, color: 'primary.main' }}>{fmt(effectiveRemaining)}</Typography>
+                </Typography>
 
-                <div style={{ position: 'relative', marginBottom: 8 }}>
-                    <span
-                        style={{
-                            position: 'absolute',
-                            left: 13,
-                            top: '50%',
-                            transform: 'translateY(-50%)',
-                            fontSize: 13,
-                            fontWeight: 600,
-                            color: 'var(--muted)',
-                            fontFamily: "'DM Mono', monospace",
-                            pointerEvents: 'none',
-                        }}
-                    >
-                        ₺
-                    </span>
-                    <input
-                        readOnly
-                        value={display}
-                        style={{
-                            width: '100%',
-                            padding: '14px 13px 14px 30px',
-                            background: 'var(--surface2)',
-                            border: '2px solid var(--border)',
-                            borderRadius: '10px',
-                            color: 'var(--text)',
-                            fontSize: 24,
-                            fontFamily: "'DM Mono', monospace",
-                            fontWeight: 600,
-                            textAlign: 'right',
-                            outline: 'none',
-                            boxSizing: 'border-box',
-                        }}
-                    />
-                </div>
+                <TextField
+                    fullWidth
+                    readOnly
+                    value={display}
+                    InputProps={{
+                        startAdornment: (
+                            <Typography sx={{ fontWeight: 700, color: 'text.disabled', mr: 1, fontSize: '1.25rem' }}>₺</Typography>
+                        ),
+                        sx: {
+                            height: 64,
+                            fontSize: '2rem',
+                            fontWeight: 900,
+                            fontFamily: theme.typography.fontFamily,
+                            '& .MuiOutlinedInput-input': { textAlign: 'right' },
+                            borderRadius: 3,
+                            mb: 2,
+                            bgcolor: alpha(theme.palette.background.default, 0.4)
+                        }
+                    }}
+                />
 
                 {(method === 'credit_card' || method === 'transfer') && (
-                    <Box sx={{ mb: 1 }}>
-                        <Typography sx={{ fontSize: 12, color: 'var(--muted)', mb: 0.5 }}>
-                            {method === 'credit_card' ? 'POS Hesabı' : 'Vadesiz Hesap'}
+                    <Box sx={{ mb: 2 }}>
+                        <Typography variant="caption" sx={{ fontWeight: 700, color: 'text.secondary', mb: 0.5, display: 'block' }}>
+                            {method === 'credit_card' ? 'POS HESABI' : 'VADESİZ HESAP'}
                         </Typography>
                         {loadingPaymentSource ? (
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, color: 'var(--muted)', py: 0.5 }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, p: 1.5, bgcolor: 'background.default', borderRadius: 2 }}>
                                 <CircularProgress size={16} />
-                                <span style={{ fontSize: 12.5 }}>Hesaplar yükleniyor...</span>
+                                <Typography variant="caption" sx={{ fontWeight: 600 }}>Cihazlar yükleniyor...</Typography>
                             </Box>
                         ) : (
                             <TextField
                                 select
-                                size="small"
                                 fullWidth
+                                size="small"
                                 value={selectedBankAccountId}
                                 onChange={(e) => setSelectedBankAccountId(e.target.value)}
+                                sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
                             >
-                                <MenuItem value="">Hesap seçin</MenuItem>
+                                <MenuItem value="">Hesap Seçin</MenuItem>
                                 {bankAccounts.map((acc) => (
                                     <MenuItem key={acc.id} value={acc.id}>
-                                        {(acc.bank?.name || 'Banka')} - {acc.accountName} {acc.iban ? `(${acc.iban})` : ''}
+                                        <Typography variant="body2" sx={{ fontWeight: 600 }}>{acc.bank?.name} - {acc.accountName}</Typography>
                                     </MenuItem>
                                 ))}
                             </TextField>
@@ -308,127 +267,108 @@ export function PaymentModal({
                 )}
 
                 {method === 'credit_card' && (
-                    <Box sx={{ mb: 1 }}>
-                        <Typography sx={{ fontSize: 12, color: 'var(--muted)', mb: 0.5 }}>
-                            Taksit Sayısı
-                        </Typography>
+                    <Box sx={{ mb: 2 }}>
+                        <Typography variant="caption" sx={{ fontWeight: 700, color: 'text.secondary', mb: 0.5, display: 'block' }}>TAKSİT SAYISI</Typography>
                         <TextField
+                            fullWidth
                             size="small"
                             type="number"
-                            fullWidth
                             value={installmentCount}
                             onChange={(e) => setInstallmentCount(e.target.value)}
-                            inputProps={{ min: 1, step: 1 }}
+                            inputProps={{ min: 1 }}
+                            sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
                         />
                     </Box>
                 )}
 
-                {method === 'cash' && loadingPaymentSource && (
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, color: 'var(--muted)', py: 0.5, mb: 1 }}>
-                        <CircularProgress size={16} />
-                        <span style={{ fontSize: 12.5 }}>Perakende satış kasası kontrol ediliyor...</span>
-                    </Box>
-                )}
-
                 {errorMsg && (
-                    <Alert severity="warning" sx={{ mb: 1.2 }}>
+                    <Alert severity="warning" variant="filled" sx={{ mb: 2, borderRadius: 2, fontWeight: 600 }}>
                         {errorMsg}
                     </Alert>
                 )}
 
                 {chips.length > 0 && (
-                    <div style={{ display: 'flex', gap: 6, marginBottom: 12, flexWrap: 'wrap' }}>
+                    <Box sx={{ display: 'flex', gap: 1, mb: 2, flexWrap: 'wrap' }}>
                         {chips.map((a) => (
-                            <button
+                            <Button
                                 key={a}
-                                onClick={() => {
-                                    setDisplay(a.toFixed(2));
-                                    setErrorMsg('');
-                                }}
-                                style={{
-                                    padding: '7px 12px',
-                                    background: 'var(--accent-g)',
-                                    border: '1px solid var(--accent)',
-                                    borderRadius: 20,
-                                    color: 'var(--accent)',
-                                    fontSize: 12,
-                                    fontFamily: "'DM Mono', monospace",
-                                    fontWeight: 600,
-                                    cursor: 'pointer',
+                                size="small"
+                                onClick={() => { setDisplay(a.toFixed(2)); setErrorMsg(''); }}
+                                variant="outlined"
+                                sx={{
+                                    borderRadius: 10,
+                                    fontSize: '0.75rem',
+                                    fontWeight: 700,
+                                    fontFamily: 'monospace',
+                                    minWidth: 'auto',
+                                    px: 1.5,
+                                    borderColor: alpha(theme.palette.primary.main, 0.3),
+                                    color: 'primary.main',
+                                    '&:hover': { bgcolor: alpha(theme.palette.primary.main, 0.05), borderColor: 'primary.main' }
                                 }}
                             >
                                 {fmt(a)}
-                            </button>
+                            </Button>
                         ))}
-                    </div>
+                    </Box>
                 )}
 
-                <div
-                    style={{
-                        display: 'grid',
-                        gridTemplateColumns: 'repeat(3, 1fr)',
-                        gap: 7,
-                        marginBottom: 14,
-                    }}
-                >
+                <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 1, mb: 3 }}>
                     {numpadKeys.map((k) => (
-                        <button
+                        <Button
                             key={k}
                             onClick={() => handleNp(k)}
-                            style={{
-                                padding: '12px 11px',
-                                background: k === 'C' ? 'rgba(239, 68, 68, 0.08)' : 'var(--surface3)',
-                                border: '1px solid var(--border)',
-                                borderRadius: '10px',
-                                color: k === 'C' ? 'var(--red)' : 'var(--text)',
-                                fontSize: 16,
-                                fontWeight: 600,
-                                fontFamily: "'DM Mono', monospace",
-                                cursor: 'pointer',
+                            sx={{
+                                height: 56,
+                                borderRadius: 2,
+                                fontSize: '1.25rem',
+                                fontWeight: 800,
+                                fontFamily: 'monospace',
+                                bgcolor: k === 'C' ? alpha(theme.palette.error.main, 0.05) : alpha(theme.palette.background.default, 0.4),
+                                color: k === 'C' ? 'error.main' : 'text.primary',
+                                border: '1px solid',
+                                borderColor: 'divider',
+                                '&:hover': {
+                                    bgcolor: k === 'C' ? alpha(theme.palette.error.main, 0.1) : alpha(theme.palette.background.default, 0.8),
+                                    borderColor: 'primary.main'
+                                }
                             }}
                         >
                             {k}
-                        </button>
+                        </Button>
                     ))}
-                </div>
+                </Box>
 
-                <div style={{ display: 'flex', gap: 8 }}>
-                    <button
+                <Box sx={{ display: 'flex', gap: 1.5 }}>
+                    <Button
+                        fullWidth
                         onClick={onClose}
-                        style={{
-                            flex: 1,
-                            padding: '11px',
-                            background: 'var(--surface3)',
-                            border: '1px solid var(--border)',
-                            borderRadius: '10px',
-                            color: 'var(--muted)',
-                            fontSize: 13,
-                            fontWeight: 600,
-                            cursor: 'pointer',
+                        sx={{
+                            py: 1.5,
+                            borderRadius: 3,
+                            fontWeight: 700,
+                            color: 'text.secondary',
+                            bgcolor: alpha(theme.palette.background.default, 0.6)
                         }}
                     >
                         Vazgeç
-                    </button>
-                    <button
-                        onClick={handleConfirm}
+                    </Button>
+                    <Button
+                        fullWidth
                         disabled={loadingPaymentSource}
-                        style={{
-                            flex: 1.5,
-                            padding: '11px',
-                            background: 'var(--accent)',
-                            border: 'none',
-                            borderRadius: '10px',
-                            color: '#fff',
-                            fontSize: 13,
-                            fontWeight: 700,
-                            cursor: loadingPaymentSource ? 'not-allowed' : 'pointer',
-                            opacity: loadingPaymentSource ? 0.6 : 1,
+                        onClick={handleConfirm}
+                        variant="contained"
+                        sx={{
+                            py: 1.5,
+                            borderRadius: 3,
+                            fontWeight: 800,
+                            boxShadow: `0 8px 16px ${alpha(theme.palette.primary.main, 0.25)}`
                         }}
                     >
-                        Ekle
-                    </button>
-                </div>
-            </div>
+                        Ödeme Ekle
+                    </Button>
+                </Box>
+            </Box>
         </Dialog>
     );
 }

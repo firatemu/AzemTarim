@@ -8,6 +8,7 @@ import type {
   ErpAccountMovement,
   ErpAccountRisk,
   ErpProduct,
+  ErpSalesperson,
   ErpStockItem,
   ErpWarehouse,
 } from '../dto/erp-types.dto';
@@ -148,7 +149,7 @@ export class LogoErpAdapter implements IErpAdapter {
       `);
 
       return result.recordset.map(row => ({
-        erpNum: Number(row.LOGICALREF),
+        erpNum: String(row.LOGICALREF),
         erpAccountId: String(row.CODE),
         name: row.DEFINITION_ || 'Bilinmeyen Cari',
         addresses: [],
@@ -160,7 +161,13 @@ export class LogoErpAdapter implements IErpAdapter {
       await pool.close();
     }
   }
-  getAccountMovements(): Promise<ErpAccountMovement[]> {
+  getPrices(_lastSyncedAt: Date | null): Promise<{ erpProductId: string; listPrice: number }[]> {
+    throw new NotImplementedException('Logo ERP adapter is not implemented yet');
+  }
+  getSalespersons(): Promise<ErpSalesperson[]> {
+    throw new NotImplementedException('Logo ERP adapter is not implemented yet');
+  }
+  getAccountMovements(_erpAccountId: string, _lastSyncedAt: Date | null): Promise<ErpAccountMovement[]> {
     throw new NotImplementedException('Logo ERP adapter is not implemented yet');
   }
   getWarehouses(): Promise<ErpWarehouse[]> {
@@ -169,7 +176,7 @@ export class LogoErpAdapter implements IErpAdapter {
   pushOrder(_order: B2BOrderExportDto): Promise<{ erpOrderId: string }> {
     throw new NotImplementedException('Logo ERP adapter is not implemented yet');
   }
-  getAccountRisk(): Promise<ErpAccountRisk> {
+  getAccountRisk(_erpAccountId: string): Promise<ErpAccountRisk> {
     throw new NotImplementedException('Logo ERP adapter is not implemented yet');
   }
 }

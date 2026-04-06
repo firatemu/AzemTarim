@@ -129,6 +129,11 @@ export class CreateInvoiceDto {
 
   @IsString()
   @IsOptional()
+  @ApiProperty({ required: false, description: 'If true, prevents automatic delivery note creation' })
+  preventAutoDeliveryNote?: string;
+
+  @IsString()
+  @IsOptional()
   @ApiProperty({ required: false })
   warehouseId?: string;
 

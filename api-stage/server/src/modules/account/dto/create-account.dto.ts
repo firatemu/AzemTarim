@@ -190,6 +190,11 @@ export class CreateAccountDto {
     creditStatus?: RiskStatus;
 
     @IsOptional()
+    @IsBoolean()
+    @ApiProperty({ required: false })
+    blockOnRisk?: boolean;
+
+    @IsOptional()
     @IsNumber()
     @Min(0)
     @ApiProperty({ required: false })

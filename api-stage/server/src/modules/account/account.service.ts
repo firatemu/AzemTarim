@@ -385,7 +385,10 @@ export class AccountService {
                 where,
                 skip,
                 take: limit,
-                orderBy: { date: 'desc' },
+                orderBy: [
+                    { date: 'asc' },
+                    { id: 'asc' },
+                ],
                 include: {
                     invoice: {
                         include: {

@@ -23,21 +23,29 @@ import {
     Tooltip,
     Alert,
     Paper,
+    Stack,
+    Divider,
+    alpha,
+    useTheme,
 } from '@mui/material';
 import {
-    AdminPanelSettings,
-    Edit,
-    Delete,
-    Person,
-    PersonOff,
-    Refresh,
-    Search,
-    FilterList,
+    AdminPanelSettings as AdminIcon,
+    Edit as EditIcon,
+    Delete as DeleteIcon,
+    Person as PersonIcon,
+    PersonOff as PersonOffIcon,
+    Refresh as RefreshIcon,
+    Search as SearchIcon,
+    FilterList as FilterIcon,
+    Security as SecurityIcon,
+    Group as GroupIcon,
+    Handvane as PermissionIcon, // Use a better icon if available, or just SecurityIcon
 } from '@mui/icons-material';
 import { DataGrid, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
-import MainLayout from '@/components/Layout/MainLayout';
+import { useSnackbar } from 'notistack';
+import StandardPage from '@/components/common/StandardPage';
 import axios from '@/lib/axios';
 import { useAuthStore } from '@/stores/authStore';
 
@@ -102,14 +110,14 @@ const formatDate = (dateStr: string | null): string => {
 // ============= MAIN PAGE =============
 
 export default function YetkilendirmePage() {
+    const theme = useTheme();
+    const { enqueueSnackbar } = useSnackbar();
     const router = useRouter();
     const queryClient = useQueryClient();
     const { user } = useAuthStore((state: any) => state) as any;
 
-    // Check authorization
     const isAdmin = user?.role === 'SUPER_ADMIN' || user?.role === 'TENANT_ADMIN' || user?.role === 'ADMIN';
 
-    // State
     const [selectedUser, setSelectedUser] = useState<User | null>(null);
     const [roleDialogOpen, setRoleDialogOpen] = useState(false);
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -118,7 +126,6 @@ export default function YetkilendirmePage() {
     const [roleFilter, setRoleFilter] = useState<string>('ALL');
     const [statusFilter, setStatusFilter] = useState<string>('ALL');
 
-    // Fetch users
     const { data: usersData, isLoading: usersLoading } = useQuery({
         queryKey: ['users', searchQuery],
         queryFn: async () => {
@@ -129,7 +136,6 @@ export default function YetkilendirmePage() {
         },
     });
 
-    // Fetch stats
     const { data: stats, isLoading: statsLoading } = useQuery<UserStats>({
         queryKey: ['users-stats'],
         queryFn: async () => {
@@ -138,7 +144,6 @@ export default function YetkilendirmePage() {
         },
     });
 
-    // Update role mutation
     const updateRoleMutation = useMutation({
         mutationFn: async ({ userId, role }: { userId: string; role: string }) => {
             const response = await axios.put(`/users/${userId}/role`, { role });
@@ -149,10 +154,13 @@ export default function YetkilendirmePage() {
             queryClient.invalidateQueries({ queryKey: ['users-stats'] });
             setRoleDialogOpen(false);
             setSelectedUser(null);
+            enqueueSnackbar('Kullanıcı rolü başarıyla güncellendi', { variant: 'success' });
         },
+        onError: (error: any) => {
+            enqueueSnackbar(error.response?.data?.message || 'Rol güncellenirken bir hata oluştu', { variant: 'error' });
+        }
     });
 
-    // Suspend user mutation
     const suspendMutation = useMutation({
         mutationFn: async (userId: string) => {
             const response = await axios.post(`/users/${userId}/suspend`);
@@ -161,10 +169,13 @@ export default function YetkilendirmePage() {
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['users'] });
             queryClient.invalidateQueries({ queryKey: ['users-stats'] });
+            enqueueSnackbar('Kullanıcı erişim durumu güncellendi', { variant: 'success' });
         },
+        onError: (error: any) => {
+            enqueueSnackbar(error.response?.data?.message || 'Durum güncellenirken bir hata oluştu', { variant: 'error' });
+        }
     });
 
-    // Delete user mutation
     const deleteMutation = useMutation({
         mutationFn: async (userId: string) => {
             await axios.delete(`/users/${userId}`);
@@ -174,10 +185,13 @@ export default function YetkilendirmePage() {
             queryClient.invalidateQueries({ queryKey: ['users-stats'] });
             setDeleteDialogOpen(false);
             setSelectedUser(null);
+            enqueueSnackbar('Kullanıcı başarıyla silindi', { variant: 'success' });
         },
+        onError: (error: any) => {
+            enqueueSnackbar(error.response?.data?.message || 'Kullanıcı silinirken bir hata oluştu', { variant: 'error' });
+        }
     });
 
-    // Filter users
     const filteredUsers = (usersData?.data || []).filter((user: User) => {
         if (roleFilter !== 'ALL' && user.role !== roleFilter) return false;
         if (statusFilter === 'ACTIVE' && !user.isActive) return false;
@@ -185,71 +199,42 @@ export default function YetkilendirmePage() {
         return true;
     });
 
-    // Handle role change
-    const handleRoleChange = () => {
-        if (selectedUser && newRole) {
-            updateRoleMutation.mutate({ userId: selectedUser.id, role: newRole });
-        }
-    };
-
-    // Handle delete
-    const handleDelete = () => {
-        if (selectedUser) {
-            deleteMutation.mutate(selectedUser.id);
-        }
-    };
-
-    // DataGrid columns
     const columns: GridColDef[] = [
         {
-            field: 'avatar',
-            headerName: '',
-            width: 60,
-            sortable: false,
+            field: 'fullName',
+            headerName: 'Kullanıcı / E-posta',
+            flex: 1,
+            minWidth: 250,
             renderCell: (params: GridRenderCellParams) => (
-                <Avatar sx={{ width: 36, height: 36, bgcolor: getRoleColor(params.row.role), fontSize: '0.875rem' }}>
-                    {params.row.fullName.charAt(0).toUpperCase()}
-                </Avatar>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, py: 1 }}>
+                    <Avatar sx={{ width: 40, height: 40, bgcolor: alpha(getRoleColor(params.row.role), 0.1), color: getRoleColor(params.row.role), fontWeight: 800, fontSize: '0.9rem' }}>
+                        {params.row.fullName.charAt(0).toUpperCase()}
+                    </Avatar>
+                    <Box>
+                        <Typography variant="body2" sx={{ fontWeight: 800 }}>{params.row.fullName}</Typography>
+                        <Typography variant="caption" sx={{ color: 'text.secondary' }}>{params.row.email}</Typography>
+                    </Box>
+                </Box>
             ),
         },
         {
-            field: 'fullName',
-            headerName: 'Ad Soyad',
-            flex: 1,
-            minWidth: 180,
-        },
-        {
-            field: 'email',
-            headerName: 'E-posta',
-            flex: 1,
-            minWidth: 200,
-        },
-        {
-            field: 'username',
-            headerName: 'Kullanıcı Adı',
-            width: 150,
-        },
-        {
             field: 'role',
-            headerName: 'Rol',
+            headerName: 'Yetki Rolü',
             width: 150,
             renderCell: (params: GridRenderCellParams) => (
                 <Chip
                     label={getRoleLabel(params.value)}
                     size="small"
                     sx={{
-                        bgcolor: `${getRoleColor(params.value)}15`,
+                        fontWeight: 800,
+                        borderRadius: 1.5,
+                        bgcolor: alpha(getRoleColor(params.value), 0.1),
                         color: getRoleColor(params.value),
-                        fontWeight: 600,
+                        border: '1px solid',
+                        borderColor: alpha(getRoleColor(params.value), 0.2),
                     }}
                 />
             ),
-        },
-        {
-            field: 'tenant',
-            headerName: 'Tenant',
-            width: 150,
-            renderCell: (params: GridRenderCellParams) => params.value?.name || 'N/A',
         },
         {
             field: 'isActive',
@@ -259,48 +244,52 @@ export default function YetkilendirmePage() {
                 <Chip
                     label={params.value ? 'Aktif' : 'Pasif'}
                     size="small"
+                    sx={{ fontWeight: 800, borderRadius: 1.5 }}
                     color={params.value ? 'success' : 'default'}
                 />
             ),
         },
         {
             field: 'lastLoginAt',
-            headerName: 'Son Giriş',
-            width: 180,
+            headerName: 'Son Etkinlik',
+            width: 200,
             renderCell: (params: GridRenderCellParams) => (
-                <Typography variant="caption" sx={{ color: 'var(--muted-foreground)' }}>
-                    {formatDate(params.value)}
-                </Typography>
+                <Box>
+                    <Typography variant="body2" sx={{ fontWeight: 600 }}>{formatDate(params.value)}</Typography>
+                    <Typography variant="caption" sx={{ color: 'text.secondary' }}>K.Adı: {params.row.username}</Typography>
+                </Box>
             ),
         },
         {
             field: 'actions',
+            type: 'actions',
             headerName: 'İşlemler',
             width: 150,
-            sortable: false,
             renderCell: (params: GridRenderCellParams) => (
-                <Box sx={{ display: 'flex', gap: 0.5 }}>
-                    <Tooltip title="Rol Değiştir">
+                <Stack direction="row" spacing={0.5}>
+                    <Tooltip title="Rolü Yönet">
                         <IconButton
                             size="small"
+                            color="primary"
                             onClick={() => {
                                 setSelectedUser(params.row);
                                 setNewRole(params.row.role);
                                 setRoleDialogOpen(true);
                             }}
                         >
-                            <Edit fontSize="small" />
+                            <EditIcon fontSize="small" />
                         </IconButton>
                     </Tooltip>
-                    <Tooltip title={params.row.isActive ? 'Pasifleştir' : 'Aktifleştir'}>
+                    <Tooltip title={params.row.isActive ? 'Erişimi Kısıtla' : 'Erişim Ver'}>
                         <IconButton
                             size="small"
+                            color={params.row.isActive ? 'warning' : 'success'}
                             onClick={() => suspendMutation.mutate(params.row.id)}
                         >
-                            {params.row.isActive ? <PersonOff fontSize="small" /> : <Person fontSize="small" />}
+                            {params.row.isActive ? <PersonOffIcon fontSize="small" /> : <PersonIcon fontSize="small" />}
                         </IconButton>
                     </Tooltip>
-                    <Tooltip title="Sil">
+                    <Tooltip title="Kullanıcıyı Sil">
                         <IconButton
                             size="small"
                             color="error"
@@ -309,119 +298,93 @@ export default function YetkilendirmePage() {
                                 setDeleteDialogOpen(true);
                             }}
                         >
-                            <Delete fontSize="small" />
+                            <DeleteIcon fontSize="small" />
                         </IconButton>
                     </Tooltip>
-                </Box>
+                </Stack>
             ),
         },
     ];
 
     if (!isAdmin) {
         return (
-            <MainLayout>
-                <Box sx={{ p: 3 }}>
-                    <Alert severity="error">Bu sayfaya erişim yetkiniz yok.</Alert>
-                </Box>
-            </MainLayout>
+            <StandardPage title="Yetkisiz Erişim">
+                <Alert severity="error" variant="outlined" sx={{ borderRadius: 3 }}>Bu sayfaya erişim yetkiniz yok.</Alert>
+            </StandardPage>
         );
     }
 
     return (
-        <MainLayout>
-            <Box sx={{ p: 3 }}>
-                {/* Header */}
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-                    <Box>
-                        <Typography variant="h4" fontWeight="bold" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <AdminPanelSettings />
-                            Kullanıcı Yetkilendirme
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                            Kullanıcı rolleri ve yetkilendirme yönetimi
-                        </Typography>
-                    </Box>
-                    <Button
-                        variant="outlined"
-                        startIcon={<Refresh />}
-                        onClick={() => {
-                            queryClient.invalidateQueries({ queryKey: ['users'] });
-                            queryClient.invalidateQueries({ queryKey: ['users-stats'] });
-                        }}
-                    >
-                        Yenile
-                    </Button>
-                </Box>
+        <StandardPage
+            title="Kullanıcı Yetkilendirme"
+            breadcrumbs={[
+                { label: 'Ayarlar', href: '/settings' },
+                { label: 'Yetkilendirme' }
+            ]}
+            headerActions={
+                <Button
+                    variant="outlined"
+                    size="small"
+                    startIcon={<RefreshIcon />}
+                    onClick={() => {
+                        queryClient.invalidateQueries({ queryKey: ['users'] });
+                        queryClient.invalidateQueries({ queryKey: ['users-stats'] });
+                    }}
+                    sx={{ fontWeight: 700, borderRadius: 3 }}
+                >
+                    Yenile
+                </Button>
+            }
+        >
+            <Box sx={{ mb: 4 }}>
+                <Typography variant="body2" sx={{ color: 'text.secondary', maxWidth: 800 }}>
+                    Sistemdeki tüm kullanıcıları listeleyebilir, rollerini değiştirebilir veya erişim durumlarını yönetebilirsiniz. Her rol farklı yetki seviyelerine sahiptir.
+                </Typography>
+            </Box>
 
-                {/* Stats Cards */}
-                <Grid container spacing={2} sx={{ mb: 3 }}>
-                    <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-                        <Card>
-                            <CardContent>
-                                <Typography color="text.secondary" gutterBottom variant="body2">
-                                    Toplam Kullanıcı
-                                </Typography>
-                                <Typography variant="h4" fontWeight="bold">
-                                    {stats?.total || 0}
-                                </Typography>
-                            </CardContent>
-                        </Card>
+            {/* Stats Grid */}
+            <Grid container spacing={3} sx={{ mb: 4 }}>
+                {[
+                    { label: 'Toplam', value: stats?.total || 0, color: 'primary', icon: <GroupIcon /> },
+                    { label: 'Aktif', value: stats?.active || 0, color: 'success', icon: <PersonIcon /> },
+                    { label: 'Pasif', value: stats?.inactive || 0, color: 'error', icon: <PersonOffIcon /> },
+                    { label: 'Yönetici', value: (stats?.byRole?.ADMIN || 0) + (stats?.byRole?.TENANT_ADMIN || 0) + (stats?.byRole?.SUPER_ADMIN || 0), color: 'info', icon: <SecurityIcon /> },
+                ].map((s, i) => (
+                    <Grid size={{ xs: 12, sm: 6, md: 3 }} key={i}>
+                        <Paper variant="outlined" sx={{ p: 2, borderRadius: 3, display: 'flex', alignItems: 'center', gap: 2, bgcolor: alpha(theme.palette[s.color as any].main, 0.02) }}>
+                            <Box sx={{ p: 1, borderRadius: 2, bgcolor: alpha(theme.palette[s.color as any].main, 0.1), color: `${s.color}.main`, display: 'flex' }}>
+                                {s.icon}
+                            </Box>
+                            <Box>
+                                <Typography variant="h5" sx={{ fontWeight: 900, lineHeight: 1 }}>{s.value}</Typography>
+                                <Typography variant="caption" sx={{ fontWeight: 700, color: 'text.secondary' }}>{s.label}</Typography>
+                            </Box>
+                        </Paper>
                     </Grid>
-                    <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-                        <Card>
-                            <CardContent>
-                                <Typography color="text.secondary" gutterBottom variant="body2">
-                                    Aktif Kullanıcı
-                                </Typography>
-                                <Typography variant="h4" fontWeight="bold" color="success.main">
-                                    {stats?.active || 0}
-                                </Typography>
-                            </CardContent>
-                        </Card>
-                    </Grid>
-                    <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-                        <Card>
-                            <CardContent>
-                                <Typography color="text.secondary" gutterBottom variant="body2">
-                                    Pasif Kullanıcı
-                                </Typography>
-                                <Typography variant="h4" fontWeight="bold" color="error.main">
-                                    {stats?.inactive || 0}
-                                </Typography>
-                            </CardContent>
-                        </Card>
-                    </Grid>
-                    <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-                        <Card>
-                            <CardContent>
-                                <Typography color="text.secondary" gutterBottom variant="body2">
-                                    Yönetici
-                                </Typography>
-                                <Typography variant="h4" fontWeight="bold" color="primary.main">
-                                    {(stats?.byRole?.ADMIN || 0) + (stats?.byRole?.TENANT_ADMIN || 0) + (stats?.byRole?.SUPER_ADMIN || 0)}
-                                </Typography>
-                            </CardContent>
-                        </Card>
-                    </Grid>
-                </Grid>
+                ))}
+            </Grid>
 
-                {/* Filters */}
-                <Paper sx={{ p: 2, mb: 2 }}>
-                    <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+            {/* Filters Paper */}
+            <Paper variant="outlined" sx={{ p: 3, mb: 3, borderRadius: 4, bgcolor: alpha(theme.palette.background.paper, 0.6) }}>
+                <Grid container spacing={2} alignItems="center">
+                    <Grid size={{ xs: 12, md: 6 }}>
                         <TextField
+                            fullWidth
                             size="small"
-                            placeholder="Kullanıcı ara (ad, email, kullanıcı adı)..."
+                            placeholder="İsim, e-posta veya kullanıcı adı ile ara..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            sx={{ flex: 1, minWidth: 200 }}
+                            sx={{ '& .MuiOutlinedInput-root': { borderRadius: 3, bgcolor: 'background.paper' } }}
                             InputProps={{
-                                startAdornment: <Search sx={{ color: 'text.secondary', mr: 1 }} />,
+                                startAdornment: <SearchIcon sx={{ color: 'text.secondary', mr: 1 }} />,
                             }}
                         />
-                        <FormControl size="small" sx={{ minWidth: 150 }}>
-                            <InputLabel>Rol</InputLabel>
-                            <Select value={roleFilter} label="Rol" onChange={(e) => setRoleFilter(e.target.value)}>
-                                <MenuItem value="ALL">Tümü</MenuItem>
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+                        <FormControl fullWidth size="small">
+                            <InputLabel>Rol Filtresi</InputLabel>
+                            <Select value={roleFilter} label="Rol Filtresi" onChange={(e) => setRoleFilter(e.target.value)} sx={{ borderRadius: 3, bgcolor: 'background.paper' }}>
+                                <MenuItem value="ALL">Tüm Roller</MenuItem>
                                 <MenuItem value="SUPER_ADMIN">Süper Admin</MenuItem>
                                 <MenuItem value="TENANT_ADMIN">Tenant Admin</MenuItem>
                                 <MenuItem value="ADMIN">Yönetici</MenuItem>
@@ -431,88 +394,108 @@ export default function YetkilendirmePage() {
                                 <MenuItem value="VIEWER">İzleyici</MenuItem>
                             </Select>
                         </FormControl>
-                        <FormControl size="small" sx={{ minWidth: 150 }}>
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+                        <FormControl fullWidth size="small">
                             <InputLabel>Durum</InputLabel>
-                            <Select value={statusFilter} label="Durum" onChange={(e) => setStatusFilter(e.target.value)}>
-                                <MenuItem value="ALL">Tümü</MenuItem>
-                                <MenuItem value="ACTIVE">Aktif</MenuItem>
-                                <MenuItem value="INACTIVE">Pasif</MenuItem>
+                            <Select value={statusFilter} label="Durum" onChange={(e) => setStatusFilter(e.target.value)} sx={{ borderRadius: 3, bgcolor: 'background.paper' }}>
+                                <MenuItem value="ALL">Tüm Durumlar</MenuItem>
+                                <MenuItem value="ACTIVE">Aktif Kullanıcılar</MenuItem>
+                                <MenuItem value="INACTIVE">Pasif Kullanıcılar</MenuItem>
                             </Select>
                         </FormControl>
-                    </Box>
-                </Paper>
+                    </Grid>
+                </Grid>
+            </Paper>
 
-                {/* DataGrid */}
-                <Paper sx={{ height: 600, width: '100%' }}>
+            {/* User DataGrid */}
+            <Paper variant="outlined" sx={{ borderRadius: 4, overflow: 'hidden', border: '1px solid', borderColor: 'divider' }}>
+                <Box sx={{ height: 600, width: '100%' }}>
                     <DataGrid
                         rows={filteredUsers}
                         columns={columns}
                         loading={usersLoading}
                         pageSizeOptions={[25, 50, 100]}
-                        initialState={{
-                            pagination: { paginationModel: { pageSize: 25 } },
-                        }}
+                        initialState={{ pagination: { paginationModel: { pageSize: 25 } } }}
                         disableRowSelectionOnClick
                         sx={{
                             border: 'none',
-                            '& .MuiDataGrid-cell:focus': {
-                                outline: 'none',
+                            '& .MuiDataGrid-columnHeaders': {
+                                bgcolor: alpha(theme.palette.primary.main, 0.04),
+                                borderBottom: '1px solid',
+                                borderColor: 'divider',
                             },
                         }}
                     />
-                </Paper>
+                </Box>
+            </Paper>
 
-                {/* Role Change Dialog */}
-                <Dialog open={roleDialogOpen} onClose={() => setRoleDialogOpen(false)} maxWidth="sm" fullWidth>
-                    <DialogTitle component="div">Rol Değiştir</DialogTitle>
-                    <DialogContent>
-                        {selectedUser && (
-                            <Box sx={{ pt: 1 }}>
-                                <Typography variant="body2" color="text.secondary" gutterBottom>
-                                    Kullanıcı: <strong>{selectedUser.fullName}</strong> ({selectedUser.email})
-                                </Typography>
-                                <FormControl fullWidth sx={{ mt: 2 }}>
-                                    <InputLabel>Yeni Rol</InputLabel>
-                                    <Select value={newRole} label="Yeni Rol" onChange={(e) => setNewRole(e.target.value)}>
-                                        <MenuItem value="SUPER_ADMIN">Süper Admin</MenuItem>
-                                        <MenuItem value="TENANT_ADMIN">Tenant Admin</MenuItem>
-                                        <MenuItem value="ADMIN">Yönetici</MenuItem>
-                                        <MenuItem value="MANAGER">Müdür</MenuItem>
-                                        <MenuItem value="SUPPORT">Destek</MenuItem>
-                                        <MenuItem value="USER">Kullanıcı</MenuItem>
-                                        <MenuItem value="VIEWER">İzleyici</MenuItem>
-                                    </Select>
-                                </FormControl>
-                            </Box>
-                        )}
-                    </DialogContent>
-                    <DialogActions>
-                        <Button onClick={() => setRoleDialogOpen(false)}>İptal</Button>
-                        <Button variant="contained" onClick={handleRoleChange} disabled={updateRoleMutation.isPending}>
-                            {updateRoleMutation.isPending ? 'Kaydediliyor...' : 'Kaydet'}
-                        </Button>
-                    </DialogActions>
-                </Dialog>
-
-                {/* Delete Confirmation Dialog */}
-                <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)} maxWidth="sm" fullWidth>
-                    <DialogTitle component="div">Kullanıcıyı Sil</DialogTitle>
-                    <DialogContent>
-                        {selectedUser && (
-                            <Alert severity="warning" sx={{ mt: 1 }}>
-                                <strong>{selectedUser.fullName}</strong> adlı kullanıcıyı silmek istediğinizden emin misiniz?
-                                Bu işlem geri alınamaz.
+            {/* Role Change Dialog */}
+            <Dialog
+                open={roleDialogOpen}
+                onClose={() => setRoleDialogOpen(false)}
+                maxWidth="sm"
+                fullWidth
+                PaperProps={{ sx: { borderRadius: 4 } }}
+            >
+                <DialogTitle sx={{ fontWeight: 800 }}>Kullanıcı Rolünü Güncelle</DialogTitle>
+                <DialogContent>
+                    {selectedUser && (
+                        <Box sx={{ pt: 1 }}>
+                            <Alert severity="info" variant="outlined" sx={{ mb: 3, borderRadius: 2 }}>
+                                <Typography variant="body2"><strong>{selectedUser.fullName}</strong> kullanıcısının sisteme erişim yetkisini değiştirmek üzeresiniz.</Typography>
                             </Alert>
-                        )}
-                    </DialogContent>
-                    <DialogActions>
-                        <Button onClick={() => setDeleteDialogOpen(false)}>İptal</Button>
-                        <Button color="error" variant="contained" onClick={handleDelete} disabled={deleteMutation.isPending}>
-                            {deleteMutation.isPending ? 'Siliniyor...' : 'Sil'}
-                        </Button>
-                    </DialogActions>
-                </Dialog>
-            </Box>
-        </MainLayout>
+                            <FormControl fullWidth>
+                                <InputLabel>Yeni Rol Seçin</InputLabel>
+                                <Select value={newRole} label="Yeni Rol Seçin" onChange={(e) => setNewRole(e.target.value)} sx={{ borderRadius: 2 }}>
+                                    <MenuItem value="SUPER_ADMIN">Süper Admin</MenuItem>
+                                    <MenuItem value="TENANT_ADMIN">Tenant Admin</MenuItem>
+                                    <MenuItem value="ADMIN">Yönetici</MenuItem>
+                                    <MenuItem value="MANAGER">Müdür</MenuItem>
+                                    <MenuItem value="SUPPORT">Destek</MenuItem>
+                                    <MenuItem value="USER">Kullanıcı</MenuItem>
+                                    <MenuItem value="VIEWER">İzleyici</MenuItem>
+                                </Select>
+                            </FormControl>
+                        </Box>
+                    )}
+                </DialogContent>
+                <DialogActions sx={{ p: 3 }}>
+                    <Button onClick={() => setRoleDialogOpen(false)} sx={{ fontWeight: 700 }}>İptal</Button>
+                    <Button variant="contained" onClick={handleRoleChange} disabled={updateRoleMutation.isPending} sx={{ fontWeight: 800, borderRadius: 2, px: 4 }}>
+                        {updateRoleMutation.isPending ? 'Güncelleniyor...' : 'Rolü Güncelle'}
+                    </Button>
+                </DialogActions>
+            </Dialog>
+
+            {/* Delete Confirmation Dialog */}
+            <Dialog
+                open={deleteDialogOpen}
+                onClose={() => setDeleteDialogOpen(false)}
+                maxWidth="sm"
+                fullWidth
+                PaperProps={{ sx: { borderRadius: 4 } }}
+            >
+                <DialogTitle sx={{ fontWeight: 800 }}>Kullanıcıyı Sil</DialogTitle>
+                <DialogContent>
+                    {selectedUser && (
+                        <Box sx={{ pt: 1 }}>
+                            <Typography variant="body1" sx={{ mb: 2 }}>
+                                <strong>{selectedUser.fullName}</strong> adlı kullanıcıyı kalıcı olarak silmek istediğinizden emin misiniz?
+                            </Typography>
+                            <Alert severity="warning" sx={{ borderRadius: 2 }}>
+                                Bu işlem geri alınamaz ve kullanıcının sisteme girişi tamamen engellenir.
+                            </Alert>
+                        </Box>
+                    )}
+                </DialogContent>
+                <DialogActions sx={{ p: 3 }}>
+                    <Button onClick={() => setDeleteDialogOpen(false)} sx={{ fontWeight: 700 }}>Vazgeç</Button>
+                    <Button color="error" variant="contained" onClick={handleDelete} disabled={deleteMutation.isPending} sx={{ fontWeight: 800, borderRadius: 2, px: 4 }}>
+                        {deleteMutation.isPending ? 'Siliniyor...' : 'Onayla ve Sil'}
+                    </Button>
+                </DialogActions>
+            </Dialog>
+        </StandardPage>
     );
 }

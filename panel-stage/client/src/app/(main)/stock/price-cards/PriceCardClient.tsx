@@ -272,6 +272,36 @@ export default function PriceCardClient() {
             }
         },
         {
+            field: 'createdByUser',
+            headerName: 'Oluşturan',
+            width: 150,
+            renderCell: (params: GridRenderCellParams) => (
+                <Typography variant="body2">
+                    {params.row.createdByUser?.fullName || params.row.createdBy || '-'}
+                </Typography>
+            ),
+        },
+        {
+            field: 'createdAt',
+            headerName: 'Oluşturulma Tarihi',
+            width: 140,
+            renderCell: (params: GridRenderCellParams) => (
+                <Typography variant="caption" color="text.secondary">
+                    {params.value ? new Date(params.value as string).toLocaleString('tr-TR', { dateStyle: 'short', timeStyle: 'short' }) : '-'}
+                </Typography>
+            ),
+        },
+        {
+            field: 'updatedAt',
+            headerName: 'Son Güncelleme',
+            width: 140,
+            renderCell: (params: GridRenderCellParams) => (
+                <Typography variant="caption" color="text.secondary">
+                    {params.value ? new Date(params.value as string).toLocaleString('tr-TR', { dateStyle: 'short', timeStyle: 'short' }) : '-'}
+                </Typography>
+            ),
+        },
+        {
             field: 'actions',
             type: 'actions',
             headerName: 'İşlemler',
@@ -321,6 +351,7 @@ export default function PriceCardClient() {
                     {/* Toolbar */}
                     <Box sx={{ p: 2, display: 'flex', flexWrap: 'wrap', gap: 2, alignItems: 'center', borderBottom: '1px solid var(--border)' }}>
                         <TextField
+                            id="price-card-search-input"
                             size="small"
                             placeholder="Stok adı veya kodu ile ara..."
                             value={search}

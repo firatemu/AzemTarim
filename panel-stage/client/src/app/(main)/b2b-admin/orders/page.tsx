@@ -25,18 +25,31 @@ import {
   TableRow,
   Alert,
   TextField,
+  Stack,
+  alpha,
+  useTheme,
+  IconButton,
+  Tooltip,
 } from '@mui/material';
 import {
-  CheckCircle as CheckCircleIcon,
+  CheckCircle as CheckIcon,
   Cancel as CancelIcon,
   Download as DownloadIcon,
+  Refresh as RefreshIcon,
+  Visibility as ViewIcon,
+  Receipt as ReceiptIcon,
+  LocalShipping as DeliveryIcon,
+  AccountCircle as UserIcon,
+  AccessTime as PendingIcon,
+  Error as ErrorIcon,
+  Info as InfoIcon,
 } from '@mui/icons-material';
 import { DataGrid, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
 import StandardPage from '@/components/common/StandardPage';
 import { B2bDrawerWithActions, StatusChip, RiskBadge, PriceBreakdown } from '@/components/b2b-admin';
 import axios from '@/lib/axios';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { toast } from 'react-hot-toast';
+import { useSnackbar } from 'notistack';
 import { B2BOrderStatus } from '@/types/b2b';
 
 type OrderRow = {
@@ -52,7 +65,7 @@ type OrderRow = {
   salesperson?: {
     name: string;
   };
-  status: string; // or use B2BOrderStatus if it's a type, but here it's used as value
+  status: string;
   totalListPrice: number;
   totalDiscountAmount: number;
   totalFinalPrice: number;
@@ -75,6 +88,8 @@ type OrderRow = {
 };
 
 export default function B2bAdminOrdersPage() {
+  const { enqueueSnackbar } = useSnackbar();
+  const theme = useTheme();
   const [statusFilter, setStatusFilter] = useState<string | 'all'>('all');
   const [drawerOrder, setDrawerOrder] = useState<OrderRow | null>(null);
   const queryClient = useQueryClient();
@@ -85,13 +100,12 @@ export default function B2bAdminOrdersPage() {
     queryFn: async () => {
       const params: any = { limit: 100 };
       if (statusFilter !== 'all') params.status = statusFilter;
-
       const res = await axios.get<{ data: OrderRow[] }>('/b2b-admin/orders', { params });
       return res.data.data || [];
     },
   });
 
-  // Approve order mutation
+  // Approve order
   const approveOrderMutation = useMutation({
     mutationFn: async (orderId: string) => {
       const res = await axios.post(`/b2b-admin/orders/${orderId}/approve`);
@@ -99,15 +113,15 @@ export default function B2bAdminOrdersPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['b2b-orders'] });
-      toast.success('Sipariş onaylandı');
+      enqueueSnackbar('Sipariş başarıyla onaylandı ve ERP\'ye kuyruğa alındı.', { variant: 'success' });
       setDrawerOrder(null);
     },
     onError: (err: any) => {
-      toast.error(err?.response?.data?.message || 'Onaylama hatası');
+      enqueueSnackbar(err?.response?.data?.message || 'Onaylama hatası', { variant: 'error' });
     },
   });
 
-  // Reject order mutation
+  // Reject order
   const rejectOrderMutation = useMutation({
     mutationFn: async ({ orderId, reason }: { orderId: string; reason: string }) => {
       const res = await axios.post(`/b2b-admin/orders/${orderId}/reject`, { reason });
@@ -115,15 +129,15 @@ export default function B2bAdminOrdersPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['b2b-orders'] });
-      toast.success('Sipariş reddedildi');
+      enqueueSnackbar('Sipariş reddedildi.', { variant: 'success' });
       setDrawerOrder(null);
     },
     onError: (err: any) => {
-      toast.error(err?.response?.data?.message || 'Reddetme hatası');
+      enqueueSnackbar(err?.response?.data?.message || 'Reddetme hatası', { variant: 'error' });
     },
   });
 
-  // Export to Excel
+  // Export
   const exportExcelMutation = useMutation({
     mutationFn: async () => {
       const res = await axios.get('/b2b-admin/orders/export', {
@@ -132,78 +146,73 @@ export default function B2bAdminOrdersPage() {
       });
       const blob = new Blob([res.data]);
       const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `b2b-orders-${Date.now()}.xlsx`;
+      const a = document.createElement('a'); a.href = url;
+      a.download = `b2b-siparisler-${new Date().toISOString().slice(0, 10)}.xlsx`;
       a.click();
-      window.URL.revokeObjectURL(url);
     },
-    onSuccess: () => {
-      toast.success('Excel indirildi');
-    },
-    onError: (err: any) => {
-      toast.error('Excel indirme hatası');
-    },
+    onSuccess: () => enqueueSnackbar('Excel raporu hazırlandı', { variant: 'success' }),
+    onError: () => enqueueSnackbar('Excel indirme hatası', { variant: 'error' }),
   });
 
   const columns: GridColDef<OrderRow>[] = [
     {
       field: 'orderNumber',
       headerName: 'Sipariş No',
-      width: 150,
+      width: 160,
       renderCell: (params) => (
-        <Typography
-          sx={{
-            fontWeight: 600,
-            color: 'primary.main',
-            cursor: 'pointer',
-            '&:hover': { textDecoration: 'underline' },
-          }}
-          onClick={() => setDrawerOrder(params.row)}
-        >
-          {params.row.orderNumber}
-        </Typography>
+        <Stack sx={{ py: 1 }}>
+          <Typography variant="body2" sx={{ fontWeight: 900, color: 'primary.main', cursor: 'pointer', '&:hover': { textDecoration: 'underline' } }} onClick={() => setDrawerOrder(params.row)}>
+            {params.row.orderNumber}
+          </Typography>
+          <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 700 }}>
+            {new Date(params.row.createdAt).toLocaleDateString('tr-TR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+          </Typography>
+        </Stack>
       ),
     },
     {
       field: 'customer',
-      headerName: 'Müşteri',
+      headerName: 'Müşteri & İletişim',
       flex: 1,
-      minWidth: 200,
+      minWidth: 240,
       renderCell: (params: GridRenderCellParams) => (
-        <Box>
-          <Typography variant="body2" sx={{ fontWeight: 500 }}>
-            {params.row.customer.name}
+        <Stack spacing={0.25} sx={{ py: 1.5 }}>
+          <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>{params.row.customer.name}</Typography>
+          <Typography variant="caption" sx={{ color: 'text.disabled', display: 'flex', alignItems: 'center', gap: 0.5 }}>
+            <UserIcon sx={{ fontSize: 12 }} /> {params.row.customer.email}
           </Typography>
-          <Typography variant="caption" color="textSecondary">
-            {params.row.customer.email}
-          </Typography>
-        </Box>
+        </Stack>
       ),
+    },
+    {
+      field: 'itemsCount',
+      headerName: 'Kalem',
+      width: 80,
+      align: 'center',
+      renderCell: (params) => <Chip label={params.row.items.length} size="small" variant="outlined" sx={{ fontWeight: 800, borderRadius: 1.5 }} />
     },
     {
       field: 'status',
       headerName: 'Durum',
-      width: 140,
+      width: 150,
       renderCell: (params: GridRenderCellParams) => <StatusChip status={params.row.status} />,
     },
     {
       field: 'totalFinalPrice',
-      headerName: 'Tutar',
-      width: 120,
+      headerName: 'Toplam Tutar',
+      width: 140,
       align: 'right',
-      valueFormatter: (value: any) => `${Number(value || 0).toFixed(2)} ₺`,
-    },
-    {
-      field: 'createdAt',
-      headerName: 'Tarih',
-      width: 120,
-      valueFormatter: (value: any) => value ? new Date(value).toLocaleDateString('tr-TR') : '',
+      renderCell: (params) => (
+        <Typography variant="body2" sx={{ fontWeight: 900, fontFamily: 'monospace' }}>
+          {new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY' }).format(params.value || 0)}
+        </Typography>
+      )
     },
     {
       field: 'riskStatus',
       headerName: 'Risk',
       width: 80,
+      align: 'center',
       renderCell: (params: GridRenderCellParams) => (
         <RiskBadge status={params.row.customer.riskStatus} showLabel={false} />
       ),
@@ -212,50 +221,67 @@ export default function B2bAdminOrdersPage() {
 
   return (
     <StandardPage
-      title="B2B Siparişleri"
-      breadcrumbs={[
-        { label: 'B2B Yönetimi', href: '/b2b-admin' },
-        { label: 'Siparişler' },
-      ]}
+      title="B2B Sipariş Yönetimi"
+      breadcrumbs={[{ label: 'B2B Admin', href: '/b2b-admin' }, { label: 'Siparişler' }]}
       headerActions={
-        <Box sx={{ display: 'flex', gap: 1 }}>
+        <Stack direction="row" spacing={1.5}>
           <Button
             variant="outlined"
+            size="small"
             startIcon={<DownloadIcon />}
             onClick={() => exportExcelMutation.mutate()}
             disabled={exportExcelMutation.isPending}
+            sx={{ fontWeight: 800, borderRadius: 3 }}
           >
-            Excel
+            Excel Dökümü
           </Button>
-        </Box>
+          <IconButton onClick={() => refetch()} sx={{ bgcolor: alpha(theme.palette.primary.main, 0.05), color: 'primary.main', borderRadius: 2 }}>
+            <RefreshIcon fontSize="small" />
+          </IconButton>
+        </Stack>
       }
     >
-      <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 2 }}>
+      <Paper variant="outlined" sx={{ mb: 3, borderRadius: 4, overflow: 'hidden' }}>
         <Tabs
           value={statusFilter}
           onChange={(e, val) => setStatusFilter(val)}
+          sx={{
+            px: 2,
+            '& .MuiTabs-indicator': { height: 3, borderRadius: '3px 3px 0 0' },
+            '& .MuiTab-root': { fontWeight: 800, minHeight: 64, textTransform: 'none', fontSize: '0.9rem' }
+          }}
         >
           <Tab label="Tümü" value="all" />
-          <Tab label={<Box display="flex" alignItems="center" gap={1}><Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: 'warning.main' }} /> Bekleyen</Box>} value={B2BOrderStatus.PENDING} />
-          <Tab label={<Box display="flex" alignItems="center" gap={1}><Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: 'info.main' }} /> Onaylı</Box>} value={B2BOrderStatus.APPROVED} />
-          <Tab label={<Box display="flex" alignItems="center" gap={1}><Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: 'success.main' }} /> Aktarılan</Box>} value={B2BOrderStatus.EXPORTED_TO_ERP} />
-          <Tab label={<Box display="flex" alignItems="center" gap={1}><Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: 'error.main' }} /> Reddedilen</Box>} value={B2BOrderStatus.REJECTED} />
+          <Tab icon={<PendingIcon sx={{ fontSize: 18 }} />} iconPosition="start" label="Bekleyenler" value={B2BOrderStatus.PENDING} />
+          <Tab icon={<CheckIcon sx={{ fontSize: 18 }} />} iconPosition="start" label="Onaylı" value={B2BOrderStatus.APPROVED} />
+          <Tab icon={<ReceiptIcon sx={{ fontSize: 18 }} />} iconPosition="start" label="ERP'ye Aktarılan" value={B2BOrderStatus.EXPORTED_TO_ERP} />
+          <Tab icon={<ErrorIcon sx={{ fontSize: 18 }} />} iconPosition="start" label="Reddedilen" value={B2BOrderStatus.REJECTED} />
         </Tabs>
-      </Box>
+      </Paper>
 
-      <DataGrid
-        rows={orders}
-        columns={columns}
-        pageSizeOptions={[25, 50, 100]}
-        initialState={{
-          pagination: { paginationModel: { pageSize: 25 } },
-        }}
-        disableRowSelectionOnClick
-        autoHeight
-        loading={isLoading}
-        onRowClick={(row) => setDrawerOrder(row.row)}
-        sx={{ cursor: 'pointer' }}
-      />
+      <Box sx={{
+        height: 650,
+        bgcolor: 'background.paper',
+        borderRadius: 4,
+        border: '1px solid',
+        borderColor: 'divider',
+        overflow: 'hidden',
+        '& .MuiDataGrid-root': { border: 'none' },
+        '& .MuiDataGrid-columnHeaders': { bgcolor: alpha(theme.palette.primary.main, 0.04), borderBottom: '1px solid', borderColor: 'divider' },
+        '& .MuiDataGrid-cell': { borderColor: 'divider' },
+      }}>
+        <DataGrid
+          rows={orders}
+          columns={columns}
+          loading={isLoading}
+          pageSizeOptions={[25, 50, 100]}
+          initialState={{ pagination: { paginationModel: { pageSize: 25 } } }}
+          disableRowSelectionOnClick
+          getRowHeight={() => 'auto'}
+          onRowClick={(row) => setDrawerOrder(row.row)}
+          sx={{ cursor: 'pointer', '& .MuiDataGrid-columnHeaderTitle': { fontWeight: 900, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: 1, color: 'text.secondary' } }}
+        />
+      </Box>
 
       {/* Order Detail Drawer */}
       {drawerOrder && (
@@ -282,12 +308,14 @@ interface OrderDrawerProps {
 }
 
 function OrderDrawer({ order, onClose, onApprove, onReject, approving, rejecting }: OrderDrawerProps) {
+  const { enqueueSnackbar } = useSnackbar();
+  const theme = useTheme();
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
 
   const handleReject = () => {
     if (!rejectReason.trim()) {
-      toast.error('Lütfen reddetme sebebi girin');
+      enqueueSnackbar('Lütfen reddetme sebebi girin', { variant: 'error' });
       return;
     }
     onReject(rejectReason);
@@ -299,10 +327,13 @@ function OrderDrawer({ order, onClose, onApprove, onReject, approving, rejecting
       <B2bDrawerWithActions
         open={!!order}
         onClose={onClose}
-        title={`Sipariş #${order.orderNumber}`}
-        width={600}
+        title={<Stack direction="row" spacing={1} alignItems="center">
+          <ReceiptIcon color="primary" />
+          <Typography variant="h6" sx={{ fontWeight: 900 }}>Sipariş #{order.orderNumber}</Typography>
+        </Stack>}
+        width={700}
         actions={
-          <>
+          <Stack direction="row" spacing={2} sx={{ width: '100%' }}>
             {order.status === B2BOrderStatus.PENDING && (
               <>
                 <Button
@@ -311,97 +342,86 @@ function OrderDrawer({ order, onClose, onApprove, onReject, approving, rejecting
                   startIcon={<CancelIcon />}
                   onClick={() => setRejectDialogOpen(true)}
                   disabled={rejecting}
+                  sx={{ fontWeight: 800, borderRadius: 2.5 }}
                 >
-                  Reddet
+                  Siparişi Reddet
                 </Button>
                 <Button
                   variant="contained"
                   color="success"
-                  startIcon={approving ? <CheckCircleIcon /> : undefined}
+                  startIcon={approving ? undefined : <CheckIcon />}
                   onClick={onApprove}
                   disabled={approving || rejecting}
+                  sx={{ fontWeight: 900, borderRadius: 2.5, flex: 1 }}
                 >
-                  {approving ? 'Onaylanıyor...' : 'Onayla'}
+                  {approving ? 'Onaylanıyor...' : 'Onayla ve ERP\'ye Aktar'}
                 </Button>
               </>
             )}
             {order.status === B2BOrderStatus.EXPORTED_TO_ERP && order.erpOrderId && (
-              <Alert severity="success" sx={{ mr: 'auto' }}>
-                ERP Sipariş No: {order.erpOrderId}
+              <Alert icon={<CheckIcon sx={{ color: 'success.main' }} />} severity="success" sx={{ flex: 1, borderRadius: 2.5, fontWeight: 800 }}>
+                ERP AKTARIMI BAŞARILI (Belge No: {order.erpOrderId})
               </Alert>
             )}
-          </>
+            {(order.status === B2BOrderStatus.APPROVED || order.status === B2BOrderStatus.PENDING) && (
+              <IconButton onClick={onClose} sx={{ ml: 'auto' }}><CancelIcon /></IconButton>
+            )}
+          </Stack>
         }
       >
-        <Grid container spacing={2}>
-          {/* Customer & Risk Section */}
-          <Grid size={{ xs: 12 }}>
-            <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 600 }}>
-              Müşteri & Risk
-            </Typography>
-            <Paper variant="outlined" sx={{ p: 2 }}>
-              <Box display="flex" justifyContent="space-between" alignItems="center">
-                <Box>
-                  <Typography variant="h6">{order.customer.name}</Typography>
-                  <Typography variant="body2" color="textSecondary">
-                    {order.customer.email}
+        <Stack spacing={4}>
+          {/* Customer Card */}
+          <Paper variant="outlined" sx={{ p: 3, borderRadius: 4, bgcolor: alpha(theme.palette.primary.main, 0.01) }}>
+            <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
+              <Stack spacing={0.5}>
+                <Typography variant="caption" sx={{ fontWeight: 800, color: 'text.secondary' }}>MÜŞTERİ BİLGİLERİ</Typography>
+                <Typography variant="h6" sx={{ fontWeight: 900 }}>{order.customer.name}</Typography>
+                <Typography variant="body2" sx={{ color: 'text.secondary' }}>{order.customer.email}</Typography>
+                {order.salesperson && (
+                  <Typography variant="caption" sx={{ fontWeight: 700, mt: 1, color: 'primary.main', display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                    <UserIcon sx={{ fontSize: 14 }} /> Temsilci: {order.salesperson.name}
                   </Typography>
-                </Box>
-                <RiskBadge status={order.customer.riskStatus} />
-              </Box>
-              {order.salesperson && (
-                <Typography variant="caption" color="textSecondary" sx={{ display: 'block', mt: 1 }}>
-                  Satış Temsilcisi: {order.salesperson.name}
-                </Typography>
-              )}
-            </Paper>
-          </Grid>
+                )}
+              </Stack>
+              <RiskBadge status={order.customer.riskStatus} />
+            </Stack>
+          </Paper>
 
           {/* Items Table */}
-          <Grid size={{ xs: 12 }}>
-            <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 600 }}>
-              Sipariş Kalemleri
+          <Box>
+            <Typography variant="subtitle2" sx={{ fontWeight: 900, mb: 1.5, display: 'flex', alignItems: 'center', gap: 1 }}>
+              <ViewIcon sx={{ fontSize: 18 }} /> SİPARİŞ KALEMLERİ
             </Typography>
-            <TableContainer component={Paper} variant="outlined">
+            <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 3, overflow: 'hidden' }}>
               <Table size="small">
-                <TableHead>
+                <TableHead sx={{ bgcolor: alpha(theme.palette.primary.main, 0.03) }}>
                   <TableRow>
-                    <TableCell>Ürün</TableCell>
-                    <TableCell align="right">Adet</TableCell>
-                    <TableCell align="right">Liste</TableCell>
-                    <TableCell align="right">İndirim</TableCell>
-                    <TableCell align="right">Toplam</TableCell>
+                    <TableCell sx={{ fontWeight: 800 }}>Ürün</TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 800 }}>Miktar</TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 800 }}>Birim</TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 800 }}>Net Tutar</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
                   {order.items.map((item) => (
-                    <TableRow key={item.id}>
+                    <TableRow key={item.id} hover>
                       <TableCell>
-                        <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                          {item.productName}
-                        </Typography>
-                        <Typography variant="caption" color="textSecondary">
-                          {item.stockCode}
-                        </Typography>
+                        <Typography variant="body2" sx={{ fontWeight: 800 }}>{item.productName}</Typography>
+                        <Typography variant="caption" sx={{ color: 'text.secondary', fontFamily: 'monospace' }}>{item.stockCode}</Typography>
                       </TableCell>
-                      <TableCell align="right">{item.quantity}</TableCell>
-                      <TableCell align="right">{item.listPrice.toFixed(2)} ₺</TableCell>
-                      <TableCell align="right" sx={{ color: 'success.main' }}>
-                        {((item.customerClassDiscount + item.campaignDiscount) / item.listPrice * 100).toFixed(1)}%
-                      </TableCell>
-                      <TableCell align="right">{item.finalPrice.toFixed(2)} ₺</TableCell>
+                      <TableCell align="right" sx={{ fontWeight: 900 }}>{item.quantity}</TableCell>
+                      <TableCell align="right" sx={{ fontWeight: 600 }}>{item.listPrice.toFixed(2)} ₺</TableCell>
+                      <TableCell align="right" sx={{ fontWeight: 900, color: 'primary.main' }}>{item.finalPrice.toFixed(2)} ₺</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
               </Table>
             </TableContainer>
-          </Grid>
+          </Box>
 
-          {/* Price Summary */}
-          <Grid size={{ xs: 12 }}>
-            <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 600 }}>
-              Fiyat Özeti
-            </Typography>
+          {/* Pricing Details */}
+          <Box>
+            <Typography variant="subtitle2" sx={{ fontWeight: 900, mb: 1.5 }}>FİYATLANDIRMA DETAYLARI</Typography>
             <PriceBreakdown
               listPrice={order.totalListPrice}
               classDiscount={order.items.reduce((sum, i) => sum + i.customerClassDiscount, 0)}
@@ -410,65 +430,60 @@ function OrderDrawer({ order, onClose, onApprove, onReject, approving, rejecting
               campaignDiscountRate={order.totalListPrice > 0 ? (order.items.reduce((sum, i) => sum + i.campaignDiscount, 0) / order.totalListPrice * 100) : undefined}
               finalPrice={order.totalFinalPrice}
             />
-          </Grid>
+          </Box>
 
-          {/* Delivery Info */}
-          <Grid size={{ xs: 12 }}>
-            <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 600 }}>
-              Teslimat Bilgisi
+          {/* Delivery & Logistics */}
+          <Box>
+            <Typography variant="subtitle2" sx={{ fontWeight: 900, mb: 1.5, display: 'flex', alignItems: 'center', gap: 1 }}>
+              <DeliveryIcon sx={{ fontSize: 18 }} /> TESLİMAT & LOJİSTİK
             </Typography>
-            <Paper variant="outlined" sx={{ p: 2 }}>
-              <Grid container spacing={2}>
+            <Paper variant="outlined" sx={{ p: 2, borderRadius: 3 }}>
+              <Grid container spacing={3}>
                 <Grid size={{ xs: 6 }}>
-                  <Typography variant="caption" color="textSecondary">
-                    Teslimat Yöntemi
-                  </Typography>
-                  <Typography variant="body2">
-                    {order.deliveryMethod?.name || '—'}
-                  </Typography>
+                  <Typography variant="caption" sx={{ fontWeight: 800, color: 'text.secondary' }}>TESLİMAT YÖNTEMİ</Typography>
+                  <Typography variant="body2" sx={{ fontWeight: 700 }}>{order.deliveryMethod?.name || 'Belirtilmedi'}</Typography>
                 </Grid>
                 <Grid size={{ xs: 6 }}>
-                  <Typography variant="caption" color="textSecondary">
-                    Teslimat Şubesi
-                  </Typography>
-                  <Typography variant="body2">
-                    {order.deliveryBranchName || '—'}
-                  </Typography>
+                  <Typography variant="caption" sx={{ fontWeight: 800, color: 'text.secondary' }}>TESLİMAT NOKTASI / ŞUBE</Typography>
+                  <Typography variant="body2" sx={{ fontWeight: 700 }}>{order.deliveryBranchName || 'Merkez Depo'}</Typography>
                 </Grid>
                 {order.note && (
                   <Grid size={{ xs: 12 }}>
-                    <Typography variant="caption" color="textSecondary">
-                      Not
+                    <Divider sx={{ my: 1, borderStyle: 'dashed' }} />
+                    <Typography variant="caption" sx={{ fontWeight: 800, color: 'text.secondary' }}>MÜŞTERİ NOTU</Typography>
+                    <Typography variant="body2" sx={{ mt: 0.5, p: 1.5, borderRadius: 2, bgcolor: alpha(theme.palette.info.main, 0.04), fontStyle: 'italic' }}>
+                      "{order.note}"
                     </Typography>
-                    <Typography variant="body2">{order.note}</Typography>
                   </Grid>
                 )}
               </Grid>
             </Paper>
-          </Grid>
-        </Grid>
+          </Box>
+        </Stack>
       </B2bDrawerWithActions>
 
-      {/* Reject Dialog */}
-      <Dialog open={rejectDialogOpen} onClose={() => setRejectDialogOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Siparişi Reddet</DialogTitle>
-        <DialogContent>
+      {/* Reject Modal */}
+      <Dialog open={rejectDialogOpen} onClose={() => setRejectDialogOpen(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: 4 } }}>
+        <DialogTitle sx={{ fontWeight: 900 }}>Siparişi Reddet</DialogTitle>
+        <DialogContent dividers>
           <TextField
-            id="b2b-order-reject-reason"
             fullWidth
             multiline
-            rows={3}
-            label="Reddetme Sebebi"
+            rows={4}
+            label="Reddetme Gerekçesi"
             value={rejectReason}
             onChange={(e) => setRejectReason(e.target.value)}
-            placeholder="Lütfen bu siparişi neden reddettiğinizi açıklayın..."
-            sx={{ mt: 2 }}
+            placeholder="Müşteriye iletilecek reddetme sebebini yazın..."
+            sx={{ mt: 1, '& .MuiOutlinedInput-root': { borderRadius: 3 } }}
           />
+          <Alert severity="warning" sx={{ mt: 2, borderRadius: 2 }}>
+            Siparişi reddettiğinizde bu işlem geri alınamaz ve müşteriye bildirim gönderilir.
+          </Alert>
         </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setRejectDialogOpen(false)}>İptal</Button>
-          <Button onClick={handleReject} variant="contained" color="error" disabled={rejecting}>
-            {rejecting ? 'Reddediliyor...' : 'Reddet'}
+        <DialogActions sx={{ p: 3 }}>
+          <Button onClick={() => setRejectDialogOpen(false)} sx={{ fontWeight: 700 }}>Vazgeç</Button>
+          <Button onClick={handleReject} variant="contained" color="error" disabled={rejecting} sx={{ fontWeight: 900, borderRadius: 2.5, px: 4 }}>
+            Onayla ve Reddet
           </Button>
         </DialogActions>
       </Dialog>

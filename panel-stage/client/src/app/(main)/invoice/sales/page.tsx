@@ -1,5 +1,6 @@
 'use client';
 
+import React from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, useMemo } from 'react';
@@ -9,31 +10,27 @@ import { useTabStore } from '@/stores/tabStore';
 import {
   Add,
   Assessment,
+  CheckCircle,
   Close,
   Delete,
   Edit,
   Print,
   Search,
-  Undo,
   Visibility,
-  Send,
-  CheckCircle,
-  Error as ErrorIcon,
-  HourglassEmpty,
   CloudUpload,
   TrendingUp,
-  ContentCopy,
+  Description,
   Receipt,
   Download,
   RefreshOutlined,
   ArrowDownward,
-  ArrowUpward,
   FilterList,
   ExpandMore,
-  Description,
-  MoreVert,
   LocalShipping,
-  Cancel
+  Cancel,
+  MoreHoriz,
+  FileCopy,
+  Undo,
 } from '@mui/icons-material';
 import {
   Alert,
@@ -60,7 +57,6 @@ import {
   ListItemIcon,
   Autocomplete,
   Link as MuiLink,
-  Menu,
   MenuItem,
   Paper,
   Popover,
@@ -77,6 +73,7 @@ import {
   TableRow,
   Stack,
   LinearProgress,
+  Menu,
 } from '@mui/material';
 import { GridColDef, GridRenderCellParams, GridPaginationModel, GridSortModel, GridFilterModel } from '@mui/x-data-grid';
 import KPIHeader from '@/components/Fatura/KPIHeader';
@@ -124,7 +121,7 @@ interface Fatura {
   currency?: string;
   exchangeRate?: number;
   currencyTotal?: number;
-  status: 'OPEN' | 'APPROVED' | 'PARTIALLY_PAID' | 'CLOSED' | 'CANCELLED';
+  status: 'DRAFT' | 'PENDING' | 'OPEN' | 'APPROVED' | 'PARTIALLY_PAID' | 'CLOSED' | 'PAID' | 'CANCELLED';
   iskonto?: number;
   description?: string;
   items?: FaturaKalemi[];
@@ -219,10 +216,6 @@ export default function SatisFaturalariPage() {
   // E-Fatura gönderme state
   const [sendingEInvoice, setSendingEInvoice] = useState<string | null>(null);
 
-  // Açılır menü state
-  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
-  const [menuFaturaId, setMenuFaturaId] = useState<string | null>(null);
-
   // Kar görüntüleme state
   const [openProfitDialog, setOpenProfitDialog] = useState(false);
   const [profitData, setProfitData] = useState<any>(null);
@@ -259,6 +252,9 @@ export default function SatisFaturalariPage() {
       label: 'Satış Faturaları',
       path: '/invoice/sales',
     });
+  }, [addTab]);
+
+  useEffect(() => {
     fetchFaturalar();
     fetchCariler();
     fetchStoklar();
@@ -329,18 +325,6 @@ export default function SatisFaturalariPage() {
   const showSnackbar = (message: string, severity: 'success' | 'error' | 'info') => {
     setSnackbar({ open: true, message, severity });
   };
-
-  const handleMenuOpen = (event: React.MouseEvent<HTMLElement>, faturaId: string) => {
-    setAnchorEl(event.currentTarget);
-    setMenuFaturaId(faturaId);
-  };
-
-  const handleMenuClose = () => {
-    setAnchorEl(null);
-    setMenuFaturaId(null);
-  };
-
-
 
   // Price History
   const fetchPriceHistory = async (event: React.MouseEvent<HTMLElement>, cariId: string, stokId: string) => {
@@ -738,10 +722,10 @@ export default function SatisFaturalariPage() {
     () =>
       stats
         ? {
-            aylikSatis: { tutar: stats.monthlySales?.totalAmount || 0, adet: stats.monthlySales?.count || 0 },
-            tahsilatBekleyen: { tutar: stats.pendingCollections?.totalAmount || 0, adet: stats.pendingCollections?.count || 0 },
-            vadesiGecmis: { tutar: stats.overdueInvoices?.totalAmount || 0, adet: stats.overdueInvoices?.count || 0 },
-          }
+          aylikSatis: { tutar: stats.monthlySales?.totalAmount || 0, adet: stats.monthlySales?.count || 0 },
+          tahsilatBekleyen: { tutar: stats.pendingCollections?.totalAmount || 0, adet: stats.pendingCollections?.count || 0 },
+          vadesiGecmis: { tutar: stats.overdueInvoices?.totalAmount || 0, adet: stats.overdueInvoices?.count || 0 },
+        }
         : null,
     [stats]
   );
@@ -780,16 +764,21 @@ export default function SatisFaturalariPage() {
 
   const getStatusColor = (status: string): 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning' => {
     switch (status) {
+      case 'PAID':
       case 'CLOSED':
-        return 'success'; // Yeşil - Tamamen ödendi
+        return 'success';
       case 'APPROVED':
-        return 'info'; // Mavi - Onaylandı
+        return 'info';
       case 'OPEN':
-        return 'warning'; // Turuncu - Beklemede
+        return 'warning';
+      case 'PENDING':
+        return 'warning';
+      case 'DRAFT':
+        return 'default';
       case 'PARTIALLY_PAID':
-        return 'primary'; // Mavi - Kısmen ödendi
+        return 'primary';
       case 'CANCELLED':
-        return 'error'; // Kırmızı - İptal
+        return 'error';
       default:
         return 'default';
     }
@@ -797,18 +786,47 @@ export default function SatisFaturalariPage() {
 
   const getStatusLabel = (status: string) => {
     switch (status) {
+      case 'PAID':
       case 'CLOSED':
         return 'Ödendi';
       case 'APPROVED':
         return 'Onaylandı';
       case 'OPEN':
+        return 'Açık';
+      case 'PENDING':
         return 'Beklemede';
+      case 'DRAFT':
+        return 'Taslak';
       case 'PARTIALLY_PAID':
         return 'Kısmen Ödendi';
       case 'CANCELLED':
         return 'İptal Edildi';
       default:
         return status;
+    }
+  };
+
+  const EDITABLE_STATUSES = ['DRAFT', 'PENDING'];
+  const APPROVABLE_STATUSES = ['DRAFT', 'PENDING', 'OPEN'];
+  const CANCELLABLE_STATUSES = ['APPROVED', 'PARTIALLY_PAID'];
+
+  const handleApprove = async (row: Fatura) => {
+    try {
+      await axios.put(`/invoices/${row.id}/status`, { status: 'APPROVED' });
+      showSnackbar(`${row.invoiceNo} numaralı fatura onaylanıp stok ve cari hareketleri oluşturuldu.`, 'success');
+      fetchFaturalar(); fetchStats();
+    } catch (error: any) {
+      showSnackbar(error.response?.data?.message || 'Onaylama işlemi başarısız', 'error');
+    }
+  };
+
+  const handleRevertToDraft = async (row: Fatura) => {
+    try {
+      await axios.put(`/invoices/${row.id}/status`, { status: 'DRAFT' });
+      showSnackbar(`${row.invoiceNo} numaralı fatura taslağa çevrildi. Oluşan hareketler geri alındı.`, 'success');
+      fetchFaturalar(); fetchStats();
+    } catch (error: any) {
+      showSnackbar(error.response?.data?.message || 'Taslağa çevirme işlemi başarısız', 'error');
     }
   };
 
@@ -1228,7 +1246,7 @@ export default function SatisFaturalariPage() {
       headerName: 'Cari Ünvan',
       flex: 1.5,
       minWidth: 200,
-      valueGetter: (account: any) => account?.title || '',
+      valueGetter: (value, row) => row.account?.title || '',
       renderCell: (params) => (
         <Typography variant="body2" fontWeight="medium">{params.value}</Typography>
       )
@@ -1266,29 +1284,292 @@ export default function SatisFaturalariPage() {
       field: 'actions',
       type: 'actions',
       headerName: 'İşlemler',
-      width: 160,
-      getActions: (params) => [
-        <Tooltip title="Düzenle">
-          <IconButton size="small" onClick={(e) => { e.stopPropagation(); handleEdit(params.row); }}>
-            <Edit fontSize="small" />
-          </IconButton>
-        </Tooltip>,
-        <Tooltip title="Yazdır">
-          <IconButton size="small" onClick={(e) => { e.stopPropagation(); window.open(`/fatura/satis/print/${params.row.id}`, '_blank'); }}>
-            <Print fontSize="small" />
-          </IconButton>
-        </Tooltip>,
-        <Tooltip title="Detay">
-          <IconButton size="small" onClick={(e) => { e.stopPropagation(); handleView(params.row); }}>
-            <Visibility fontSize="small" />
-          </IconButton>
-        </Tooltip>,
-        <Tooltip title="Diğer İşlemler">
-          <IconButton size="small" onClick={(e) => { e.stopPropagation(); handleMenuOpen(e, params.row.id); }}>
-            <MoreVert fontSize="small" />
-          </IconButton>
-        </Tooltip>,
-      ],
+      width: 80,
+      sortable: false,
+      renderCell: (params) => {
+        const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
+        const open = Boolean(anchorEl);
+
+        const handleToggle = (event: React.MouseEvent<HTMLElement>) => {
+          event.stopPropagation();
+          setAnchorEl(event.currentTarget);
+        };
+
+        const handleClose = () => {
+          setAnchorEl(null);
+        };
+
+        const menuActions = [
+          {
+            id: 'view',
+            label: 'Detayları Görüntüle',
+            icon: <Visibility fontSize="small" />,
+            color: 'var(--foreground)',
+            onClick: () => { handleClose(); handleView(params.row); },
+            divider: false,
+            disabled: false,
+          },
+          {
+            id: 'edit',
+            label: 'Düzenle',
+            icon: <Edit fontSize="small" />,
+            color: EDITABLE_STATUSES.includes(params.row.status) ? 'var(--primary)' : 'var(--muted-foreground)',
+            onClick: () => { handleClose(); handleEdit(params.row); },
+            divider: false,
+            disabled: !EDITABLE_STATUSES.includes(params.row.status),
+          },
+          {
+            id: 'approve',
+            label: 'Onayla',
+            icon: <CheckCircle fontSize="small" sx={{ color: 'var(--chart-3)' }} />,
+            color: 'var(--chart-3)',
+            onClick: () => { handleClose(); handleApprove(params.row); },
+            divider: false,
+            disabled: !APPROVABLE_STATUSES.includes(params.row.status),
+          },
+          {
+            id: 'revert',
+            label: 'Taslağa Çevir',
+            icon: <Undo fontSize="small" sx={{ color: 'var(--chart-4)' }} />,
+            color: 'var(--foreground)',
+            onClick: () => { handleClose(); handleRevertToDraft(params.row); },
+            divider: false,
+            disabled: params.row.status !== 'APPROVED',
+          },
+          {
+            id: 'print',
+            label: 'Yazdır',
+            icon: <Print fontSize="small" />,
+            color: 'var(--foreground)',
+            onClick: () => { handleClose(); window.open(`/fatura/satis/print/${params.row.id}`, '_blank'); },
+            divider: true,
+            disabled: false,
+          },
+          {
+            id: 'profit',
+            label: 'Kâr/Zarar Analizi',
+            icon: <TrendingUp fontSize="small" sx={{ color: 'var(--chart-3)' }} />,
+            color: 'var(--foreground)',
+            onClick: () => { handleClose(); handleShowProfit(params.row); },
+            divider: false,
+            disabled: false,
+          },
+          {
+            id: 'copy',
+            label: 'Kopyasını Oluştur',
+            icon: <FileCopy fontSize="small" />,
+            color: 'var(--foreground)',
+            onClick: () => {
+              handleClose();
+              const path = `/fatura/satis/yeni?kopyala=${params.row.id}`;
+              const tabId = `fatura-satis-kopyala-${params.row.id}`;
+              addTab({ id: tabId, label: `Kopya: ${params.row.invoiceNo}`, path });
+              setActiveTab(tabId);
+              router.push(path);
+            },
+            divider: false,
+            disabled: false,
+          },
+          {
+            id: 'template',
+            label: 'Şablon Olarak Kullan',
+            icon: <Description fontSize="small" />,
+            color: 'var(--foreground)',
+            onClick: () => { handleClose(); handleUseTemplate(); },
+            divider: true,
+            disabled: false,
+          },
+          {
+            id: 'einvoice',
+            label: params.row.efaturaStatus === 'SENT' ? 'E-Fatura Gönderildi' : 'E-Fatura Gönder',
+            icon: sendingEInvoice === params.row.id ? <CircularProgress size={14} /> : <CloudUpload fontSize="small" sx={{ color: params.row.efaturaStatus === 'SENT' ? 'text.disabled' : 'var(--primary)' }} />,
+            color: 'var(--foreground)',
+            onClick: () => { handleClose(); handleSendEInvoice(params.row); },
+            divider: false,
+            disabled: params.row.efaturaStatus === 'SENT' || sendingEInvoice === params.row.id,
+          },
+          {
+            id: 'cancel',
+            label: 'İptal Et',
+            icon: <Cancel fontSize="small" sx={{ color: 'var(--destructive)' }} />,
+            color: 'var(--destructive)',
+            onClick: () => { handleClose(); openIptalDialog(params.row); },
+            divider: false,
+            disabled: !CANCELLABLE_STATUSES.includes(params.row.status),
+          },
+          {
+            id: 'delete',
+            label: 'Sil',
+            icon: <Delete fontSize="small" sx={{ color: 'var(--destructive)' }} />,
+            color: 'var(--destructive)',
+            onClick: () => { handleClose(); openDeleteDialog(params.row); },
+            divider: false,
+            disabled: !EDITABLE_STATUSES.includes(params.row.status),
+          },
+        ];
+
+        return (
+          <>
+            <IconButton
+              size="small"
+              onClick={handleToggle}
+              sx={{
+                bgcolor: open ? 'var(--secondary)' : 'transparent',
+                color: open ? 'var(--secondary-foreground)' : 'text.secondary',
+                '&:hover': {
+                  bgcolor: 'var(--secondary)',
+                  color: 'var(--secondary-foreground)',
+                },
+                transition: 'all 0.2s ease',
+              }}
+            >
+              <MoreHoriz fontSize="small" />
+            </IconButton>
+
+            {/* Creative Action Menu */}
+            <Menu
+              anchorEl={anchorEl}
+              open={open}
+              onClose={handleClose}
+              onClick={(e) => e.stopPropagation()}
+              PaperProps={{
+                elevation: 8,
+                sx: {
+                  minWidth: 280,
+                  mt: 1,
+                  borderRadius: 3,
+                  border: '1px solid var(--border)',
+                  boxShadow: '0 8px 32px rgba(0, 0, 0, 0.12)',
+                  overflow: 'visible',
+                  '&:before': {
+                    content: '""',
+                    display: 'block',
+                    position: 'absolute',
+                    top: 0,
+                    right: 14,
+                    width: 10,
+                    height: 10,
+                    bgcolor: 'background.paper',
+                    transform: 'translateY(-50%) rotate(45deg)',
+                    zIndex: 0,
+                    borderTop: '1px solid var(--border)',
+                    borderLeft: '1px solid var(--border)',
+                  },
+                }
+              }}
+              transformOrigin={{ horizontal: 'right', vertical: 'top' }}
+              anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
+            >
+              {/* Header with Invoice Info */}
+              <Box
+                sx={{
+                  px: 2,
+                  py: 1.5,
+                  bgcolor: 'var(--muted)',
+                  borderBottom: '1px solid var(--border)',
+                }}
+              >
+                <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                  Fatura İşlemleri
+                </Typography>
+                <Typography variant="body2" fontWeight="bold" sx={{ mt: 0.5 }}>
+                  {params.row.invoiceNo}
+                </Typography>
+              </Box>
+
+              {/* Quick Actions Section */}
+              <Box sx={{ px: 1.5, py: 1 }}>
+                <Typography
+                  variant="caption"
+                  sx={{
+                    px: 1,
+                    fontSize: '0.7rem',
+                    fontWeight: 600,
+                    color: 'text.secondary',
+                    textTransform: 'uppercase',
+                    letterSpacing: 0.5,
+                  }}
+                >
+                  Hızlı İşlemler
+                </Typography>
+                {menuActions.slice(0, 5).map((action) => (
+                  <MenuItem
+                    key={action.id}
+                    onClick={action.onClick}
+                    disabled={action.disabled}
+                    sx={{
+                      px: 1.5,
+                      py: 1,
+                      borderRadius: 2,
+                      my: 0.25,
+                      color: action.color,
+                      '&:hover': {
+                        bgcolor: 'var(--secondary)',
+                      },
+                      '&.Mui-disabled': {
+                        opacity: 0.5,
+                      },
+                    }}
+                  >
+                    <ListItemIcon sx={{ minWidth: 36, color: 'inherit' }}>
+                      {action.icon}
+                    </ListItemIcon>
+                    <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                      {action.label}
+                    </Typography>
+                  </MenuItem>
+                ))}
+              </Box>
+
+              {/* Advanced Section */}
+              <Box sx={{ px: 1.5, py: 1 }}>
+                <Typography
+                  variant="caption"
+                  sx={{
+                    px: 1,
+                    fontSize: '0.7rem',
+                    fontWeight: 600,
+                    color: 'text.secondary',
+                    textTransform: 'uppercase',
+                    letterSpacing: 0.5,
+                  }}
+                >
+                  Gelişmiş İşlemler
+                </Typography>
+                {menuActions.slice(5).map((action) => (
+                  <MenuItem
+                    key={action.id}
+                    onClick={action.onClick}
+                    disabled={action.disabled}
+                    sx={{
+                      px: 1.5,
+                      py: 1,
+                      borderRadius: 2,
+                      my: 0.25,
+                      color: action.color,
+                      '&:hover': {
+                        bgcolor: action.id === 'cancel' || action.id === 'delete'
+                          ? 'var(--destructive)'
+                          : 'var(--secondary)',
+                      },
+                      '&.Mui-disabled': {
+                        opacity: 0.5,
+                      },
+                    }}
+                  >
+                    <ListItemIcon sx={{ minWidth: 36, color: 'inherit' }}>
+                      {action.icon}
+                    </ListItemIcon>
+                    <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                      {action.label}
+                    </Typography>
+                  </MenuItem>
+                ))}
+              </Box>
+            </Menu>
+          </>
+        );
+      },
     },
   ], []);
 
@@ -1358,6 +1639,7 @@ export default function SatisFaturalariPage() {
         {/* Toolbar */}
         <Box sx={{ p: 2, display: 'flex', flexWrap: 'wrap', gap: 1.5, alignItems: 'center', borderBottom: '1px solid', borderColor: 'divider', bgcolor: 'var(--card)' }}>
           <TextField
+            id="satis-fatura-search"
             size="small"
             placeholder="Fatura Ara (No, Cari vb.)"
             value={searchTerm}
@@ -1446,6 +1728,7 @@ export default function SatisFaturalariPage() {
             <Grid container spacing={2}>
               <Grid size={{ xs: 12, sm: 6, md: 3 }} >
                 <TextField
+                  id="satis-fatura-filter-start-date"
                   fullWidth type="date" size="small" label="Başlangıç Tarihi"
                   value={filterStartDate} onChange={(e) => setFilterStartDate(e.target.value)}
                   InputLabelProps={{ shrink: true }}
@@ -1453,6 +1736,7 @@ export default function SatisFaturalariPage() {
               </Grid>
               <Grid size={{ xs: 12, sm: 6, md: 3 }} >
                 <TextField
+                  id="satis-fatura-filter-end-date"
                   fullWidth type="date" size="small" label="Bitiş Tarihi"
                   value={filterEndDate} onChange={(e) => setFilterEndDate(e.target.value)}
                   InputLabelProps={{ shrink: true }}
@@ -1483,7 +1767,7 @@ export default function SatisFaturalariPage() {
                   getOptionLabel={(option: Cari) => `${option.accountCode} - ${option.title}`}
                   value={cariler.find(c => c.id === filterCariId) || null}
                   onChange={(_: any, newValue: Cari | null) => setFilterCariId(newValue?.id || '')}
-                  renderInput={(params) => <TextField {...params} label="Cari" />}
+                  renderInput={(params) => <TextField {...params} label="Cari" id="invoice-sales-filter-cari" />}
                 />
               </Grid>
               <Grid size={{ xs: 12, sm: 6, md: 3 }} >
@@ -1493,7 +1777,7 @@ export default function SatisFaturalariPage() {
                   getOptionLabel={(option: any) => option.fullName || option.username || ''}
                   value={satisElemanlari.find(s => s.id === filterSatisElemaniId) || null}
                   onChange={(_: any, newValue: any) => setFilterSatisElemaniId(newValue?.id || '')}
-                  renderInput={(params) => <TextField {...params} label="Satış Elemanı" />}
+                  renderInput={(params) => <TextField {...params} label="Satış Elemanı" id="invoice-sales-filter-sales-agent" />}
                 />
               </Grid>
               <Grid size={{ xs: 12, sm: 6, md: 3 }} >
@@ -1571,7 +1855,7 @@ export default function SatisFaturalariPage() {
                     {selectedFatura.deliveryNoteId && selectedFatura.deliveryNote && (
                       <MuiLink
                         component={Link}
-                        href={`/sales-waybills/${selectedFatura.deliveryNoteId}`}
+                        href={`/sales-delivery-note/${selectedFatura.deliveryNoteId}`}
                         onClick={(e: any) => {
                           e.stopPropagation();
                         }}
@@ -1651,15 +1935,41 @@ export default function SatisFaturalariPage() {
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', width: '250px' }}>
                     <Typography variant="body2" color="text.secondary">Ara Toplam:</Typography>
                     <Typography variant="body2" fontWeight={500}>
-                      {formatCurrency(Number(selectedFatura.totalAmount || 0))}
+                      {formatCurrency(Number(selectedFatura.totalAmount || 0) + Number(selectedFatura.discount || selectedFatura.iskonto || 0))}
                     </Typography>
                   </Box>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', width: '250px' }}>
-                    <Typography variant="body2" color="text.secondary">İskonto:</Typography>
-                    <Typography variant="body2" fontWeight={500} color="error.main">
-                      -{formatCurrency(selectedFatura.iskonto || 0)}
-                    </Typography>
-                  </Box>
+                  {Number(selectedFatura.discount || selectedFatura.iskonto) > 0 && (
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', width: '250px' }}>
+                      <Typography variant="body2" color="text.secondary">Genel İskonto:</Typography>
+                      <Typography variant="body2" fontWeight={500} color="error.main">
+                        -{formatCurrency(selectedFatura.discount || selectedFatura.iskonto)}
+                      </Typography>
+                    </Box>
+                  )}
+                  {(Number(selectedFatura.sctTotal) > 0 || Number(selectedFatura.withholdingTotal) > 0) && (
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', width: '250px' }}>
+                      <Typography variant="body2" color="text.secondary">Net Ara Toplam:</Typography>
+                      <Typography variant="body2" fontWeight={500}>
+                        {formatCurrency(selectedFatura.totalAmount)}
+                      </Typography>
+                    </Box>
+                  )}
+                  {Number(selectedFatura.sctTotal) > 0 && (
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', width: '250px' }}>
+                      <Typography variant="body2" color="text.secondary">ÖİV Toplamı:</Typography>
+                      <Typography variant="body2" fontWeight={500}>
+                        {formatCurrency(selectedFatura.sctTotal)}
+                      </Typography>
+                    </Box>
+                  )}
+                  {Number(selectedFatura.withholdingTotal) > 0 && (
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', width: '250px' }}>
+                      <Typography variant="body2" color="text.secondary">Tevkifat Toplamı:</Typography>
+                      <Typography variant="body2" fontWeight={500} color="error.main">
+                        -{formatCurrency(selectedFatura.withholdingTotal)}
+                      </Typography>
+                    </Box>
+                  )}
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', width: '250px' }}>
                     <Typography variant="body2" color="text.secondary">KDV Toplamı:</Typography>
                     <Typography variant="body2" fontWeight={500}>
@@ -2116,7 +2426,7 @@ export default function SatisFaturalariPage() {
           <Box display="flex" alignItems="center" gap={2}>
             <TrendingUp sx={{ color: 'var(--chart-3)' }} />
             <Typography variant="h6">Fatura Karlılığı</Typography>
-            {profitData && (
+            {profitData?.fatura && (
               <Chip
                 label={profitData.fatura.faturaNo}
                 color="primary"
@@ -2130,7 +2440,7 @@ export default function SatisFaturalariPage() {
             <Box display="flex" justifyContent="center" py={4}>
               <CircularProgress />
             </Box>
-          ) : profitData ? (
+          ) : profitData?.fatura ? (
             <Box>
               <Paper elevation={1} sx={{ p: 3, mb: 3, bgcolor: 'var(--muted)' }}>
                 <Typography variant="subtitle2" color="text.secondary" gutterBottom>
@@ -2184,90 +2494,6 @@ export default function SatisFaturalariPage() {
           </Button>
         </DialogActions>
       </Dialog>
-
-      <Menu
-        anchorEl={anchorEl}
-        open={Boolean(anchorEl)}
-        onClose={handleMenuClose}
-        PaperProps={{
-          elevation: 3,
-          sx: { minWidth: 220, mt: 1 }
-        }}
-        transformOrigin={{ horizontal: 'right', vertical: 'top' }}
-        anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
-      >
-        {(() => {
-          const fatura = faturalar.find(f => f.id === menuFaturaId);
-          if (!fatura) return null;
-
-          return [
-            <MenuItem key="detail" onClick={() => { handleMenuClose(); handleView(fatura); }}>
-              <ListItemIcon><Visibility fontSize="small" /></ListItemIcon>
-              <Typography variant="body2">Detayları Görüntüle</Typography>
-            </MenuItem>,
-            <MenuItem key="edit" onClick={() => { handleMenuClose(); handleEdit(fatura); }} disabled={fatura.status === 'APPROVED' || fatura.status === 'CANCELLED'}>
-              <ListItemIcon><Edit fontSize="small" /></ListItemIcon>
-              <Typography variant="body2">Düzenle</Typography>
-            </MenuItem>,
-            <MenuItem key="print" onClick={() => { handleMenuClose(); window.open(`/fatura/satis/print/${fatura.id}`, '_blank'); }}>
-              <ListItemIcon><Print fontSize="small" /></ListItemIcon>
-              <Typography variant="body2">Yazdır</Typography>
-            </MenuItem>,
-            <Divider key="d1" />,
-            <MenuItem key="profit" onClick={() => { handleMenuClose(); handleShowProfit(fatura); }}>
-              <ListItemIcon><TrendingUp fontSize="small" sx={{ color: 'success.main' }} /></ListItemIcon>
-              <Typography variant="body2">Kâr/Zarar Analizi</Typography>
-            </MenuItem>,
-            <MenuItem
-              key="copy"
-              onClick={() => {
-                handleMenuClose();
-                const path = `/fatura/satis/yeni?kopyala=${fatura.id}`;
-                const tabId = `fatura-satis-kopyala-${fatura.id}`;
-                addTab({ id: tabId, label: `Kopya: ${fatura.invoiceNo}`, path });
-                setActiveTab(tabId);
-                router.push(path);
-              }}
-            >
-              <ListItemIcon><ContentCopy fontSize="small" /></ListItemIcon>
-              <Typography variant="body2">Kopyasını Oluştur</Typography>
-            </MenuItem>,
-            <MenuItem key="template" onClick={() => { handleMenuClose(); handleUseTemplate(); }}>
-              <ListItemIcon><Description fontSize="small" /></ListItemIcon>
-              <Typography variant="body2">Şablon Olarak Kullan</Typography>
-            </MenuItem>,
-            <Divider key="d2" />,
-            <MenuItem
-              key="einvoice"
-              onClick={() => { handleMenuClose(); handleSendEInvoice(fatura); }}
-              disabled={fatura.efaturaStatus === 'SENT' || sendingEInvoice === fatura.id}
-            >
-              <ListItemIcon>
-                {sendingEInvoice === fatura.id ? <CircularProgress size={16} /> : <CloudUpload fontSize="small" sx={{ color: fatura.efaturaStatus === 'SENT' ? 'text.disabled' : 'primary.main' }} />}
-              </ListItemIcon>
-              <Typography variant="body2">{fatura.efaturaStatus === 'SENT' ? 'E-Fatura Gönderildi' : 'E-Fatura Gönder'}</Typography>
-            </MenuItem>,
-            <MenuItem
-              key="cancel"
-              onClick={() => { handleMenuClose(); openIptalDialog(fatura); }}
-              disabled={fatura.status !== 'APPROVED'}
-              sx={{ color: 'error.main' }}
-            >
-              <ListItemIcon><Cancel fontSize="small" color="error" /></ListItemIcon>
-              <Typography variant="body2">İptal Et</Typography>
-            </MenuItem>,
-            <MenuItem
-              key="delete"
-              onClick={() => { handleMenuClose(); openDeleteDialog(fatura); }}
-              disabled={fatura.status === 'APPROVED' || fatura.status === 'CANCELLED'}
-              sx={{ color: 'error.main' }}
-            >
-              <ListItemIcon><Delete fontSize="small" color="error" /></ListItemIcon>
-              <Typography variant="body2">Sil</Typography>
-            </MenuItem>
-          ];
-        })()}
-      </Menu>
 
       <Snackbar
         open={snackbar.open}

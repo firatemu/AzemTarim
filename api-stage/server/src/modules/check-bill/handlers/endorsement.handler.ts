@@ -1,11 +1,14 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
-import { CheckBillStatus, AccountTransactionDirection, LogAction } from '@prisma/client';
+import { CheckBillStatus, LogAction, Prisma } from '@prisma/client';
 import { IJournalHandler, JournalHandlerContext } from './journal-handler.interface';
 import { CreateCheckBillJournalDto } from '../dto/create-check-bill-journal.dto';
 import { assertLegalTransition } from '../utils/status-transition.util';
+import { AccountBalanceService } from '../../account-balance/account-balance.service';
 
 @Injectable()
 export class EndorsementHandler implements IJournalHandler {
+    constructor(private readonly accountBalanceService: AccountBalanceService) { }
+
     async handle(dto: CreateCheckBillJournalDto, context: JournalHandlerContext): Promise<void> {
         const { tx, journalId, tenantId, performedById } = context;
 
@@ -66,33 +69,54 @@ export class EndorsementHandler implements IJournalHandler {
                 },
             });
 
-            await tx.accountTransaction.create({
+            // Eski cariye ters kayıt (borç silindi)
+            await tx.accountMovement.create({
                 data: {
                     tenantId,
                     accountId: checkBill.currentHolderId ?? checkBill.accountId,
-                    sourceType: 'CHECK_BILL_JOURNAL',
-                    sourceId: journalId,
-                    direction: AccountTransactionDirection.DEBIT,
+                    type: 'CREDIT',
                     amount: checkBill.amount,
-                    description: 'Document endorsed to third party',
-                },
+                    balance: new Prisma.Decimal(0),
+                    documentType: 'CHECK_EXIT',
+                    documentNo: checkBill.checkNo || checkBill.id,
+                    checkBillId: checkBillId,
+                    date: dto.date ? new Date(dto.date) : new Date(),
+                    notes: dto.notes || undefined,
+                }
             });
 
-            await tx.$executeRawUnsafe(
-                `INSERT INTO account_movements (id, "tenantId", account_id, type, amount, balance, document_type, document_no, check_bill_id, date, notes, "createdAt", "updatedAt") 
-                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW(), NOW())`,
-                require('crypto').randomUUID(),
-                tenantId,
-                dto.accountId, // check'i verdiğimiz cari (Tedarikçi)
-                'DEBIT',
-                checkBill.amount,
-                0,
-                'CHECK_EXIT', // Ciro çıkışı
-                checkBill.checkNo || '—',
-                checkBillId,
-                dto.date ? new Date(dto.date) : new Date(),
-                dto.notes || 'Evrak Ciro Edildi (Borç)'
-            );
+            // Yeni cariye borç kaydı (ciro alan)
+            await tx.accountMovement.create({
+                data: {
+                    tenantId,
+                    accountId: dto.accountId,
+                    type: 'DEBIT',
+                    amount: checkBill.amount,
+                    balance: new Prisma.Decimal(0),
+                    documentType: 'CHECK_ENTRY',
+                    documentNo: checkBill.checkNo || checkBill.id,
+                    checkBillId: checkBillId,
+                    date: dto.date ? new Date(dto.date) : new Date(),
+                    notes: dto.notes || undefined,
+                }
+            });
+        }
+
+        // Bakiye güncelleme (eski ve yeni cariler için)
+        for (const checkBillId of dto.selectedDocumentIds) {
+            const checkBill = await tx.checkBill.findFirst({
+                where: { id: checkBillId, tenantId, deletedAt: null },
+                select: { currentHolderId: true, accountId: true },
+            });
+            if (checkBill) {
+                const oldAccountId = checkBill.currentHolderId ?? checkBill.accountId;
+                if (oldAccountId) {
+                    await this.accountBalanceService.recalculateAccountBalance(oldAccountId, tx);
+                }
+            }
+        }
+        if (dto.accountId) {
+            await this.accountBalanceService.recalculateAccountBalance(dto.accountId, tx);
         }
     }
 }

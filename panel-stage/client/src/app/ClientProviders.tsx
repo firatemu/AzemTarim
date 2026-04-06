@@ -9,6 +9,7 @@ import { useThemeStore } from '@/stores/themeStore';
 import { useAuthStore } from '@/stores/authStore';
 import QueryProvider from '@/providers/QueryProvider';
 import StorageGuard from '@/providers/StorageGuard';
+import { SnackbarProvider } from 'notistack';
 import './globals.css';
 
 interface ClientProvidersProps {
@@ -83,7 +84,13 @@ export function ClientProviders({ children, initialAuth, initialTheme }: ClientP
                 <AppRouterCacheProvider>
                     <ThemeProvider theme={isDarkMode ? darkTheme : lightTheme}>
                         <CssBaseline />
-                        {children}
+                        <SnackbarProvider
+                            maxSnack={3}
+                            anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+                            autoHideDuration={3000}
+                        >
+                            {children}
+                        </SnackbarProvider>
                     </ThemeProvider>
                 </AppRouterCacheProvider>
             </QueryProvider>

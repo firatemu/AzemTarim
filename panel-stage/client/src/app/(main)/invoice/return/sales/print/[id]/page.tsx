@@ -22,6 +22,7 @@ import {
 import { Print, Close, PictureAsPdf, ZoomIn, ZoomOut } from '@mui/icons-material';
 import axios from '@/lib/axios';
 import { useReactToPrint } from 'react-to-print';
+import { useSnackbar } from 'notistack';
 
 interface Fatura {
   id: string;
@@ -60,6 +61,7 @@ interface Fatura {
 }
 
 export default function SatisIadeFaturaPrintPage() {
+  const { enqueueSnackbar } = useSnackbar();
   const params = useParams();
   const router = useRouter();
   const id = params.id as string;
@@ -181,7 +183,7 @@ export default function SatisIadeFaturaPrintPage() {
       pdf.save(`Iade-Fatura-${fatura?.faturaNo}.pdf`);
     } catch (error) {
       console.error('PDF oluşturulamadı:', error);
-      alert('PDF oluşturulurken bir hata oluştu');
+      enqueueSnackbar('PDF oluşturulurken bir hata oluştu', { variant: 'error' });
     }
   };
 

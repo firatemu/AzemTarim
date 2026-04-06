@@ -42,7 +42,7 @@ export default function SiparisPage() {
                   transform: 'translateY(-2px)',
                 },
               }}
-              onClick={() => router.push('/orders/satis')}
+              onClick={() => router.push('/orders/sales')}
             >
               <Box
                 sx={{

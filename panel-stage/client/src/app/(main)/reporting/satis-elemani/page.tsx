@@ -21,16 +21,22 @@ import {
     TextField,
     Typography,
     MenuItem,
+    alpha,
+    useTheme,
+    Divider,
+    IconButton,
 } from '@mui/material';
 import {
-    Assessment,
-    People,
-    TrendingDown,
-    TrendingUp,
-    ShoppingCart,
-    Event,
+    Assessment as AssessmentIcon,
+    People as PeopleIcon,
+    TrendingDown as DownIcon,
+    TrendingUp as UpIcon,
+    ShoppingCart as SalesIcon,
+    Event as DateIcon,
+    Payments as PaymentIcon,
+    Refresh as RefreshIcon,
 } from '@mui/icons-material';
-import MainLayout from '@/components/Layout/MainLayout';
+import StandardPage from '@/components/common/StandardPage';
 import axios from '@/lib/axios';
 
 interface SalespersonPerformance {
@@ -51,26 +57,14 @@ interface PerformanceResponse {
     performance: SalespersonPerformance[];
 }
 
-const currencyFormatter = new Intl.NumberFormat('tr-TR', {
-    style: 'currency',
-    currency: 'TRY',
-    maximumFractionDigits: 2,
-});
+const formatCurrency = (value: number) =>
+    new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY' }).format(value || 0);
 
-const numberFormatter = new Intl.NumberFormat('tr-TR', {
-    style: 'decimal',
-    maximumFractionDigits: 0,
-});
-
-const formatCurrency = (value: number) => currencyFormatter.format(value || 0);
-const formatNumber = (value: number) => numberFormatter.format(value || 0);
+const formatNumber = (value: number) =>
+    new Intl.NumberFormat('tr-TR').format(value || 0);
 
 const formatDateLabel = (input: string) =>
-    new Date(input).toLocaleDateString('tr-TR', {
-        day: '2-digit',
-        month: 'short',
-        year: 'numeric',
-    });
+    new Date(input).toLocaleDateString('tr-TR', { day: '2-digit', month: 'short', year: 'numeric' });
 
 type PresetKey = 'today' | 'last7' | 'last30' | 'thisMonth' | 'custom';
 
@@ -83,6 +77,7 @@ const presetOptions: Array<{ value: PresetKey; label: string }> = [
 ];
 
 export default function SatisElemaniRaporPage() {
+    const theme = useTheme();
     const [data, setData] = useState<PerformanceResponse | null>(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -104,7 +99,7 @@ export default function SatisElemaniRaporPage() {
 
                 if (selectedPreset === 'custom') {
                     if (!start || !end) {
-                        setError('Özel tarih aralığı için başlangıç ve bitiş tarihlerini seçiniz.');
+                        setError('Başlangıç ve bitiş tarihlerini seçiniz.');
                         setLoading(false);
                         return;
                     }
@@ -112,13 +107,11 @@ export default function SatisElemaniRaporPage() {
                     params.endDate = end;
                 }
 
-                const response = await axios.get<PerformanceResponse>('/raporlama/salesperson-performance', {
-                    params,
-                });
+                const response = await axios.get<PerformanceResponse>('/raporlama/salesperson-performance', { params });
                 setData(response.data);
             } catch (err: any) {
-                console.error('Satış elemanı verisi alınamadı:', err);
-                setError(err?.response?.data?.message || 'Veriler alınırken bir hata oluştu.');
+                console.error('Veri alınamadı:', err);
+                setError('Performans raporu yüklenirken bir hata oluştu.');
             } finally {
                 setLoading(false);
             }
@@ -127,135 +120,187 @@ export default function SatisElemaniRaporPage() {
     );
 
     useEffect(() => {
-        if (preset !== 'custom') {
-            fetchPerformance({ preset });
-        }
+        if (preset !== 'custom') fetchPerformance({ preset });
     }, [fetchPerformance, preset]);
 
+    // Totals for summary cards
+    const summary = data?.performance.reduce((acc, curr) => ({
+        toplamSatis: acc.toplamSatis + curr.toplamSatis,
+        toplamTahsilat: acc.toplamTahsilat + curr.toplamTahsilat,
+        satisAdedi: acc.satisAdedi + curr.satisAdedi,
+        tahsilatAdedi: acc.tahsilatAdedi + curr.tahsilatAdedi,
+    }), { toplamSatis: 0, toplamTahsilat: 0, satisAdedi: 0, tahsilatAdedi: 0 });
+
+    const stats = [
+        { label: 'TOPLAM SATIŞ', value: summary?.toplamSatis || 0, icon: <UpIcon />, color: 'success' },
+        { label: 'TOPLAM TAHSİLAT', value: summary?.toplamTahsilat || 0, icon: <PaymentIcon />, color: 'primary' },
+        { label: 'SATIŞ ADEDİ', value: summary?.satisAdedi || 0, icon: <SalesIcon />, color: 'info', isCurrency: false },
+        { label: 'AKTİF PLASİYER', value: data?.performance.length || 0, icon: <PeopleIcon />, color: 'warning', isCurrency: false },
+    ];
+
     return (
-        <MainLayout>
-            <Box sx={{ p: 3 }}>
-                <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 2 }}>
-                    <Box>
-                        <Typography variant="h4" fontWeight="bold" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <People color="primary" /> Satış Elemanı Performansı
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                            Satış elemanlarının satış ve tahsilat performanslarını izleyin.
-                        </Typography>
-                    </Box>
-
-                    <Stack direction="row" spacing={2} alignItems="center">
-                        <TextField
-                            select
-                            size="small"
-                            label="Tarih Aralığı"
-                            value={preset}
-                            onChange={(e) => setPreset(e.target.value as PresetKey)}
-                            sx={{ minWidth: 180 }}
-                        >
-                            {presetOptions.map((option) => (
-                                <MenuItem key={option.value} value={option.value}>
-                                    {option.label}
-                                </MenuItem>
-                            ))}
-                        </TextField>
-
-                        {preset === 'custom' && (
-                            <Stack direction="row" spacing={1} alignItems="center">
-                                <TextField
-                                    type="date"
-                                    size="small"
-                                    label="Başlangıç"
-                                    value={customStart}
-                                    onChange={(e) => setCustomStart(e.target.value)}
-                                    InputLabelProps={{ shrink: true }}
-                                />
-                                <TextField
-                                    type="date"
-                                    size="small"
-                                    label="Bitiş"
-                                    value={customEnd}
-                                    onChange={(e) => setCustomEnd(e.target.value)}
-                                    InputLabelProps={{ shrink: true }}
-                                />
-                                <Button variant="contained" onClick={() => fetchPerformance({ preset: 'custom' })} disabled={loading}>
-                                    Uygula
-                                </Button>
-                            </Stack>
-                        )}
-                    </Stack>
-                </Box>
-
-                {error && (
-                    <Alert severity="error" sx={{ mb: 3 }}>
-                        {error}
-                    </Alert>
-                )}
-
-                {loading ? (
-                    <Box sx={{ display: 'flex', justifyContent: 'center', py: 10 }}>
-                        <CircularProgress />
-                    </Box>
-                ) : (
-                    <>
-                        {data && (
-                            <Grid container spacing={3}>
-                                <Grid size={{ xs: 12 }}>
-                                    <Paper sx={{ p: 3, borderRadius: 3 }}>
-                                        <Typography variant="h6" fontWeight="bold" sx={{ mb: 2 }}>
-                                            Performans Tablosu ({formatDateLabel(data.range.startDate)} - {formatDateLabel(data.range.endDate)})
-                                        </Typography>
-
-                                        {data.performance.length === 0 ? (
-                                            <Typography variant="body2" color="text.secondary" sx={{ py: 4, textAlign: 'center' }}>
-                                                Bu tarih aralığında performans verisi bulunamadı.
-                                            </Typography>
-                                        ) : (
-                                            <TableContainer>
-                                                <Table>
-                                                    <TableHead>
-                                                        <TableRow sx={{ bgcolor: 'var(--muted)' }}>
-                                                            <TableCell sx={{ fontWeight: 700 }}>Satış Elemanı</TableCell>
-                                                            <TableCell align="right" sx={{ fontWeight: 700 }}>Satış Adedi</TableCell>
-                                                            <TableCell align="right" sx={{ fontWeight: 700 }}>Toplam Satış</TableCell>
-                                                            <TableCell align="right" sx={{ fontWeight: 700 }}>Tahsilat Adedi</TableCell>
-                                                            <TableCell align="right" sx={{ fontWeight: 700 }}>Toplam Tahsilat</TableCell>
-                                                        </TableRow>
-                                                    </TableHead>
-                                                    <TableBody>
-                                                        {data.performance.map((item, index) => (
-                                                            <TableRow key={item.satisElemaniId || `se-${index}`} hover>
-                                                                <TableCell>
-                                                                    <Typography variant="body2" fontWeight={600}>
-                                                                        {item.adSoyad}
-                                                                    </Typography>
-                                                                </TableCell>
-                                                                <TableCell align="right">{formatNumber(item.satisAdedi)}</TableCell>
-                                                                <TableCell align="right">
-                                                                    <Typography variant="body2" color="success.main" fontWeight={600}>
-                                                                        {formatCurrency(item.toplamSatis)}
-                                                                    </Typography>
-                                                                </TableCell>
-                                                                <TableCell align="right">{formatNumber(item.tahsilatAdedi)}</TableCell>
-                                                                <TableCell align="right">
-                                                                    <Typography variant="body2" color="primary.main" fontWeight={600}>
-                                                                        {formatCurrency(item.toplamTahsilat)}
-                                                                    </Typography>
-                                                                </TableCell>
-                                                            </TableRow>
-                                                        ))}
-                                                    </TableBody>
-                                                </Table>
-                                            </TableContainer>
-                                        )}
-                                    </Paper>
-                                </Grid>
-                            </Grid>
-                        )}
-                    </>
-                )}
+        <StandardPage
+            title="Satış Elemanı Performansı"
+            breadcrumbs={[{ label: 'Raporlama', href: '/reporting' }, { label: 'Plasiyer Performansı' }]}
+            headerActions={
+                <IconButton onClick={() => fetchPerformance()} sx={{ bgcolor: alpha(theme.palette.primary.main, 0.05), color: 'primary.main' }}>
+                    <RefreshIcon fontSize="small" />
+                </IconButton>
+            }
+        >
+            <Box sx={{ mb: 4 }}>
+                <Typography variant="body2" sx={{ color: 'text.secondary', maxWidth: 800 }}>
+                    Belirlenen tarih aralığında satış personellerinizin ciro ve tahsilat başarılarını karşılaştırmalı olarak analiz edin.
+                </Typography>
             </Box>
-        </MainLayout>
+
+            {/* Filters Row */}
+            <Paper variant="outlined" sx={{ p: 2.5, mb: 4, borderRadius: 4, bgcolor: alpha(theme.palette.primary.main, 0.01) }}>
+                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems="center">
+                    <TextField
+                        select
+                        size="small"
+                        label="Zaman Aralığı"
+                        value={preset}
+                        onChange={(e) => setPreset(e.target.value as PresetKey)}
+                        sx={{ minWidth: 200, '& .MuiOutlinedInput-root': { borderRadius: 2.5, bgcolor: 'background.paper' } }}
+                    >
+                        {presetOptions.map((opt) => <MenuItem key={opt.value} value={opt.value}>{opt.label}</MenuItem>)}
+                    </TextField>
+
+                    {preset === 'custom' && (
+                        <Stack direction="row" spacing={1.5}>
+                            <TextField
+                                type="date"
+                                size="small"
+                                label="Başlangıç"
+                                value={customStart}
+                                onChange={(e) => setCustomStart(e.target.value)}
+                                InputLabelProps={{ shrink: true }}
+                                sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2.5, bgcolor: 'background.paper' } }}
+                            />
+                            <TextField
+                                type="date"
+                                size="small"
+                                label="Bitiş"
+                                value={customEnd}
+                                onChange={(e) => setCustomEnd(e.target.value)}
+                                InputLabelProps={{ shrink: true }}
+                                sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2.5, bgcolor: 'background.paper' } }}
+                            />
+                            <Button
+                                variant="contained"
+                                onClick={() => fetchPerformance({ preset: 'custom' })}
+                                disabled={loading}
+                                sx={{ borderRadius: 2.5, px: 4, fontWeight: 800 }}
+                            >
+                                Sorgula
+                            </Button>
+                        </Stack>
+                    )}
+                </Stack>
+            </Paper>
+
+            {error && <Alert severity="error" sx={{ mb: 4, borderRadius: 3 }}>{error}</Alert>}
+
+            {loading ? (
+                <Box sx={{ display: 'flex', justifyContent: 'center', py: 12 }}><CircularProgress size={40} /></Box>
+            ) : (
+                <>
+                    {/* Summary Stats */}
+                    <Grid container spacing={2} sx={{ mb: 4 }}>
+                        {stats.map((stat, idx) => (
+                            <Grid size={{ xs: 12, sm: 6, md: 3 }} key={idx}>
+                                <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 4, display: 'flex', alignItems: 'center', gap: 2, bgcolor: alpha(theme.palette[stat.color as any].main, 0.02) }}>
+                                    <Box sx={{ p: 1.5, borderRadius: 2.5, bgcolor: alpha(theme.palette[stat.color as any].main, 0.1), color: `${stat.color}.main`, display: 'flex' }}>
+                                        {stat.icon}
+                                    </Box>
+                                    <Box>
+                                        <Typography variant="h5" sx={{ fontWeight: 900, lineHeight: 1.2 }}>
+                                            {stat.isCurrency === false ? formatNumber(stat.value as number) : formatCurrency(stat.value as number)}
+                                        </Typography>
+                                        <Typography variant="caption" sx={{ fontWeight: 800, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                                            {stat.label}
+                                        </Typography>
+                                    </Box>
+                                </Paper>
+                            </Grid>
+                        ))}
+                    </Grid>
+
+                    {/* Main Performance Table */}
+                    <Paper variant="outlined" sx={{ borderRadius: 4, overflow: 'hidden' }}>
+                        <Box sx={{ p: 2, bgcolor: alpha(theme.palette.primary.main, 0.04), borderBottom: '1px solid', borderColor: 'divider' }}>
+                            <Stack direction="row" spacing={1} alignItems="center">
+                                <DateIcon sx={{ color: 'text.secondary', fontSize: 18 }} />
+                                <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>
+                                    PERFORMANS DETAYI ({data ? `${formatDateLabel(data.range.startDate)} - ${formatDateLabel(data.range.endDate)}` : '-'})
+                                </Typography>
+                            </Stack>
+                        </Box>
+
+                        <TableContainer>
+                            <Table>
+                                <TableHead sx={{ bgcolor: alpha(theme.palette.primary.main, 0.02) }}>
+                                    <TableRow>
+                                        <TableCell sx={{ fontWeight: 800 }}>Plasiyer / Satış Elemanı</TableCell>
+                                        <TableCell align="right" sx={{ fontWeight: 800 }}>Satış Adedi</TableCell>
+                                        <TableCell align="right" sx={{ fontWeight: 800 }}>Toplam Satış (Ciro)</TableCell>
+                                        <TableCell align="right" sx={{ fontWeight: 800 }}>Tahsilat Adedi</TableCell>
+                                        <TableCell align="right" sx={{ fontWeight: 800 }}>Toplam Tahsilat</TableCell>
+                                    </TableRow>
+                                </TableHead>
+                                <TableBody>
+                                    {!data || data.performance.length === 0 ? (
+                                        <TableRow>
+                                            <TableCell colSpan={5} align="center" sx={{ py: 10 }}>
+                                                <Typography variant="body2" sx={{ color: 'text.secondary' }}>Bu tarih aralığında veri bulunamadı.</Typography>
+                                            </TableCell>
+                                        </TableRow>
+                                    ) : (
+                                        data.performance.map((item, index) => (
+                                            <TableRow key={item.satisElemaniId || index} hover>
+                                                <TableCell>
+                                                    <Stack direction="row" spacing={2} alignItems="center">
+                                                        <Box sx={{ p: 1, borderRadius: 2, bgcolor: alpha(theme.palette.primary.main, 0.05), color: 'primary.main', display: 'flex' }}>
+                                                            <PeopleIcon fontSize="small" />
+                                                        </Box>
+                                                        <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>{item.adSoyad}</Typography>
+                                                    </Stack>
+                                                </TableCell>
+                                                <TableCell align="right">
+                                                    <Typography variant="body2" sx={{ fontWeight: 600 }}>{formatNumber(item.satisAdedi)}</Typography>
+                                                </TableCell>
+                                                <TableCell align="right">
+                                                    <Chip
+                                                        label={formatCurrency(item.toplamSatis)}
+                                                        size="small"
+                                                        color="success"
+                                                        variant="outlined"
+                                                        sx={{ fontWeight: 900, borderRadius: 1.5, fontFamily: 'monospace', minWidth: 120, justifyContent: 'flex-start' }}
+                                                    />
+                                                </TableCell>
+                                                <TableCell align="right">
+                                                    <Typography variant="body2" sx={{ fontWeight: 600 }}>{formatNumber(item.tahsilatAdedi)}</Typography>
+                                                </TableCell>
+                                                <TableCell align="right">
+                                                    <Chip
+                                                        label={formatCurrency(item.toplamTahsilat)}
+                                                        size="small"
+                                                        color="primary"
+                                                        variant="outlined"
+                                                        sx={{ fontWeight: 900, borderRadius: 1.5, fontFamily: 'monospace', minWidth: 120, justifyContent: 'flex-start' }}
+                                                    />
+                                                </TableCell>
+                                            </TableRow>
+                                        ))
+                                    )}
+                                </TableBody>
+                            </Table>
+                        </TableContainer>
+                    </Paper>
+                </>
+            )}
+        </StandardPage>
     );
 }

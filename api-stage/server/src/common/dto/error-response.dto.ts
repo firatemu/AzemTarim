@@ -47,4 +47,11 @@ export class ErrorResponseDto {
     example: '550e8400-e29b-41d4-a716-446655440000',
   })
   requestId: string;
+
+  @ApiProperty({
+    description: 'Additional error details (e.g., risk limit excess amount)',
+    example: { excessAmount: 5000, creditLimit: 10000 },
+    required: false,
+  })
+  details?: Record<string, any>;
 }

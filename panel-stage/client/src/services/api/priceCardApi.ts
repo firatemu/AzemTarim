@@ -196,6 +196,7 @@ export const priceCardApi = {
                 }, 500);
             });
         }
+        await api.delete(`/price-cards/${id}`);
     },
 
     exportToExcel: async (params: { q?: string; status?: string; type?: string }) => {

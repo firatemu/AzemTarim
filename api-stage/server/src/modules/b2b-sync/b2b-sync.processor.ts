@@ -43,11 +43,15 @@ export class B2bSyncProcessor extends WorkerHost {
     const started = Date.now();
     switch (job.name) {
       case 'SYNC_FULL':
-        await this.handleSyncProducts(job.data as B2bSyncProductsJob);
+        await this.handleSyncProducts(job.data as B2bSyncProductsJob, true);
+        await this.handleSyncPrices(job.data as B2bSyncProductsJob, true);
         await this.handleSyncStock(job.data as B2bSyncStockJob);
         break;
       case 'SYNC_PRODUCTS':
-        await this.handleSyncProducts(job.data as B2bSyncProductsJob);
+        await this.handleSyncProducts(job.data as B2bSyncProductsJob, false);
+        break;
+      case 'SYNC_PRICES':
+        await this.handleSyncPrices(job.data as B2bSyncProductsJob, false);
         break;
       case 'SYNC_STOCK':
         await this.handleSyncStock(job.data as B2bSyncStockJob);
@@ -68,7 +72,7 @@ export class B2bSyncProcessor extends WorkerHost {
     return this.adapterFactory.create(type, tenantId);
   }
 
-  private async handleSyncProducts(data: B2bSyncProductsJob): Promise<void> {
+  private async handleSyncProducts(data: B2bSyncProductsJob, isFullSync = false): Promise<void> {
     const { tenantId, erpAdapterType } = data;
     const log = await this.prisma.b2BSyncLog.create({
       data: {
@@ -80,16 +84,10 @@ export class B2bSyncProcessor extends WorkerHost {
     });
 
     try {
-      const lastOk = await this.prisma.b2BSyncLog.findFirst({
-        where: {
-          tenantId,
-          syncType: B2BSyncType.PRODUCTS,
-          status: B2BSyncStatus.SUCCESS,
-          id: { not: log.id },
-        },
-        orderBy: { finishedAt: 'desc' },
+      const loop = await this.prisma.b2BSyncLoop.findUnique({
+        where: { tenantId_syncType: { tenantId, syncType: B2BSyncType.PRODUCTS } },
       });
-      const lastSyncedAt = lastOk?.finishedAt ?? null;
+      const lastSyncedAt = isFullSync ? null : (loop?.lastRunAt ?? null);
 
       const adapter = this.resolveAdapter(tenantId, erpAdapterType);
       const products = await adapter.getProducts(lastSyncedAt);
@@ -131,7 +129,7 @@ export class B2bSyncProcessor extends WorkerHost {
               erpUpdatedAt: p.erpUpdatedAt ?? null,
             },
             update: {
-              erpProductId: p.erpProductId, // ERP ID değişmişse B2B tarafında da güncelliyoruz
+              erpProductId: p.erpProductId,
               name: p.name,
               description: p.description ?? null,
               brand: p.brand ?? null,
@@ -139,11 +137,8 @@ export class B2bSyncProcessor extends WorkerHost {
               oemCode: p.oemCode ?? null,
               supplierCode: p.supplierCode ?? null,
               unit: p.unit ?? null,
-              erpListPrice: new Prisma.Decimal(p.listPrice),
               erpCreatedAt: p.erpCreatedAt ?? null,
               erpUpdatedAt: p.erpUpdatedAt ?? null,
-              // Note: B2B-managed fields (isVisibleInB2B, minOrderQuantity, imageUrl) are NOT updated
-              // These are managed separately through the B2B admin panel and should persist across syncs
             },
           });
 
@@ -151,28 +146,10 @@ export class B2bSyncProcessor extends WorkerHost {
           else added += 1;
         }
 
-        // Cleanup: Artık B2B olmayan ürünleri B2B'den sil
-        const currentErpProductIds = products.map(p => p.erpProductId);
-        const toDelete = await tx.b2BProduct.findMany({
-          where: {
-            tenantId,
-            erpProductId: { notIn: currentErpProductIds },
-          },
-          select: { id: true },
-        });
-
-        if (toDelete.length > 0) {
-          await tx.b2BProduct.deleteMany({
-            where: {
-              id: { in: toDelete.map(d => d.id) },
-            },
-          });
-          this.logger.log(`[handleSyncProducts] Deleted ${toDelete.length} products no longer marked as B2B (isB2B=false)`);
-        }
-
-        await tx.b2BTenantConfig.update({
-          where: { tenantId },
-          data: { lastSyncedAt: new Date() },
+        await tx.b2BSyncLoop.upsert({
+          where: { tenantId_syncType: { tenantId, syncType: B2BSyncType.PRODUCTS } },
+          create: { tenantId, syncType: B2BSyncType.PRODUCTS, lastRunAt: new Date() },
+          update: { lastRunAt: new Date() },
         });
 
         await tx.b2BSyncLog.update({
@@ -183,6 +160,74 @@ export class B2bSyncProcessor extends WorkerHost {
             recordsProcessed: products.length,
             recordsAdded: added,
             recordsUpdated: updated,
+          },
+        });
+      });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      await this.prisma.b2BSyncLog.update({
+        where: { id: log.id },
+        data: {
+          status: B2BSyncStatus.FAILED,
+          finishedAt: new Date(),
+          errorMessage: msg,
+        },
+      });
+      throw e;
+    }
+  }
+
+  private async handleSyncPrices(data: B2bSyncProductsJob, isFullSync = false): Promise<void> {
+    const { tenantId, erpAdapterType } = data;
+    const log = await this.prisma.b2BSyncLog.create({
+      data: {
+        tenantId,
+        syncType: B2BSyncType.PRICES,
+        status: B2BSyncStatus.RUNNING,
+        startedAt: new Date(),
+      },
+    });
+
+    try {
+      const loop = await this.prisma.b2BSyncLoop.findUnique({
+        where: { tenantId_syncType: { tenantId, syncType: B2BSyncType.PRICES } },
+      });
+      const lastSyncedAt = isFullSync ? null : (loop?.lastRunAt ?? null);
+
+      const adapter = this.resolveAdapter(tenantId, erpAdapterType);
+      const prices = await adapter.getPrices(lastSyncedAt);
+
+      let updated = 0;
+
+      await this.prisma.$transaction(async (tx) => {
+        for (const p of prices) {
+          const result = await tx.b2BProduct.updateMany({
+            where: {
+              tenantId,
+              erpProductId: p.erpProductId,
+            },
+            data: {
+              erpListPrice: new Prisma.Decimal(p.listPrice),
+              erpUpdatedAt: new Date(),
+            },
+          });
+          updated += result.count;
+        }
+
+        await tx.b2BSyncLoop.upsert({
+          where: { tenantId_syncType: { tenantId, syncType: B2BSyncType.PRICES } },
+          create: { tenantId, syncType: B2BSyncType.PRICES, lastRunAt: new Date() },
+          update: { lastRunAt: new Date() },
+        });
+
+        await tx.b2BSyncLog.update({
+          where: { id: log.id },
+          data: {
+            status: B2BSyncStatus.SUCCESS,
+            finishedAt: new Date(),
+            recordsProcessed: prices.length,
+            recordsUpdated: updated,
+            recordsAdded: 0,
           },
         });
       });
@@ -212,61 +257,81 @@ export class B2bSyncProcessor extends WorkerHost {
     });
 
     try {
+      // Son başarılı stok sync zamanını döngü tablosundan al
+      const loop = await this.prisma.b2BSyncLoop.findUnique({
+        where: { tenantId_syncType: { tenantId, syncType: B2BSyncType.STOCK } },
+      });
+      const lastSyncedAt = data.forceFull ? null : (loop?.lastRunAt ?? null);
+
+      // B2B'de yayında olan tüm ürünlerin erpProductId listesini al
       const b2bProducts = await this.prisma.b2BProduct.findMany({
         where: { tenantId },
         select: { id: true, erpProductId: true },
       });
-      const erpIds = b2bProducts.map((x) => x.erpProductId);
-      const idByErp = new Map(
-        b2bProducts.map((x) => [x.erpProductId, x.id] as const),
-      );
+      const allErpIds = b2bProducts.map((x) => x.erpProductId);
+      const idByErp = new Map(b2bProducts.map((x) => [x.erpProductId, x.id] as const));
+
+      if (allErpIds.length === 0) {
+        await this.prisma.b2BSyncLog.update({
+          where: { id: log.id },
+          data: { status: B2BSyncStatus.SUCCESS, finishedAt: new Date(), recordsProcessed: 0, recordsAdded: 0, recordsUpdated: 0 },
+        });
+        return;
+      }
 
       const adapter = this.resolveAdapter(tenantId, erpAdapterType);
-      const batchSize = 500;
-      let processed = 0;
+
+      // Adaptöre lastSyncedAt iletiliyor:
+      // - null ise tam sync (tüm ürünler)
+      // - dolu ise sadece son senkronizasyondan sonra stok değişen ürünler
+      const stockItems = await adapter.getStock(allErpIds, lastSyncedAt);
+
       let upserts = 0;
 
       await this.prisma.$transaction(async (tx) => {
-        for (let i = 0; i < erpIds.length; i += batchSize) {
-          const slice = erpIds.slice(i, i + batchSize);
-          const stockItems = await adapter.getStock(slice);
-          processed += stockItems.length;
+        for (const s of stockItems) {
+          const b2bProductId = idByErp.get(s.erpProductId);
+          if (!b2bProductId) continue;
 
-          for (const s of stockItems) {
-            const b2bProductId = idByErp.get(s.erpProductId);
-            if (!b2bProductId) continue;
-
-            const available = s.quantity > 0;
-            await tx.b2BStock.upsert({
-              where: {
-                tenantId_productId_warehouseId: {
-                  tenantId,
-                  productId: b2bProductId,
-                  warehouseId: s.warehouseId,
-                },
-              },
-              create: {
+          const available = s.quantity > 0;
+          await tx.b2BStock.upsert({
+            where: {
+              tenantId_productId_warehouseId: {
                 tenantId,
                 productId: b2bProductId,
                 warehouseId: s.warehouseId,
-                warehouseName: s.warehouseName,
-                isAvailable: available,
               },
-              update: {
-                warehouseName: s.warehouseName,
-                isAvailable: available,
-              },
-            });
-            upserts += 1;
-          }
+            },
+            create: {
+              tenantId,
+              productId: b2bProductId,
+              warehouseId: s.warehouseId,
+              warehouseName: s.warehouseName,
+              isAvailable: available,
+              quantity: new Prisma.Decimal(s.quantity),
+            },
+            update: {
+              warehouseName: s.warehouseName,
+              isAvailable: available,
+              quantity: new Prisma.Decimal(s.quantity),
+            },
+          });
+          upserts += 1;
         }
+
+        // Döngü tablosunu güncelle
+        await tx.b2BSyncLoop.upsert({
+          where: { tenantId_syncType: { tenantId, syncType: B2BSyncType.STOCK } },
+          create: { tenantId, syncType: B2BSyncType.STOCK, lastRunAt: new Date() },
+          update: { lastRunAt: new Date() },
+        });
 
         await tx.b2BSyncLog.update({
           where: { id: log.id },
           data: {
             status: B2BSyncStatus.SUCCESS,
             finishedAt: new Date(),
-            recordsProcessed: processed,
+            recordsProcessed: stockItems.length,
             recordsAdded: upserts,
             recordsUpdated: 0,
           },
@@ -286,9 +351,7 @@ export class B2bSyncProcessor extends WorkerHost {
     }
   }
 
-  private async handleSyncMovements(
-    data: B2bSyncMovementsJob,
-  ): Promise<void> {
+  private async handleSyncMovements(data: B2bSyncMovementsJob): Promise<void> {
     const { tenantId, erpAdapterType, erpAccountId } = data;
 
     const customer = await this.prisma.b2BCustomer.findFirst({
@@ -320,10 +383,7 @@ export class B2bSyncProcessor extends WorkerHost {
       const lastSyncedAt = lastOk?.finishedAt ?? null;
 
       const adapter = this.resolveAdapter(tenantId, erpAdapterType);
-      const movements = await adapter.getAccountMovements(
-        erpAccountId,
-        lastSyncedAt,
-      );
+      const movements = await adapter.getAccountMovements(erpAccountId, lastSyncedAt);
 
       let inserted = 0;
 
@@ -357,10 +417,7 @@ export class B2bSyncProcessor extends WorkerHost {
               balance: new Prisma.Decimal(m.balance),
               erpInvoiceNo: m.erpInvoiceNo ?? null,
               dueDate,
-              isPastDue:
-                dueDate != null &&
-                dueDate < new Date() &&
-                m.debit > m.credit,
+              isPastDue: dueDate != null && dueDate < new Date() && m.debit > m.credit,
             },
           });
           inserted += 1;

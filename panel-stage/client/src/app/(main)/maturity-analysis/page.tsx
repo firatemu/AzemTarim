@@ -178,19 +178,10 @@ export default function VadeAnalizPage() {
   }
 
   return (
-    <StandardPage maxWidth={false}>
-      {/* Header */}
-      <Box sx={{ mb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1.5 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Box sx={{ width: 40, height: 40, borderRadius: 2, background: 'linear-gradient(135deg, var(--primary), var(--secondary))', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <CalendarToday sx={{ color: 'var(--primary-foreground)', fontSize: 20 }} />
-          </Box>
-          <Typography variant="h6" fontWeight={700} color="var(--foreground)">
-            Vade Analizi
-          </Typography>
-        </Box>
-      </Box>
-
+    <StandardPage
+      title="Vade Analizi"
+      breadcrumbs={[{ label: 'Finans' }, { label: 'Vade Analizi' }]}
+    >
       <Typography variant="body2" color="var(--muted-foreground)" sx={{ mb: 2 }}>
         Vadesi geçen ve yaklaşan faturaları takip edin
       </Typography>

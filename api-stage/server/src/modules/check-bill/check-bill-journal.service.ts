@@ -1,10 +1,19 @@
 import { TenantResolverService } from '../../common/services/tenant-resolver.service';
-import { Injectable, BadRequestException, ConflictException, NotFoundException, Logger } from '@nestjs/common';
+import {
+    Injectable,
+    BadRequestException,
+    ConflictException,
+    NotFoundException,
+    Logger,
+} from '@nestjs/common';
+import { CheckBillJournalPostingStatus } from '@prisma/client';
 import { PrismaService } from '../../common/prisma.service';
 import { CreateCheckBillJournalDto, UpdateCheckBillJournalDto } from './dto/create-check-bill-journal.dto';
 import { buildTenantWhereClause } from '../../common/utils/staging.util';
 import { HandlerRegistry } from './handlers/handler-registry';
 import { AccountBalanceService } from '../account-balance/account-balance.service';
+import { CodeTemplateService } from '../code-template/code-template.service';
+import { ModuleType } from '../code-template/code-template.enums';
 
 interface RequestUser {
     id: string;
@@ -20,6 +29,7 @@ export class CheckBillJournalService {
         private readonly tenantResolver: TenantResolverService,
         private readonly handlerRegistry: HandlerRegistry,
         private readonly accountBalanceService: AccountBalanceService,
+        private readonly codeTemplateService: CodeTemplateService,
     ) { }
 
     async findAll() {
@@ -27,6 +37,7 @@ export class CheckBillJournalService {
         const items = await this.prisma.checkBillJournal.findMany({
             where: {
                 ...buildTenantWhereClause(tenantId ?? undefined),
+                deletedAt: null,
             },
             orderBy: { date: 'desc' },
             include: {
@@ -53,6 +64,7 @@ export class CheckBillJournalService {
             where: {
                 id,
                 ...buildTenantWhereClause(tenantId ?? undefined),
+                deletedAt: null,
             },
             include: {
                 account: true,
@@ -77,7 +89,9 @@ export class CheckBillJournalService {
             throw new BadRequestException('Kiracı bilgisi (tenantId) çözümlenemedi.');
         }
 
-        const finalJournalNo = dto.journalNo || `BRD-${Date.now().toString().slice(-6)}`;
+        const finalJournalNo =
+            dto.journalNo?.trim() ||
+            (await this.codeTemplateService.getNextCode(ModuleType.CHECK_BILL_JOURNAL));
 
         // 1. Uniqueness guard — fail fast, transaction açılmadan önce
         const existing = await this.prisma.checkBillJournal.findFirst({
@@ -100,6 +114,7 @@ export class CheckBillJournalService {
                     cashboxId: dto.cashboxId,
                     notes: dto.notes,
                     createdById: user.id,
+                    journalStatus: CheckBillJournalPostingStatus.POSTED,
                 },
             });
 
@@ -141,6 +156,20 @@ export class CheckBillJournalService {
                 if (accountIds.length > 0) {
                     await this.accountBalanceService.recalculateMultipleBalances(accountIds);
                 }
+
+                // Numara şablonu sayaç güncelleme (başarılı kayıt sonrası)
+                const checkBills = await this.prisma.checkBill.findMany({
+                    where: { id: { in: checkBillIds } },
+                    select: { checkNo: true },
+                });
+
+                for (const checkBill of checkBills) {
+                    if (checkBill.checkNo) {
+                        this.codeTemplateService.saveLastCode(ModuleType.CHECK_BILL_DOCUMENT, checkBill.checkNo).catch((err) => {
+                            this.logger.warn(`Numara şablonu sayaç güncellenirken hata: ${err.message}`);
+                        });
+                    }
+                }
             }
         } catch (err) {
             this.logger.error(`Bakiye hesaplama hatası (Bordro ID: ${result.id}):`, err);
@@ -173,6 +202,15 @@ export class CheckBillJournalService {
             include: { items: { select: { checkBillId: true } } },
         });
         if (!journal) throw new NotFoundException('Bordro bulunamadı.');
+
+        if (
+            journal.journalStatus === CheckBillJournalPostingStatus.POSTED ||
+            journal.journalStatus === CheckBillJournalPostingStatus.CANCELLED
+        ) {
+            throw new ConflictException(
+                'Bu bordro deftere işlenmiş veya iptal edilmiş; yalnızca taslak bordrolar silinebilir.',
+            );
+        }
 
         const result = await this.prisma.$transaction(async (tx) => {
             const checkBillIds = journal.items.map((i) => i.checkBillId);
@@ -220,5 +258,76 @@ export class CheckBillJournalService {
         }
 
         return { success: result.success };
+    }
+
+    async findItems(id: string) {
+        const tenantId = await this.tenantResolver.resolveForQuery();
+        const journal = await this.prisma.checkBillJournal.findFirst({
+            where: { id, ...buildTenantWhereClause(tenantId ?? undefined), deletedAt: null },
+            include: {
+                items: { include: { checkBill: { select: { id: true, checkNo: true, amount: true, status: true } } } },
+            },
+        });
+        if (!journal) throw new NotFoundException('Bordro bulunamadı.');
+        return journal.items;
+    }
+
+    /** GL entegrasyonu tamamlanana kadar özet önizleme (doc §5.2) */
+    async glPreview(id: string) {
+        const detail = await this.findOne(id);
+        if (!detail) {
+            throw new NotFoundException('Bordro bulunamadı.');
+        }
+        const lines = (detail.checkBills || []).map((cb: { id: string; amount: unknown; checkNo: string | null }) => ({
+            checkBillId: cb.id,
+            debitAccountCode: '—',
+            creditAccountCode: '—',
+            amount: Number(cb.amount),
+            description: `Çek/Senet ${cb.checkNo || cb.id}`,
+        }));
+        return { journalId: id, type: detail.type, previewLines: lines, note: 'GLIntegrationService ile fişleştirilecek' };
+    }
+
+    async postJournal(id: string, userId?: string) {
+        const tenantId = await this.tenantResolver.resolveForQuery();
+        const j = await this.prisma.checkBillJournal.findFirst({
+            where: { id, ...buildTenantWhereClause(tenantId ?? undefined), deletedAt: null },
+        });
+        if (!j) throw new NotFoundException('Bordro bulunamadı.');
+        return this.prisma.checkBillJournal.update({
+            where: { id },
+            data: {
+                journalStatus: CheckBillJournalPostingStatus.POSTED,
+                accountingDate: j.accountingDate ?? j.date,
+                totalAmount: j.totalAmount ?? undefined,
+                totalCount: j.totalCount ?? undefined,
+                ...(userId ? { approvedById: userId, approvedAt: new Date() } : {}),
+            },
+        });
+    }
+
+    async approveJournal(id: string, userId?: string) {
+        if (!userId) throw new BadRequestException('Kullanıcı bilgisi gerekli.');
+        const tenantId = await this.tenantResolver.resolveForQuery();
+        const j = await this.prisma.checkBillJournal.findFirst({
+            where: { id, ...buildTenantWhereClause(tenantId ?? undefined), deletedAt: null },
+        });
+        if (!j) throw new NotFoundException('Bordro bulunamadı.');
+        return this.prisma.checkBillJournal.update({
+            where: { id },
+            data: { approvedById: userId, approvedAt: new Date(), journalStatus: CheckBillJournalPostingStatus.POSTED },
+        });
+    }
+
+    async cancelJournal(id: string) {
+        const tenantId = await this.tenantResolver.resolveForQuery();
+        const j = await this.prisma.checkBillJournal.findFirst({
+            where: { id, ...buildTenantWhereClause(tenantId ?? undefined), deletedAt: null },
+        });
+        if (!j) throw new NotFoundException('Bordro bulunamadı.');
+        return this.prisma.checkBillJournal.update({
+            where: { id },
+            data: { journalStatus: CheckBillJournalPostingStatus.CANCELLED },
+        });
     }
 }

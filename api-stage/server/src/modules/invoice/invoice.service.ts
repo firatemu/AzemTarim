@@ -1,11 +1,14 @@
+// CHANGED: createInvoice (PURCHASE branch), cancelInvoice (PURCHASE branch)
+// REASON: purchase workflow status automation v2
 import {
+
   BadRequestException,
   Injectable,
   NotFoundException,
   Inject,
   forwardRef,
 } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { Prisma, PurchaseOrderLocalStatus } from '@prisma/client';
 import { InvoiceType, InvoiceStatus } from './invoice.enums';
 import { DeliveryNoteSourceType, DeliveryNoteStatus } from '../sales-waybill/sales-waybill.enums';
 import { Decimal } from '@prisma/client/runtime/library';
@@ -30,6 +33,7 @@ import { StockEffectService } from './services/stock-effect.service';
 import { AccountEffectService } from './services/account-effect.service';
 import { InvoiceOperationType } from './types/invoice-orchestrator.types';
 import { UnitSetService } from '../unit-set/unit-set.service';
+import { StatusCalculatorService } from '../shared/status-calculator/status-calculator.service';
 
 @Injectable()
 export class InvoiceService {
@@ -50,6 +54,7 @@ export class InvoiceService {
     private stockEffectService: StockEffectService,
     private accountEffectService: AccountEffectService,
     private unitSetService: UnitSetService,
+    private statusCalculator: StatusCalculatorService,
   ) { }
 
   /** Prisma Decimal veya number'ı güvenle number'a çevirir (null/undefined → 0). */
@@ -475,6 +480,11 @@ export class InvoiceService {
       items: (invoice.items || []).map(item => ({
         ...item,
         vatRate: item.vatRate ?? 0,
+        product: (item as any).product ? {
+          ...(item as any).product,
+          stokKodu: (item as any).product.code,
+          stokAdi: (item as any).product.name,
+        } : null,
       }))
     };
   }
@@ -496,21 +506,18 @@ export class InvoiceService {
       gibAlias,
       shippingType,
       status: inputStatus,
-      ...invoiceData
+      ...rawInvoiceData
     } = createFaturaDto;
 
+    const invoiceData = { ...rawInvoiceData };
     const tenantId = await this.tenantResolver.resolveForQuery();
 
     const autoApprove = await this.systemParameterService.getParameterAsBoolean(
       'AUTO_APPROVE_INVOICE',
       false,
     );
+    // AUTO_APPROVE_INVOICE parametresi aktifse APPROVED, değilse gönderilen status ya da DRAFT
     let status = autoApprove ? InvoiceStatus.APPROVED : (inputStatus || InvoiceStatus.DRAFT);
-
-    // Satış faturaları (SALE) her zaman onaylanmış durumda kaydedilmelidir.
-    if (invoiceData.type === InvoiceType.SALE) {
-      status = InvoiceStatus.APPROVED;
-    }
 
     if (!invoiceData.invoiceNo || invoiceData.invoiceNo.trim() === '') {
       try {
@@ -541,12 +548,24 @@ export class InvoiceService {
       );
     }
 
+    let cascadeDeliveryNoteId: string | null = null;
+    let cascadePurchaseDeliveryNoteId: string | null = null;
+    let sourceDeliveryNote: any = null;
+
     const account = await this.prisma.account.findFirst({
       where: {
         id: invoiceData.accountId,
         ...buildTenantWhereClause(tenantId ?? undefined),
       },
-      select: { id: true, salesAgentId: true, title: true, balance: true, creditLimit: true, efaturaPostaKutusu: true }
+      select: {
+        id: true,
+        salesAgentId: true,
+        title: true,
+        balance: true,
+        creditLimit: true,
+        blockOnRisk: true,
+        efaturaPostaKutusu: true
+      }
     });
 
     if (!account) {
@@ -636,6 +655,30 @@ export class InvoiceService {
     totalAmount -= generalDiscount;
     const grandTotal = totalAmount + vatAmount + sctTotal - withholdingTotal;
 
+    // Risk Limit Kontrolü - Sadece satış faturaları için
+    if (invoiceData.type === InvoiceType.SALE && account.blockOnRisk && account.creditLimit !== null && account.creditLimit !== undefined) {
+      const currentBalance = Number(account.balance) || 0;
+      const creditLimit = Number(account.creditLimit) || 0;
+      const newBalance = currentBalance + grandTotal;
+
+      if (newBalance > creditLimit) {
+        const excessAmount = newBalance - creditLimit;
+        throw new BadRequestException({
+          error: 'RISK_LIMIT_EXCEEDED',
+          message: `Cari hesap risk limiti aşılıyor. ${account.title} hesabı için risk limiti: ₺${creditLimit.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}, Mevcut bakiye: ₺${currentBalance.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}, Yeni fatura tutarı: ₺${grandTotal.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}`,
+          details: {
+            accountId: account.id,
+            accountTitle: account.title,
+            creditLimit: creditLimit,
+            currentBalance: currentBalance,
+            invoiceAmount: grandTotal,
+            newBalance: newBalance,
+            excessAmount: excessAmount,
+          }
+        } as any);
+      }
+    }
+
     let currency = createFaturaDto.currency || 'TRY';
     let exchangeRate = createFaturaDto.exchangeRate;
     let foreignTotal: number | null = null;
@@ -682,7 +725,7 @@ export class InvoiceService {
       });
 
       if (!salesOrder) {
-        throw new NotFoundException(`Order not found: orderId`);
+        throw new NotFoundException(`Order not found: ${orderId}`);
       }
 
       if (salesOrder.status === 'INVOICED') {
@@ -780,14 +823,14 @@ export class InvoiceService {
       }
     }
 
-    const createdInvoice = await this.prisma.$transaction(async (prisma) => {
+    const result = await this.prisma.$transaction(async (prisma) => {
       let transactionWarehouseId = warehouseId;
-      let finalDeliveryNoteId: string | undefined = undefined;
-      let purchaseDeliveryNoteId: string | undefined = undefined;
+      let transactionDeliveryNoteId: string | undefined = undefined;
+      let transPurchaseDeliveryNoteId: string | undefined = undefined;
 
       if (deliveryNoteId) {
         if (invoiceData.type === InvoiceType.SALE || invoiceData.type === InvoiceType.SALES_RETURN) {
-          const deliveryNote = await prisma.salesDeliveryNote.findFirst({
+          sourceDeliveryNote = await prisma.salesDeliveryNote.findFirst({
             where: {
               id: deliveryNoteId,
               ...buildTenantWhereClause(tenantId ?? undefined),
@@ -798,25 +841,78 @@ export class InvoiceService {
             },
           });
 
-          if (!deliveryNote) {
+          if (!sourceDeliveryNote) {
             throw new NotFoundException(`Sales waybill not found: ${deliveryNoteId}`);
           }
 
-          if (deliveryNote.status === DeliveryNoteStatus.INVOICED) {
+          if (sourceDeliveryNote.status === DeliveryNoteStatus.INVOICED) {
             throw new BadRequestException('Bu deliveryNote zaten tamamen faturalandırılmış');
           }
 
           for (const faturaKalemi of items) {
-            const dnItem = deliveryNote.items.find(ik => ik.productId === faturaKalemi.productId);
-            if (dnItem) {
-              await prisma.salesDeliveryNoteItem.updateMany({
-                where: {
-                  id: dnItem.id,
-                  ...buildTenantWhereClause(tenantId ?? undefined),
-                },
-                data: { invoicedQuantity: { increment: faturaKalemi.quantity } }
-              });
+            // Find ALL delivery note items for this product (there can be multiple)
+            const dnItems = sourceDeliveryNote.items.filter(ik => ik.productId === faturaKalemi.productId);
+            if (dnItems.length === 0) {
+              continue;
             }
+
+            let remainingToInvoice = Number(faturaKalemi.quantity);
+            let totalAvailable = 0;
+
+            // Calculate total available quantity across all matching delivery note items
+            for (const dnItem of dnItems) {
+              const currentInvoiced = Number(dnItem.invoicedQuantity || 0);
+              const available = Number(dnItem.quantity) - currentInvoiced;
+              totalAvailable += available;
+            }
+
+            if (remainingToInvoice > totalAvailable) {
+              throw new BadRequestException(
+                `Ürün (ID: ${faturaKalemi.productId}) için faturalanan miktar (${remainingToInvoice}), sevk edilen kalan miktarı (${totalAvailable}) aşamaz.`
+              );
+            }
+
+            // Distribute the invoice quantity across all matching delivery note items
+            for (const dnItem of dnItems) {
+              if (remainingToInvoice <= 0) break;
+
+              const currentInvoiced = Number(dnItem.invoicedQuantity || 0);
+              const available = Number(dnItem.quantity) - currentInvoiced;
+              const toInvoice = Math.min(remainingToInvoice, available);
+
+              if (toInvoice > 0) {
+                await prisma.salesDeliveryNoteItem.updateMany({
+                  where: {
+                    id: dnItem.id,
+                    ...buildTenantWhereClause(tenantId ?? undefined),
+                  },
+                  data: { invoicedQuantity: { increment: toInvoice } }
+                });
+                remainingToInvoice -= toInvoice;
+              }
+            }
+          }
+
+          // Add invoice number to delivery note's invoiceNos array
+          await (prisma as any).salesDeliveryNote.update({
+            where: { id: deliveryNoteId },
+            data: {
+              invoiceNos: { push: invoiceData.invoiceNo }
+            }
+          });
+
+          // Update source order's invoiceNo if the delivery note has a source order
+          if (sourceDeliveryNote.sourceOrder) {
+            await prisma.salesOrder.updateMany({
+              where: {
+                id: sourceDeliveryNote.sourceOrder.id,
+                ...buildTenantWhereClause(tenantId ?? undefined),
+              },
+              data: {
+                invoiceNo: invoiceData.invoiceNo,
+                status: 'INVOICED',
+              },
+            });
           }
 
           const updatedDN = await prisma.salesDeliveryNote.findFirst({
@@ -827,7 +923,7 @@ export class InvoiceService {
             include: { items: true }
           });
 
-          const isFullyInvoiced = updatedDN?.items.every(k => k.invoicedQuantity >= k.quantity);
+          const isFullyInvoiced = updatedDN?.items.every(k => Number(k.invoicedQuantity || 0) >= Number(k.quantity));
           if (isFullyInvoiced) {
             await prisma.salesDeliveryNote.updateMany({
               where: {
@@ -838,10 +934,10 @@ export class InvoiceService {
             });
           }
 
-          finalDeliveryNoteId = deliveryNoteId;
-          if (deliveryNote.warehouseId) transactionWarehouseId = deliveryNote.warehouseId;
+          transactionDeliveryNoteId = deliveryNoteId;
+          if (sourceDeliveryNote.warehouseId) transactionWarehouseId = sourceDeliveryNote.warehouseId;
         } else if (invoiceData.type === InvoiceType.PURCHASE || invoiceData.type === InvoiceType.PURCHASE_RETURN) {
-          const deliveryNote = await prisma.purchaseDeliveryNote.findFirst({
+          const pDeliveryNote = await prisma.purchaseDeliveryNote.findFirst({
             where: {
               id: deliveryNoteId,
               ...buildTenantWhereClause(tenantId ?? undefined),
@@ -851,11 +947,11 @@ export class InvoiceService {
             },
           });
 
-          if (!deliveryNote) {
-            throw new NotFoundException(`Purchase delivery note not found: deliveryNoteId`);
+          if (!pDeliveryNote) {
+            throw new NotFoundException(`Purchase delivery note not found: ${deliveryNoteId}`);
           }
 
-          if (deliveryNote.status === DeliveryNoteStatus.INVOICED) {
+          if (pDeliveryNote.status === DeliveryNoteStatus.INVOICED) {
             throw new BadRequestException('Bu deliveryNote zaten faturalandırılmış');
           }
 
@@ -867,10 +963,24 @@ export class InvoiceService {
             data: { status: DeliveryNoteStatus.INVOICED },
           });
 
-          purchaseDeliveryNoteId = deliveryNoteId;
-          if (deliveryNote.warehouseId) transactionWarehouseId = deliveryNote.warehouseId;
+          // Update source order's invoiceNo if the delivery note has a source order
+          if (pDeliveryNote.sourceOrder) {
+            await prisma.procurementOrder.updateMany({
+              where: {
+                id: pDeliveryNote.sourceOrder.id,
+                ...buildTenantWhereClause(tenantId ?? undefined),
+              },
+              data: {
+                invoiceNo: invoiceData.invoiceNo,
+                status: 'INVOICED',
+              },
+            });
+          }
+
+          transPurchaseDeliveryNoteId = deliveryNoteId;
+          if (pDeliveryNote.warehouseId) transactionWarehouseId = pDeliveryNote.warehouseId;
         }
-      } else if (invoiceData.type === InvoiceType.SALE) {
+      } else if (invoiceData.type === InvoiceType.SALE && !invoiceData.preventAutoDeliveryNote) {
         let dnNo: string;
         try {
           dnNo = await this.codeTemplateService.getNextCode(ModuleType.DELIVERY_NOTE_SALES);
@@ -917,8 +1027,8 @@ export class InvoiceService {
           },
         });
 
-        finalDeliveryNoteId = dn.id;
-      } else if (invoiceData.type === InvoiceType.PURCHASE) {
+        transactionDeliveryNoteId = dn.id;
+      } else if (invoiceData.type === InvoiceType.PURCHASE && !invoiceData.preventAutoDeliveryNote) {
         let dnNo: string;
         try {
           dnNo = await this.codeTemplateService.getNextCode(ModuleType.DELIVERY_NOTE_PURCHASE);
@@ -965,10 +1075,10 @@ export class InvoiceService {
           },
         });
 
-        purchaseDeliveryNoteId = dn.id;
+        transPurchaseDeliveryNoteId = dn.id;
       }
 
-      const invoice = await prisma.invoice.create({
+      const createdInvoice = await (prisma.invoice as any).create({
         data: {
           invoiceNo: invoiceData.invoiceNo,
           invoiceType: invoiceData.type as InvoiceType,
@@ -979,9 +1089,11 @@ export class InvoiceService {
           exchangeRate: exchangeRate ? new Decimal(exchangeRate) : new Decimal(1),
           foreignTotal: foreignTotal ? new Decimal(foreignTotal) : null,
           ...(tenantId && { tenantId }),
-          orderNo: salesOrder?.orderNo || null,
-          deliveryNoteId: finalDeliveryNoteId || null,
-          purchaseDeliveryNoteId: purchaseDeliveryNoteId || null,
+          orderNo: salesOrder?.orderNo || (sourceDeliveryNote as any)?.orderNo || null,
+          // TODO: deliveryNoteNo field needs to be added to database schema
+          // deliveryNoteNo: ((sourceDeliveryNote as any)?.deliveryNoteNo || null) as any,
+          deliveryNoteId: transactionDeliveryNoteId || null,
+          purchaseDeliveryNoteId: transPurchaseDeliveryNoteId || null,
           warehouseId: transactionWarehouseId || null,
           totalAmount: new Decimal(totalAmount),
           vatAmount: new Decimal(vatAmount),
@@ -996,9 +1108,8 @@ export class InvoiceService {
           createdBy: userId,
           salesAgentId: salesAgentId || null,
           eScenario: eScenario || null,
-          eInvoiceType: eInvoiceType || null,
-          gibAlias: finalGibAlias,
           eInvoiceType: finalEInvoiceType,
+          gibAlias: finalGibAlias,
           deliveryMethod: shippingType || null,
           items: {
             create: itemsWithCalculations.map((k) => ({
@@ -1016,9 +1127,10 @@ export class InvoiceService {
               sctAmount: k.sctAmount,
               vatExemptionReason: k.vatExemptionReason || null,
               unit: k.unit || null,
+              tenantId: tenantId!,
             })),
           },
-        },
+        } as any,
         include: {
           account: true,
           items: {
@@ -1043,11 +1155,11 @@ export class InvoiceService {
       }
 
       if (status === InvoiceStatus.APPROVED) {
-        await this.processInvoiceMovements(invoice, prisma, userId, transactionWarehouseId, orderPickings, tenantId);
+        await this.processInvoiceMovements(createdInvoice, prisma, userId, transactionWarehouseId, orderPickings, tenantId);
       }
 
       await this.createLog(
-        invoice.id,
+        createdInvoice.id,
         'CREATE',
         userId,
         { invoice: invoiceData, items: itemsWithCalculations },
@@ -1056,29 +1168,15 @@ export class InvoiceService {
         prisma,
       );
 
-      // Update code template counter
-      const invoiceModule = invoiceData.type === InvoiceType.SALE ? ModuleType.INVOICE_SALES : ModuleType.INVOICE_PURCHASE;
-      await this.codeTemplateService.saveLastCode(invoiceModule, invoice.invoiceNo);
-
-      if (invoiceData.type === InvoiceType.SALE) {
-        try {
-          await this.invoiceProfitService.calculateAndSaveProfit(
-            invoice.id,
-            userId,
-            prisma,
-          );
-        } catch (error: any) {
-          console.error(
-            `[InvoiceService] Invoice ${invoice.id} (${invoice.invoiceNo}) profit calculation error:`,
-            { error: error?.message || error },
-          );
-        }
-      }
-
-      return invoice;
+      return {
+        createdInvoice,
+        cascadeDeliveryNoteId: transactionDeliveryNoteId || null,
+        cascadePurchaseDeliveryNoteId: transPurchaseDeliveryNoteId || null,
+      };
     });
 
-    // Fatura kaydedildikten sonra sayaç güncelle (transaction dışında)
+    const { createdInvoice, cascadeDeliveryNoteId: cDNId, cascadePurchaseDeliveryNoteId: cPDNId } = result;
+
     try {
       if (invoiceData.type === InvoiceType.SALE || invoiceData.type === InvoiceType.PURCHASE) {
         const moduleType = invoiceData.type === InvoiceType.SALE
@@ -1088,7 +1186,6 @@ export class InvoiceService {
       }
     } catch (error) {
       console.error(`❌ [InvoiceService] Son numara kaydedilemedi: ${createdInvoice.invoiceNo}`, error);
-      // Hata olsa bile fatura kaydedilmiş, kritik değil
     }
 
     if (invoiceData.type === InvoiceType.PURCHASE) {
@@ -1100,7 +1197,7 @@ export class InvoiceService {
 
         if (autoCostingEnabled) {
           await this.calculateCostsForInvoiceItems(
-            createdInvoice.items,
+            (createdInvoice as any).items,
             createdInvoice.id,
             createdInvoice.invoiceNo,
           );
@@ -1113,8 +1210,23 @@ export class InvoiceService {
       }
     }
 
+    if (cDNId && tenantId) {
+      await this.statusCalculator.recalculateCascade(
+        cDNId,
+        String(tenantId),
+      ).catch(err => console.error('[InvoiceService] Recalculate cascade failed:', err?.message));
+    }
+
+    if (cPDNId && tenantId) {
+      await this.statusCalculator.recalculatePurchaseCascade(
+        cPDNId,
+        String(tenantId),
+      ).catch(err => console.error('[InvoiceService] Recalculate purchase cascade failed:', err?.message));
+    }
+
     return createdInvoice;
   }
+
 
   async update(
     id: string,
@@ -1124,6 +1236,14 @@ export class InvoiceService {
     userAgent?: string,
   ) {
     const invoice = await this.findOne(id);
+
+    // Yalnızca DRAFT veya PENDING durumundaki faturalar düzenlenebilir
+    const EDITABLE_STATUSES: InvoiceStatus[] = [InvoiceStatus.DRAFT, InvoiceStatus.PENDING];
+    if (!EDITABLE_STATUSES.includes(invoice.status as InvoiceStatus)) {
+      throw new BadRequestException(
+        `Bu fatura düzenlenemez. Mevcut durum: ${invoice.status}. Yalnızca TASLAK (DRAFT) veya BEKLEMEDEki (PENDING) faturalar düzenlenebilir.`,
+      );
+    }
 
     // If items are not updated, only update invoice info
     if (!updateInvoiceDto.items) {
@@ -1148,7 +1268,7 @@ export class InvoiceService {
       }
 
       // Eğer DTO'dan gibAlias gelmezse, cari hesaptan al
-      let finalGibAlias = updateData.gibAlias;
+      let finalGibAlias: string | null | undefined = updateData.gibAlias;
       if (!finalGibAlias) {
         const account = await this.prisma.account.findFirst({
           where: {
@@ -1165,11 +1285,13 @@ export class InvoiceService {
         where: { id },
         data: {
           ...updateData,
+          invoiceType: type as InvoiceType,
           gibAlias: finalGibAlias,
           updatedBy: userId,
           salesAgentId,
           ...(updateInvoiceDto.warehouseId !== undefined && { warehouseId: updateInvoiceDto.warehouseId || null }),
           ...(invoiceNo !== undefined && invoiceNo.trim() !== '' && { invoiceNo: invoiceNo.trim() }),
+          ...(updateInvoiceDto.shippingType !== undefined && { deliveryMethod: updateInvoiceDto.shippingType || null }),
         },
         include: {
           account: true,
@@ -1208,7 +1330,7 @@ export class InvoiceService {
     }
 
     // items update
-    const { items, warehouseId, orderId, deliveryNoteId, ...invoiceData } = updateInvoiceDto;
+    const { items, warehouseId, orderId, deliveryNoteId, type, ...invoiceData } = updateInvoiceDto;
 
     const newInvoiceNo = invoiceData.invoiceNo != null && String(invoiceData.invoiceNo).trim() !== '' ? String(invoiceData.invoiceNo).trim() : null;
     if (newInvoiceNo && newInvoiceNo !== invoice.invoiceNo) {
@@ -1244,6 +1366,8 @@ export class InvoiceService {
 
     let totalAmount = 0;
     let vatAmount = 0;
+    let sctTotal = 0;
+    let withholdingTotal = 0;
 
     const itemsWithCalculations = items.map((item) => {
       const quantity = Number(item.quantity) || 0;
@@ -1260,30 +1384,95 @@ export class InvoiceService {
       }
 
       const amount = rawAmount - discountAmount;
-      const vatRate = Math.round(Number(item.vatRate) || 0);
-      const itemVatAmount = (amount * vatRate) / 100;
+
+      const sctRate = Number(item.sctRate) || 0;
+      const sctAmount = (amount * sctRate) / 100;
+
+      const vatBasis = amount + sctAmount;
+      const vatRateInt = Math.round(Number(item.vatRate) || 0);
+      const itemVat = (vatBasis * vatRateInt) / 100;
+
+      const withholdingRate = Number(item.withholdingRate) || 0;
+      const itemWithholding = itemVat * withholdingRate;
 
       totalAmount += amount;
-      vatAmount += itemVatAmount;
+      vatAmount += itemVat;
+      sctTotal += sctAmount;
+      withholdingTotal += itemWithholding;
 
       return {
         productId: String(item.productId),
         quantity,
         unitPrice: new Decimal(unitPrice),
-        vatRate,
+        vatRate: vatRateInt,
         discountRate: new Decimal(discountRate),
         discountAmount: new Decimal(discountAmount),
         amount: new Decimal(amount),
-        vatAmount: new Decimal(itemVatAmount),
+        vatAmount: new Decimal(itemVat),
+        withholdingCode: item.withholdingCode || null,
+        withholdingRate: new Decimal(withholdingRate),
+        sctRate: new Decimal(sctRate),
+        sctAmount: new Decimal(sctAmount),
+        vatExemptionReason: item.vatExemptionReason || null,
+        unit: item.unit || null,
+        tenantId: invoice.tenantId, // Use existing invoice tenantId
       };
     });
 
-    const discount = invoiceData.discount !== undefined ? invoiceData.discount : invoice.discount.toNumber();
-    totalAmount -= discount;
-    const grandTotal = totalAmount + vatAmount;
+    const generalDiscount = updateInvoiceDto.discount !== undefined ? Number(updateInvoiceDto.discount) : (invoice.discount?.toNumber() || 0);
+    totalAmount -= generalDiscount;
+    const grandTotal = totalAmount + vatAmount + sctTotal - withholdingTotal;
+
+    // Eski fatura tutarını hesapla (güncelleme durumunda bakiye farkını bulmak için)
+    const oldGrandTotal = invoice.grandTotal?.toNumber() || 0;
+    const balanceChange = grandTotal - oldGrandTotal;
+
+    // Risk Limit Kontrolü - Sadece satış faturaları için
+    const invoiceType = type || invoice.invoiceType;
+    if (invoiceType === InvoiceType.SALE) {
+      // Account bilgilerini al (risk kontrolü için)
+      const account = await this.prisma.account.findFirst({
+        where: {
+          id: invoice.accountId,
+          ...buildTenantWhereClause(invoice.tenantId ?? undefined),
+        },
+        select: {
+          id: true,
+          title: true,
+          balance: true,
+          creditLimit: true,
+          blockOnRisk: true,
+          efaturaPostaKutusu: true
+        }
+      });
+
+      if (account?.blockOnRisk && account.creditLimit !== null && account.creditLimit !== undefined) {
+        const currentBalance = Number(account.balance) || 0;
+        const creditLimit = Number(account.creditLimit) || 0;
+        // Yeni bakiye = mevcut bakiye + fatura tutarındaki değişim
+        const newBalance = currentBalance + balanceChange;
+
+        if (newBalance > creditLimit) {
+          const excessAmount = newBalance - creditLimit;
+          throw new BadRequestException({
+            error: 'RISK_LIMIT_EXCEEDED',
+            message: `Cari hesap risk limiti aşılıyor. ${account.title} hesabı için risk limiti: ₺${creditLimit.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}, Mevcut bakiye: ₺${currentBalance.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}, Bakiye değişimi: ₺${balanceChange.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}`,
+            details: {
+              accountId: account.id,
+              accountTitle: account.title,
+              creditLimit: creditLimit,
+              currentBalance: currentBalance,
+              balanceChange: balanceChange,
+              newBalance: newBalance,
+              excessAmount: excessAmount,
+            }
+          } as any);
+        }
+      }
+    }
 
     // Eğer DTO'dan gibAlias gelmezse, cari hesaptan al
-    let finalGibAlias = invoiceData.gibAlias;
+    let finalGibAlias: string | null | undefined = invoiceData.gibAlias;
     if (!finalGibAlias) {
       const account = await this.prisma.account.findFirst({
         where: {
@@ -1334,16 +1523,26 @@ export class InvoiceService {
         const updatedRecord = await prisma.invoice.update({
           where: { id },
           data: {
-            ...invoiceData,
+            invoiceNo: invoiceData.invoiceNo !== undefined && invoiceData.invoiceNo.trim() !== '' ? invoiceData.invoiceNo.trim() : undefined,
+            invoiceType: type as InvoiceType,
+            date: invoiceData.date ? new Date(invoiceData.date) : undefined,
+            dueDate: invoiceData.dueDate ? new Date(invoiceData.dueDate) : (updateInvoiceDto.dueDate === null ? null : undefined),
             gibAlias: finalGibAlias,
             status: invoice.invoiceType === InvoiceType.SALE ? InvoiceStatus.APPROVED : (updateInvoiceDto.status || invoice.status),
             currency: currency || 'TRY',
             exchangeRate: exchangeRate ? new Decimal(exchangeRate) : new Decimal(1),
             foreignTotal: foreignTotal ? new Decimal(foreignTotal) : null,
-            totalAmount,
-            vatAmount,
-            grandTotal,
+            totalAmount: new Decimal(totalAmount),
+            vatAmount: new Decimal(vatAmount),
+            sctTotal: new Decimal(sctTotal),
+            withholdingTotal: new Decimal(withholdingTotal),
+            grandTotal: new Decimal(grandTotal),
+            discount: new Decimal(generalDiscount),
+            notes: invoiceData.notes || null,
             updatedBy: userId,
+            eScenario: invoiceData.eScenario || null,
+            eInvoiceType: invoiceData.eInvoiceType || null,
+            deliveryMethod: invoiceData.shippingType || null,
             ...(warehouseId !== undefined && { warehouseId: warehouseId || null }),
             items: {
               create: itemsWithCalculations,
@@ -1630,7 +1829,7 @@ export class InvoiceService {
             documentType: 'INVOICE',
             documentNo: invoice.invoiceNo,
             date: invoice.date,
-            notes: `${invoice.invoiceType === InvoiceType.SALE ? 'Sales' : 'Purchase'} Invoice: ${invoice.invoiceNo} (Restored)`,
+            notes: invoice.notes || '',
           },
         });
 
@@ -1687,6 +1886,7 @@ export class InvoiceService {
     cancelDeliveryNote?: boolean,
   ) {
     const invoice = await this.findOne(id);
+    const tenantId = await this.tenantResolver.resolveForQuery();
 
     // 1. Check if already cancelled
     if (invoice.status === InvoiceStatus.CANCELLED) {
@@ -1709,7 +1909,7 @@ export class InvoiceService {
       );
     }
 
-    return this.prisma.$transaction(async (prisma) => {
+    const cancelledInvoice = await this.prisma.$transaction(async (prisma) => {
       // For SALE/PURCHASE cancel: Only revert account, no stock movement created (status is cancelled)
       // For SALES_RETURN/PURCHASE_RETURN: Revert both account and stock
       if (invoice.status === InvoiceStatus.APPROVED) {
@@ -1720,7 +1920,7 @@ export class InvoiceService {
         }
       }
 
-      const cancelledInvoice = await prisma.invoice.update({
+      const updated = await prisma.invoice.update({
         where: { id },
         data: { status: InvoiceStatus.CANCELLED },
         include: {
@@ -1750,21 +1950,132 @@ export class InvoiceService {
               documentType: 'CORRECTION',
               documentNo: `${invoice.invoiceNo}-CANCEL`,
               date: new Date(),
-              notes: `Invoice Cancellation: ${invoice.invoiceNo}`,
+              notes: invoice.notes ? `${invoice.notes} (İptal)` : 'Fatura İptali',
             },
           });
         }
       }
 
-      // Revert delivery note status if requested
+      // Reverse invoicedQuantity on SalesDeliveryNoteItems
+      if (invoice.deliveryNoteId && invoice.invoiceType === InvoiceType.SALE) {
+        // Fetch all delivery note items to properly distribute the decrement
+        const dnItems = await prisma.salesDeliveryNoteItem.findMany({
+          where: {
+            deliveryNoteId: invoice.deliveryNoteId,
+            ...buildTenantWhereClause(tenantId ?? undefined),
+          },
+        });
+
+        for (const item of invoice.items) {
+          let remainingToDecrement = Number(item.quantity);
+
+          // Find all delivery note items for this product
+          const matchingDnItems = dnItems.filter(dn => dn.productId === item.productId);
+
+          // Distribute the decrement across all matching items
+          for (const dnItem of matchingDnItems) {
+            if (remainingToDecrement <= 0) break;
+
+            const currentInvoiced = Number(dnItem.invoicedQuantity || 0);
+            const toDecrement = Math.min(remainingToDecrement, currentInvoiced);
+
+            if (toDecrement > 0) {
+              await prisma.salesDeliveryNoteItem.updateMany({
+                where: {
+                  id: dnItem.id,
+                  ...buildTenantWhereClause(tenantId ?? undefined),
+                },
+                data: {
+                  invoicedQuantity: { decrement: toDecrement }
+                }
+              });
+              remainingToDecrement -= toDecrement;
+            }
+          }
+        }
+
+        // Remove from invoiceNos list
+        const dn = await prisma.salesDeliveryNote.findUnique({
+          where: { id: invoice.deliveryNoteId },
+          select: { invoiceNos: true, sourceId: true } as any
+        }) as any;
+        if (dn?.invoiceNos) {
+          await prisma.salesDeliveryNote.update({
+            where: { id: invoice.deliveryNoteId },
+            data: {
+              invoiceNos: {
+                set: (dn.invoiceNos as string[]).filter(no => no !== invoice.invoiceNo)
+              }
+            } as any
+          });
+        }
+
+        // Update delivery note status based on remaining invoices
+        const updatedDN = await prisma.salesDeliveryNote.findFirst({
+          where: { id: invoice.deliveryNoteId },
+          include: { items: true }
+        });
+        if (updatedDN) {
+          const hasInvoices = (updatedDN as any).invoiceNos && (updatedDN as any).invoiceNos.length > 0;
+          if (!hasInvoices) {
+            // No invoices left, check if any items were invoiced
+            const anyInvoiced = updatedDN.items.some(k => Number(k.invoicedQuantity || 0) > 0);
+            await prisma.salesDeliveryNote.updateMany({
+              where: { id: invoice.deliveryNoteId },
+              data: { status: anyInvoiced ? 'PARTIALLY_INVOICED' : 'NOT_INVOICED' }
+            });
+          }
+        }
+
+        // Clear source order's invoiceNo if this was the only invoice
+        if (dn?.sourceId) {
+          await prisma.salesOrder.updateMany({
+            where: { id: dn.sourceId },
+            data: {
+              invoiceNo: null,
+              status: 'SHIPPED', // Revert to SHIPPED status since it's no longer invoiced
+            },
+          });
+        }
+      }
+
+      // Clear invoiceNo on PurchaseDeliveryNote when PURCHASE invoice is cancelled
+      if (invoice.purchaseDeliveryNoteId && invoice.invoiceType === InvoiceType.PURCHASE) {
+        const pDN = await prisma.purchaseDeliveryNote.findUnique({
+          where: { id: invoice.purchaseDeliveryNoteId },
+          select: { sourceId: true }
+        });
+
+        await (prisma.purchaseDeliveryNote as any).update({
+          where: { id: invoice.purchaseDeliveryNoteId },
+          data: {
+            invoiceNo: null,
+            status: 'NOT_INVOICED' as any,
+          }
+        });
+
+        // Clear source order's invoiceNo
+        if (pDN?.sourceId) {
+          await prisma.procurementOrder.updateMany({
+            where: { id: pDN.sourceId },
+            data: {
+              invoiceNo: null,
+              // Fatura bağlantısı kalkınca sipariş tekrar kısmi teslim / işlem görür duruma alınır
+              status: PurchaseOrderLocalStatus.PARTIAL,
+            },
+          });
+        }
+      }
+
+      // Cancel delivery note if requested
       if (cancelDeliveryNote && invoice.deliveryNoteId) {
         const deliveryNote = await prisma.salesDeliveryNote.findUnique({
           where: { id: invoice.deliveryNoteId },
         });
-        if (deliveryNote && deliveryNote.status === DeliveryNoteStatus.INVOICED) {
-          await prisma.salesDeliveryNote.update({
+        if (deliveryNote) {
+          await (prisma.salesDeliveryNote as any).update({
             where: { id: deliveryNote.id },
-            data: { status: DeliveryNoteStatus.NOT_INVOICED },
+            data: { status: 'CANCELLED' as any },
           });
         }
       }
@@ -1772,10 +2083,10 @@ export class InvoiceService {
         const deliveryNote = await prisma.purchaseDeliveryNote.findUnique({
           where: { id: invoice.purchaseDeliveryNoteId },
         });
-        if (deliveryNote && deliveryNote.status === DeliveryNoteStatus.INVOICED) {
-          await prisma.purchaseDeliveryNote.update({
+        if (deliveryNote) {
+          await (prisma.purchaseDeliveryNote as any).update({
             where: { id: deliveryNote.id },
-            data: { status: DeliveryNoteStatus.NOT_INVOICED },
+            data: { status: 'CANCELLED' as any },
           });
         }
       }
@@ -1791,9 +2102,27 @@ export class InvoiceService {
         prisma,
       );
 
-      return cancelledInvoice;
+      return updated;
     });
+
+    // Recalculate status cascade after cancellation
+    if (invoice.deliveryNoteId && tenantId) {
+      await this.statusCalculator.recalculateCascade(
+        invoice.deliveryNoteId,
+        String(tenantId),
+      ).catch(err => console.error('[InvoiceService] Recalculate cascade after cancel failed:', err?.message));
+    }
+
+    if (invoice.purchaseDeliveryNoteId && tenantId) {
+      await this.statusCalculator.recalculatePurchaseCascade(
+        invoice.purchaseDeliveryNoteId,
+        String(tenantId),
+      ).catch(err => console.error('[InvoiceService] Recalculate purchase cascade after cancel failed:', err?.message));
+    }
+
+    return cancelledInvoice;
   }
+
 
   async changeStatus(
     id: string,
@@ -1813,8 +2142,9 @@ export class InvoiceService {
     const executeWork = async (prisma: Prisma.TransactionClient) => {
       // If old status was APPROVED, revert movements using new orchestration logic
       if (oldStatus === InvoiceStatus.APPROVED) {
-        await this.stockEffectService.reverseStockEffects(id, invoice.tenantId!, prisma);
-        await this.accountEffectService.reverseAccountEffect(id, invoice.tenantId!, prisma);
+        const isDraftRevert = newStatus === InvoiceStatus.DRAFT || newStatus === InvoiceStatus.PENDING;
+        await this.stockEffectService.reverseStockEffects(id, invoice.tenantId!, prisma, isDraftRevert);
+        await this.accountEffectService.reverseAccountEffect(id, invoice.tenantId!, prisma, isDraftRevert);
       }
 
       // If new status is APPROVED, create movements using new orchestration logic
@@ -3092,23 +3422,23 @@ export class InvoiceService {
     if (invoice.invoiceType === InvoiceType.SALE) {
       accountMovementType = 'DEBIT';
       accountBalanceChange = currentBalance + grandTotal;
-      description = `Sales Invoice: ${invoice.invoiceNo}`;
+      description = invoice.notes || '';
       balanceUpdate = { increment: grandTotal };
     } else if (invoice.invoiceType === InvoiceType.SALES_RETURN) {
       accountMovementType = 'CREDIT';
       accountBalanceChange = currentBalance - grandTotal;
-      description = `Sales Return Invoice: ${invoice.invoiceNo}`;
+      description = invoice.notes || '';
       balanceUpdate = { decrement: grandTotal };
     } else if (invoice.invoiceType === InvoiceType.PURCHASE) {
       accountMovementType = 'CREDIT';
       accountBalanceChange = currentBalance - grandTotal;
-      description = `Purchase Invoice: ${invoice.invoiceNo}`;
+      description = invoice.notes || '';
       balanceUpdate = { decrement: grandTotal };
     } else {
       // PURCHASE_RETURN
       accountMovementType = 'DEBIT';
       accountBalanceChange = currentBalance + grandTotal;
-      description = `Purchase Return Invoice: ${invoice.invoiceNo}`;
+      description = invoice.notes || '';
       balanceUpdate = { increment: grandTotal };
     }
 
@@ -3128,6 +3458,7 @@ export class InvoiceService {
         balance: accountBalanceChange,
         documentType: 'INVOICE',
         documentNo: invoice.invoiceNo,
+        invoiceId: invoice.id,
         date: new Date(invoice.date),
         notes: description,
         tenantId: effectiveTenantId,

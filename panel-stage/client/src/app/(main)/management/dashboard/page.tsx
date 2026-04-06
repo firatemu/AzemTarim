@@ -7,7 +7,7 @@
  * - TanStack Query ile initial data fetch
  * - Recharts ile Nakit Akışı AreaChart + Servis Kapasitesi PieChart
  */
-import MainLayout from '@/components/Layout/MainLayout';
+import StandardPage from '@/components/common/StandardPage';
 import { useExecutiveDashboard } from '@/hooks/useExecutiveDashboard';
 import axiosInstance from '@/lib/axios';
 import {
@@ -192,38 +192,40 @@ export default function ExecutiveDashboardPage() {
     const sseConf = sseStatusConfig[sseStatus] ?? sseStatusConfig.disconnected;
 
     return (
-        <MainLayout>
-            <Box sx={{ p: { xs: 2, md: 3 } }}>
-
-                {/* Başlık + SSE Durum */}
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-                    <Box>
-                        <Typography variant="h4" fontWeight="bold">
-                            Yönetim Paneli
+        <StandardPage
+            title="CEO Yönetim Paneli"
+            breadcrumbs={[
+                { label: 'Yönetim' },
+                { label: 'Dashboard' }
+            ]}
+            headerActions={
+                <Tooltip
+                    title={
+                        sseStatus === 'connected'
+                            ? 'Veriler gerçek zamanlı güncelleniyor'
+                            : 'Canlı bağlantı yok — sayfa yenileyin'
+                    }
+                >
+                    <Chip
+                        size="small"
+                        icon={sseConf.icon}
+                        label={sseConf.label}
+                        color={sseConf.color}
+                        variant="outlined"
+                        sx={{ fontWeight: 700, borderRadius: 2 }}
+                    />
+                </Tooltip>
+            }
+        >
+            <Box sx={{ pb: 3 }}>
+                {/* Son güncelleme bilgisi */}
+                {kpis?._computedAt && (
+                    <Box sx={{ mb: 2 }}>
+                        <Typography variant="caption" color="text.secondary">
+                            Son hesaplama: {new Date(kpis._computedAt).toLocaleString('tr-TR')}
                         </Typography>
-                        {kpis?._computedAt && (
-                            <Typography variant="caption" color="text.secondary">
-                                Son güncelleme: {new Date(kpis._computedAt).toLocaleString('tr-TR')}
-                            </Typography>
-                        )}
                     </Box>
-
-                    <Tooltip
-                        title={
-                            sseStatus === 'connected'
-                                ? 'Veriler gerçek zamanlı güncelleniyor'
-                                : 'Canlı bağlantı yok — sayfa yenileyin'
-                        }
-                    >
-                        <Chip
-                            size="small"
-                            icon={sseConf.icon}
-                            label={sseConf.label}
-                            color={sseConf.color}
-                            variant="outlined"
-                        />
-                    </Tooltip>
-                </Box>
+                )}
 
                 {/* KPI Kartları */}
                 <Grid container spacing={2} sx={{ mb: 3 }}>
@@ -383,6 +385,6 @@ export default function ExecutiveDashboardPage() {
                     </Grid>
                 </Grid>
             </Box>
-        </MainLayout>
+        </StandardPage>
     );
 }

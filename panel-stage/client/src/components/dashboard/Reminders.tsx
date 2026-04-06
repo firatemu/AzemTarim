@@ -358,7 +358,7 @@ export default function Reminders() {
                                 count={hatirlaticilar.cekSenetler.length}
                                 color="var(--chart-5)"
                                 items={hatirlaticilar.cekSenetler}
-                                link="/checks-promissory-notes"
+                                link="/checks"
                                 renderItem={(item: any) => (
                                     <ListItem key={item.id} disablePadding sx={{ mb: 1 }}>
                                         <ListItemText

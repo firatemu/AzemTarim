@@ -19,6 +19,9 @@ import {
     Alert,
     Snackbar,
     Grid,
+    Stack,
+    alpha,
+    useTheme,
 } from '@mui/material';
 import {
     DataGrid,
@@ -26,12 +29,14 @@ import {
     GridRenderCellParams,
 } from '@mui/x-data-grid';
 import {
-    Add,
-    Edit,
-    Delete,
-    Person,
+    Add as AddIcon,
+    Edit as EditIcon,
+    Delete as DeleteIcon,
+    Person as PersonIcon,
+    Phone as PhoneIcon,
+    Email as EmailIcon,
 } from '@mui/icons-material';
-import MainLayout from '@/components/Layout/MainLayout';
+import StandardPage from '@/components/common/StandardPage';
 import axios from '@/lib/axios';
 
 interface SatisElemani {
@@ -44,78 +49,74 @@ interface SatisElemani {
     updatedAt: string;
 }
 
-interface SatisElemaniFormProps {
-    open: boolean;
-    initialData: Partial<SatisElemani>;
-    isEditing: boolean;
-    onClose: () => void;
-    onSubmit: (data: Partial<SatisElemani>) => void;
-}
-
-const SatisElemaniDialog = memo(({ open, initialData, isEditing, onClose, onSubmit }: SatisElemaniFormProps) => {
+const SatisElemaniDialog = memo(({ open, initialData, isEditing, onClose, onSubmit }: any) => {
     const [formData, setFormData] = useState(initialData);
 
-    useEffect(() => {
-        setFormData(initialData);
-    }, [initialData]);
+    useEffect(() => { setFormData(initialData); }, [initialData]);
 
     const handleChange = (field: string, value: any) => {
-        setFormData(prev => ({ ...prev, [field]: value }));
+        setFormData((prev: any) => ({ ...prev, [field]: value }));
     };
 
     if (!open) return null;
 
     return (
-        <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-            <DialogTitle component="div">{isEditing ? 'Satış Elemanı Düzenle' : 'Yeni Satış Elemanı'}</DialogTitle>
+        <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: 4 } }}>
+            <DialogTitle sx={{ fontWeight: 800 }}>{isEditing ? 'Satış Elemanı Düzenle' : 'Yeni Satış Elemanı'}</DialogTitle>
             <DialogContent>
-                <Box sx={{ mt: 2 }}>
+                <Stack spacing={3} sx={{ mt: 1 }}>
+                    <TextField
+                        fullWidth
+                        label="Ad Soyad"
+                        value={formData.fullName || ''}
+                        onChange={(e) => handleChange('fullName', e.target.value)}
+                        required
+                        placeholder="Örn: Ahmet Yılmaz"
+                        sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+                    />
                     <Grid container spacing={2}>
-                        <Grid size={{ xs: 12 }}>
-                            <TextField
-                                fullWidth
-                                label="Ad Soyad"
-                                value={formData.fullName || ''}
-                                onChange={(e) => handleChange('fullName', e.target.value)}
-                                required
-                            />
-                        </Grid>
-                        <Grid size={{ xs: 12, sm: 6 }}>
+                        <Grid size={{ xs: 6 }}>
                             <TextField
                                 fullWidth
                                 label="Telefon"
                                 value={formData.phone || ''}
                                 onChange={(e) => handleChange('phone', e.target.value)}
+                                placeholder="0(5xx) xxx xx xx"
+                                sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
                             />
                         </Grid>
-                        <Grid size={{ xs: 12, sm: 6 }}>
+                        <Grid size={{ xs: 6 }}>
                             <TextField
                                 fullWidth
                                 label="E-posta"
                                 value={formData.email || ''}
                                 onChange={(e) => handleChange('email', e.target.value)}
-                            />
-                        </Grid>
-                        <Grid size={{ xs: 12 }}>
-                            <FormControlLabel
-                                control={
-                                    <Switch
-                                        checked={formData.isActive !== false}
-                                        onChange={(e) => handleChange('isActive', e.target.checked)}
-                                    />
-                                }
-                                label="Aktif"
+                                placeholder="user@example.com"
+                                sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
                             />
                         </Grid>
                     </Grid>
-                </Box>
+                    <Box sx={{ p: 2, bgcolor: alpha('#2e7d32', 0.05), borderRadius: 3 }}>
+                        <FormControlLabel
+                            control={
+                                <Switch
+                                    checked={formData.isActive !== false}
+                                    onChange={(e) => handleChange('isActive', e.target.checked)}
+                                    color="success"
+                                />
+                            }
+                            label={<Typography variant="body2" sx={{ fontWeight: 700 }}>Satış Elemanı Aktif</Typography>}
+                        />
+                    </Box>
+                </Stack>
             </DialogContent>
-            <DialogActions>
-                <Button onClick={onClose}>İptal</Button>
+            <DialogActions sx={{ p: 3 }}>
+                <Button onClick={onClose} sx={{ fontWeight: 700 }}>İptal</Button>
                 <Button
-                    onClick={() => onSubmit(formData)}
                     variant="contained"
+                    onClick={() => onSubmit(formData)}
                     disabled={!formData.fullName}
+                    sx={{ fontWeight: 800, borderRadius: 2, px: 4 }}
                 >
                     {isEditing ? 'Güncelle' : 'Kaydet'}
                 </Button>
@@ -127,12 +128,13 @@ const SatisElemaniDialog = memo(({ open, initialData, isEditing, onClose, onSubm
 SatisElemaniDialog.displayName = 'SatisElemaniDialog';
 
 export default function SatisElemanlariPage() {
+    const theme = useTheme();
     const [data, setData] = useState<SatisElemani[]>([]);
     const [loading, setLoading] = useState(true);
     const [dialogOpen, setDialogOpen] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
     const [formData, setFormData] = useState<Partial<SatisElemani>>({});
-    const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' });
+    const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as any });
 
     const fetchData = useCallback(async () => {
         try {
@@ -146,9 +148,7 @@ export default function SatisElemanlariPage() {
         }
     }, []);
 
-    useEffect(() => {
-        fetchData();
-    }, [fetchData]);
+    useEffect(() => { fetchData(); }, [fetchData]);
 
     const handleOpenDialog = (item?: SatisElemani) => {
         if (item) {
@@ -165,10 +165,10 @@ export default function SatisElemanlariPage() {
         try {
             if (editingId) {
                 await axios.patch(`/sales-agent/${editingId}`, submitData);
-                setSnackbar({ open: true, message: 'Güncellendi', severity: 'success' });
+                setSnackbar({ open: true, message: 'Satış elemanı güncellendi', severity: 'success' });
             } else {
                 await axios.post('/sales-agent', submitData);
-                setSnackbar({ open: true, message: 'Kaydedildi', severity: 'success' });
+                setSnackbar({ open: true, message: 'Yeni satış elemanı eklendi', severity: 'success' });
             }
             setDialogOpen(false);
             fetchData();
@@ -178,84 +178,137 @@ export default function SatisElemanlariPage() {
     };
 
     const handleDelete = async (id: string) => {
-        if (!confirm('Silmek istediğinize emin misiniz?')) return;
+        if (!confirm('Satış elemanını silmek istediğinize emin misiniz?')) return;
         try {
             await axios.delete(`/sales-agent/${id}`);
-            setSnackbar({ open: true, message: 'Silindi', severity: 'success' });
+            setSnackbar({ open: true, message: 'Satış elemanı silindi', severity: 'success' });
             fetchData();
         } catch (error) {
-            setSnackbar({ open: true, message: 'Silme işlemi başarısız', severity: 'error' });
+            setSnackbar({ open: true, message: 'Bu eleman kayıtlarda kullanıldığı için silinemez', severity: 'error' });
         }
     };
 
     const columns: GridColDef[] = [
-        { field: 'fullName', headerName: 'Ad Soyad', flex: 1 },
-        { field: 'phone', headerName: 'Telefon', width: 150 },
-        { field: 'email', headerName: 'E-posta', width: 200 },
+        {
+            field: 'fullName',
+            headerName: 'Satış Elemanı',
+            flex: 1,
+            renderCell: (params: GridRenderCellParams) => (
+                <Stack direction="row" spacing={1.5} alignItems="center">
+                    <Box sx={{ p: 1, borderRadius: 1.5, bgcolor: alpha(theme.palette.primary.main, 0.05), color: 'primary.main', display: 'flex' }}>
+                        <PersonIcon fontSize="small" />
+                    </Box>
+                    <Typography variant="body2" sx={{ fontWeight: 800 }}>{params.value}</Typography>
+                </Stack>
+            )
+        },
+        {
+            field: 'phone',
+            headerName: 'Telefon',
+            width: 180,
+            renderCell: (params: GridRenderCellParams) => params.value ? (
+                <Stack direction="row" spacing={1} alignItems="center">
+                    <PhoneIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
+                    <Typography variant="body2">{params.value}</Typography>
+                </Stack>
+            ) : '-'
+        },
+        {
+            field: 'email',
+            headerName: 'E-posta',
+            width: 220,
+            renderCell: (params: GridRenderCellParams) => params.value ? (
+                <Stack direction="row" spacing={1} alignItems="center">
+                    <EmailIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
+                    <Typography variant="body2">{params.value}</Typography>
+                </Stack>
+            ) : '-'
+        },
         {
             field: 'isActive',
             headerName: 'Durum',
-            width: 100,
-            renderCell: (params) => (
+            width: 120,
+            renderCell: (params: GridRenderCellParams) => (
                 <Chip
                     label={params.value ? 'Aktif' : 'Pasif'}
                     color={params.value ? 'success' : 'default'}
                     size="small"
+                    sx={{ fontWeight: 800, borderRadius: 1.5 }}
                 />
             )
         },
         {
             field: 'actions',
             headerName: 'İşlemler',
-            width: 120,
+            width: 100,
             sortable: false,
-            renderCell: (params) => (
-                <Box>
-                    <IconButton size="small" onClick={() => handleOpenDialog(params.row)}>
-                        <Edit fontSize="small" />
+            align: 'right',
+            headerAlign: 'right',
+            renderCell: (params: GridRenderCellParams) => (
+                <Stack direction="row" spacing={0.5} justifyContent="flex-end" sx={{ width: '100%' }}>
+                    <IconButton size="small" color="primary" onClick={() => handleOpenDialog(params.row)}>
+                        <EditIcon fontSize="small" />
                     </IconButton>
                     <IconButton size="small" color="error" onClick={() => handleDelete(params.row.id)}>
-                        <Delete fontSize="small" />
+                        <DeleteIcon fontSize="small" />
                     </IconButton>
-                </Box>
+                </Stack>
             )
         }
     ];
 
     return (
-        <MainLayout>
-            <Box sx={{ p: 3 }}>
-                <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <Typography variant="h4" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <Person color="primary" />
-                        Satış Elemanları
-                    </Typography>
-                    <Button variant="contained" startIcon={<Add />} onClick={() => handleOpenDialog()}>
-                        Yeni Ekle
-                    </Button>
-                </Box>
-
-                <Paper sx={{ height: 600, width: '100%' }}>
-                    <DataGrid rows={data} columns={columns} loading={loading} disableRowSelectionOnClick />
-                </Paper>
-
-                <SatisElemaniDialog
-                    open={dialogOpen}
-                    initialData={formData}
-                    isEditing={!!editingId}
-                    onClose={() => setDialogOpen(false)}
-                    onSubmit={handleSubmit}
-                />
-
-                <Snackbar
-                    open={snackbar.open}
-                    autoHideDuration={3000}
-                    onClose={() => setSnackbar(prev => ({ ...prev, open: false }))}
-                    anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-                >
-                    <Alert severity={snackbar.severity}>{snackbar.message}</Alert>
-                </Snackbar>
+        <StandardPage
+            title="Satış Elemanları (Plasiyer)"
+            breadcrumbs={[{ label: 'Ayarlar', href: '/settings' }, { label: 'Satış Elemanları' }]}
+            headerActions={
+                <Button variant="contained" startIcon={<AddIcon />} onClick={() => handleOpenDialog()} sx={{ fontWeight: 800, borderRadius: 3, px: 3 }}>
+                    Yeni Eleman Ekle
+                </Button>
+            }
+        >
+            <Box sx={{ mb: 4 }}>
+                <Typography variant="body2" sx={{ color: 'text.secondary', maxWidth: 800 }}>
+                    Satış personellerinizi ve plasiyerlerinizi buradan yönetebilirsiniz.
+                    Bu tanımlar fatura ve siparişlerde satış elemanı seçimi yapmanıza olanak tanır.
+                </Typography>
             </Box>
-        </MainLayout>
+
+            <Paper variant="outlined" sx={{ borderRadius: 4, overflow: 'hidden' }}>
+                <Box sx={{ height: 600, width: '100%' }}>
+                    <DataGrid
+                        rows={data}
+                        columns={columns}
+                        loading={loading}
+                        disableRowSelectionOnClick
+                        sx={{
+                            border: 'none',
+                            '& .MuiDataGrid-columnHeaders': {
+                                bgcolor: alpha(theme.palette.primary.main, 0.04),
+                                borderBottom: '1px solid',
+                                borderColor: 'divider',
+                            },
+                        }}
+                    />
+                </Box>
+            </Paper>
+
+            <SatisElemaniDialog
+                open={dialogOpen}
+                initialData={formData}
+                isEditing={!!editingId}
+                onClose={() => setDialogOpen(false)}
+                onSubmit={handleSubmit}
+            />
+
+            <Snackbar
+                open={snackbar.open}
+                autoHideDuration={4000}
+                onClose={() => setSnackbar(prev => ({ ...prev, open: false }))}
+                anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+            >
+                <Alert severity={snackbar.severity} sx={{ borderRadius: 2, fontWeight: 700 }}>{snackbar.message}</Alert>
+            </Snackbar>
+        </StandardPage>
     );
 }

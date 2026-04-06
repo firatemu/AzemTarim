@@ -16,6 +16,7 @@ import {
   CircularProgress,
 } from '@mui/material';
 import axios from '@/lib/axios';
+import { useSnackbar } from 'notistack';
 
 interface WorkOrderTahsilatDialogProps {
   open: boolean;
@@ -38,6 +39,7 @@ export default function WorkOrderTahsilatDialog({
   workOrderNo,
   grandTotal,
 }: WorkOrderTahsilatDialogProps) {
+  const { enqueueSnackbar } = useSnackbar();
   const [tutar, setTutar] = useState<string>(String(grandTotal));
   const [odemeTipi, setOdemeTipi] = useState<'NAKIT' | 'KREDI_KARTI'>('NAKIT');
   const [kasaId, setKasaId] = useState('');
@@ -108,7 +110,7 @@ export default function WorkOrderTahsilatDialog({
       onSuccess();
       onClose();
     } catch (err: any) {
-      alert(err.response?.data?.message || 'Tahsilat kaydedilemedi');
+      enqueueSnackbar(err.response?.data?.message || 'Tahsilat kaydedilemedi', { variant: 'error' });
     } finally {
       setLoading(false);
     }

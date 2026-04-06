@@ -1,6 +1,6 @@
 import React from 'react';
 import ReportPortfolioClient from './ReportPortfolioClient';
-import { Box, Typography } from '@mui/material';
+import StandardPage from '@/components/common/StandardPage';
 
 export const metadata = {
     title: 'Portföy Raporu',
@@ -9,11 +9,14 @@ export const metadata = {
 
 export default function ReportPortfolioPage() {
     return (
-        <Box sx={{ p: 3, maxWidth: 1400, mx: 'auto' }}>
-            <Typography variant="h4" fontWeight="600" mb={3}>
-                Portföy Analizi
-            </Typography>
+        <StandardPage
+            title="Portföy Analizi"
+            breadcrumbs={[
+                { label: 'Raporlar', href: '/reporting' },
+                { label: 'Portföy Analizi' }
+            ]}
+        >
             <ReportPortfolioClient />
-        </Box>
+        </StandardPage>
     );
 }

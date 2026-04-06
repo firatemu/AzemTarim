@@ -1,10 +1,13 @@
 import { Injectable } from '@nestjs/common';
-import { CheckBillStatus, AccountTransactionDirection, LogAction } from '@prisma/client';
+import { CheckBillStatus, LogAction, Prisma } from '@prisma/client';
 import { IJournalHandler, JournalHandlerContext } from './journal-handler.interface';
 import { CreateCheckBillJournalDto } from '../dto/create-check-bill-journal.dto';
+import { AccountBalanceService } from '../../account-balance/account-balance.service';
 
 @Injectable()
 export class DebitEntryHandler implements IJournalHandler {
+    constructor(private readonly accountBalanceService: AccountBalanceService) { }
+
     async handle(dto: CreateCheckBillJournalDto, context: JournalHandlerContext): Promise<void> {
         const { tx, journalId, tenantId, performedById } = context;
 
@@ -47,33 +50,25 @@ export class DebitEntryHandler implements IJournalHandler {
                 },
             });
 
-            await tx.accountTransaction.create({
+            await tx.accountMovement.create({
                 data: {
                     tenantId,
                     accountId: checkBill.accountId,
-                    sourceType: 'CHECK_BILL_JOURNAL',
-                    sourceId: journalId,
-                    direction: AccountTransactionDirection.CREDIT,
+                    type: 'CREDIT',
                     amount: checkBill.amount,
-                    description: 'Own document issued',
-                },
+                    balance: new Prisma.Decimal(0),
+                    documentType: 'CHECK_EXIT',
+                    documentNo: checkBill.checkNo || checkBill.id,
+                    checkBillId: checkBill.id,
+                    date: dto.date ? new Date(dto.date) : new Date(),
+                    notes: dto.notes || undefined,
+                }
             });
+        }
 
-            await tx.$executeRawUnsafe(
-                `INSERT INTO account_movements (id, "tenantId", account_id, type, amount, balance, document_type, document_no, check_bill_id, date, notes, "createdAt", "updatedAt") 
-                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW(), NOW())`,
-                require('crypto').randomUUID(),
-                tenantId,
-                checkBill.accountId,
-                'DEBIT',
-                checkBill.amount,
-                0,
-                'CHECK_EXIT',
-                checkBill.checkNo || '—',
-                checkBill.id,
-                dto.date ? new Date(dto.date) : new Date(),
-                dto.notes || 'Kendi evrak çıkışı (Borç)'
-            );
+        // Bakiye güncelleme
+        if (dto.accountId) {
+            await this.accountBalanceService.recalculateAccountBalance(dto.accountId, tx);
         }
     }
 }

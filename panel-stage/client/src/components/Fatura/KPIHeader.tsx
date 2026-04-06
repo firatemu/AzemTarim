@@ -11,7 +11,7 @@ interface StatsProps {
         tahsilatBekleyen: { tutar: number; adet: number };
         vadesiGecmis: { tutar: number; adet: number };
     } | null;
-    type: 'SATIS' | 'ALIS';
+    type: 'SATIS' | 'ALIS' | 'IADE';
 }
 
 export default function KPIHeader({ loading, data, type }: StatsProps) {
@@ -27,7 +27,7 @@ export default function KPIHeader({ loading, data, type }: StatsProps) {
 
     const cards = [
         {
-            title: isSatis ? 'Bu Ay Satış' : 'Bu Ay Alış',
+            title: type === 'IADE' ? 'Aylık İade' : (isSatis ? 'Bu Ay Satış' : 'Bu Ay Alış'),
             value: data?.aylikSatis?.tutar || 0,
             count: data?.aylikSatis?.adet || 0,
             icon: isSatis ? <TrendingUp /> : <TrendingDown />,

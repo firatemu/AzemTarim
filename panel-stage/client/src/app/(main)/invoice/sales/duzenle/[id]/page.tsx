@@ -1,25 +1,24 @@
 'use client';
 
 import React, { Suspense } from 'react';
-import { CircularProgress, Box } from '@mui/material';
+import { useParams } from 'next/navigation';
+import { Box, CircularProgress } from '@mui/material';
 import { SatisFaturaForm } from '../../yeni/page';
 import MainLayout from '@/components/Layout/MainLayout';
-import { useParams, useRouter } from 'next/navigation';
 
-export default function SatisFaturaDuzenlePage() {
+export default function DuzenleSatisFaturasiPage() {
   const params = useParams();
-  const router = useRouter();
   const id = params.id as string;
 
   return (
-    <Box sx={{ pb: 4 }}>
+    <MainLayout>
       <Suspense fallback={
         <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
           <CircularProgress />
         </Box>
       }>
-        <SatisFaturaForm faturaId={id} onBack={() => router.push('/invoice/sales')} />
+        <SatisFaturaForm faturaId={id} onBack={() => window.history.back()} />
       </Suspense>
-    </Box>
+    </MainLayout>
   );
 }

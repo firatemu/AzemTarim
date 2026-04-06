@@ -1,7 +1,7 @@
 module.exports = {
   apps: [{
     name: 'api-stage',
-    script: './dist/src/main.js',
+    script: './dist-local/main.js',
     instances: 1,
     autorestart: true,
     watch: false,

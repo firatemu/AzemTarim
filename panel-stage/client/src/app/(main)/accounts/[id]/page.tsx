@@ -3,131 +3,47 @@
 import React, { useState, useEffect } from 'react';
 import {
   Box,
-  Card,
-  CardContent,
   Typography,
   Button,
-  Paper,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Chip,
-  IconButton,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
   TextField,
   Snackbar,
   Alert,
   CircularProgress,
   Stack,
-  useTheme,
-  useMediaQuery,
-  Divider,
-  Tabs,
-  Tab,
   Grid,
-  List,
-  ListItem,
-  ListItemText,
-  Avatar,
-  ListItemIcon,
+  Paper,
+  useTheme,
+  alpha,
 } from '@mui/material';
 import {
+  DataGrid,
+  GridColDef,
+  GridRenderCellParams,
+  GridToolbar,
+  GridToolbarContainer,
+  GridToolbarColumnsButton,
+  GridToolbarFilterButton,
+  GridToolbarDensitySelector,
+  GridToolbarExport,
+} from '@mui/x-data-grid';
+import { trTR } from '@mui/x-data-grid/locales';
+import {
   ArrowBack,
-  Visibility,
   Print,
   PictureAsPdf,
   TableChart,
   TrendingUp,
   TrendingDown,
-  Business,
-  ContactPage,
-  Phone,
-  Email,
-  LocationOn,
-  CreditCard,
-  Person,
-  Warning,
-  Block,
+  AccountBalance,
+  Description,
+  FilterList,
+  ArrowUpward,
+  ArrowDownward,
 } from '@mui/icons-material';
 import { useParams, useRouter } from 'next/navigation';
-import MainLayout from '@/components/Layout/MainLayout';
 import axios from '@/lib/axios';
 import FaturaOzetDialog from '@/components/Cari/FaturaOzetDialog';
-
-interface CariYetkili {
-  id: string;
-  adSoyad: string;
-  unvan?: string;
-  telefon?: string;
-  email?: string;
-  varsayilan: boolean;
-}
-
-interface CariAdres {
-  id: string;
-  baslik: string;
-  tip: 'FATURA' | 'SEVK' | 'DIGER';
-  adres: string;
-  il?: string;
-  ilce?: string;
-}
-
-interface CariBanka {
-  id: string;
-  bankaAdi: string;
-  subeAdi?: string;
-  iban: string;
-  paraBirimi: string;
-}
-
-interface Cari {
-  id: string;
-  cariKodu: string;
-  unvan: string;
-  tip: string;
-  vergiNo?: string;
-  vergiDairesi?: string;
-  tcKimlikNo?: string;
-  isimSoyisim?: string;
-  telefon?: string;
-  email?: string;
-  adres?: string;
-  il?: string;
-  ilce?: string;
-  bakiye: string;
-  riskLimiti?: number;
-  riskDurumu?: 'NORMAL' | 'RISKLI' | 'BLOKELI' | 'TAKIPTE';
-  teminatTutar?: number;
-  sektor?: string;
-  webSite?: string;
-  yetkililer?: CariYetkili[];
-  ekAdresler?: CariAdres[];
-  tedarikciBankalar?: CariBanka[];
-  efaturaPostaKutusu?: string;
-  efaturaGondericiBirim?: string;
-}
-
-interface Product {
-  name: string;
-  code: string;
-}
-
-interface InvoiceItem {
-  id: string;
-  product: Product;
-  quantity: number;
-  unitPrice: string;
-  vatRate: number;
-  vatAmount: string;
-  amount: string;
-  unit?: string;
-}
+import { StandardPage, StandardCard } from '@/components/common';
 
 interface Invoice {
   id: string;
@@ -140,7 +56,6 @@ interface Invoice {
   currency: string;
   notes?: string;
   status: string;
-  items: InvoiceItem[];
 }
 
 interface CariHareket {
@@ -155,41 +70,37 @@ interface CariHareket {
   invoice?: Invoice;
 }
 
-function TabPanel(props: { children?: React.ReactNode; index: number; value: number }) {
-  const { children, value, index, ...other } = props;
-
-  return (
-    <div
-      role="tabpanel"
-      hidden={value !== index}
-      id={`simple-tabpanel-${index}`}
-      aria-labelledby={`simple-tab-${index}`}
-      {...other}
-    >
-      {value === index && (
-        <Box sx={{ py: 3 }}>
-          {children}
-        </Box>
-      )}
-    </div>
-  );
+interface Cari {
+  id: string;
+  cariKodu: string;
+  unvan: string;
+  tip: string;
+  vergiNo?: string;
+  vergiDairesi?: string;
+  telefon?: string;
+  email?: string;
+  bakiye: string;
+  riskLimiti?: number;
+  riskDurumu?: 'NORMAL' | 'RISKLI' | 'BLOKELI' | 'TAKIPTE';
+  riskDurdurma?: boolean;
 }
 
 export default function CariDetayPage() {
   const params = useParams();
   const router = useRouter();
   const cariId = params.id as string;
+  const theme = useTheme();
 
   const [cari, setCari] = useState<Cari | null>(null);
   const [hareketler, setHareketler] = useState<CariHareket[]>([]);
   const [loading, setLoading] = useState(true);
-  const [openIncele, setOpenIncele] = useState(false);
-  const [selectedHareket, setSelectedHareket] = useState<CariHareket | null>(null);
-  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as any });
-  const [tabValue, setTabValue] = useState(0);
+  const [snackbar, setSnackbar] = useState<{
+    open: boolean;
+    message: string;
+    severity: 'success' | 'error' | 'info' | 'warning';
+  }>({ open: false, message: '', severity: 'success' });
   const [openInvoice, setOpenInvoice] = useState(false);
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
-
   const [baslangicTarihi, setBaslangicTarihi] = useState('');
   const [bitisTarihi, setBitisTarihi] = useState('');
 
@@ -215,11 +126,25 @@ export default function CariDetayPage() {
         params: { limit: 1000 },
       });
 
-      // Backend AccountMovement response: { type, amount, balance, documentNo, date, notes, ... }
-      // Frontend CariHareket bekliyor: { tip, tutar, bakiye, belgeNo, tarih, aciklama, ... }
       const raw = response.data?.data ?? response.data ?? [];
       const normalized: CariHareket[] = Array.isArray(raw)
-        ? raw.map((m: any) => {
+        ? raw.map((m: {
+          id?: string;
+          type?: string;
+          amount?: number | string;
+          tutar?: number | string;
+          balance?: number | string;
+          bakiye?: number | string;
+          documentNo?: string;
+          belgeNo?: string;
+          documentType?: string;
+          belgeTipi?: string;
+          date?: string;
+          tarih?: string;
+          notes?: string;
+          aciklama?: string;
+          invoice?: Invoice;
+        }) => {
           const backendType = m?.type;
           const tip: CariHareket['tip'] =
             backendType === 'DEBIT' || backendType === 'BORC'
@@ -233,7 +158,8 @@ export default function CariDetayPage() {
             tip,
             tutar: m?.amount != null ? String(m.amount) : (m?.tutar != null ? String(m.tutar) : '0'),
             bakiye: m?.balance != null ? String(m.balance) : (m?.bakiye != null ? String(m.bakiye) : '0'),
-            belgeNo: m?.documentNo ?? m?.belgeNo,
+            belgeNo: (m?.documentNo ?? m?.belgeNo) || '-',
+            belgeTipi: m?.documentType ?? m?.belgeTipi,
             tarih: m?.date ?? m?.tarih ?? new Date(0).toISOString(),
             aciklama: m?.notes ?? m?.aciklama ?? '',
             invoice: m?.invoice,
@@ -241,7 +167,17 @@ export default function CariDetayPage() {
         })
         : [];
 
-      setHareketler(normalized);
+      // Tarihe ve ID'ye göre sırala (yürüyen bakiye için doğru sıralama)
+      const sorted = normalized.sort((a, b) => {
+        const dateA = new Date(a.tarih).getTime();
+        const dateB = new Date(b.tarih).getTime();
+        if (dateA !== dateB) {
+          return dateA - dateB; // Tarihe göre artan
+        }
+        return a.id.localeCompare(b.id); // Aynı tarihte ise ID'ye göre artan
+      });
+
+      setHareketler(sorted);
     } catch (error) {
       console.error('Hareketler alınamadı:', error);
       showSnackbar('Hareketler yüklenemedi', 'error');
@@ -251,8 +187,8 @@ export default function CariDetayPage() {
   };
 
   const totals = hareketler.reduce(
-    (acc, h) => {
-      const val = parseFloat(h.tutar);
+    (acc: { borc: number; alacak: number }, h: CariHareket) => {
+      const val = parseFloat(h.tutar) || 0;
       if (h.tip === 'BORC') acc.borc += val;
       else if (h.tip === 'ALACAK') acc.alacak += val;
       return acc;
@@ -260,10 +196,7 @@ export default function CariDetayPage() {
     { borc: 0, alacak: 0 }
   );
 
-  const handleIncele = (hareket: CariHareket) => {
-    setSelectedHareket(hareket);
-    setOpenIncele(true);
-  };
+  const currentBakiye = cari && cari.bakiye && cari.bakiye !== '' ? parseFloat(cari.bakiye) : (totals.alacak - totals.borc);
 
   const handleInvoiceClick = (invoice: Invoice) => {
     setSelectedInvoice(invoice);
@@ -314,707 +247,400 @@ export default function CariDetayPage() {
     }
   };
 
-  const handlePrint = () => {
-    handleExportPdf();
-  };
-
   const showSnackbar = (message: string, severity: 'success' | 'error' | 'info' | 'warning' = 'success') => {
     setSnackbar({ open: true, message, severity });
   };
 
-  const getTipColor = (tip: string) => {
-    switch (tip) {
-      case 'BORC': return 'error';
-      case 'ALACAK': return 'success';
-      case 'DEVIR': return 'default';
-      default: return 'default';
-    }
-  };
+  const getBelgeTipiLabel = (belgeTipi?: string) => {
+    if (!belgeTipi) return '-';
+    switch (belgeTipi) {
+      // Backend Enum Values (DocumentType)
+      case 'INVOICE': return 'Fatura';
+      case 'COLLECTION': return 'Tahsilat';
+      case 'PAYMENT': return 'Ödeme';
+      case 'CHECK_PROMISSORY': return 'Çek/Senet İşlemi';
+      case 'CARRY_FORWARD': return 'Devir';
+      case 'CORRECTION': return 'Düzeltme Kaydı';
+      case 'CHECK_ENTRY': return 'Çek Girişi';
+      case 'CHECK_EXIT': return 'Çek Çıkışı';
+      case 'RETURN': return 'Evrak İadesi';
+      case 'HAVALE': return 'Havale';
+      case 'CHECK_BILL': return 'Çek/Senet';
 
-  const getTipLabel = (tip: string) => {
-    switch (tip) {
-      case 'BORC': return 'Borç';
-      case 'ALACAK': return 'Alacak';
+      // Legacy or specific variant mappings
+      case 'SATIS_FATURA': return 'Satış Faturası';
+      case 'SATIN_ALMA_FATURA': return 'Satınalma Faturası';
+      case 'SATIS_IRSALIYE': return 'Satış İrsaliyesi';
+      case 'SATIN_ALMA_IRSALIYE': return 'Satınalma İrsaliyesi';
+      case 'TAHSILAT': return 'Tahsilat';
+      case 'ODEME': return 'Ödeme';
       case 'DEVIR': return 'Devir';
-      default: return tip;
+
+      default: return belgeTipi;
     }
   };
 
-  const getRiskColor = (status?: string) => {
-    switch (status) {
-      case 'RISKLI': return 'warning';
-      case 'BLOKELI': return 'error';
-      case 'TAKIPTE': return 'error';
-      case 'NORMAL': return 'success';
-      default: return 'default';
-    }
-  };
-
-  const getRiskLabel = (status?: string) => {
-    switch (status) {
-      case 'RISKLI': return 'Riskli';
-      case 'BLOKELI': return 'Blokeli';
-      case 'TAKIPTE': return 'Takipte';
-      case 'NORMAL': return 'Normal';
-      default: return 'Belirsiz';
-    }
-  };
-
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
-
-  const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
-    setTabValue(newValue);
-  };
-
-  // Mobile movement card component
-  const MobileMovementCard = ({ hareket }: { hareket: CariHareket }) => (
-    <Paper
-      variant="outlined"
-      sx={{
-        p: 2,
-        mb: 2,
-        borderRadius: 'var(--radius-md)',
-        border: '1px solid var(--border)',
-        bgcolor: 'var(--card)',
-      }}
-    >
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
-        <Typography variant="body2" fontWeight="700" color="text.secondary">
-          {new Date(hareket.tarih).toLocaleDateString('tr-TR')}
+  const columns: GridColDef[] = [
+    {
+      field: 'tarih',
+      headerName: 'Tarih',
+      width: 110,
+      renderCell: (params: GridRenderCellParams) => (
+        <Typography variant="body2" sx={{ fontSize: '0.8rem', fontWeight: 500 }}>
+          {new Date(params.value as string).toLocaleDateString('tr-TR')}
         </Typography>
-        <Chip
-          label={getTipLabel(hareket.tip)}
-          color={getTipColor(hareket.tip)}
-          size="small"
-          sx={{ fontWeight: 600 }}
-        />
-      </Box>
-
-      <Typography variant="body1" fontWeight="600" sx={{ mb: 1 }}>
-        {hareket.aciklama}
-      </Typography>
-
-      {hareket.belgeNo && (
-        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
-          Belge No: {hareket.belgeNo}
+      ),
+    },
+    {
+      field: 'belgeTipi',
+      headerName: 'Belge Tipi',
+      width: 150,
+      renderCell: (params: GridRenderCellParams) => {
+        const belgeTipi = params.value as string;
+        return (
+          <Typography variant="body2" sx={{ fontSize: '0.8rem', fontWeight: 500 }}>
+            {getBelgeTipiLabel(belgeTipi)}
+          </Typography>
+        );
+      },
+    },
+    {
+      field: 'belgeNo',
+      headerName: 'Belge No',
+      width: 140,
+      renderCell: (params: GridRenderCellParams) => (
+        <Typography variant="body2" sx={{ fontSize: '0.8rem', color: 'text.secondary' }}>
+          {params.value as string || '-'}
         </Typography>
-      )}
-
-      <Divider sx={{ my: 1.5, borderStyle: 'dashed' }} />
-
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-          <Typography variant="body2" color="text.secondary">Tutar:</Typography>
-          <Typography variant="body2" fontWeight="700" color={hareket.tip === 'BORC' ? '#ef4444' : '#10b981'}>
-            {hareket.tip === 'BORC' ? 'Borç: ' : 'Alacak: '}
-            ₺{parseFloat(hareket.tutar).toLocaleString('tr-TR', { minimumFractionDigits: 2 })}
+      ),
+    },
+    {
+      field: 'aciklama',
+      headerName: 'Açıklama',
+      flex: 1,
+      minWidth: 200,
+      renderCell: (params: GridRenderCellParams) => (
+        <Typography variant="body2" sx={{ fontSize: '0.8rem', fontWeight: 500 }}>
+          {params.value as string}
+        </Typography>
+      ),
+    },
+    {
+      field: 'borc',
+      headerName: 'Borç',
+      width: 130,
+      align: 'right',
+      renderCell: (params: GridRenderCellParams) => {
+        const row = params.row as CariHareket;
+        return row.tip === 'BORC' ? (
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 0.5 }}>
+            <ArrowUpward sx={{ fontSize: 14, color: '#ef4444' }} />
+            <Typography variant="body2" sx={{ fontSize: '0.8rem', fontWeight: 700, color: '#ef4444' }}>
+              ₺{parseFloat(row.tutar).toLocaleString('tr-TR', { minimumFractionDigits: 2 })}
+            </Typography>
+          </Box>
+        ) : (
+          <Typography variant="body2" sx={{ fontSize: '0.8rem', color: 'text.secondary' }}>-</Typography>
+        );
+      },
+    },
+    {
+      field: 'alacak',
+      headerName: 'Alacak',
+      width: 130,
+      align: 'right',
+      renderCell: (params: GridRenderCellParams) => {
+        const row = params.row as CariHareket;
+        return row.tip === 'ALACAK' ? (
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 0.5 }}>
+            <ArrowDownward sx={{ fontSize: 14, color: '#10b981' }} />
+            <Typography variant="body2" sx={{ fontSize: '0.8rem', fontWeight: 700, color: '#10b981' }}>
+              ₺{parseFloat(row.tutar).toLocaleString('tr-TR', { minimumFractionDigits: 2 })}
+            </Typography>
+          </Box>
+        ) : (
+          <Typography variant="body2" sx={{ fontSize: '0.8rem', color: 'text.secondary' }}>-</Typography>
+        );
+      },
+    },
+    {
+      field: 'bakiye',
+      headerName: 'Bakiye',
+      width: 130,
+      align: 'right',
+      renderCell: (params: GridRenderCellParams) => {
+        const bakiye = parseFloat(params.value as string);
+        return (
+          <Typography variant="body2" sx={{ fontSize: '0.8rem', fontWeight: 700, color: bakiye >= 0 ? 'text.primary' : '#ef4444' }}>
+            ₺{bakiye.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}
           </Typography>
-        </Box>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-          <Typography variant="body2" color="text.secondary">Bakiye:</Typography>
-          <Typography variant="body2" fontWeight="800">
-            ₺{parseFloat(hareket.bakiye).toLocaleString('tr-TR', { minimumFractionDigits: 2 })}
-          </Typography>
-        </Box>
-      </Box>
-
-      <Button
-        fullWidth
-        size="small"
-        variant="outlined"
-        startIcon={<Visibility />}
-        onClick={() => handleIncele(hareket)}
-        sx={{ mt: 2, textTransform: 'none' }}
-      >
-        Detayları İncele
-      </Button>
-    </Paper>
-  );
+        );
+      },
+    },
+  ];
 
   if (!cari) {
     return (
-      <MainLayout>
+      <StandardPage title="Cari Hesap Hareketleri">
         <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh' }}>
           <CircularProgress />
         </Box>
-      </MainLayout>
+      </StandardPage>
     );
   }
 
   return (
-    <MainLayout>
-      {/* Header & Hero Section */}
-      <Box sx={{ mb: 3 }}>
+    <StandardPage title="">
+      {/* Header Section */}
+      <Box sx={{ mb: 2 }}>
         <Button
           startIcon={<ArrowBack />}
           onClick={() => router.push('/accounts')}
-          sx={{ mb: 2, color: 'text.secondary', '&:hover': { color: 'primary.main' } }}
+          sx={{ mb: 2, textTransform: 'none', fontWeight: 600 }}
         >
-          Cari Listesine Dön
+          Cari Hesap Listesine Dön
         </Button>
 
-        <Box sx={{
-          display: 'flex',
-          flexDirection: isMobile ? 'column' : 'row',
-          justifyContent: 'space-between',
-          alignItems: isMobile ? 'stretch' : 'flex-start',
-          gap: 3
-        }}>
-          <Box>
-            <Typography
-              variant="h4"
-              sx={{
-                fontWeight: 800,
-                fontSize: isMobile ? '1.5rem' : '1.875rem',
-                color: 'var(--foreground)',
-                letterSpacing: '-0.03em',
-                mb: 0.5,
+        <StandardCard>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
+            <Box>
+              <Typography variant="h5" fontWeight="bold">
+                {cari.unvan}
+              </Typography>
+              <Stack direction="row" spacing={2} sx={{ mt: 0.5 }}>
+                <Typography variant="body2" color="text.secondary">
+                  <Box component="span" fontWeight="bold">Cari Kodu:</Box> {cari.cariKodu}
+                </Typography>
+                {cari.vergiNo && (
+                  <Typography variant="body2" color="text.secondary">
+                    <Box component="span" fontWeight="bold">Vergi No:</Box> {cari.vergiNo}
+                  </Typography>
+                )}
+              </Stack>
+            </Box>
+
+            <Box sx={{ display: 'flex', gap: 0.5 }}>
+              <Button
+                variant="outlined"
+                size="small"
+                startIcon={<TableChart />}
+                onClick={handleExportExcel}
+                sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 600, color: 'success.main', borderColor: 'success.main' }}
+              >
+                Excel
+              </Button>
+              <Button
+                variant="outlined"
+                size="small"
+                startIcon={<PictureAsPdf />}
+                onClick={handleExportPdf}
+                sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 600, color: 'error.main', borderColor: 'error.main' }}
+              >
+                PDF
+              </Button>
+              <Button
+                variant="outlined"
+                size="small"
+                startIcon={<Print />}
+                onClick={handleExportPdf}
+                sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 600 }}
+              >
+                Yazdır
+              </Button>
+            </Box>
+          </Box>
+        </StandardCard>
+      </Box>
+
+      {/* Summary Cards */}
+      <Grid container spacing={2} sx={{ mb: 2 }}>
+        <Grid size={{ xs: 12, sm: 4 }}>
+          <StandardCard>
+            <Stack direction="row" spacing={2} alignItems="center">
+              <Box sx={{
+                width: 44,
+                height: 44,
+                borderRadius: 2,
+                bgcolor: alpha('#ef4444', 0.1),
                 display: 'flex',
                 alignItems: 'center',
-                gap: 1.5
-              }}
-            >
-              <Box sx={{ width: 8, height: 32, bgcolor: 'var(--primary)', borderRadius: 'var(--radius-sm)' }} />
-              {cari.unvan}
-            </Typography>
-            <Stack direction="row" spacing={1.5} sx={{ ml: 2.5, alignItems: 'center', flexWrap: 'wrap', gap: 1 }}>
-              <Typography variant="body2" sx={{ color: 'var(--muted-foreground)', fontWeight: 600 }}>
-                {cari.cariKodu}
-              </Typography>
-              <Box sx={{ width: 4, height: 4, borderRadius: '50%', bgcolor: 'var(--border)' }} />
-              <Typography variant="body2" sx={{ color: 'var(--muted-foreground)', fontWeight: 500 }}>
-                {cari.tip === 'ALICI' ? 'Müşteri' : cari.tip === 'SATICI' ? 'Tedarikçi' : 'Müşteri + Tedarikçi'}
-              </Typography>
-              {cari.riskDurumu && cari.riskDurumu !== 'NORMAL' && (
-                <Chip
-                  label={getRiskLabel(cari.riskDurumu)}
-                  color={getRiskColor(cari.riskDurumu)}
-                  size="small"
-                  icon={cari.riskDurumu === 'BLOKELI' ? <Block /> : <Warning />}
-                  sx={{ ml: 2, fontWeight: 700 }}
-                />
-              )}
+                justifyContent: 'center',
+              }}>
+                <TrendingUp sx={{ color: '#ef4444' }} />
+              </Box>
+              <Box>
+                <Typography variant="h6" fontWeight="800" sx={{ color: '#ef4444', lineHeight: 1.2 }}>
+                  ₺{totals.borc.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  Toplam Borç
+                </Typography>
+              </Box>
             </Stack>
-          </Box>
-        </Box>
-      </Box>
+          </StandardCard>
+        </Grid>
 
-      {/* Tabs */}
-      <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 2 }}>
-        <Tabs value={tabValue} onChange={handleTabChange} aria-label="cari detay tabs">
-          <Tab label="Genel Bakış" />
-          <Tab label="Hareketler" />
-          <Tab label="Profil & İletişim" />
-          <Tab label="E-Dönüşüm Bilgileri" />
-        </Tabs>
-      </Box>
+        <Grid size={{ xs: 12, sm: 4 }}>
+          <StandardCard>
+            <Stack direction="row" spacing={2} alignItems="center">
+              <Box sx={{
+                width: 44,
+                height: 44,
+                borderRadius: 2,
+                bgcolor: alpha('#10b981', 0.1),
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}>
+                <TrendingDown sx={{ color: '#10b981' }} />
+              </Box>
+              <Box>
+                <Typography variant="h6" fontWeight="800" sx={{ color: '#10b981', lineHeight: 1.2 }}>
+                  ₺{totals.alacak.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  Toplam Alacak
+                </Typography>
+              </Box>
+            </Stack>
+          </StandardCard>
+        </Grid>
 
-      {/* GENEL BAKIŞ TAB */}
-      <TabPanel value={tabValue} index={0}>
-        <Paper variant="outlined" sx={{ p: 2, mb: 3 }}>
-          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0 }}>
-            <Box sx={{ flex: '1 1 120px', p: 2, borderRight: '1px solid', borderColor: 'divider', minWidth: '140px' }}>
-              <Typography variant="caption" fontSize="0.7rem" color="text.secondary" fontWeight={700}>Toplam Borç</Typography>
-              <Typography variant="body2" fontSize="0.85rem" fontWeight="700" color="#ef4444">₺{totals.borc.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}</Typography>
-            </Box>
-            <Box sx={{ flex: '1 1 120px', p: 2, borderRight: '1px solid', borderColor: 'divider', minWidth: '140px' }}>
-              <Typography variant="caption" fontSize="0.7rem" color="text.secondary" fontWeight={700}>Toplam Alacak</Typography>
-              <Typography variant="body2" fontSize="0.85rem" fontWeight="700" color="#10b981">₺{totals.alacak.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}</Typography>
-            </Box>
-            <Box sx={{ flex: '1 1 120px', p: 2, borderRight: '1px solid', borderColor: 'divider', minWidth: '140px' }}>
-              <Typography variant="caption" fontSize="0.7rem" color="text.secondary" fontWeight={700}>Net Bakiye</Typography>
-              <Typography variant="body2" fontSize="0.85rem" fontWeight={700} color={totals.borc > totals.alacak ? '#ef4444' : '#10b981'}>
-                ₺{Math.abs(totals.borc - totals.alacak).toLocaleString('tr-TR', { minimumFractionDigits: 2 })}
-              </Typography>
-            </Box>
-            <Box sx={{ flex: '1 1 120px', p: 2, minWidth: '140px' }}>
-              <Typography variant="caption" fontSize="0.7rem" color="text.secondary" fontWeight={700}>Risk Durumu</Typography>
-              <Typography variant="body2" fontSize="0.85rem" fontWeight={700}>{getRiskLabel(cari.riskDurumu)}</Typography>
-            </Box>
-          </Box>
-        </Paper>
-      </TabPanel>
+        <Grid size={{ xs: 12, sm: 4 }}>
+          <StandardCard>
+            <Stack direction="row" spacing={2} alignItems="center">
+              <Box sx={{
+                width: 44,
+                height: 44,
+                borderRadius: 2,
+                bgcolor: currentBakiye >= 0 ? alpha('#3b82f6', 0.1) : alpha('#ef4444', 0.1),
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}>
+                <AccountBalance sx={{ color: currentBakiye >= 0 ? '#3b82f6' : '#ef4444' }} />
+              </Box>
+              <Box>
+                <Typography variant="h6" fontWeight="800" sx={{ color: currentBakiye >= 0 ? '#3b82f6' : '#ef4444', lineHeight: 1.2 }}>
+                  {currentBakiye < 0 && '-'}₺{Math.abs(currentBakiye).toLocaleString('tr-TR', { minimumFractionDigits: 2 })}
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  Bakiye
+                </Typography>
+              </Box>
+            </Stack>
+          </StandardCard>
+        </Grid>
+      </Grid>
 
-      {/* HAREKETLER TAB - AI Kurallarına Göre Tasarlanmış */}
-      <TabPanel value={tabValue} index={1}>
-        {/* Toolbar - Kompakt Filtreler */}
-        <Paper variant="outlined" sx={{ mb: 2 }}>
-          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5, p: 2 }}>
-            <Box sx={{ flexGrow: 1, minWidth: '8px' }} />
-
-            {/* Tarih Filtreleri */}
-            <TextField
-              type="date"
-              label="Başlangıç"
-              value={baslangicTarihi}
-              onChange={(e) => setBaslangicTarihi(e.target.value)}
-              InputLabelProps={{ shrink: true }}
-              size="small"
-              sx={{ width: { xs: '100%', sm: 'auto' } }}
-            />
-            <TextField
-              type="date"
-              label="Bitiş"
-              value={bitisTarihi}
-              onChange={(e) => setBitisTarihi(e.target.value)}
-              InputLabelProps={{ shrink: true }}
-              size="small"
-              sx={{ width: { xs: '100%', sm: 'auto' } }}
-            />
-
-            <Box sx={{ ml: 'auto', display: 'flex', gap: 0.5, alignItems: 'center' }}>
-              <IconButton size="small" onClick={handleExportExcel} title="Excel'e Aktar" sx={{ border: '1px solid var(--border)', borderRadius: 1 }}>
-                <TableChart fontSize="small" />
-              </IconButton>
-              <IconButton size="small" onClick={handleExportPdf} title="PDF'e Aktar" sx={{ border: '1px solid var(--border)', borderRadius: 1 }}>
-                <PictureAsPdf fontSize="small" />
-              </IconButton>
-              <IconButton size="small" onClick={handlePrint} title="Yazdır" sx={{ border: '1px solid var(--border)', borderRadius: 1 }}>
-                <Print fontSize="small" />
-              </IconButton>
-            </Box>
-          </Box>
-        </Paper>
-
-        {/* Özet Info Bar - Tablo Hemen Üstünde */}
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', py: 1, px: 1 }}>
-          <Typography variant="caption" color="text.secondary">
-            Toplam {hareketler.length} hareket gösteriliyor
+      {/* Filters */}
+      <StandardCard sx={{ mb: 2 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
+          <FilterList sx={{ color: 'text.secondary' }} />
+          <Typography variant="body2" fontWeight="600" color="text.secondary">
+            Tarih Filtresi:
+          </Typography>
+          <TextField
+            type="date"
+            size="small"
+            value={baslangicTarihi}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setBaslangicTarihi(e.target.value)}
+            InputLabelProps={{ shrink: true }}
+            sx={{ width: 150 }}
+          />
+          <Typography variant="body2" color="text.secondary">-</Typography>
+          <TextField
+            type="date"
+            size="small"
+            value={bitisTarihi}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setBitisTarihi(e.target.value)}
+            InputLabelProps={{ shrink: true }}
+            sx={{ width: 150 }}
+          />
+          <Box sx={{ flexGrow: 1 }} />
+          <Typography variant="body2" color="text.secondary">
+            {hareketler.length} hareket
           </Typography>
         </Box>
+      </StandardCard>
 
-        {/* DataGrid - AI Kurallarına Göre Tasarlanmış */}
-        <Paper
-          variant="outlined"
-          sx={{
-            overflow: 'hidden',
-            border: 'none'
-          }}
-        >
-          <Box sx={{ height: 650, width: '100%' }}>
-            <Table sx={{
+      {/* DataGrid Table */}
+      <StandardCard padding={0}>
+        <Box sx={{ height: 600, width: '100%' }}>
+          <DataGrid
+            rows={hareketler}
+            columns={columns}
+            getRowId={(row: CariHareket) => row.id}
+            disableRowSelectionOnClick
+            loading={loading}
+            localeText={trTR.components.MuiDataGrid.defaultProps.localeText}
+            initialState={{
+              pagination: { paginationModel: { pageSize: 50, page: 0 } },
+            }}
+            pageSizeOptions={[25, 50, 100]}
+            slots={{
+              toolbar: () => (
+                <GridToolbarContainer sx={{ p: 1, borderBottom: '1px solid var(--border)' }}>
+                  <Box sx={{ flexGrow: 1 }} />
+                  <GridToolbarColumnsButton />
+                  <GridToolbarFilterButton />
+                  <GridToolbarDensitySelector />
+                  <GridToolbarExport />
+                </GridToolbarContainer>
+              ),
+              loadingOverlay: () => (
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', gap: 1 }}>
+                  <CircularProgress size={20} />
+                  <Typography variant="body2" color="text.secondary">Yükleniyor...</Typography>
+                </Box>
+              ),
+              noRowsOverlay: () => (
+                <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: 1 }}>
+                  <Description sx={{ fontSize: 48, color: 'text.disabled', opacity: 0.5 }} />
+                  <Typography variant="body2" color="text.secondary">Henüz hareket kaydı bulunmuyor</Typography>
+                </Box>
+              ),
+            }}
+            sx={{
               border: 'none',
-              '& thead th': {
-                bgcolor: '#f8fafc',
-                borderBottom: '2px solid #e2e8f0',
-                color: '#475569',
-                fontWeight: 700,
-                fontSize: '0.8rem',
-                textTransform: 'uppercase',
-                letterSpacing: '0.04em',
-                position: 'sticky',
-                top: 0,
-                zIndex: 1,
+              '& .MuiDataGrid-columnHeaders': {
+                bgcolor: alpha(theme.palette.primary.main, 0.04),
+                '& .MuiDataGrid-columnHeaderTitle': {
+                  fontWeight: 700,
+                  fontSize: '0.75rem',
+                  color: 'text.secondary',
+                  textTransform: 'uppercase',
+                },
               },
-              '& tbody tr': {
-                '&:hover': { bgcolor: '#f0fdf4' },
-                '&:nth-of-type(even)': { bgcolor: '#fafafa' },
+              '& .MuiDataGrid-cell': {
+                borderBottom: `1px solid ${alpha(theme.palette.divider, 0.5)}`,
               },
-              '& tbody td': {
-                borderBottom: '1px solid #f1f5f9',
-                fontSize: '0.875rem',
+              '& .MuiDataGrid-row:hover': {
+                bgcolor: alpha(theme.palette.primary.main, 0.02),
               },
-            }}>
-              <TableHead>
-                <TableRow>
-                  <TableCell>Tarih</TableCell>
-                  <TableCell>Tip</TableCell>
-                  <TableCell>Belge No</TableCell>
-                  <TableCell align="right">Borç</TableCell>
-                  <TableCell align="right">Alacak</TableCell>
-                  <TableCell align="right">Bakiye</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {loading ? (
-                  <TableRow>
-                    <TableCell colSpan={6} align="center" sx={{ py: 8 }}>
-                      <CircularProgress size={24} />
-                    </TableCell>
-                  </TableRow>
-                ) : hareketler.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={6} align="center" sx={{ py: 8 }}>
-                      <Typography variant="body2" color="text.secondary">
-                        Henüz hareket kaydı bulunmuyor
-                      </Typography>
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  hareketler.map((hareket) => (
-                    <TableRow
-                      key={hareket.id}
-                      hover
-                      onClick={() => hareket.invoice && handleInvoiceClick(hareket.invoice)}
-                      sx={{
-                        cursor: hareket.invoice ? 'pointer' : 'default',
-                        '&:hover': {
-                          bgcolor: hareket.invoice ? 'var(--muted) !important' : 'inherit'
-                        }
-                      }}
-                    >
-                      <TableCell sx={{ color: 'var(--foreground)' }}>
-                        {new Date(hareket.tarih).toLocaleDateString('tr-TR')}
-                      </TableCell>
-                      <TableCell>
-                        <Chip
-                          label={getTipLabel(hareket.tip)}
-                          size="small"
-                          sx={{
-                            fontSize: '0.75rem',
-                            fontWeight: 600,
-                            bgcolor: getTipColor(hareket.tip) === 'error'
-                              ? 'rgba(239, 68, 68, 0.1)'
-                              : getTipColor(hareket.tip) === 'success'
-                                ? 'rgba(16, 185, 129, 0.1)'
-                                : 'rgba(100, 116, 139, 0.1)',
-                            color: getTipColor(hareket.tip) === 'error'
-                              ? '#ef4444'
-                              : getTipColor(hareket.tip) === 'success'
-                                ? '#10b981'
-                                : '#64748b',
-                            borderColor: getTipColor(hareket.tip) === 'error'
-                              ? 'rgba(239, 68, 68, 0.3)'
-                              : getTipColor(hareket.tip) === 'success'
-                                ? 'rgba(16, 185, 129, 0.3)'
-                                : 'rgba(100, 116, 139, 0.3)',
-                          }}
-                        />
-                      </TableCell>
-                      <TableCell sx={{ color: 'text.secondary', maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        {hareket.belgeNo || '-'}
-                      </TableCell>
-                      <TableCell align="right">
-                        {hareket.tip === 'BORC' ? (
-                          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 0.5, color: '#ef4444' }}>
-                            <TrendingUp fontSize="small" />
-                            <Typography fontWeight={700} fontSize="0.875rem">
-                              ₺{parseFloat(hareket.tutar).toLocaleString('tr-TR', { minimumFractionDigits: 2 })}
-                            </Typography>
-                          </Box>
-                        ) : <Typography color="text.secondary">-</Typography>}
-                      </TableCell>
-                      <TableCell align="right">
-                        {hareket.tip === 'ALACAK' ? (
-                          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 0.5, color: '#10b981' }}>
-                            <TrendingDown fontSize="small" />
-                            <Typography fontWeight={700} fontSize="0.875rem">
-                              ₺{parseFloat(hareket.tutar).toLocaleString('tr-TR', { minimumFractionDigits: 2 })}
-                            </Typography>
-                          </Box>
-                        ) : <Typography color="text.secondary">-</Typography>}
-                      </TableCell>
-                      <TableCell align="right">
-                        <Typography fontWeight={800} fontSize="0.875rem" sx={{ color: 'var(--foreground)' }}>
-                          ₺{parseFloat(hareket.bakiye).toLocaleString('tr-TR', { minimumFractionDigits: 2 })}
-                        </Typography>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </Box>
-        </Paper>
-      </TabPanel>
+            }}
+          />
+        </Box>
+      </StandardCard>
 
-      {/* PROFIL & İLETİŞİM TAB */}
-      <TabPanel value={tabValue} index={2}>
-        {!cari ? (
-          <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 200 }}>
-            <CircularProgress />
-          </Box>
-        ) : (
-          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr', lg: '1fr 1fr 1fr' }, gap: 3 }}>
-            {/* Sol Kolon: Temel Bilgiler */}
-            <Box>
-              <Paper variant="outlined" sx={{ p: 3, borderRadius: '12px' }}>
-                <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <Business fontSize="small" /> Firma Bilgileri
-                </Typography>
-                <Divider sx={{ mb: 2 }} />
-                <List dense>
-                  <ListItem disablePadding sx={{ py: 1 }}>
-                    <ListItemText primary="Vergi No / Tc" secondary={cari.vergiNo || cari.tcKimlikNo || '-'} />
-                  </ListItem>
-                  <ListItem disablePadding sx={{ py: 1 }}>
-                    <ListItemText primary="Vergi Dairesi" secondary={cari.vergiDairesi || '-'} />
-                  </ListItem>
-                  <ListItem disablePadding sx={{ py: 1 }}>
-                    <ListItemText primary="Sektör" secondary={cari.sektor || '-'} />
-                  </ListItem>
-                  <ListItem disablePadding sx={{ py: 1 }}>
-                    <ListItemText primary="Web Sitesi" secondary={cari.webSite || '-'} />
-                  </ListItem>
-                </List>
-              </Paper>
-
-              <Paper variant="outlined" sx={{ p: 3, borderRadius: '12px', mt: 3 }}>
-                <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <LocationOn fontSize="small" /> Adres Bilgileri
-                </Typography>
-                <Divider sx={{ mb: 2 }} />
-                <Typography variant="subtitle2" color="primary">Merkez Adres</Typography>
-                <Typography variant="body2" color="text.secondary" paragraph>
-                  {cari.adres || '-'} <br /> {cari.ilce || '-'} / {cari.il || '-'}
-                </Typography>
-
-                {cari.ekAdresler && cari.ekAdresler.length > 0 && (
-                  <Box sx={{ mt: 2 }}>
-                    <Typography variant="subtitle2" color="primary">Diğer Adresler</Typography>
-                    <List dense>
-                      {cari.ekAdresler.map(adres => (
-                        <ListItem key={adres.id} disablePadding sx={{ py: 0.5 }}>
-                          <ListItemIcon sx={{ minWidth: 32 }}><LocationOn fontSize="small" color="action" /></ListItemIcon>
-                          <ListItemText
-                            primary={adres.baslik}
-                            secondary={`${adres.adres} ${adres.ilce || ''}/${adres.il || ''}`}
-                          />
-                        </ListItem>
-                      ))}
-                    </List>
-                  </Box>
-                )}
-              </Paper>
-            </Box>
-
-            {/* Orta Kolon: İletişim & Yetkililer */}
-            <Box>
-              <Paper variant="outlined" sx={{ p: 3, borderRadius: '12px' }}>
-                <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <ContactPage fontSize="small" /> İletişim
-                </Typography>
-                <Divider sx={{ mb: 2 }} />
-                <List dense>
-                  <ListItem disablePadding sx={{ py: 1 }}>
-                    <ListItemIcon><Phone fontSize="small" /></ListItemIcon>
-                    <ListItemText primary={cari.telefon || '-'} secondary="Telefon" />
-                  </ListItem>
-                  <ListItem disablePadding sx={{ py: 1 }}>
-                    <ListItemIcon><Email fontSize="small" /></ListItemIcon>
-                    <ListItemText primary={cari.email || '-'} secondary="E-posta" />
-                  </ListItem>
-                </List>
-              </Paper>
-
-              {cari.yetkililer && cari.yetkililer.length > 0 && (
-                <Paper variant="outlined" sx={{ p: 3, borderRadius: '12px', mt: 3 }}>
-                  <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <Person fontSize="small" /> Yetkililer
-                  </Typography>
-                  <Divider sx={{ mb: 2 }} />
-                  <List>
-                    {cari.yetkililer.map((yetkili) => (
-                      <ListItem key={yetkili.id} alignItems="flex-start" sx={{ px: 0 }}>
-                        <ListItemIcon>
-                          <Avatar sx={{ width: 32, height: 32, bgcolor: yetkili.varsayilan ? 'primary.main' : 'grey.400' }}>
-                            {yetkili.adSoyad.charAt(0)}
-                          </Avatar>
-                        </ListItemIcon>
-                        <ListItemText
-                          primary={
-                            <Typography variant="subtitle2">
-                              {yetkili.adSoyad} {yetkili.varsayilan && <Chip label="Varsayılan" size="small" color="primary" sx={{ height: 16, fontSize: '0.6rem', ml: 1 }} />}
-                            </Typography>
-                          }
-                          secondary={
-                            <React.Fragment>
-                              <Typography component="span" variant="body2" color="text.primary" display="block">
-                                {yetkili.unvan}
-                              </Typography>
-                              {yetkili.telefon && <Typography component="span" variant="caption" display="block"><Phone fontSize="inherit" sx={{ verticalAlign: 'middle', mr: 0.5 }} />{yetkili.telefon}</Typography>}
-                              {yetkili.email && <Typography component="span" variant="caption" display="block"><Email fontSize="inherit" sx={{ verticalAlign: 'middle', mr: 0.5 }} />{yetkili.email}</Typography>}
-                            </React.Fragment>
-                          }
-                        />
-                      </ListItem>
-                    ))}
-                  </List>
-                </Paper>
-              )}
-            </Box>
-
-            {/* Sağ Kolon: Banka Bilgileri */}
-            <Box>
-              <Paper variant="outlined" sx={{ p: 3, borderRadius: '12px' }}>
-                <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <CreditCard fontSize="small" /> Banka Hesapları
-                </Typography>
-                <Divider sx={{ mb: 2 }} />
-                {cari.tedarikciBankalar && cari.tedarikciBankalar.length > 0 ? (
-                  <List>
-                    {cari.tedarikciBankalar.map(banka => (
-                      <ListItem key={banka.id} sx={{ px: 0, borderBottom: '1px solid var(--border)' }}>
-                        <ListItemText
-                          primary={banka.bankaAdi}
-                          secondary={
-                            <React.Fragment>
-                              <Typography component="span" variant="caption" display="block" color="text.primary" sx={{ fontFamily: 'monospace', mt: 0.5 }}>
-                                {banka.iban}
-                              </Typography>
-                              <Chip label={banka.paraBirimi} size="small" variant="outlined" sx={{ height: 20, fontSize: '0.65rem', mt: 0.5 }} />
-                            </React.Fragment>
-                          }
-                        />
-                      </ListItem>
-                    ))}
-                  </List>
-                ) : (
-                  <Typography variant="body2" color="text.secondary">Kayıtlı banka bilgisi yok.</Typography>
-                )}
-              </Paper>
-            </Box>
-          </Box>
-        )}
-      </TabPanel>
-
-      {/* E-DÖNÜŞÜM BİLGİLERİ TAB */}
-      <TabPanel value={tabValue} index={3}>
-        {!cari ? (
-          <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 200 }}>
-            <CircularProgress />
-          </Box>
-        ) : (
-          <Box sx={{ maxWidth: 800, mx: 'auto' }}>
-            <Paper variant="outlined" sx={{
-              p: 4,
-              borderRadius: 'var(--radius-lg)',
-              bgcolor: 'var(--card)',
-              border: '1px solid var(--border)',
-            }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
-                <Box sx={{
-                  width: 48,
-                  height: 48,
-                  borderRadius: '12px',
-                  bgcolor: 'var(--primary)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}>
-                  <Email sx={{ color: 'white', fontSize: 24 }} />
-                </Box>
-                <Box>
-                  <Typography variant="h6" fontWeight="bold" sx={{ color: 'var(--foreground)' }}>
-                    E-Fatura Bilgileri
-                  </Typography>
-                  <Typography variant="body2" sx={{ color: 'var(--muted-foreground)' }}>
-                    e-Fatura kullanıcıları için posta kutusu ve gönderici birim bilgileri
-                  </Typography>
-                </Box>
-              </Box>
-
-              <Divider sx={{ mb: 3 }} />
-
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                {/* Posta Kutusu Etiketi */}
-                <Box>
-                  <Typography variant="subtitle2" fontWeight="600" sx={{ mb: 1.5, color: 'var(--foreground)', display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <span style={{ fontSize: '1.2rem' }}>📮</span> Posta Kutusu Etiketi
-                  </Typography>
-                  <Typography variant="body2" sx={{ mb: 1, color: 'var(--muted-foreground)' }}>
-                    e-Fatura adresi (örn: urn:mail:firmaalias@urn.ettn.tr)
-                  </Typography>
-                  <TextField
-                    fullWidth
-                    value={cari.efaturaPostaKutusu || ''}
-                    placeholder="urn:mail:firmaalias@urn.ettn.tr"
-                    disabled
-                    size="small"
-                    sx={{
-                      '& .MuiInputBase-root.Mui-disabled': {
-                        bgcolor: 'var(--muted)',
-                      },
-                    }}
-                    helperText="Bu bilgi cari kartı düzenleme ekranından güncellenebilir"
-                  />
-                </Box>
-
-                {/* Gönderici Birim Etiketi */}
-                <Box>
-                  <Typography variant="subtitle2" fontWeight="600" sx={{ mb: 1.5, color: 'var(--foreground)', display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <span style={{ fontSize: '1.2rem' }}>🏢</span> Gönderici Birim Etiketi
-                  </Typography>
-                  <Typography variant="body2" sx={{ mb: 1, color: 'var(--muted-foreground)' }}>
-                    GİB sistemine kayıtlı gönderici birim kodu
-                  </Typography>
-                  <TextField
-                    fullWidth
-                    value={cari.efaturaGondericiBirim || ''}
-                    placeholder="Örn: 1234567890"
-                    disabled
-                    size="small"
-                    sx={{
-                      '& .MuiInputBase-root.Mui-disabled': {
-                        bgcolor: 'var(--muted)',
-                      },
-                    }}
-                    helperText="Bu bilgi cari kartı düzenleme ekranından güncellenebilir"
-                  />
-                </Box>
-
-                {/* Bilgi Kutusu */}
-                <Alert severity="info" sx={{
-                  borderRadius: 'var(--radius-md)',
-                  bgcolor: 'color-mix(in srgb, var(--info) 10%, transparent)',
-                  border: '1px solid color-mix(in srgb, var(--info) 20%, transparent)',
-                }}>
-                  <Typography variant="body2" fontWeight="500">
-                    Bu bilgileri düzenlemek için cari kartı düzenleme ekranını kullanın.
-                  </Typography>
-                </Alert>
-              </Box>
-            </Paper>
-          </Box>
-        )}
-      </TabPanel>
-
-      {/* İncele Dialog */}
-      <Dialog open={openIncele} onClose={() => setOpenIncele(false)} maxWidth="sm" fullWidth>
-        <DialogTitle component="div">Hareket Detayı</DialogTitle>
-        <DialogContent>
-          {selectedHareket && (
-            <List>
-              <ListItem>
-                <ListItemText primary="Tarih" secondary={new Date(selectedHareket.tarih).toLocaleDateString()} />
-              </ListItem>
-              <ListItem>
-                <ListItemText primary="Tip" secondary={getTipLabel(selectedHareket.tip)} />
-              </ListItem>
-              <ListItem>
-                <ListItemText primary="Tutar" secondary={`₺${parseFloat(selectedHareket.tutar).toLocaleString()}`} />
-              </ListItem>
-              <ListItem>
-                <ListItemText primary="Açıklama" secondary={selectedHareket.aciklama} />
-              </ListItem>
-              <ListItem>
-                <ListItemText primary="Belge No" secondary={selectedHareket.belgeNo || '-'} />
-              </ListItem>
-            </List>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setOpenIncele(false)}>Kapat</Button>
-        </DialogActions>
-      </Dialog>
-
+      {/* Snackbar */}
       <Snackbar
         open={snackbar.open}
         autoHideDuration={4000}
         onClose={() => setSnackbar({ ...snackbar, open: false })}
         anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
       >
-        <Alert severity={snackbar.severity} onClose={() => setSnackbar({ ...snackbar, open: false })}>
+        <Alert severity={snackbar.severity} onClose={() => setSnackbar({ ...snackbar, open: false })} sx={{ borderRadius: 2 }}>
           {snackbar.message}
         </Alert>
       </Snackbar>
 
+      {/* Invoice Dialog */}
       <FaturaOzetDialog
         open={openInvoice}
         onClose={() => setOpenInvoice(false)}
         invoice={selectedInvoice}
       />
-    </MainLayout>
+    </StandardPage>
   );
 }

@@ -4,38 +4,48 @@ import React, { useState, useEffect } from 'react';
 import {
   Box,
   Typography,
-  Button,
-  Paper,
-  Chip,
-  IconButton,
   TextField,
-  MenuItem,
-  Select,
+  Button,
   FormControl,
   InputLabel,
+  Select,
+  MenuItem,
+  IconButton,
+  Chip,
+  InputAdornment,
+  Stack,
+  alpha,
 } from '@mui/material';
-import { DataGrid, GridColDef } from '@mui/x-data-grid';
-import { Add, Visibility, Edit, Delete, LocalShipping, CheckCircle, Cancel, Print } from '@mui/icons-material';
-import WarehouseTransferPrintForm from '@/components/PrintForm/WarehouseTransferPrintForm';
 import MainLayout from '@/components/Layout/MainLayout';
 import axios from '@/lib/axios';
 import { useRouter } from 'next/navigation';
+import { useSnackbar } from 'notistack';
+import { StandardPage, StandardCard } from '@/components/common';
+import { DataGrid, GridColDef } from '@mui/x-data-grid';
+import {
+  Add,
+  Visibility,
+  Edit,
+  Delete,
+  LocalShipping,
+  CheckCircle,
+  Cancel,
+  Print,
+  SwapHoriz,
+  Search,
+  FilterList,
+} from '@mui/icons-material';
+import WarehouseTransferPrintForm from '@/components/PrintForm/WarehouseTransferPrintForm';
 
-const statusColors: Record<string, string> = {
-  HAZIRLANIYOR: '#f59e0b',
-  YOLDA: '#3b82f6',
-  TAMAMLANDI: '#10b981',
-  IPTAL: '#ef4444',
-};
-
-const statusLabels: Record<string, string> = {
-  HAZIRLANIYOR: 'Hazırlanıyor',
-  YOLDA: 'Yolda',
-  TAMAMLANDI: 'Tamamlandı',
-  IPTAL: 'İptal',
+const statusConfig: Record<string, { label: string; color: any; icon: any }> = {
+  HAZIRLANIYOR: { label: 'Hazırlanıyor', color: 'warning', icon: <Visibility sx={{ fontSize: 16 }} /> },
+  YOLDA: { label: 'Yolda', color: 'info', icon: <LocalShipping sx={{ fontSize: 16 }} /> },
+  TAMAMLANDI: { label: 'Tamamlandı', color: 'success', icon: <CheckCircle sx={{ fontSize: 16 }} /> },
+  IPTAL: { label: 'İptal', color: 'error', icon: <Cancel sx={{ fontSize: 16 }} /> },
 };
 
 export default function AmbarTransferFisiPage() {
+  const { enqueueSnackbar } = useSnackbar();
   const router = useRouter();
   const [transfers, setTransfers] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -70,7 +80,7 @@ export default function AmbarTransferFisiPage() {
       await axios.delete(`/warehouse-transfer/${id}`);
       fetchTransfers();
     } catch (error: any) {
-      alert(error.response?.data?.message || 'Silme işlemi başarısız');
+      enqueueSnackbar(error.response?.data?.message || 'Silme işlemi başarısız', { variant: 'error' });
     }
   };
 
@@ -80,7 +90,7 @@ export default function AmbarTransferFisiPage() {
       headerName: 'Fiş No',
       width: 150,
       renderCell: (params) => (
-        <Typography sx={{ fontWeight: 600, color: 'var(--primary)' }}>
+        <Typography variant="body2" sx={{ fontWeight: 800, color: 'primary.main' }}>
           {params.value}
         </Typography>
       ),
@@ -105,49 +115,59 @@ export default function AmbarTransferFisiPage() {
     },
     {
       field: 'kalemler',
-      headerName: 'Ürün Sayısı',
-      width: 120,
-      valueGetter: (value, row) => row.kalemler?.length || 0,
-    },
-    {
-      field: 'driverName',
-      headerName: 'Sürücü',
-      width: 150,
-      valueGetter: (value) => value || '-',
-    },
-    {
-      field: 'vehiclePlate',
-      headerName: 'Plaka',
-      width: 120,
-      valueGetter: (value) => value || '-',
-    },
-    {
-      field: 'durum',
-      headerName: 'Durum',
-      width: 140,
+      headerName: 'Ürün',
+      width: 100,
+      align: 'center',
       renderCell: (params) => (
         <Chip
-          label={statusLabels[params.value]}
-          sx={{
-            bgcolor: statusColors[params.value],
-            color: 'white',
-            fontWeight: 600,
-          }}
+          label={params.row.kalemler?.length || 0}
           size="small"
+          sx={{ fontWeight: 700, borderRadius: 1.5, bgcolor: 'action.hover' }}
         />
       ),
     },
     {
+      field: 'driverName',
+      headerName: 'Sürücü / Plaka',
+      width: 220,
+      renderCell: (params) => (
+        <Box>
+          <Typography variant="body2" fontWeight={600}>{params.row.driverName || '-'}</Typography>
+          <Typography variant="caption" color="text.secondary">{params.row.vehiclePlate || 'Plaka Belirtilmemiş'}</Typography>
+        </Box>
+      ),
+    },
+    {
+      field: 'durum',
+      headerName: 'Durum',
+      width: 150,
+      renderCell: (params) => {
+        const config = statusConfig[params.value] || { label: params.value, color: 'default', icon: null };
+        return (
+          <Chip
+            icon={config.icon}
+            label={config.label}
+            color={config.color as any}
+            size="small"
+            variant="tonal"
+            sx={{ fontWeight: 700, borderRadius: 1.5, px: 0.5 }}
+          />
+        );
+      },
+    },
+    {
       field: 'actions',
       headerName: 'İşlemler',
-      width: 150,
+      width: 160,
       sortable: false,
+      align: 'right',
+      headerAlign: 'right',
       renderCell: (params) => (
-        <Box sx={{ display: 'flex', gap: 0.5 }}>
+        <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'flex-end', width: '100%' }}>
           <IconButton
             size="small"
             onClick={() => router.push(`/depo/transfer-fisi/${params.row.id}`)}
-            sx={{ color: 'var(--primary)' }}
+            title="Görüntüle"
           >
             <Visibility fontSize="small" />
           </IconButton>
@@ -156,14 +176,16 @@ export default function AmbarTransferFisiPage() {
               <IconButton
                 size="small"
                 onClick={() => router.push(`/depo/transfer-fisi/duzenle/${params.row.id}`)}
-                sx={{ color: '#f59e0b' }}
+                sx={{ color: 'warning.main' }}
+                title="Düzenle"
               >
                 <Edit fontSize="small" />
               </IconButton>
               <IconButton
                 size="small"
                 onClick={() => handleDelete(params.row.id)}
-                sx={{ color: '#ef4444' }}
+                sx={{ color: 'error.main' }}
+                title="Sil"
               >
                 <Delete fontSize="small" />
               </IconButton>
@@ -175,7 +197,8 @@ export default function AmbarTransferFisiPage() {
               setSelectedTransfer(params.row);
               setPrintOpen(true);
             }}
-            sx={{ color: '#6366f1' }}
+            sx={{ color: 'info.main' }}
+            title="Yazdır"
           >
             <Print fontSize="small" />
           </IconButton>
@@ -197,85 +220,98 @@ export default function AmbarTransferFisiPage() {
   });
 
   return (
-    <MainLayout>
-      <Box sx={{ p: 3 }}>
-        {/* Header */}
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-          <Box>
-            <Typography variant="h4" sx={{ fontWeight: 700, color: 'var(--foreground)', mb: 0.5 }}>
-              Ambar Transfer Fişleri
-            </Typography>
-            <Typography variant="body2" sx={{ color: 'var(--muted-foreground)' }}>
-              Ambarlar arası malzeme transferlerini yönetin
-            </Typography>
-          </Box>
-          <Button
-            variant="contained"
-            startIcon={<Add />}
-            onClick={() => router.push('/depo/transfer-fisi/yeni')}
-            sx={{
-              bgcolor: 'var(--primary)',
-              '&:hover': { bgcolor: 'var(--primary)' },
-            }}
-          >
-            Yeni Transfer Fişi
-          </Button>
+    <StandardPage>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+        <Box>
+          <Typography variant="h5" fontWeight="800" sx={{ letterSpacing: '-0.02em', display: 'flex', alignItems: 'center', gap: 1.5 }}>
+            <SwapHoriz sx={{ fontSize: 32, color: 'primary.main' }} />
+            Ambar Transfer Fişleri
+          </Typography>
+          <Typography variant="body2" color="text.secondary">Ambarlar arası malzeme transferlerini buradan yönetebilir ve takip edebilirsiniz.</Typography>
         </Box>
+        <Button
+          variant="contained"
+          startIcon={<Add />}
+          onClick={() => router.push('/depo/transfer-fisi/yeni')}
+          sx={{ borderRadius: 2, fontWeight: 700 }}
+        >
+          Yeni Transfer Fişi
+        </Button>
+      </Box>
 
-        {/* Filters */}
-        <Paper sx={{ p: 2, mb: 3 }}>
-          <Box sx={{ display: 'flex', gap: 2 }}>
-            <TextField
-              label="Ara..."
-              placeholder="Fiş no, ambar, sürücü, plaka..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              sx={{ flex: 1 }}
-              size="small"
-            />
-            <FormControl sx={{ minWidth: 200 }} size="small">
-              <InputLabel>Durum</InputLabel>
-              <Select
-                value={filterDurum}
-                onChange={(e) => setFilterDurum(e.target.value)}
-                label="Durum"
-              >
-                <MenuItem value="">Tümü</MenuItem>
-                <MenuItem value="HAZIRLANIYOR">Hazırlanıyor</MenuItem>
-                <MenuItem value="YOLDA">Yolda</MenuItem>
-                <MenuItem value="TAMAMLANDI">Tamamlandı</MenuItem>
-                <MenuItem value="IPTAL">İptal</MenuItem>
-              </Select>
-            </FormControl>
-          </Box>
-        </Paper>
+      <StandardCard sx={{ mb: 3 }}>
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems="center">
+          <TextField
+            placeholder="Fiş no, ambar, sürücü, plaka..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            fullWidth
+            size="small"
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <Search fontSize="small" sx={{ color: 'text.secondary' }} />
+                </InputAdornment>
+              ),
+              sx: { borderRadius: 2 }
+            }}
+          />
+          <FormControl sx={{ minWidth: 200 }} size="small">
+            <InputLabel>Durum Filtresi</InputLabel>
+            <Select
+              value={filterDurum}
+              onChange={(e) => setFilterDurum(e.target.value)}
+              label="Durum Filtresi"
+              sx={{ borderRadius: 2 }}
+              startAdornment={<FilterList fontSize="small" sx={{ mr: 1, color: 'text.secondary' }} />}
+            >
+              <MenuItem value="">Tümü</MenuItem>
+              <MenuItem value="HAZIRLANIYOR">Hazırlanıyor</MenuItem>
+              <MenuItem value="YOLDA">Yolda</MenuItem>
+              <MenuItem value="TAMAMLANDI">Tamamlandı</MenuItem>
+              <MenuItem value="IPTAL">İptal</MenuItem>
+            </Select>
+          </FormControl>
+        </Stack>
+      </StandardCard>
 
-        {/* Data Grid */}
-        <Paper sx={{ height: 600 }}>
+      <StandardCard padding={0}>
+        <Box sx={{ height: 600 }}>
           <DataGrid
             rows={filteredTransfers}
             columns={columns}
             loading={loading}
-            pageSizeOptions={[10, 25, 50, 100]}
+            pageSizeOptions={[10, 25, 50]}
             initialState={{
-              pagination: { paginationModel: { pageSize: 25 } },
+              pagination: { paginationModel: { pageSize: 10 } },
             }}
             disableRowSelectionOnClick
             sx={{
               border: 'none',
+              '& .MuiDataGrid-columnHeaders': {
+                bgcolor: 'action.hover',
+                fontWeight: 700,
+              },
+              '& .MuiDataGrid-columnHeaderTitle': {
+                fontWeight: 700,
+                fontSize: '0.85rem',
+                color: 'text.secondary',
+                textTransform: 'uppercase',
+                letterSpacing: '0.05em'
+              },
               '& .MuiDataGrid-cell:focus': {
                 outline: 'none',
               },
             }}
           />
-        </Paper>
+        </Box>
+      </StandardCard>
 
-        <WarehouseTransferPrintForm
-          open={printOpen}
-          transfer={selectedTransfer}
-          onClose={() => setPrintOpen(false)}
-        />
-      </Box>
-    </MainLayout>
+      <WarehouseTransferPrintForm
+        open={printOpen}
+        transfer={selectedTransfer}
+        onClose={() => setPrintOpen(false)}
+      />
+    </StandardPage>
   );
 }

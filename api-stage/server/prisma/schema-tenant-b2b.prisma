@@ -70,18 +70,20 @@ model B2BStock {
 // ========================================
 
 model B2BCustomer {
-  id               String                     @id @default(cuid())
+  id               String                      @id @default(cuid())
   erpAccountId     String
   name             String
   email            String
   passwordHash     String
-  isActive         Boolean                    @default(true)
+  isActive         Boolean                     @default(true)
   customerClassId  String?
-  vatDays          Int                        @default(30)
-  createdAt        DateTime                   @default(now())
-  updatedAt        DateTime                   @updatedAt
+  discountGroupId  String?
+  vatDays          Int                         @default(30)
+  createdAt        DateTime                    @default(now())
+  updatedAt        DateTime                    @updatedAt
   lastLoginAt      DateTime?
-  customerClass    B2BCustomerClass?          @relation(fields: [customerClassId], references: [id], onDelete: SetNull)
+  customerClass    B2BCustomerClass?           @relation(fields: [customerClassId], references: [id], onDelete: SetNull)
+  discountGroup    B2BDiscountGroup?           @relation(fields: [discountGroupId], references: [id], onDelete: SetNull)
   salespersonLinks B2BSalespersonCustomer[]
   carts            B2BCart[]
   orders           B2BOrder[]
@@ -95,15 +97,25 @@ model B2BCustomer {
 }
 
 model B2BCustomerClass {
-  id           String        @id @default(cuid())
-  name         String
-  discountRate Decimal       @default(0) @db.Decimal(5, 2)
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
-  customers    B2BCustomer[]
+  id        String        @id @default(cuid())
+  name      String
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+  customers B2BCustomer[]
 
   @@unique([name])
   @@map("b2b_customer_classes")
+}
+
+model B2BDiscountGroup {
+  id        String        @id @default(cuid())
+  name      String
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+  customers B2BCustomer[]
+
+  @@unique([name])
+  @@map("b2b_discount_groups")
 }
 
 // ========================================

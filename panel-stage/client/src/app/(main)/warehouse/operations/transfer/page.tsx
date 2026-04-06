@@ -4,20 +4,17 @@ import React, { Suspense, useState, useEffect } from 'react';
 import {
   Box,
   Button,
-  Paper,
   TextField,
   Typography,
   CircularProgress,
   Snackbar,
   Alert,
   Autocomplete,
-  Grid,
-  Card,
-  CardContent,
   Divider,
   Stack,
   Chip,
   IconButton,
+  alpha,
 } from '@mui/material';
 import {
   ArrowBack,
@@ -25,10 +22,15 @@ import {
   SwapHoriz,
   Inventory2,
   ArrowForward,
+  Warehouse as WarehouseIcon,
+  LocationOn,
+  Description as DescriptionIcon,
+  DoubleArrow,
 } from '@mui/icons-material';
-import MainLayout from '@/components/Layout/MainLayout';
+import { StandardPage, StandardCard } from '@/components/common';
 import axios from '@/lib/axios';
 import { useRouter, useSearchParams } from 'next/navigation';
+import Grid from '@mui/material/Grid';
 
 interface Product {
   id: string;
@@ -86,7 +88,6 @@ function TransferPageContent() {
     note: '',
   });
 
-  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [fromWarehouse, setFromWarehouse] = useState<Warehouse | null>(null);
   const [fromLocation, setFromLocation] = useState<Location | null>(null);
   const [toWarehouse, setToWarehouse] = useState<Warehouse | null>(null);
@@ -96,9 +97,8 @@ function TransferPageContent() {
   const fetchProducts = async () => {
     try {
       const response = await axios.get('/products', {
-        params: { limit: 1000 } // Tüm ürünleri getir
+        params: { limit: 1000 }
       });
-      // Backend { data, meta } yapısında döndürüyor
       setProducts(Array.isArray(response.data.data) ? response.data.data : []);
     } catch (error) {
       console.error('Ürün listesi alınamadı:', error);
@@ -132,7 +132,7 @@ function TransferPageContent() {
     try {
       const response = await axios.get(`/location/${locationId}`);
       const location = response.data;
-      
+
       setFromLocation(location);
       setFromWarehouse({
         id: location.warehouseId,
@@ -145,10 +145,9 @@ function TransferPageContent() {
         fromWarehouseId: location.warehouseId,
         fromLocationId: location.id,
       });
-      
+
       fetchLocations(location.warehouseId, setFromLocations);
-      
-      // Bu raftaki ürünleri listele
+
       const productsData: ProductStock[] = location.productLocationStocks.map((stock: any) => ({
         product: stock.product,
         qtyOnHand: stock.qtyOnHand,
@@ -162,7 +161,7 @@ function TransferPageContent() {
   useEffect(() => {
     fetchProducts();
     fetchWarehouses();
-    
+
     if (preselectedFromLocationId) {
       fetchLocationDetails(preselectedFromLocationId);
     }
@@ -176,7 +175,7 @@ function TransferPageContent() {
       fromWarehouseId: warehouse?.id || '',
       fromLocationId: '',
     });
-    
+
     if (warehouse) {
       fetchLocations(warehouse.id, setFromLocations);
     } else {
@@ -192,11 +191,9 @@ function TransferPageContent() {
       productId: '',
       qty: 1,
     });
-    setSelectedProduct(null);
     setAvailableQty(0);
-    
+
     if (location) {
-      // Bu raftaki ürünleri getir
       try {
         const response = await axios.get(`/location/${location.id}`);
         const productsData: ProductStock[] = response.data.productLocationStocks.map((stock: any) => ({
@@ -220,7 +217,7 @@ function TransferPageContent() {
       toWarehouseId: warehouse?.id || '',
       toLocationId: '',
     });
-    
+
     if (warehouse) {
       fetchLocations(warehouse.id, setToLocations);
     } else {
@@ -237,9 +234,8 @@ function TransferPageContent() {
   };
 
   const handleProductChange = (product: Product | null) => {
-    setSelectedProduct(product);
     setFormData({ ...formData, productId: product?.id || '', qty: 1 });
-    
+
     if (product) {
       const stockInfo = productsInFromLocation.find(p => p.product.id === product.id);
       setAvailableQty(stockInfo?.qtyOnHand || 0);
@@ -249,8 +245,8 @@ function TransferPageContent() {
   };
 
   const handleSubmit = async () => {
-    if (!formData.productId || !formData.fromWarehouseId || !formData.fromLocationId || 
-        !formData.toWarehouseId || !formData.toLocationId || formData.qty <= 0) {
+    if (!formData.productId || !formData.fromWarehouseId || !formData.fromLocationId ||
+      !formData.toWarehouseId || !formData.toLocationId || formData.qty <= 0) {
       setSnackbar({ open: true, message: 'Lütfen tüm alanları doldurun', severity: 'error' });
       return;
     }
@@ -276,14 +272,11 @@ function TransferPageContent() {
         qty: formData.qty,
         note: formData.note || undefined,
       });
-      
+
       setSnackbar({ open: true, message: 'Transfer işlemi başarılı', severity: 'success' });
-      
-      // Form temizle
+
       setTimeout(() => {
         if (preselectedFromLocationId) {
-          // Kaynak raf önceden seçiliyse, sadece hedef ve ürünü temizle
-          setSelectedProduct(null);
           setToWarehouse(null);
           setToLocation(null);
           setFormData({
@@ -296,13 +289,10 @@ function TransferPageContent() {
           });
           setToLocations([]);
           setAvailableQty(0);
-          // Kaynak raftaki ürünleri yenile
           if (fromLocation) {
             fetchLocationDetails(fromLocation.id);
           }
         } else {
-          // Tümünü temizle
-          setSelectedProduct(null);
           setFromWarehouse(null);
           setFromLocation(null);
           setToWarehouse(null);
@@ -331,301 +321,318 @@ function TransferPageContent() {
     }
   };
 
+  const selectedProductInfo = productsInFromLocation.find(p => p.product.id === formData.productId);
+
   return (
-    <MainLayout>
+    <StandardPage>
       <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Stack direction="row" spacing={2} alignItems="center">
-          <IconButton onClick={() => router.back()}>
-            <ArrowBack />
-          </IconButton>
-          <Typography variant="h4" fontWeight="bold">
-            🔄 Transfer İşlemi
-          </Typography>
+          <Button
+            startIcon={<ArrowBack />}
+            onClick={() => router.back()}
+            variant="outlined"
+            size="small"
+            sx={{ borderRadius: 2 }}
+          >
+            Geri
+          </Button>
+          <Box>
+            <Typography variant="h5" fontWeight="800" sx={{ letterSpacing: '-0.02em', display: 'flex', alignItems: 'center', gap: 1.5 }}>
+              <SwapHoriz sx={{ fontSize: 32, color: 'primary.main' }} />
+              Transfer İşlemi
+            </Typography>
+            <Typography variant="body2" color="text.secondary">Ürünü bir raftan başka bir rafa transfer etmek için bilgileri girin.</Typography>
+          </Box>
         </Stack>
       </Box>
 
-      <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
-        Ürünü bir raftan başka bir rafa transfer etmek için bilgileri girin.
-      </Typography>
-
       <Grid container spacing={3}>
-        {/* Form */}
         <Grid size={{ xs: 12, md: 8 }}>
-          <Paper sx={{ p: 3 }}>
+          <Stack spacing={3}>
             {/* Kaynak Raf Bilgileri */}
-            <Typography variant="h6" gutterBottom color="primary">
-              📤 Kaynak Raf
-            </Typography>
-            <Divider sx={{ mb: 3 }} />
+            <StandardCard>
+              <Typography variant="subtitle2" color="primary.main" sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3, fontWeight: 700 }}>
+                <DoubleArrow sx={{ fontSize: 18, transform: 'rotate(0deg)' }} /> 📤 Kaynak Raf
+              </Typography>
 
-            <Autocomplete
-              fullWidth
-              options={warehouses}
-              getOptionLabel={(option) => `${option.code} - ${option.name}`}
-              value={fromWarehouse}
-              onChange={(_, newValue) => handleFromWarehouseChange(newValue)}
-              disabled={!!preselectedFromLocationId}
-              renderInput={(params) => (
-                <TextField {...params} label="Kaynak Depo *" placeholder="Depo seç..." />
-              )}
-              sx={{ mb: 3 }}
-            />
+              <Grid container spacing={2}>
+                <Grid size={{ xs: 12, sm: 6 }}>
+                  <Autocomplete
+                    options={warehouses}
+                    getOptionLabel={(option) => `${option.code} - ${option.name}`}
+                    value={fromWarehouse}
+                    onChange={(_, newValue) => handleFromWarehouseChange(newValue)}
+                    disabled={!!preselectedFromLocationId}
+                    renderInput={(params) => <TextField {...params} label="Kaynak Depo *" placeholder="Depo seç..." sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }} />}
+                  />
+                </Grid>
+                <Grid size={{ xs: 12, sm: 6 }}>
+                  <Autocomplete
+                    options={fromLocations}
+                    getOptionLabel={(option) => `${option.code} ${option.name ? `- ${option.name}` : ''}`}
+                    value={fromLocation}
+                    onChange={(_, newValue) => handleFromLocationChange(newValue)}
+                    disabled={!formData.fromWarehouseId || !!preselectedFromLocationId}
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        label="Kaynak Raf *"
+                        placeholder="Raf seç..."
+                        helperText={!formData.fromWarehouseId ? 'Önce depo seçin' : ''}
+                        sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+                      />
+                    )}
+                  />
+                </Grid>
+              </Grid>
 
-            <Autocomplete
-              fullWidth
-              options={fromLocations}
-              getOptionLabel={(option) => `${option.code} ${option.name ? `- ${option.name}` : ''}`}
-              value={fromLocation}
-              onChange={(_, newValue) => handleFromLocationChange(newValue)}
-              disabled={!formData.fromWarehouseId || !!preselectedFromLocationId}
-              renderInput={(params) => (
-                <TextField
-                  {...params}
-                  label="Kaynak Raf *"
-                  placeholder="Raf seç..."
-                  helperText={!formData.fromWarehouseId ? 'Önce depo seçin' : ''}
+              <Box sx={{ mt: 3 }}>
+                <Autocomplete
+                  options={productsInFromLocation}
+                  getOptionLabel={(option) => `${option.product.stokKodu} - ${option.product.stokAdi} (Stok: ${option.qtyOnHand})`}
+                  value={selectedProductInfo || null}
+                  onChange={(_, newValue) => handleProductChange(newValue?.product || null)}
+                  disabled={!formData.fromLocationId}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label="Ürün *"
+                      placeholder="Ürün seç..."
+                      helperText={
+                        !formData.fromLocationId
+                          ? 'Önce kaynak raf seçin'
+                          : productsInFromLocation.length === 0
+                            ? 'Bu rafta ürün yok'
+                            : `Bu rafta ${productsInFromLocation.length} farklı ürün var`
+                      }
+                      sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+                    />
+                  )}
+                  renderOption={(props, option) => {
+                    const { key, ...otherProps } = props;
+                    return (
+                      <Box component="li" key={key} {...otherProps}>
+                        <Box sx={{ width: '100%' }}>
+                          <Stack direction="row" justifyContent="space-between" alignItems="center">
+                            <Box>
+                              <Typography variant="body2" fontWeight="bold">{option.product.stokKodu}</Typography>
+                              <Typography variant="caption" color="text.secondary">{option.product.stokAdi}</Typography>
+                            </Box>
+                            <Chip label={`${option.qtyOnHand} ${option.product.birim}`} size="small" variant="outlined" color="primary" />
+                          </Stack>
+                        </Box>
+                      </Box>
+                    );
+                  }}
                 />
-              )}
-              sx={{ mb: 3 }}
-            />
-
-            {/* Ürün Seçimi */}
-            <Autocomplete
-              fullWidth
-              options={productsInFromLocation}
-              getOptionLabel={(option) => `${option.product.stokKodu} - ${option.product.stokAdi} (Stok: ${option.qtyOnHand})`}
-              value={productsInFromLocation.find(p => p.product.id === formData.productId) || null}
-              onChange={(_, newValue) => handleProductChange(newValue?.product || null)}
-              disabled={!formData.fromLocationId}
-              renderInput={(params) => (
-                <TextField
-                  {...params}
-                  label="Ürün *"
-                  placeholder="Ürün seç..."
-                  helperText={
-                    !formData.fromLocationId 
-                      ? 'Önce kaynak raf seçin' 
-                      : productsInFromLocation.length === 0 
-                        ? 'Bu rafta ürün yok' 
-                        : `Bu rafta ${productsInFromLocation.length} farklı ürün var`
-                  }
-                />
-              )}
-              renderOption={(props, option) => {
-                const { key, ...otherProps } = props;
-                return (
-                  <Box component="li" key={key} {...otherProps}>
-                    <Box>
-                      <Typography variant="body2" fontWeight="bold">
-                        {option.product.stokKodu}
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        {option.product.stokAdi} {option.product.marka && `• ${option.product.marka}`}
-                      </Typography>
-                      <Chip label={`Stok: ${option.qtyOnHand}`} size="small" sx={{ ml: 1 }} />
-                    </Box>
-                  </Box>
-                );
-              }}
-              sx={{ mb: 3 }}
-            />
+              </Box>
+            </StandardCard>
 
             {/* Hedef Raf Bilgileri */}
-            <Typography variant="h6" gutterBottom color="secondary" sx={{ mt: 4 }}>
-              📥 Hedef Raf
-            </Typography>
-            <Divider sx={{ mb: 3 }} />
+            <StandardCard>
+              <Typography variant="subtitle2" color="secondary.main" sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3, fontWeight: 700 }}>
+                <DoubleArrow sx={{ fontSize: 18 }} /> 📥 Hedef Raf
+              </Typography>
 
-            <Autocomplete
-              fullWidth
-              options={warehouses}
-              getOptionLabel={(option) => `${option.code} - ${option.name}`}
-              value={toWarehouse}
-              onChange={(_, newValue) => handleToWarehouseChange(newValue)}
-              renderInput={(params) => (
-                <TextField {...params} label="Hedef Depo *" placeholder="Depo seç..." />
-              )}
-              sx={{ mb: 3 }}
-            />
+              <Grid container spacing={2}>
+                <Grid size={{ xs: 12, sm: 6 }}>
+                  <Autocomplete
+                    options={warehouses}
+                    getOptionLabel={(option) => `${option.code} - ${option.name}`}
+                    value={toWarehouse}
+                    onChange={(_, newValue) => handleToWarehouseChange(newValue)}
+                    renderInput={(params) => <TextField {...params} label="Hedef Depo *" placeholder="Depo seç..." sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }} />}
+                  />
+                </Grid>
+                <Grid size={{ xs: 12, sm: 6 }}>
+                  <Autocomplete
+                    options={toLocations}
+                    getOptionLabel={(option) => `${option.code} ${option.name ? `- ${option.name}` : ''}`}
+                    value={toLocation}
+                    onChange={(_, newValue) => handleToLocationChange(newValue)}
+                    disabled={!formData.toWarehouseId}
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        label="Hedef Raf *"
+                        placeholder="Raf seç..."
+                        helperText={!formData.toWarehouseId ? 'Önce depo seçin' : ''}
+                        sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+                      />
+                    )}
+                  />
+                </Grid>
+              </Grid>
 
-            <Autocomplete
-              fullWidth
-              options={toLocations}
-              getOptionLabel={(option) => `${option.code} ${option.name ? `- ${option.name}` : ''}`}
-              value={toLocation}
-              onChange={(_, newValue) => handleToLocationChange(newValue)}
-              disabled={!formData.toWarehouseId}
-              renderInput={(params) => (
-                <TextField
-                  {...params}
-                  label="Hedef Raf *"
-                  placeholder="Raf seç..."
-                  helperText={!formData.toWarehouseId ? 'Önce depo seçin' : ''}
-                />
-              )}
-              sx={{ mb: 3 }}
-            />
+              <Grid container spacing={2} sx={{ mt: 2 }}>
+                <Grid size={{ xs: 12, sm: 4 }}>
+                  <TextField
+                    fullWidth
+                    type="number"
+                    label="Miktar *"
+                    value={formData.qty}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      if (value === '' || /^\d+$/.test(value)) {
+                        setFormData({ ...formData, qty: value === '' ? 0 : parseInt(value, 10) });
+                      }
+                    }}
+                    inputProps={{ min: 1, max: availableQty }}
+                    helperText={availableQty > 0 ? `Max: ${availableQty}` : ''}
+                    error={formData.qty > availableQty}
+                    sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+                  />
+                </Grid>
+                <Grid size={{ xs: 12, sm: 8 }}>
+                  <TextField
+                    fullWidth
+                    label="Not (opsiyonel)"
+                    value={formData.note}
+                    onChange={(e) => setFormData({ ...formData, note: e.target.value })}
+                    multiline
+                    rows={1}
+                    placeholder="Ek açıklama..."
+                    sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+                  />
+                </Grid>
+              </Grid>
 
-            {/* Miktar ve Not */}
-            <TextField
-              fullWidth
-              type="number"
-              label="Miktar *"
-              value={formData.qty}
-              onChange={(e) => {
-                const value = e.target.value;
-                if (value === '' || /^\d+$/.test(value)) {
-                  setFormData({ ...formData, qty: value === '' ? 0 : parseInt(value, 10) });
-                }
-              }}
-              inputProps={{ min: 1, max: availableQty }}
-              helperText={availableQty > 0 ? `Maksimum ${availableQty} adet transfer edilebilir` : ''}
-              error={formData.qty > availableQty}
-              sx={{ mb: 3 }}
-            />
-
-            <TextField
-              fullWidth
-              label="Not (opsiyonel)"
-              value={formData.note}
-              onChange={(e) => setFormData({ ...formData, note: e.target.value })}
-              multiline
-              rows={3}
-              placeholder="Ek açıklama veya not ekleyin..."
-              sx={{ mb: 3 }}
-            />
-
-            {/* Kaydet Butonu */}
-            <Button
-              fullWidth
-              variant="contained"
-              size="large"
-              startIcon={loading ? <CircularProgress size={20} /> : <Save />}
-              onClick={handleSubmit}
-              disabled={
-                loading || 
-                !formData.productId || 
-                !formData.fromWarehouseId || 
-                !formData.fromLocationId || 
-                !formData.toWarehouseId || 
-                !formData.toLocationId || 
-                formData.qty <= 0 ||
-                formData.qty > availableQty
-              }
-            >
-              {loading ? 'Transfer Ediliyor...' : 'Transfer İşlemini Tamamla'}
-            </Button>
-          </Paper>
+              <Box sx={{ mt: 3 }}>
+                <Button
+                  fullWidth
+                  variant="contained"
+                  size="large"
+                  startIcon={loading ? <CircularProgress size={20} color="inherit" /> : <Save />}
+                  onClick={handleSubmit}
+                  disabled={
+                    loading ||
+                    !formData.productId ||
+                    !formData.fromWarehouseId ||
+                    !formData.fromLocationId ||
+                    !formData.toWarehouseId ||
+                    !formData.toLocationId ||
+                    formData.qty <= 0 ||
+                    formData.qty > availableQty
+                  }
+                  sx={{ borderRadius: 2, height: 50, fontWeight: 700 }}
+                >
+                  {loading ? 'Transfer Ediliyor...' : 'Transfer İşlemini Tamamla'}
+                </Button>
+              </Box>
+            </StandardCard>
+          </Stack>
         </Grid>
 
         {/* Özet Card */}
         <Grid size={{ xs: 12, md: 4 }}>
-          <Card sx={{ bgcolor: 'var(--muted)' }}>
-            <CardContent>
-              <Typography variant="h6" gutterBottom>
-                📋 Transfer Özeti
+          <Stack spacing={3}>
+            <StandardCard sx={{ bgcolor: alpha('#6366f1', 0.05), borderColor: alpha('#6366f1', 0.1) }}>
+              <Typography variant="subtitle2" color="primary.main" sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2.5, fontWeight: 800 }}>
+                <Inventory2 sx={{ fontSize: 18 }} /> Transfer Özeti
               </Typography>
-              <Divider sx={{ mb: 2 }} />
 
-              {selectedProduct && (
-                <Box sx={{ mb: 2 }}>
-                  <Typography variant="caption" color="text.secondary">
-                    Ürün
-                  </Typography>
-                  <Typography variant="body1" fontWeight="bold">
-                    {selectedProduct.stokKodu}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    {selectedProduct.stokAdi}
-                  </Typography>
-                  {availableQty > 0 && (
-                    <Chip 
-                      label={`Mevcut: ${availableQty}`} 
-                      size="small" 
-                      color="info" 
-                      sx={{ mt: 1 }}
-                    />
+              <Stack spacing={2.5}>
+                <Box>
+                  <Typography variant="caption" color="text.secondary" display="block">Transfer Edilen Ürün</Typography>
+                  {selectedProductInfo ? (
+                    <Box sx={{ mt: 0.5 }}>
+                      <Typography variant="body2" fontWeight="700">{selectedProductInfo.product.stokKodu}</Typography>
+                      <Typography variant="caption" display="block" color="text.secondary">{selectedProductInfo.product.stokAdi}</Typography>
+                      <Chip
+                        label={`Mevcut: ${availableQty}`}
+                        size="small"
+                        color="info"
+                        sx={{ mt: 1, height: 20, fontSize: '0.65rem' }}
+                      />
+                    </Box>
+                  ) : (
+                    <Typography variant="body2" color="text.disabled" sx={{ fontStyle: 'italic', mt: 0.5 }}>Ürün seçilmedi</Typography>
                   )}
                 </Box>
-              )}
 
-              {fromLocation && (
-                <Box sx={{ mb: 2 }}>
-                  <Typography variant="caption" color="text.secondary">
-                    📤 Kaynak
+                <Box sx={{ position: 'relative' }}>
+                  <Stack direction="row" alignItems="center" spacing={2}>
+                    <Box sx={{ flex: 1 }}>
+                      <Typography variant="caption" color="text.secondary" display="block">Kaynak Raf</Typography>
+                      {fromLocation ? (
+                        <Chip
+                          label={fromLocation.code}
+                          size="small"
+                          color="primary"
+                          sx={{ mt: 0.5, fontWeight: 800, borderRadius: 1 }}
+                        />
+                      ) : (
+                        <Typography variant="caption" color="text.disabled" sx={{ fontStyle: 'italic', mt: 0.5 }}>Seçilmedi</Typography>
+                      )}
+                    </Box>
+
+                    <Box sx={{ pt: 2 }}>
+                      <ArrowForward color="primary" sx={{ fontSize: 20 }} />
+                    </Box>
+
+                    <Box sx={{ flex: 1 }}>
+                      <Typography variant="caption" color="text.secondary" display="block">Hedef Raf</Typography>
+                      {toLocation ? (
+                        <Chip
+                          label={toLocation.code}
+                          size="small"
+                          color="secondary"
+                          sx={{ mt: 0.5, fontWeight: 800, borderRadius: 1 }}
+                        />
+                      ) : (
+                        <Typography variant="caption" color="text.disabled" sx={{ fontStyle: 'italic', mt: 0.5 }}>Seçilmedi</Typography>
+                      )}
+                    </Box>
+                  </Stack>
+                </Box>
+
+                {formData.qty > 0 && (
+                  <Box>
+                    <Divider sx={{ mb: 2 }} />
+                    <Typography variant="caption" color="text.secondary" display="block">Planlanan Miktar</Typography>
+                    <Typography variant="h4" color="primary.main" fontWeight="900" sx={{ mt: 0.5 }}>
+                      {formData.qty} <Typography component="span" variant="h6" color="text.secondary">{selectedProductInfo?.product.birim}</Typography>
+                    </Typography>
+                  </Box>
+                )}
+              </Stack>
+
+              {!selectedProductInfo && !fromLocation && !toLocation && (
+                <Box sx={{ textAlign: 'center', py: 4, opacity: 0.5 }}>
+                  <SwapHoriz sx={{ fontSize: 48, color: 'text.disabled', mb: 1.5 }} />
+                  <Typography variant="caption" display="block" color="text.secondary">
+                    Formu doldurdukça transfer planı burada netleşecektir.
                   </Typography>
-                  <Chip
-                    label={fromLocation.code}
-                    color="primary"
-                    sx={{ fontFamily: 'monospace', fontWeight: 'bold' }}
-                  />
                 </Box>
               )}
+            </StandardCard>
 
-              {fromLocation && toLocation && (
-                <Box sx={{ display: 'flex', justifyContent: 'center', my: 2 }}>
-                  <ArrowForward sx={{ fontSize: 40, color: 'primary.main' }} />
-                </Box>
-              )}
-
-              {toLocation && (
-                <Box sx={{ mb: 2 }}>
-                  <Typography variant="caption" color="text.secondary">
-                    📥 Hedef
-                  </Typography>
-                  <Chip
-                    label={toLocation.code}
-                    color="secondary"
-                    sx={{ fontFamily: 'monospace', fontWeight: 'bold' }}
-                  />
-                </Box>
-              )}
-
-              {formData.qty > 0 && (
-                <Box sx={{ mb: 2 }}>
-                  <Typography variant="caption" color="text.secondary">
-                    Transfer Miktarı
-                  </Typography>
-                  <Typography variant="h4" color="primary" fontWeight="bold">
-                    {formData.qty}
-                  </Typography>
-                </Box>
-              )}
-
-              {!selectedProduct && !fromLocation && !toLocation && (
-                <Box sx={{ textAlign: 'center', py: 3 }}>
-                  <SwapHoriz sx={{ fontSize: 60, color: 'text.disabled', mb: 1 }} />
-                  <Typography variant="body2" color="text.secondary">
-                    Form dolduruldukça özet burada görünecek
-                  </Typography>
-                </Box>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Bilgilendirme */}
-          <Alert severity="info" sx={{ mt: 2 }}>
-            <Typography variant="body2" fontWeight="bold">
-              Transfer Nedir?
-            </Typography>
-            <Typography variant="caption">
-              Ürünü bir raftan başka bir rafa taşıma işlemidir. Kaynak raftan düşülüp hedef rafa eklenir.
-            </Typography>
-          </Alert>
+            <Alert severity="info" sx={{ borderRadius: 2 }}>
+              <Typography variant="subtitle2" fontWeight="800" gutterBottom>Transfer Kuralları</Typography>
+              <Typography variant="caption" display="block">
+                • Kaynak ve hedef raf aynı olamaz.
+              </Typography>
+              <Typography variant="caption" display="block">
+                • Mevcut stok miktarından fazla transfer yapılamaz.
+              </Typography>
+              <Typography variant="caption" display="block">
+                • Bu işlem stok miktarlarını fiziksel olarak günceller.
+              </Typography>
+            </Alert>
+          </Stack>
         </Grid>
       </Grid>
 
-      {/* Snackbar */}
       <Snackbar
         open={snackbar.open}
         autoHideDuration={4000}
         onClose={() => setSnackbar({ ...snackbar, open: false })}
       >
-        <Alert severity={snackbar.severity} onClose={() => setSnackbar({ ...snackbar, open: false })}>
+        <Alert severity={snackbar.severity as any} sx={{ borderRadius: 2, boxShadow: 3 }} onClose={() => setSnackbar({ ...snackbar, open: false })}>
           {snackbar.message}
         </Alert>
       </Snackbar>
-    </MainLayout>
+    </StandardPage>
   );
 }
 
@@ -633,11 +640,11 @@ export default function TransferPage() {
   return (
     <Suspense
       fallback={(
-        <MainLayout>
+        <StandardPage>
           <Box sx={{ p: 4, display: 'flex', justifyContent: 'center' }}>
             <CircularProgress />
           </Box>
-        </MainLayout>
+        </StandardPage>
       )}
     >
       <TransferPageContent />

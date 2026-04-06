@@ -1,6 +1,6 @@
 import React from 'react';
 import PayrollClient from './PayrollClient';
-import { Box, Typography } from '@mui/material';
+import StandardPage from '@/components/common/StandardPage';
 
 export const metadata = {
     title: 'Bordro Yönetimi',
@@ -8,5 +8,15 @@ export const metadata = {
 };
 
 export default function PayrollPage() {
-    return <PayrollClient />;
+    return (
+        <StandardPage
+            title="Bordro Yönetimi"
+            breadcrumbs={[
+                { label: 'Finans', href: '/finance' },
+                { label: 'Bordro Yönetimi' }
+            ]}
+        >
+            <PayrollClient />
+        </StandardPage>
+    );
 }

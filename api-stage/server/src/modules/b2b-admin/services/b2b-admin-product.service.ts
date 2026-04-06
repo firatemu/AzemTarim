@@ -20,7 +20,7 @@ export class B2bAdminProductService {
     private readonly prisma: PrismaService,
     private readonly b2bSync: B2bSyncService,
     @Inject('STORAGE_SERVICE') private readonly storage: IStorageService,
-  ) {}
+  ) { }
 
   private paginate<T>(data: T[], total: number, page: number, limit: number) {
     return { data, total, page, limit };
@@ -58,6 +58,16 @@ export class B2bAdminProductService {
         skip,
         take: limit,
         orderBy: { name: 'asc' },
+        include: {
+          stocks: true,
+          product: {
+            include: {
+              productLocationStocks: {
+                where: { tenantId },
+              },
+            },
+          },
+        },
       }),
     ]);
 
@@ -156,8 +166,176 @@ export class B2bAdminProductService {
     return { ok: true };
   }
 
-  async triggerSync(tenantId: string) {
-    return this.b2bSync.manualTrigger(tenantId, B2BSyncType.FULL);
+  async triggerSync(tenantId: string, type: 'PRODUCTS' | 'PRICES' | 'STOCK' | 'FULL' = 'FULL', userId?: string) {
+    const now = new Date();
+
+    // Eski mantığı koruyoruz (lastSyncRequestedAt)
+    await this.prisma.b2BTenantConfig.updateMany({
+      where: { tenantId },
+      data: { lastSyncRequestedAt: now },
+    });
+
+    let syncTypeEnum: B2BSyncType = B2BSyncType.FULL;
+    if (type === 'PRODUCTS') syncTypeEnum = B2BSyncType.PRODUCTS;
+    else if (type === 'PRICES') syncTypeEnum = B2BSyncType.PRICES;
+    else if (type === 'STOCK') syncTypeEnum = B2BSyncType.STOCK;
+
+    return this.b2bSync.manualTrigger(tenantId, syncTypeEnum, { forceFull: true });
+  }
+
+  async getSyncLoops(tenantId: string) {
+    return this.prisma.b2BSyncLoop.findMany({
+      where: { tenantId },
+      include: {
+        lastUser: {
+          select: {
+            id: true,
+            fullName: true,
+          },
+        },
+      },
+      orderBy: { syncType: 'asc' },
+    });
+  }
+
+  async getAvailableErpProducts(tenantId: string, q: { search?: string; limit?: number | string }) {
+    const limit = typeof q?.limit === 'string' ? parseInt(q.limit, 10) : (q?.limit ?? 50);
+    const where: Prisma.ProductWhereInput = {
+      tenantId,
+      isCategoryOnly: { not: true },
+      isBrandOnly: { not: true },
+    };
+
+    if (q.search?.trim()) {
+      const s = q.search.trim();
+      where.OR = [
+        { name: { contains: s, mode: 'insensitive' } },
+        { code: { contains: s, mode: 'insensitive' } },
+      ];
+    }
+
+    const erpProducts = await this.prisma.product.findMany({
+      where,
+      take: limit,
+      orderBy: { name: 'asc' },
+      select: {
+        id: true,
+        code: true,
+        name: true,
+        brand: true,
+        category: true,
+        mainCategory: true,
+        subCategory: true,
+        unit: true,
+      },
+    });
+
+    // Zaten B2B'de olan ürünleri çıkar
+    const b2bCodes = await this.prisma.b2BProduct.findMany({
+      where: { tenantId },
+      select: { stockCode: true },
+    });
+    const b2bCodeSet = new Set(b2bCodes.map((b) => b.stockCode));
+
+    return erpProducts.filter((p) => !b2bCodeSet.has(p.code));
+  }
+
+  async addFromErp(tenantId: string, erpProductId: string) {
+    const product = await this.prisma.product.findFirst({
+      where: { id: erpProductId, tenantId },
+    });
+    if (!product) {
+      throw new NotFoundException('Product not found in ERP');
+    }
+
+    // Fiyatı bul
+    const priceCard = await this.prisma.priceCard.findFirst({
+      where: {
+        tenantId,
+        productId: erpProductId,
+        isActive: true,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return this.prisma.b2BProduct.create({
+      data: {
+        tenantId,
+        erpProductId: product.id,
+        stockCode: product.code,
+        name: product.name,
+        description: product.description ?? null,
+        brand: product.brand ?? null,
+        category: product.category ?? product.mainCategory ?? null,
+        oemCode: product.oem ?? null,
+        supplierCode: product.supplierCode ?? null,
+        unit: product.unit ?? null,
+        erpListPrice: priceCard ? new Prisma.Decimal(priceCard.price) : new Prisma.Decimal(0),
+        isVisibleInB2B: true,
+        minOrderQuantity: 1,
+      },
+    });
+  }
+
+  async addBatchFromErp(tenantId: string, erpProductIds: string[]) {
+    let added = 0;
+    let skipped = 0;
+
+    const products = await this.prisma.product.findMany({
+      where: {
+        id: { in: erpProductIds },
+        tenantId,
+      },
+    });
+
+    // Zaten B2B'de olanları bul
+    const existing = await this.prisma.b2BProduct.findMany({
+      where: { tenantId },
+      select: { erpProductId: true },
+    });
+    const existingErpIds = new Set(existing.map((e) => e.erpProductId));
+
+    for (const product of products) {
+      if (existingErpIds.has(product.id)) {
+        skipped++;
+        continue;
+      }
+
+      // Fiyatı bul
+      const priceCard = await this.prisma.priceCard.findFirst({
+        where: {
+          tenantId,
+          productId: product.id,
+          isActive: true,
+        },
+        orderBy: { createdAt: 'desc' },
+      });
+
+      await this.prisma.b2BProduct.create({
+        data: {
+          tenantId,
+          erpProductId: product.id,
+          stockCode: product.code,
+          name: product.name,
+          description: product.description ?? null,
+          brand: product.brand ?? null,
+          category: product.category ?? product.mainCategory ?? null,
+          oemCode: product.oem ?? null,
+          supplierCode: product.supplierCode ?? null,
+          unit: product.unit ?? null,
+          erpListPrice: priceCard ? new Prisma.Decimal(priceCard.price) : new Prisma.Decimal(0),
+          isVisibleInB2B: true,
+          minOrderQuantity: 1,
+        },
+      });
+      added++;
+    }
+
+    return {
+      added,
+      skipped,
+      total: erpProductIds.length,
+    };
   }
 
   syncStatus(tenantId: string) {

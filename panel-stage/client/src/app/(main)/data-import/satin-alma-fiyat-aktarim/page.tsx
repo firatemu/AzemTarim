@@ -7,7 +7,6 @@ import {
   Paper,
   Button,
   Alert,
-  Snackbar,
   Table,
   TableBody,
   TableCell,
@@ -19,9 +18,10 @@ import {
   Stack,
 } from '@mui/material';
 import { UploadFile, Download, Save, Delete, CheckCircle, Error as ErrorIcon } from '@mui/icons-material';
-import MainLayout from '@/components/Layout/MainLayout';
+import StandardPage from '@/components/common/StandardPage';
 import axios from '@/lib/axios';
 import * as XLSX from 'xlsx';
+import { useSnackbar } from 'notistack';
 
 interface ExcelRow {
   stokKodu?: string;
@@ -70,32 +70,21 @@ const normalizeHeaderKey = (key: string) =>
     .replace(/\s+/g, '');
 
 const extractValue = (row: Record<string, unknown>, keys: string[]) => {
-  for (const key of keys) {
-    if (key in row) {
-      return row[key];
-    }
-  }
+  for (const key of keys) if (key in row) return row[key];
   return undefined;
 };
 
 const parsePriceValue = (value: unknown): number | null => {
   if (value == null) return null;
-  if (typeof value === 'number') {
-    return Number.isFinite(value) ? value : null;
-  }
+  if (typeof value === 'number') return Number.isFinite(value) ? value : null;
   if (typeof value === 'string') {
     const compact = value.trim().replace(/\s/g, '');
     if (!compact) return null;
     const hasComma = compact.includes(',');
     const hasDot = compact.includes('.');
-
     let normalized = compact;
-    if (hasComma && hasDot) {
-      normalized = compact.replace(/\./g, '').replace(/,/g, '.');
-    } else if (hasComma) {
-      normalized = compact.replace(/,/g, '.');
-    }
-
+    if (hasComma && hasDot) normalized = compact.replace(/\./g, '').replace(/,/g, '.');
+    else if (hasComma) normalized = compact.replace(/,/g, '.');
     const parsed = Number(normalized);
     return Number.isFinite(parsed) ? parsed : null;
   }
@@ -115,9 +104,7 @@ const parseExcelDateValue = (value: unknown): string | undefined => {
     const date = new Date(Date.UTC(parsed.y, parsed.m - 1, parsed.d));
     return Number.isNaN(date.getTime()) ? undefined : formatDateOnly(date);
   }
-  if (value instanceof Date) {
-    return Number.isNaN(value.getTime()) ? undefined : formatDateOnly(value);
-  }
+  if (value instanceof Date) return Number.isNaN(value.getTime()) ? undefined : formatDateOnly(value);
   if (typeof value === 'string') {
     const trimmed = value.trim();
     if (!trimmed) return undefined;
@@ -129,48 +116,31 @@ const parseExcelDateValue = (value: unknown): string | undefined => {
 
 const toNoteValue = (value: unknown): string | undefined => {
   if (value == null) return undefined;
-  if (typeof value === 'string') {
-    const trimmed = value.trim();
-    return trimmed ? trimmed : undefined;
-  }
-  return String(value);
+  return String(value).trim() || undefined;
 };
 
 export default function SatinAlmaFiyatAktarimPage() {
+  const { enqueueSnackbar } = useSnackbar();
   const [excelData, setExcelData] = useState<ParsedExcelRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [bulkLoading, setBulkLoading] = useState(false);
-  const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' | 'info' | 'warning' }>({
-    open: false,
-    message: '',
-    severity: 'success',
-  });
   const [excelErrors, setExcelErrors] = useState<ExcelErrorRow[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const stokLookupRef = useRef<Record<string, Stok>>({});
 
   const getStokByCode = async (stokKodu: string): Promise<Stok | null> => {
-    if (stokLookupRef.current[stokKodu]) {
-      return stokLookupRef.current[stokKodu];
-    }
-
+    if (stokLookupRef.current[stokKodu]) return stokLookupRef.current[stokKodu];
     try {
-      const response = await axios.get('/products', {
-        params: {
-          limit: 1000,
-          search: stokKodu,
-        },
-      });
+      const response = await axios.get('/products', { params: { limit: 1000, search: stokKodu } });
       const items: Stok[] = response.data?.data ?? [];
       const stok = items.find((s) => s.stokKodu === stokKodu);
       if (stok) {
         stokLookupRef.current[stokKodu] = stok;
         return stok;
       }
-    } catch (error) {
-      console.error('Stok bulunamadı:', error);
+    } catch (e) {
+      console.error(e);
     }
-
     return null;
   };
 
@@ -184,20 +154,18 @@ export default function SatinAlmaFiyatAktarimPage() {
       const workbook = XLSX.read(data, { type: 'array' });
       const sheet = workbook.Sheets[workbook.SheetNames[0]];
       if (!sheet) {
-        setSnackbar({ open: true, severity: 'error', message: 'Excel sayfası bulunamadı.' });
+        enqueueSnackbar('Excel sayfası bulunamadı.', { variant: 'error' });
         return;
       }
 
       const rawRows = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, { defval: null });
       if (rawRows.length === 0) {
-        setSnackbar({ open: true, severity: 'info', message: 'Excel dosyasında veri bulunamadı.' });
+        enqueueSnackbar('Excel dosyasında veri bulunamadı.', { variant: 'info' });
         return;
       }
 
-      const now = new Date();
-      const endOfYear = new Date(now.getFullYear(), 11, 31, 23, 59);
-      const defaultEffectiveFromDate = formatDateOnly(now);
-      const defaultEffectiveToDate = formatDateOnly(endOfYear);
+      const defaultEffectiveFrom = formatDateOnly(new Date());
+      const defaultEffectiveTo = formatDateOnly(new Date(new Date().getFullYear(), 11, 31));
 
       const validationErrors: ExcelErrorRow[] = [];
       const parsedData: ParsedExcelRow[] = [];
@@ -206,9 +174,7 @@ export default function SatinAlmaFiyatAktarimPage() {
         const row = rawRows[index];
         const rowNumber = index + 2;
         const normalizedRow = Object.entries(row).reduce<Record<string, unknown>>((acc, [key, value]) => {
-          if (typeof key === 'string' && key.trim()) {
-            acc[normalizeHeaderKey(key)] = value;
-          }
+          acc[normalizeHeaderKey(key)] = value;
           return acc;
         }, {});
 
@@ -223,34 +189,25 @@ export default function SatinAlmaFiyatAktarimPage() {
 
         const stok = await getStokByCode(stokKodu);
         if (!stok) {
-          validationErrors.push({ rowNumber, stokKodu, message: `Stok kodu (${stokKodu}) sistemde bulunamadı.`, category: 'validation' });
-          parsedData.push({ rowNumber, stokKodu, status: 'error', error: `Stok kodu (${stokKodu}) sistemde bulunamadı.` });
+          validationErrors.push({ rowNumber, stokKodu, message: `Stok bulunamadı (${stokKodu})`, category: 'validation' });
+          parsedData.push({ rowNumber, stokKodu, status: 'error', error: `Stok bulunamadı (${stokKodu})` });
           continue;
         }
 
-        const priceRaw = extractValue(normalizedRow, ['price', 'fiyat', 'alisfiyati', 'alisfiyat']);
-        const price = parsePriceValue(priceRaw);
+        const price = parsePriceValue(extractValue(normalizedRow, ['price', 'fiyat', 'alisfiyati']));
         if (price == null || price <= 0) {
-          validationErrors.push({ rowNumber, stokKodu, message: 'Geçerli bir fiyat bulunamadı.', category: 'validation' });
-          parsedData.push({ rowNumber, stokKodu, status: 'error', error: 'Geçerli bir fiyat bulunamadı.', stokId: stok.id });
+          validationErrors.push({ rowNumber, stokKodu, message: 'Geçersiz fiyat.', category: 'validation' });
+          parsedData.push({ rowNumber, stokKodu, status: 'error', error: 'Geçersiz fiyat.', stokId: stok.id });
           continue;
         }
-
-        const effectiveFromRaw = extractValue(normalizedRow, ['effectivefrom', 'baslangic', 'baslangictarihi', 'gecerlilikbaslangici']);
-        const effectiveToRaw = extractValue(normalizedRow, ['effectiveto', 'bitis', 'bitistarihi', 'gecerlilikbitisi']);
-        const noteRaw = extractValue(normalizedRow, ['note', 'not', 'aciklama']);
-
-        const effectiveFrom = parseExcelDateValue(effectiveFromRaw) ?? defaultEffectiveFromDate;
-        const effectiveTo = parseExcelDateValue(effectiveToRaw) ?? defaultEffectiveToDate;
-        const note = toNoteValue(noteRaw);
 
         parsedData.push({
           rowNumber,
           stokKodu,
           price,
-          effectiveFrom,
-          effectiveTo,
-          note,
+          effectiveFrom: parseExcelDateValue(extractValue(normalizedRow, ['baslangic', 'effectivefrom'])) || defaultEffectiveFrom,
+          effectiveTo: parseExcelDateValue(extractValue(normalizedRow, ['bitis', 'effectiveto'])) || defaultEffectiveTo,
+          note: toNoteValue(extractValue(normalizedRow, ['note', 'not', 'aciklama'])),
           status: 'pending',
           stokId: stok.id,
         });
@@ -258,14 +215,12 @@ export default function SatinAlmaFiyatAktarimPage() {
 
       setExcelData(parsedData);
       setExcelErrors(validationErrors);
-      setSnackbar({
-        open: true,
-        severity: validationErrors.length > 0 ? 'warning' : 'success',
-        message: `${parsedData.length} satır yüklendi. ${validationErrors.length} hatalı satır var.`,
+      enqueueSnackbar(`${parsedData.length} satır yüklendi. ${validationErrors.length} hatalı satır var.`, {
+        variant: validationErrors.length > 0 ? 'warning' : 'success'
       });
-    } catch (error) {
-      console.error('Excel okuma hatası:', error);
-      setSnackbar({ open: true, severity: 'error', message: 'Excel dosyası okunurken hata oluştu.' });
+    } catch (e) {
+      console.error(e);
+      enqueueSnackbar('Excel okuma hatası.', { variant: 'error' });
     } finally {
       setLoading(false);
     }
@@ -273,7 +228,7 @@ export default function SatinAlmaFiyatAktarimPage() {
 
   const handleBulkSubmit = async () => {
     if (excelData.filter((r) => r.status === 'pending').length === 0) {
-      setSnackbar({ open: true, severity: 'info', message: 'İşlenecek veri bulunamadı.' });
+      enqueueSnackbar('İşlenecek veri bulunamadı.', { variant: 'info' });
       return;
     }
 
@@ -285,181 +240,87 @@ export default function SatinAlmaFiyatAktarimPage() {
 
       for (const row of pendingRows) {
         try {
-          const payload: any = {
+          await axios.post('/price-cards', {
             stokId: row.stokId,
             type: 'PURCHASE',
             price: row.price,
-          };
-
-          if (row.effectiveFrom) payload.effectiveFrom = row.effectiveFrom;
-          if (row.effectiveTo) payload.effectiveTo = row.effectiveTo;
-          if (row.note) payload.note = row.note;
-
-          await axios.post('/price-cards', payload);
-          successCount += 1;
-
-          setExcelData((prev) =>
-            prev.map((r) => (r.rowNumber === row.rowNumber ? { ...r, status: 'success' } : r))
-          );
-        } catch (error: any) {
-          const errorMessage = error.response?.data?.message || 'Bilinmeyen hata';
-          apiErrors.push({
-            rowNumber: row.rowNumber,
-            stokKodu: row.stokKodu || '',
-            message: errorMessage,
-            category: 'api',
+            effectiveFrom: row.effectiveFrom,
+            effectiveTo: row.effectiveTo,
+            note: row.note,
           });
-
-          setExcelData((prev) =>
-            prev.map((r) => (r.rowNumber === row.rowNumber ? { ...r, status: 'error', error: errorMessage } : r))
-          );
+          successCount += 1;
+          setExcelData((prev) => prev.map((r) => r.rowNumber === row.rowNumber ? { ...r, status: 'success' } : r));
+        } catch (error: any) {
+          const msg = error.response?.data?.message || 'Hata';
+          apiErrors.push({ rowNumber: row.rowNumber, stokKodu: row.stokKodu || '', message: msg, category: 'api' });
+          setExcelData((prev) => prev.map((r) => r.rowNumber === row.rowNumber ? { ...r, status: 'error', error: msg } : r));
         }
       }
 
       setExcelErrors((prev) => [...prev, ...apiErrors]);
-      setSnackbar({
-        open: true,
-        severity: apiErrors.length > 0 ? 'warning' : 'success',
-        message: `${successCount} satın alma fiyatı başarıyla aktarıldı. ${apiErrors.length} hata oluştu.`,
+      enqueueSnackbar(`${successCount} satın alma fiyatı aktarıldı. ${apiErrors.length} hata oluştu.`, {
+        variant: apiErrors.length > 0 ? 'warning' : 'success'
       });
-    } catch (error) {
-      console.error('Toplu işlem hatası:', error);
-      setSnackbar({ open: true, message: 'Toplu işlem başarısız', severity: 'error' });
+    } catch (e) {
+      console.error(e);
+      enqueueSnackbar('Aktarım başarısız.', { variant: 'error' });
     } finally {
       setBulkLoading(false);
     }
   };
 
   const downloadTemplate = () => {
-    const now = new Date();
-    const endOfYear = new Date(now.getFullYear(), 11, 31, 23, 59);
-
     const template: ExcelRow[] = [
-      {
-        stokKodu: 'STK001',
-        price: 100.50,
-        effectiveFrom: formatDateOnly(now),
-        effectiveTo: formatDateOnly(endOfYear),
-        note: 'Örnek not',
-      },
-      {
-        stokKodu: 'STK002',
-        price: 200.00,
-        effectiveFrom: formatDateOnly(now),
-        effectiveTo: formatDateOnly(endOfYear),
-        note: '',
-      },
+      { stokKodu: 'STK001', price: 100.50, effectiveFrom: formatDateOnly(new Date()), effectiveTo: '2026-12-31', note: 'Not' },
     ];
-
-    const worksheet = XLSX.utils.json_to_sheet(template, {
-      header: ['stokKodu', 'price', 'effectiveFrom', 'effectiveTo', 'note'],
-    });
-
-    worksheet['!cols'] = [
-      { wch: 20 },
-      { wch: 12 },
-      { wch: 26 },
-      { wch: 26 },
-      { wch: 30 },
-    ];
-
+    const worksheet = XLSX.utils.json_to_sheet(template);
     const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Satın Alma Fiyat Aktarımı');
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Şablon');
     XLSX.writeFile(workbook, 'satin-alma-fiyat-aktarim-sablonu.xlsx');
   };
 
   const clearExcelData = () => {
     setExcelData([]);
     setExcelErrors([]);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   const downloadErrorReport = () => {
     if (excelErrors.length === 0) return;
-
-    const rows = excelErrors.map((error, index) => ({
-      sira: index + 1,
-      satir: error.rowNumber,
-      stokKodu: error.stokKodu ?? '',
-      kategori: error.category === 'validation' ? 'Doğrulama' : 'API',
-      mesaj: error.message,
-    }));
-
-    const worksheet = XLSX.utils.json_to_sheet(rows, {
-      header: ['sira', 'satir', 'stokKodu', 'kategori', 'mesaj'],
-    });
-
-    worksheet['!cols'] = [
-      { wch: 6 },
-      { wch: 8 },
-      { wch: 20 },
-      { wch: 14 },
-      { wch: 60 },
-    ];
-
+    const rows = excelErrors.map((error, index) => ({ sira: index + 1, satir: error.rowNumber, stokKodu: error.stokKodu ?? '', kategori: error.category === 'api' ? 'Sistem' : 'Doğrulama', mesaj: error.message }));
+    const worksheet = XLSX.utils.json_to_sheet(rows);
     const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Hata Raporu');
-    const timestamp = new Date().toISOString().replace(/[:T]/g, '-').slice(0, 16);
-    XLSX.writeFile(workbook, `satin-alma-fiyat-aktarim-hata-raporu-${timestamp}.xlsx`);
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Hatalar');
+    XLSX.writeFile(workbook, `hata-raporu-satin-alma-fiyat-${new Date().getTime()}.xlsx`);
   };
 
+  const pendingCount = excelData.filter((r) => r.status === 'pending').length;
   const successCount = excelData.filter((r) => r.status === 'success').length;
   const errorCount = excelData.filter((r) => r.status === 'error').length;
-  const pendingCount = excelData.filter((r) => r.status === 'pending').length;
 
   return (
-    <MainLayout>
-      <Box sx={{ p: 3 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-          <Typography variant="h4">Satın Alma Fiyat Aktarımı</Typography>
-        </Box>
-
-        <Paper sx={{ p: 3, mb: 3 }}>
-          <Alert severity="info" sx={{ mb: 3 }}>
+    <StandardPage title="Satın Alma Fiyat Aktarımı" breadcrumbs={[{ label: 'Veri Aktarımı' }, { label: 'Satın Alma Fiyat Aktarımı' }]}>
+      <Box>
+        <Paper variant="outlined" sx={{ p: 3, mb: 3, borderRadius: 3 }}>
+          <Alert severity="info" sx={{ mb: 3, borderRadius: 2 }}>
             <Typography variant="body2">
-              <strong>Kullanım:</strong>
-              <br />
-              1. Şablonu indirin ve verilerinizi doldurun
-              <br />
-              2. Excel dosyasını yükleyin
-              <br />
-              3. Önizleme sonrasında verileri aktarın
-              <br />
-              <strong>Not:</strong> Stok Kodu sistemde mevcut olmalıdır. Fiyat ve Stok Kodu alanları zorunludur.
+              Şablonu indirin, verileri doldurun ve yükleyin. Stok kodu sistemde bulunmalıdır.
             </Typography>
           </Alert>
 
           <Stack direction="row" spacing={2} sx={{ mb: 3 }}>
-            <Button variant="outlined" startIcon={<Download />} onClick={downloadTemplate}>
-              Şablon İndir
-            </Button>
-
-            <Button variant="contained" component="label" startIcon={<UploadFile />} disabled={loading}>
+            <Button variant="outlined" startIcon={<Download />} onClick={downloadTemplate} sx={{ fontWeight: 800 }}>Şablon İndir</Button>
+            <Button variant="contained" component="label" startIcon={<UploadFile />} disabled={loading} sx={{ fontWeight: 900 }}>
               {loading ? <CircularProgress size={20} /> : 'Excel Yükle'}
               <input ref={fileInputRef} type="file" hidden accept=".xlsx,.xls" onChange={handleExcelUpload} />
             </Button>
-
             {excelData.length > 0 && (
               <>
-                <Button
-                  variant="contained"
-                  color="success"
-                  startIcon={bulkLoading ? <CircularProgress size={20} /> : <Save />}
-                  onClick={handleBulkSubmit}
-                  disabled={bulkLoading || pendingCount === 0}
-                >
+                <Button variant="contained" color="success" startIcon={bulkLoading ? <CircularProgress size={20} /> : <Save />} onClick={handleBulkSubmit} disabled={bulkLoading || pendingCount === 0} sx={{ fontWeight: 900 }}>
                   {bulkLoading ? 'Aktarılıyor...' : `${pendingCount} Kaydı Aktar`}
                 </Button>
-                {excelErrors.length > 0 && (
-                  <Button variant="outlined" color="error" startIcon={<Download />} onClick={downloadErrorReport}>
-                    Hata Raporu İndir
-                  </Button>
-                )}
-                <Button variant="outlined" color="error" startIcon={<Delete />} onClick={clearExcelData}>
-                  Temizle
-                </Button>
+                {excelErrors.length > 0 && <Button variant="outlined" color="error" startIcon={<Download />} onClick={downloadErrorReport} sx={{ fontWeight: 800 }}>Hata Raporu</Button>}
+                <Button variant="outlined" color="error" startIcon={<Delete />} onClick={clearExcelData} sx={{ fontWeight: 800 }}>Temizle</Button>
               </>
             )}
           </Stack>
@@ -467,47 +328,36 @@ export default function SatinAlmaFiyatAktarimPage() {
           {excelData.length > 0 && (
             <Box sx={{ mt: 3 }}>
               <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
-                <Chip label={`Toplam: ${excelData.length}`} color="default" />
-                <Chip label={`Beklemede: ${pendingCount}`} color="default" />
-                <Chip label={`Başarılı: ${successCount}`} color="success" icon={<CheckCircle />} />
-                <Chip label={`Hatalı: ${errorCount}`} color="error" icon={<ErrorIcon />} />
+                <Chip label={`Toplam: ${excelData.length}`} size="small" sx={{ fontWeight: 800 }} />
+                <Chip label={`Beklemede: ${pendingCount}`} color="warning" size="small" variant="outlined" sx={{ fontWeight: 800 }} />
+                <Chip label={`Başarılı: ${successCount}`} color="success" icon={<CheckCircle />} size="small" sx={{ fontWeight: 800 }} />
+                <Chip label={`Hatalı: ${errorCount}`} color="error" icon={<ErrorIcon />} size="small" sx={{ fontWeight: 800 }} />
               </Box>
-
-              <TableContainer component={Paper} sx={{ maxHeight: 600 }}>
-                <Table stickyHeader>
+              <TableContainer sx={{ maxHeight: 600, border: '1px solid', borderColor: 'divider', borderRadius: 2 }}>
+                <Table stickyHeader size="small">
                   <TableHead>
                     <TableRow>
-                      <TableCell>Satır</TableCell>
-                      <TableCell>Stok Kodu</TableCell>
-                      <TableCell>Fiyat</TableCell>
-                      <TableCell>Geçerlilik Başlangıcı</TableCell>
-                      <TableCell>Geçerlilik Bitişi</TableCell>
-                      <TableCell>Not</TableCell>
-                      <TableCell>Durum</TableCell>
-                      <TableCell>Hata</TableCell>
+                      <TableCell sx={{ fontWeight: 900 }}>Satır</TableCell>
+                      <TableCell sx={{ fontWeight: 900 }}>Stok Kodu</TableCell>
+                      <TableCell sx={{ fontWeight: 900 }}>Fiyat</TableCell>
+                      <TableCell sx={{ fontWeight: 900 }}>Geçerlilik</TableCell>
+                      <TableCell sx={{ fontWeight: 900 }}>Durum</TableCell>
+                      <TableCell sx={{ fontWeight: 900 }}>Hata</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
                     {excelData.map((row) => (
-                      <TableRow key={row.rowNumber}>
+                      <TableRow key={row.rowNumber} hover>
                         <TableCell>{row.rowNumber}</TableCell>
-                        <TableCell>{row.stokKodu || '-'}</TableCell>
-                        <TableCell>{typeof row.price === 'number' ? row.price.toFixed(2) : row.price || '-'}</TableCell>
-                        <TableCell>{row.effectiveFrom || '-'}</TableCell>
-                        <TableCell>{row.effectiveTo || '-'}</TableCell>
-                        <TableCell>{row.note || '-'}</TableCell>
+                        <TableCell sx={{ fontWeight: 600 }}>{row.stokKodu}</TableCell>
+                        <TableCell>{typeof row.price === 'number' ? row.price.toFixed(2) : row.price}</TableCell>
+                        <TableCell>{row.effectiveFrom} / {row.effectiveTo}</TableCell>
                         <TableCell>
-                          {row.status === 'success' && <Chip label="Başarılı" color="success" size="small" />}
-                          {row.status === 'error' && <Chip label="Hatalı" color="error" size="small" />}
-                          {row.status === 'pending' && <Chip label="Beklemede" color="warning" size="small" />}
+                          {row.status === 'success' && <Chip label="Başarılı" color="success" size="small" sx={{ fontWeight: 800 }} />}
+                          {row.status === 'error' && <Chip label="Hatalı" color="error" size="small" sx={{ fontWeight: 800 }} />}
+                          {row.status === 'pending' && <Chip label="Beklemede" color="warning" size="small" sx={{ fontWeight: 800 }} />}
                         </TableCell>
-                        <TableCell>
-                          {row.error && (
-                            <Typography variant="caption" color="error">
-                              {row.error}
-                            </Typography>
-                          )}
-                        </TableCell>
+                        <TableCell>{row.error && <Typography variant="caption" color="error" sx={{ fontWeight: 600 }}>{row.error}</Typography>}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -516,18 +366,7 @@ export default function SatinAlmaFiyatAktarimPage() {
             </Box>
           )}
         </Paper>
-
-        <Snackbar
-          open={snackbar.open}
-          autoHideDuration={6000}
-          onClose={() => setSnackbar({ ...snackbar, open: false })}
-        >
-          <Alert severity={snackbar.severity} onClose={() => setSnackbar({ ...snackbar, open: false })}>
-            {snackbar.message}
-          </Alert>
-        </Snackbar>
       </Box>
-    </MainLayout>
+    </StandardPage>
   );
 }
-

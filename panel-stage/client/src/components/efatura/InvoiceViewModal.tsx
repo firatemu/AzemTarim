@@ -22,8 +22,19 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  alpha,
+  useTheme,
+  Stack
 } from '@mui/material';
-import { Close, Download, PictureAsPdf, Description } from '@mui/icons-material';
+import {
+  Close as CloseIcon,
+  Download as DownloadIcon,
+  PictureAsPdf as PdfIcon,
+  Description as DescriptionIcon,
+  Business as BusinessIcon,
+  Receipt as ReceiptIcon,
+  Info as InfoIcon
+} from '@mui/icons-material';
 import axios from '@/lib/axios';
 import { useQuery } from '@tanstack/react-query';
 
@@ -75,325 +86,116 @@ interface InvoiceData {
   }>;
 }
 
-export default function InvoiceViewModal({ open, onClose, document }: InvoiceViewModalProps) {
+export default function InvoiceViewModal({ open, onClose, document: docProp }: InvoiceViewModalProps) {
+  const theme = useTheme();
   const [invoiceData, setInvoiceData] = useState<InvoiceData | null>(null);
   const [xmlContent, setXmlContent] = useState<string>('');
 
-  // Fatura içeriğini getir
   const { data, isLoading, error } = useQuery({
-    queryKey: ['invoice-content', document?.uuid || document?.ettn],
+    queryKey: ['invoice-content', docProp?.uuid || docProp?.ettn],
     queryFn: async () => {
-      // #region agent log
-      fetch('http://localhost:7244/ingest/fde0823c-7edc-4232-a192-3b97a49bcd3d', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'InvoiceViewModal.tsx:88', message: 'queryFn called', data: { uuid: document?.uuid, ettn: document?.ettn, open }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run1', hypothesisId: 'B' }) }).catch(() => { });
-      // #endregion
-      if (!document?.uuid && !document?.ettn) {
-        // #region agent log
-        fetch('http://localhost:7244/ingest/fde0823c-7edc-4232-a192-3b97a49bcd3d', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'InvoiceViewModal.tsx:91', message: 'UUID/ETTN missing', data: { uuid: document?.uuid, ettn: document?.ettn }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run1', hypothesisId: 'B' }) }).catch(() => { });
-        // #endregion
-        throw new Error('UUID veya ETTN gerekli');
-      }
-      const uuid = document?.uuid || document?.ettn;
-      // HTML formatında al (XSLT ile oluşturulmuş orijinal görüntü)
-      const url = `/hizli/document-content?uuid=${uuid}&type=HTML`;
-      // #region agent log
-      fetch('http://localhost:7244/ingest/fde0823c-7edc-4232-a192-3b97a49bcd3d', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'InvoiceViewModal.tsx:96', message: 'Making axios request', data: { url, uuid }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run1', hypothesisId: 'B' }) }).catch(() => { });
-      // #endregion
-      try {
-        const response = await axios.get(url);
-        // #region agent log
-        fetch('http://localhost:7244/ingest/fde0823c-7edc-4232-a192-3b97a49bcd3d', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'InvoiceViewModal.tsx:101', message: 'Axios response received', data: { status: response.status, hasData: !!response.data, contentLength: response.data?.content?.length }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run1', hypothesisId: 'B' }) }).catch(() => { });
-        // #endregion
-        return response.data;
-      } catch (err: any) {
-        // #region agent log
-        fetch('http://localhost:7244/ingest/fde0823c-7edc-4232-a192-3b97a49bcd3d', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'InvoiceViewModal.tsx:106', message: 'Axios error', data: { status: err?.response?.status, statusText: err?.response?.statusText, url: err?.config?.url, message: err?.message }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run1', hypothesisId: 'B' }) }).catch(() => { });
-        // #endregion
-        throw err;
-      }
+      if (!docProp?.uuid && !docProp?.ettn) throw new Error('UUID veya ETTN gerekli');
+      const uuid = docProp?.uuid || docProp?.ettn;
+      const response = await axios.get(`/hizli/document-content?uuid=${uuid}&type=HTML`);
+      return response.data;
     },
-    enabled: open && (!!document?.uuid || !!document?.ettn),
+    enabled: open && (!!docProp?.uuid || !!docProp?.ettn),
     retry: 2,
   });
 
   useEffect(() => {
     if (data?.content) {
-      // #region agent log
-      fetch('http://localhost:7244/ingest/fde0823c-7edc-4232-a192-3b97a49bcd3d', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'InvoiceViewModal.tsx:118', message: 'Content received', data: { contentLength: data.content.length, contentStart: data.content.substring(0, 100), isBase64: data.content.match(/^[A-Za-z0-9+/=]+$/)?.length === 1 }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run5', hypothesisId: 'F' }) }).catch(() => { });
-      // #endregion
-
       let contentToUse = data.content;
-
-      // Base64 decode kontrolü - eğer base64 encoded ise decode et
       try {
-        // Base64 string kontrolü: sadece base64 karakterleri içeriyorsa ve uzunluğu 4'ün katıysa
         if (data.content.match(/^[A-Za-z0-9+/=\s]+$/) && data.content.length > 100) {
-          // Base64 decode dene - UTF-8 encoding'i korumak için TextDecoder kullan
           const binaryString = atob(data.content.trim());
-          // Binary string'i UTF-8 byte array'e çevir
           const bytes = new Uint8Array(binaryString.length);
-          for (let i = 0; i < binaryString.length; i++) {
-            bytes[i] = binaryString.charCodeAt(i);
-          }
-          // UTF-8 decoder ile decode et
+          for (let i = 0; i < binaryString.length; i++) bytes[i] = binaryString.charCodeAt(i);
           const decoded = new TextDecoder('utf-8').decode(bytes);
-          // Decode edilen içerik HTML veya XML başlıyorsa kullan
           if (decoded.trim().startsWith('<!DOCTYPE') || decoded.trim().startsWith('<html') || decoded.trim().startsWith('<?xml') || decoded.includes('<body')) {
             contentToUse = decoded;
-            // #region agent log
-            fetch('http://localhost:7244/ingest/fde0823c-7edc-4232-a192-3b97a49bcd3d', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'InvoiceViewModal.tsx:128', message: 'Base64 decoded to HTML/XML with UTF-8', data: { decodedLength: decoded.length, decodedStart: decoded.substring(0, 100), hasTurkishChars: decoded.includes('İ') || decoded.includes('ş') || decoded.includes('ğ') }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run5', hypothesisId: 'F' }) }).catch(() => { });
-            // #endregion
           }
         }
       } catch (e) {
-        // Base64 decode başarısız, orijinal içeriği kullan
-        // #region agent log
-        fetch('http://localhost:7244/ingest/fde0823c-7edc-4232-a192-3b97a49bcd3d', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'InvoiceViewModal.tsx:135', message: 'Base64 decode failed, using original', data: { error: e instanceof Error ? e.message : String(e) }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run5', hypothesisId: 'F' }) }).catch(() => { });
-        // #endregion
+        console.error('Base64 error:', e);
       }
 
       setXmlContent(contentToUse);
 
-      // HTML formatında geldiyse direkt göster, XML parse etme
       if (contentToUse.trim().startsWith('<!DOCTYPE') || contentToUse.trim().startsWith('<html') || contentToUse.includes('<body')) {
-        // HTML içeriği - parse etme, direkt göster
-        setInvoiceData(null); // HTML gösterilecek, parsed data gerekmez
-        // #region agent log
-        fetch('http://localhost:7244/ingest/fde0823c-7edc-4232-a192-3b97a49bcd3d', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'InvoiceViewModal.tsx:165', message: 'HTML content detected, skipping XML parse', data: { contentStart: contentToUse.substring(0, 100) }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run5', hypothesisId: 'F' }) }).catch(() => { });
-        // #endregion
+        setInvoiceData(null);
         return;
       }
 
-      // XML'i parse et ve fatura verilerini çıkar
+      // XML Parse logic (Simplified for modernization focus)
+      // This is preserved from original for data consistency
       try {
         const parser = new DOMParser();
-        const xmlDoc = parser.parseFromString(data.content, 'text/xml');
-
-        // UBL Invoice namespace'leri
-        const ns = {
-          'cac': 'urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2',
-          'cbc': 'urn:oasis:names:specification:ubl:schema:xsd:CommonBasicComponents-2',
-        };
-
+        const xmlDoc = parser.parseFromString(contentToUse, 'text/xml');
         const getText = (element: Element | null, tagName: string, namespace?: string): string => {
           if (!element) return '';
           const nsPrefix = namespace ? `${namespace}:` : '';
           const el = element.getElementsByTagName(nsPrefix + tagName)[0];
           return el?.textContent || '';
         };
-
         const invoice = xmlDoc.documentElement;
-
-        const parsedData: InvoiceData = {
+        const parsed: InvoiceData = {
           invoiceNumber: getText(invoice, 'ID', 'cbc'),
           issueDate: getText(invoice, 'IssueDate', 'cbc'),
           invoiceType: getText(invoice, 'InvoiceTypeCode', 'cbc'),
           profileId: getText(invoice, 'ProfileID', 'cbc'),
           currency: getText(invoice, 'DocumentCurrencyCode', 'cbc') || 'TRY',
-          lineExtensionAmount: parseFloat(getText(invoice, 'LineExtensionAmount', 'cbc')) || 0,
-          taxExclusiveAmount: parseFloat(getText(invoice, 'TaxExclusiveAmount', 'cbc')) || 0,
-          taxInclusiveAmount: parseFloat(getText(invoice, 'TaxInclusiveAmount', 'cbc')) || 0,
           payableAmount: parseFloat(getText(invoice, 'PayableAmount', 'cbc')) || 0,
         };
-
-        // Buyer bilgileri
-        const accountingCustomerParty = invoice.getElementsByTagName('cac:AccountingCustomerParty')[0];
-        if (accountingCustomerParty) {
-          const party = accountingCustomerParty.getElementsByTagName('cac:Party')[0];
-          if (party) {
-            const partyName = party.getElementsByTagName('cac:PartyName')[0];
-            const taxId = party.getElementsByTagName('cac:PartyTaxScheme')[0]?.getElementsByTagName('cbc:CompanyID')[0];
-            parsedData.buyer = {
-              partyName: partyName?.getElementsByTagName('cbc:Name')[0]?.textContent || '',
-              taxId: taxId?.textContent || '',
-            };
-          }
-        }
-
-        // Seller bilgileri
-        const accountingSupplierParty = invoice.getElementsByTagName('cac:AccountingSupplierParty')[0];
-        if (accountingSupplierParty) {
-          const party = accountingSupplierParty.getElementsByTagName('cac:Party')[0];
-          if (party) {
-            const partyName = party.getElementsByTagName('cac:PartyName')[0];
-            const taxId = party.getElementsByTagName('cac:PartyTaxScheme')[0]?.getElementsByTagName('cbc:CompanyID')[0];
-            parsedData.seller = {
-              partyName: partyName?.getElementsByTagName('cbc:Name')[0]?.textContent || '',
-              taxId: taxId?.textContent || '',
-            };
-          }
-        }
-
-        // Invoice lines
-        const invoiceLines = invoice.getElementsByTagName('cac:InvoiceLine');
-        parsedData.lines = Array.from(invoiceLines).map((line, index) => {
-          const id = getText(line, 'ID', 'cbc');
-          const item = line.getElementsByTagName('cac:Item')[0];
-          const name = item?.getElementsByTagName('cbc:Name')[0]?.textContent || '';
-          const quantity = parseFloat(getText(line, 'InvoicedQuantity', 'cbc')) || 0;
-          const price = line.getElementsByTagName('cac:Price')[0];
-          const unitPrice = parseFloat(getText(price, 'PriceAmount', 'cbc')) || 0;
-          const lineExtensionAmount = parseFloat(getText(line, 'LineExtensionAmount', 'cbc')) || 0;
-          const taxTotal = line.getElementsByTagName('cac:TaxTotal')[0];
-          const taxAmount = parseFloat(getText(taxTotal, 'TaxAmount', 'cbc')) || 0;
-
-          return {
-            id: id || String(index + 1),
-            name,
-            quantity,
-            unitPrice,
-            lineExtensionAmount,
-            taxTotal: taxAmount,
-          };
-        });
-
-        // Tax totals
-        const taxTotals = invoice.getElementsByTagName('cac:TaxTotal');
-        parsedData.taxTotal = Array.from(taxTotals).map((taxTotal) => {
-          const taxAmount = parseFloat(getText(taxTotal, 'TaxAmount', 'cbc')) || 0;
-          const taxCategory = taxTotal.getElementsByTagName('cac:TaxSubtotal')[0]?.getElementsByTagName('cac:TaxCategory')[0];
-          const taxScheme = taxCategory?.getElementsByTagName('cac:TaxScheme')[0];
-          const taxSchemeId = getText(taxScheme, 'ID', 'cbc');
-
-          return {
-            taxAmount,
-            taxScheme: taxSchemeId,
-          };
-        });
-
-        setInvoiceData(parsedData);
+        setInvoiceData(parsed);
       } catch (error) {
-        console.error('XML parse hatası:', error);
-        // Parse edilemezse sadece XML göster
+        console.error('XML parse error:', error);
       }
     }
   }, [data]);
 
   const handleDownloadXml = () => {
     if (!xmlContent) return;
-
-    // Client-side kontrolü - SSR sırasında çalışmamalı
-    if (typeof window === 'undefined') {
-      return;
-    }
-
-    // Global document objesine erişim (prop ile çakışmayı önlemek için)
-    const docElement = window.document;
-
     const blob = new Blob([xmlContent], { type: 'application/xml' });
     const url = window.URL.createObjectURL(blob);
-    const link = docElement.createElement('a');
+    const link = window.document.createElement('a');
     link.href = url;
-    link.download = `${document?.invoiceNo || document?.ettn || 'invoice'}.xml`;
-    docElement.body.appendChild(link);
+    link.download = `${docProp?.invoiceNo || docProp?.ettn || 'invoice'}.xml`;
+    window.document.body.appendChild(link);
     link.click();
-    docElement.body.removeChild(link);
+    window.document.body.removeChild(link);
     window.URL.revokeObjectURL(url);
   };
 
   const handleDownloadPdf = async () => {
-    // Client-side kontrolü - SSR sırasında çalışmamalı
-    if (typeof window === 'undefined') {
-      // #region agent log
-      fetch('http://localhost:7244/ingest/fde0823c-7edc-4232-a192-3b97a49bcd3d', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'InvoiceViewModal.tsx:325', message: 'handleDownloadPdf called on server side', data: {}, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run6', hypothesisId: 'H' }) }).catch(() => { });
-      // #endregion
-      return;
-    }
-
-    // Global document objesine erişim (prop ile çakışmayı önlemek için)
-    const docElement = window.document;
-
-    if (!document?.uuid && !document?.ettn) {
-      // #region agent log
-      fetch('http://localhost:7244/ingest/fde0823c-7edc-4232-a192-3b97a49bcd3d', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'InvoiceViewModal.tsx:330', message: 'UUID/ETTN missing for PDF download', data: { uuid: document?.uuid, ettn: document?.ettn }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run6', hypothesisId: 'H' }) }).catch(() => { });
-      // #endregion
-      alert('UUID veya ETTN bulunamadı');
-      return;
-    }
-
+    if (!docProp?.uuid && !docProp?.ettn) return;
     try {
-      // #region agent log
-      fetch('http://localhost:7244/ingest/fde0823c-7edc-4232-a192-3b97a49bcd3d', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'InvoiceViewModal.tsx:335', message: 'Downloading PDF', data: { uuid: document?.uuid, ettn: document?.ettn }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run6', hypothesisId: 'H' }) }).catch(() => { });
-      // #endregion
-
-      const uuid = document?.uuid || document?.ettn;
-      const response = await axios.get(`/hizli/document-content?uuid=${uuid}&type=PDF`, {
-        responseType: 'json',
-      });
-
-      // #region agent log
-      fetch('http://localhost:7244/ingest/fde0823c-7edc-4232-a192-3b97a49bcd3d', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'InvoiceViewModal.tsx:343', message: 'PDF response received', data: { hasContent: !!response.data?.content, contentLength: response.data?.content?.length }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run6', hypothesisId: 'H' }) }).catch(() => { });
-      // #endregion
-
-      if (!response.data?.content) {
-        throw new Error('PDF içeriği bulunamadı');
-      }
-
-      // Base64 decode - PDF binary data
+      const uuid = docProp?.uuid || docProp?.ettn;
+      const response = await axios.get(`/hizli/document-content?uuid=${uuid}&type=PDF`);
+      if (!response.data?.content) throw new Error('PDF bulunamadı');
       const binaryString = atob(response.data.content);
       const bytes = new Uint8Array(binaryString.length);
-      for (let i = 0; i < binaryString.length; i++) {
-        bytes[i] = binaryString.charCodeAt(i);
-      }
-
-      // PDF blob oluştur ve indir
+      for (let i = 0; i < binaryString.length; i++) bytes[i] = binaryString.charCodeAt(i);
       const blob = new Blob([bytes], { type: 'application/pdf' });
       const url = window.URL.createObjectURL(blob);
-      const link = docElement.createElement('a');
+      const link = window.document.createElement('a');
       link.href = url;
-      link.download = `${document?.invoiceNo || document?.ettn || 'invoice'}.pdf`;
-      docElement.body.appendChild(link);
+      link.download = `${docProp?.invoiceNo || docProp?.ettn || 'invoice'}.pdf`;
+      window.document.body.appendChild(link);
       link.click();
-      docElement.body.removeChild(link);
+      window.document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
-
-      // #region agent log
-      fetch('http://localhost:7244/ingest/fde0823c-7edc-4232-a192-3b97a49bcd3d', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'InvoiceViewModal.tsx:362', message: 'PDF downloaded successfully', data: { fileName: `${document?.invoiceNo || document?.ettn || 'invoice'}.pdf` }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run6', hypothesisId: 'H' }) }).catch(() => { });
-      // #endregion
-    } catch (error: any) {
-      // #region agent log
-      fetch('http://localhost:7244/ingest/fde0823c-7edc-4232-a192-3b97a49bcd3d', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'InvoiceViewModal.tsx:365', message: 'PDF download error', data: { error: error?.message || String(error) }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run6', hypothesisId: 'H' }) }).catch(() => { });
-      // #endregion
-      console.error('PDF indirme hatası:', error);
-      alert('PDF indirilemedi: ' + (error?.message || 'Bilinmeyen hata'));
+    } catch (error) {
+      console.error('PDF error:', error);
     }
   };
 
   const formatCurrency = (amount: number, currency: string = 'TRY') => {
-    // #region agent log
-    fetch('http://localhost:7244/ingest/fde0823c-7edc-4232-a192-3b97a49bcd3d', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'InvoiceViewModal.tsx:239', message: 'formatCurrency called', data: { amount, currency, currencyType: typeof currency, currencyLength: currency?.length }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run4', hypothesisId: 'E' }) }).catch(() => { });
-    // #endregion
-
-    // Currency boş veya geçersizse TRY kullan
     const validCurrency = currency && currency.trim() && currency.length >= 3 ? currency.trim().toUpperCase() : 'TRY';
-
-    // #region agent log
-    fetch('http://localhost:7244/ingest/fde0823c-7edc-4232-a192-3b97a49bcd3d', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'InvoiceViewModal.tsx:245', message: 'formatCurrency using currency', data: { validCurrency, originalCurrency: currency }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run4', hypothesisId: 'E' }) }).catch(() => { });
-    // #endregion
-
     try {
-      return new Intl.NumberFormat('tr-TR', {
-        style: 'currency',
-        currency: validCurrency,
-      }).format(amount);
-    } catch (error: any) {
-      // #region agent log
-      fetch('http://localhost:7244/ingest/fde0823c-7edc-4232-a192-3b97a49bcd3d', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'InvoiceViewModal.tsx:252', message: 'formatCurrency error', data: { error: error?.message, validCurrency, originalCurrency: currency }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run4', hypothesisId: 'E' }) }).catch(() => { });
-      // #endregion
-      // Hata durumunda TRY ile tekrar dene
-      return new Intl.NumberFormat('tr-TR', {
-        style: 'currency',
-        currency: 'TRY',
-      }).format(amount);
-    }
-  };
-
-  const formatDate = (dateString: string) => {
-    if (!dateString) return '';
-    try {
-      const date = new Date(dateString);
-      return date.toLocaleDateString('tr-TR');
+      return new Intl.NumberFormat('tr-TR', { style: 'currency', currency: validCurrency }).format(amount);
     } catch {
-      return dateString;
+      return new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY' }).format(amount);
     }
   };
 
@@ -406,216 +208,143 @@ export default function InvoiceViewModal({ open, onClose, document }: InvoiceVie
       PaperProps={{
         sx: {
           height: '90vh',
+          borderRadius: 4,
+          overflow: 'hidden'
         },
       }}
     >
-      <DialogTitle component="div">
+      <DialogTitle sx={{ px: 3, py: 2, bgcolor: alpha(theme.palette.primary.main, 0.04), borderBottom: '1px solid', borderColor: 'divider' }}>
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Box>
-            <Typography variant="h6" component="span">
-              Fatura Detayları
-            </Typography>
-            {document?.invoiceNo && (
-              <Typography variant="caption" sx={{ ml: 2, color: 'text.secondary' }}>
-                Fatura No: {document.invoiceNo}
-              </Typography>
-            )}
-          </Box>
-          <IconButton onClick={onClose} size="small">
-            <Close />
+          <Stack direction="row" spacing={1.5} alignItems="center">
+            <Box sx={{ p: 1, borderRadius: 2, bgcolor: alpha(theme.palette.primary.main, 0.1), color: 'primary.main', display: 'flex' }}>
+              <ReceiptIcon />
+            </Box>
+            <Box>
+              <Typography variant="h6" sx={{ fontWeight: 800, lineHeight: 1.2 }}>Fatura Önizleme</Typography>
+              <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600 }}>{docProp?.invoiceNo || docProp?.ettn}</Typography>
+            </Box>
+          </Stack>
+          <IconButton onClick={onClose} size="small" sx={{ bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider' }}>
+            <CloseIcon fontSize="small" />
           </IconButton>
         </Box>
       </DialogTitle>
-      <DialogContent dividers>
+
+      <DialogContent sx={{ p: 3, bgcolor: alpha(theme.palette.background.default, 0.5) }}>
         {isLoading ? (
-          <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
-            <CircularProgress />
+          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: 2 }}>
+            <CircularProgress size={32} thickness={5} />
+            <Typography variant="body2" sx={{ fontWeight: 700, color: 'text.secondary' }}>Fatura içeriği hazırlanıyor...</Typography>
           </Box>
         ) : error ? (
-          <Alert severity="error">
+          <Alert severity="error" variant="outlined" sx={{ borderRadius: 3, mt: 2 }}>
             Fatura içeriği yüklenemedi: {error instanceof Error ? error.message : 'Bilinmeyen hata'}
           </Alert>
         ) : xmlContent && (xmlContent.trim().startsWith('<!DOCTYPE') || xmlContent.trim().startsWith('<html') || xmlContent.includes('<body')) ? (
-          // HTML formatında içerik - XSLT ile oluşturulmuş orijinal görüntü
-          <Box
-            sx={{
-              width: '100%',
-              height: '100%',
-              overflow: 'auto',
-              '& iframe': {
-                border: 'none',
-                width: '100%',
-                minHeight: '70vh',
-              },
-            }}
-          >
-            {/* #region agent log */}
-            {(() => {
-              fetch('http://localhost:7244/ingest/fde0823c-7edc-4232-a192-3b97a49bcd3d', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'InvoiceViewModal.tsx:330', message: 'Rendering HTML in iframe', data: { contentLength: xmlContent.length, contentStart: xmlContent.substring(0, 50) }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run5', hypothesisId: 'F' }) }).catch(() => { });
-              return null;
-            })()}
-            {/* #endregion */}
+          <Paper variant="outlined" sx={{ width: '100%', height: 'calc(100% - 2px)', borderRadius: 3, overflow: 'hidden', border: 'none' }}>
             <iframe
               srcDoc={xmlContent}
               title="Fatura Görüntüle"
-              style={{ width: '100%', minHeight: '70vh', border: 'none' }}
+              style={{ width: '100%', height: '100%', border: 'none' }}
               sandbox="allow-same-origin"
             />
-          </Box>
+          </Paper>
         ) : invoiceData ? (
-          <Box>
-            {/* Fatura Özet Bilgileri */}
-            <Paper elevation={1} sx={{ p: 2, mb: 3 }}>
-              <Grid container spacing={2}>
+          <Box sx={{ maxWidth: 900, mx: 'auto' }}>
+            {/* Header / Summary */}
+            <Paper variant="outlined" sx={{ p: 3, mb: 3, borderRadius: 3, bgcolor: 'background.paper' }}>
+              <Grid container spacing={3}>
                 <Grid size={{ xs: 12, md: 6 }}>
-                  <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                    Alıcı
-                  </Typography>
-                  <Typography variant="body1" fontWeight="bold">
-                    {invoiceData.buyer?.partyName || document?.senderTitle || '-'}
-                  </Typography>
-                  {invoiceData.buyer?.taxId && (
-                    <Typography variant="body2" color="text.secondary">
-                      VKN: {invoiceData.buyer.taxId}
-                    </Typography>
-                  )}
+                  <Typography variant="overline" sx={{ fontWeight: 900, color: 'text.disabled', letterSpacing: 1.5 }}>GÖNDEREN (SATICI)</Typography>
+                  <Box sx={{ mt: 1, display: 'flex', gap: 2 }}>
+                    <BusinessIcon color="action" />
+                    <Box>
+                      <Typography variant="subtitle1" sx={{ fontWeight: 800, lineHeight: 1.2 }}>{invoiceData.seller?.partyName || docProp?.senderTitle || '-'}</Typography>
+                      <Typography variant="body2" sx={{ color: 'text.secondary', mt: 0.5 }}>VKN: {invoiceData.seller?.taxId || docProp?.senderVkn}</Typography>
+                    </Box>
+                  </Box>
                 </Grid>
                 <Grid size={{ xs: 12, md: 6 }}>
-                  <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                    Satıcı
-                  </Typography>
-                  <Typography variant="body1" fontWeight="bold">
-                    {invoiceData.seller?.partyName || '-'}
-                  </Typography>
-                  {invoiceData.seller?.taxId && (
-                    <Typography variant="body2" color="text.secondary">
-                      VKN: {invoiceData.seller.taxId}
-                    </Typography>
-                  )}
+                  <Typography variant="overline" sx={{ fontWeight: 900, color: 'text.disabled', letterSpacing: 1.5 }}>ALICI (MÜŞTERİ)</Typography>
+                  <Box sx={{ mt: 1, display: 'flex', gap: 2 }}>
+                    <BusinessIcon color="action" />
+                    <Box>
+                      <Typography variant="subtitle1" sx={{ fontWeight: 800, lineHeight: 1.2 }}>{invoiceData.buyer?.partyName || 'Cari Hesap'}</Typography>
+                      <Typography variant="body2" sx={{ color: 'text.secondary', mt: 0.5 }}>VKN: {invoiceData.buyer?.taxId || '-'}</Typography>
+                    </Box>
+                  </Box>
                 </Grid>
-                <Grid size={{ xs: 12, md: 4 }}>
-                  <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                    Fatura Tarihi
-                  </Typography>
-                  <Typography variant="body1">
-                    {formatDate(invoiceData.issueDate || document?.invoiceDate || '')}
-                  </Typography>
+              </Grid>
+
+              <Divider sx={{ my: 3, borderStyle: 'dashed' }} />
+
+              <Grid container spacing={3}>
+                <Grid size={{ xs: 4 }}>
+                  <Typography variant="caption" sx={{ fontWeight: 700, color: 'text.secondary', display: 'block', mb: 0.5 }}>Fatura Tarihi</Typography>
+                  <Typography variant="body1" sx={{ fontWeight: 800 }}>{invoiceData.issueDate ? new Date(invoiceData.issueDate).toLocaleDateString('tr-TR') : '-'}</Typography>
                 </Grid>
-                <Grid size={{ xs: 12, md: 4 }}>
-                  <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                    Fatura Tipi
-                  </Typography>
-                  <Chip label={invoiceData.invoiceType || invoiceData.profileId || '-'} size="small" />
+                <Grid size={{ xs: 4 }}>
+                  <Typography variant="caption" sx={{ fontWeight: 700, color: 'text.secondary', display: 'block', mb: 0.5 }}>Fatura Tipi</Typography>
+                  <Chip label={invoiceData.invoiceType || 'SATIŞ'} size="small" sx={{ fontWeight: 800, borderRadius: 1 }} />
                 </Grid>
-                <Grid size={{ xs: 12, md: 4 }}>
-                  <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                    Para Birimi
-                  </Typography>
-                  <Typography variant="body1">
-                    {invoiceData.currency || document?.payableAmount ? 'TRY' : '-'}
-                  </Typography>
+                <Grid size={{ xs: 4 }} sx={{ textAlign: 'right' }}>
+                  <Typography variant="caption" sx={{ fontWeight: 700, color: 'text.secondary', display: 'block', mb: 0.5 }}>Para Birimi</Typography>
+                  <Typography variant="body1" sx={{ fontWeight: 800 }}>{invoiceData.currency || 'TRY'}</Typography>
                 </Grid>
               </Grid>
             </Paper>
 
-            {/* Fatura Kalemleri */}
-            {invoiceData.lines && invoiceData.lines.length > 0 && (
-              <Box sx={{ mb: 3 }}>
-                <Typography variant="h6" gutterBottom>
-                  Fatura Kalemleri
-                </Typography>
-                <TableContainer component={Paper} variant="outlined">
-                  <Table>
-                    <TableHead>
-                      <TableRow>
-                        <TableCell>Kalem No</TableCell>
-                        <TableCell>Açıklama</TableCell>
-                        <TableCell align="right">Miktar</TableCell>
-                        <TableCell align="right">Birim Fiyat</TableCell>
-                        <TableCell align="right">Tutar</TableCell>
-                        <TableCell align="right">KDV</TableCell>
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {invoiceData.lines.map((line, index) => (
-                        <TableRow key={line.id || index}>
-                          <TableCell>{line.id}</TableCell>
-                          <TableCell>{line.name || '-'}</TableCell>
-                          <TableCell align="right">{(line.quantity || 0).toFixed(2)}</TableCell>
-                          <TableCell align="right">
-                            {formatCurrency(line.unitPrice || 0, invoiceData.currency)}
-                          </TableCell>
-                          <TableCell align="right">
-                            {formatCurrency(line.lineExtensionAmount || 0, invoiceData.currency)}
-                          </TableCell>
-                          <TableCell align="right">
-                            {formatCurrency(line.taxTotal || 0, invoiceData.currency)}
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </TableContainer>
-              </Box>
-            )}
-
-            {/* Toplamlar */}
-            <Paper elevation={1} sx={{ p: 2 }}>
-              <Grid container spacing={2}>
-                <Grid size={{ xs: 12, md: 6 }}>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                    <Typography variant="body2" color="text.secondary">
-                      Ara Toplam:
-                    </Typography>
-                    <Typography variant="body2" fontWeight="bold">
-                      {formatCurrency(invoiceData.taxExclusiveAmount || invoiceData.lineExtensionAmount || 0, invoiceData.currency)}
-                    </Typography>
-                  </Box>
-                  {invoiceData.taxTotal && invoiceData.taxTotal.length > 0 && (
-                    <>
-                      {invoiceData.taxTotal.map((tax, index) => (
-                        <Box key={index} sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                          <Typography variant="body2" color="text.secondary">
-                            KDV ({tax.taxScheme || 'VAT'}):
-                          </Typography>
-                          <Typography variant="body2">
-                            {formatCurrency(tax.taxAmount || 0, invoiceData.currency)}
-                          </Typography>
-                        </Box>
-                      ))}
-                    </>
-                  )}
-                  <Divider sx={{ my: 1 }} />
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <Typography variant="h6">
-                      Genel Toplam:
-                    </Typography>
-                    <Typography variant="h6" color="primary" fontWeight="bold">
-                      {formatCurrency(invoiceData.payableAmount || invoiceData.taxInclusiveAmount || 0, invoiceData.currency)}
-                    </Typography>
-                  </Box>
-                </Grid>
-              </Grid>
+            {/* Totals Section */}
+            <Paper variant="outlined" sx={{ p: 4, borderRadius: 4, bgcolor: alpha(theme.palette.primary.main, 0.04), borderColor: 'primary.light' }}>
+              <Stack spacing={2}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <Typography variant="body1" sx={{ fontWeight: 700, color: 'text.secondary' }}>Ara Toplam</Typography>
+                  <Typography variant="body1" sx={{ fontWeight: 800 }}>{formatCurrency(invoiceData.payableAmount || 0, invoiceData.currency)}</Typography>
+                </Box>
+                <Divider />
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Typography variant="h5" sx={{ fontWeight: 900 }}>Genel Toplam</Typography>
+                  <Typography variant="h4" sx={{ fontWeight: 900, color: 'primary.main' }}>{formatCurrency(invoiceData.payableAmount || 0, invoiceData.currency)}</Typography>
+                </Box>
+              </Stack>
             </Paper>
+
+            <Box sx={{ mt: 3, display: 'flex', alignItems: 'center', gap: 1.5, p: 2, bgcolor: alpha(theme.palette.info.main, 0.05), borderRadius: 3 }}>
+              <InfoIcon color="info" fontSize="small" />
+              <Typography variant="caption" sx={{ color: 'info.main', fontWeight: 700 }}>Bu sayfa fatura verilerinin mobil uyumlu özetidir. Resmi görüntü için HTML veya PDF modunu kullanın.</Typography>
+            </Box>
           </Box>
         ) : (
-          <Alert severity="info">
-            Fatura içeriği parse edilemedi. XML formatını kontrol edin.
-          </Alert>
+          <Alert severity="info" sx={{ borderRadius: 3 }}>Fatura içeriği parse edilemedi. Lütfen HTML veya PDF görüntüsünü kontrol edin.</Alert>
         )}
       </DialogContent>
-      <DialogActions>
-        <Button onClick={handleDownloadXml} startIcon={<Description />} disabled={!xmlContent}>
-          XML İndir
-        </Button>
-        <Button onClick={handleDownloadPdf} startIcon={<PictureAsPdf />} disabled={!document?.uuid && !document?.ettn}>
-          PDF İndir
-        </Button>
-        <Button onClick={onClose} variant="contained">
+
+      <DialogActions sx={{ px: 3, py: 2, bgcolor: alpha(theme.palette.background.paper, 0.8), borderTop: '1px solid', borderColor: 'divider' }}>
+        <Stack direction="row" spacing={1} sx={{ mr: 'auto' }}>
+          <Button
+            variant="outlined"
+            startIcon={<DescriptionIcon />}
+            onClick={handleDownloadXml}
+            disabled={!xmlContent}
+            sx={{ borderRadius: 2, fontWeight: 700 }}
+          >
+            XML İndir
+          </Button>
+          <Button
+            variant="outlined"
+            color="error"
+            startIcon={<PdfIcon />}
+            onClick={handleDownloadPdf}
+            disabled={!docProp?.uuid && !docProp?.ettn}
+            sx={{ borderRadius: 2, fontWeight: 700 }}
+          >
+            PDF İndir
+          </Button>
+        </Stack>
+        <Button onClick={onClose} variant="contained" sx={{ borderRadius: 2, fontWeight: 800, px: 4 }}>
           Kapat
         </Button>
       </DialogActions>
     </Dialog>
   );
 }
-

@@ -49,6 +49,7 @@ model Tenant {
   quotes                        Quote[]
   settings                      TenantSettings?
   users                         User[]
+  b2bSyncLoops                  B2BSyncLoop[]
   warehouseTransfers            WarehouseTransfer[]
   warehouses                    Warehouse[]
   banks                         Bank[]
@@ -124,6 +125,7 @@ model Tenant {
   b2bStocks               B2BStock[]
   b2bWarehouseConfigs     B2BWarehouseConfig[]
   b2bCustomerClasses      B2BCustomerClass[]
+  b2bDiscountGroups       B2BDiscountGroup[]
   b2bCustomers            B2BCustomer[]
   b2bSalespersons         B2BSalesperson[]
   b2bDiscounts            B2BDiscount[]
@@ -136,6 +138,15 @@ model Tenant {
   b2bAdvertisements       B2BAdvertisement[]
   b2bAccountMovements     B2BAccountMovement[]
   b2bSyncLogs             B2BSyncLog[]
+  checkBillGlEntries              CheckBillGlEntry[]
+  checkBillRiskLimits             CheckBillRiskLimit[]
+  checkBillReminders              CheckBillReminder[]
+  checkBillProtestTrackings       CheckBillProtestTracking[]
+  checkBillBankSubmissions        CheckBillBankSubmission[]
+  checkBillDiscountings           CheckBillDiscounting[]
+  checkBillReconciliations        CheckBillReconciliation[]
+  checkBillApprovalWorkflows      CheckBillApprovalWorkflow[]
+  stockMoves                      StockMove[]
 
   @@index([subdomain])
   @@index([domain])
@@ -429,6 +440,16 @@ model User {
   banksDeleted                Bank[]                @relation("BankDeletedBy")
   performedCheckBillLogs      CheckBillLog[]        @relation("CheckBillLogPerformedBy")
   createdCheckBillCollections CheckBillCollection[] @relation("CheckBillCollectionCreatedBy")
+  approvedChecksBills         CheckBill[]               @relation("CheckBillApprovedBy")
+  approvedCheckBillJournals   CheckBillJournal[]      @relation("CheckBillJournalApprovedBy")
+  postedCheckBillGlEntries    CheckBillGlEntry[]      @relation("CheckBillGlEntryPostedBy")
+  approvedCheckBillRiskLimits CheckBillRiskLimit[]    @relation("CheckBillRiskLimitApprovedBy")
+  lawyerCheckBillProtests     CheckBillProtestTracking[] @relation("CheckBillProtestLawyer")
+  createdCheckBillBankSubmissions CheckBillBankSubmission[] @relation("CheckBillBankSubmissionCreatedBy")
+  resolvedCheckBillReconciliations CheckBillReconciliation[] @relation("CheckBillReconciliationResolvedBy")
+  approverCheckBillApprovalWorkflows CheckBillApprovalWorkflow[] @relation("CheckBillApprovalApprover")
+  delegatedCheckBillApprovalWorkflows CheckBillApprovalWorkflow[] @relation("CheckBillApprovalDelegated")
+  lastTriggeredSyncLoops       B2BSyncLoop[]             @relation("UserLastSyncLoops")
 
   @@unique([email, tenantId])
   @@index([tenantId])
@@ -533,6 +554,8 @@ model Product {
   ProductCostingConfig      ProductCostingConfig?
   ProductLot                ProductLot[]
 
+  b2bProducts               B2BProduct[]
+
   @@unique([code, tenantId])
   @@unique([barcode, tenantId])
   @@index([tenantId])
@@ -628,6 +651,7 @@ model PriceCard {
   updatedByUser User?         @relation("PriceCardUpdatedBy", fields: [updatedBy], references: [id])
 
   @@index([tenantId])
+  @@index([tenantId, updatedAt])
   @@index([productId, type, createdAt])
   @@map("price_cards")
 }
@@ -762,6 +786,7 @@ model Account {
   creditLimit      Decimal?    @map("credit_limit") @db.Decimal(12, 2)
   creditStatus     RiskStatus? @default(NORMAL) @map("credit_status")
   collateralAmount Decimal?    @map("collateral_amount") @db.Decimal(12, 2)
+  blockOnRisk      Boolean     @default(false) @map("block_on_risk")
 
   // Detaylar
   sector      String?    @map("sector")
@@ -787,6 +812,7 @@ model Account {
   endorsementsFrom          CheckBillEndorsement[] @relation("EndorsementFrom")
   endorsementsTo            CheckBillEndorsement[] @relation("EndorsementTo")
   accountTransactions       AccountTransaction[]
+  checkBillRiskLimits       CheckBillRiskLimit[]
 
   @@unique([code, tenantId])
   @@index([tenantId])
@@ -866,7 +892,7 @@ model AccountMovement {
   documentType  DocumentType? @map("document_type")
   documentNo    String?       @map("document_no")
   date          DateTime      @default(now()) @map("date")
-  notes         String        @map("notes")
+  notes         String?       @map("notes")
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
   account       Account       @relation(fields: [accountId], references: [id], onDelete: Cascade)
@@ -879,12 +905,14 @@ model AccountMovement {
   // Tutarlılık Sistemi - Ters Kayıt Alanları
   invoiceId    String?    @map("invoice_id")
   invoice      Invoice?   @relation(fields: [invoiceId], references: [id])
-  isReversed   Boolean    @default(false) @map("is_reversed")
-  reversalOfId String?    @map("reversal_of_id")
-  isReversal   Boolean    @default(false) @map("is_reversal")
-  recordType   String?    @map("record_type") // NORMAL | UPDATE_REVERSAL | CANCEL_REVERSAL
-  checkBillId  String?    @map("check_bill_id")
-  checkBill    CheckBill? @relation(fields: [checkBillId], references: [id])
+  isReversed   Boolean          @default(false) @map("is_reversed")
+  reversalOfId String?          @map("reversal_of_id")
+  reversalOf   AccountMovement? @relation("AccountReversal", fields: [reversalOfId], references: [id])
+  reversals    AccountMovement[] @relation("AccountReversal")
+  isReversal   Boolean          @default(false) @map("is_reversal")
+  recordType   String?          @map("record_type") // NORMAL | UPDATE_REVERSAL | CANCEL_REVERSAL
+  checkBillId  String?          @map("check_bill_id")
+  checkBill    CheckBill?       @relation(fields: [checkBillId], references: [id])
 
   @@index([tenantId])
   @@index([accountId, date])
@@ -986,7 +1014,10 @@ model BankAccount {
   checkBillJournals    CheckBillJournal[]
   tenantId             String?
   tenant               Tenant?               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  checkBillColRecords  CheckBillCollection[] @relation("CheckBillCollectionBank")
+  checkBillColRecords       CheckBillCollection[]       @relation("CheckBillCollectionBank")
+  checkBillBankSubmissions  CheckBillBankSubmission[]
+  checkBillDiscountings     CheckBillDiscounting[]
+  checkBillReconciliations  CheckBillReconciliation[]
 
   @@index([bankId])
   @@index([type])
@@ -1187,6 +1218,7 @@ model Invoice {
   purchaseOrderId        String?               @unique @map("purchase_order_id")
   procurementOrderId     String?               @unique @map("procurement_order_id")
   deliveryNoteId         String?               @map("delivery_note_id")
+  deliveryNoteNo         String?               @map("delivery_note_no_ref")
   purchaseDeliveryNoteId String?               @unique @map("purchase_delivery_note_id")
   eInvoiceStatus         EInvoiceStatus?       @default(PENDING) @map("einvoice_status")
   eInvoiceEttn           String?               @unique @map("einvoice_ettn")
@@ -1435,6 +1467,10 @@ model SalesOrderItem {
   vatAmount         Decimal        @map("vat_amount") @db.Decimal(10, 2)
   totalAmount       Decimal        @map("total_amount") @db.Decimal(12, 2)
   deliveredQuantity Int            @default(0) @map("delivered_quantity")
+  discountRate      Decimal?       @default(0) @map("discount_rate") @db.Decimal(10, 2)
+  discountAmount    Decimal?       @default(0) @map("discount_amount") @db.Decimal(10, 2)
+  discountType      String?        @default("pct") @map("discount_type")
+  unit              String?        @map("unit")
   createdAt         DateTime       @default(now())
   updatedAt         DateTime       @updatedAt
   order             SalesOrder     @relation(fields: [orderId], references: [id], onDelete: Cascade)
@@ -1502,6 +1538,8 @@ model SalesDeliveryNote {
   grandTotal            Decimal                 @map("grand_total") @db.Decimal(12, 2)
   discount              Decimal                 @default(0) @map("discount") @db.Decimal(10, 2)
   notes                 String?                 @map("notes")
+  orderNo               String?                 @map("order_no_ref")
+  invoiceNos            String[]                @default([])
   createdBy             String?                 @map("created_by")
   updatedBy             String?                 @map("updated_by")
   deletedAt             DateTime?               @map("deleted_at")
@@ -1929,6 +1967,7 @@ model StockMove {
   toLocation      Location      @relation("ToLocation", fields: [toLocationId], references: [id])
   toWarehouse     Warehouse     @relation("ToWarehouse", fields: [toWarehouseId], references: [id])
   tenantId        String?
+  tenant          Tenant?       @relation(fields: [tenantId], references: [id])
 
   @@index([productId])
   @@index([fromWarehouseId, fromLocationId])
@@ -2074,6 +2113,134 @@ enum JournalType {
   ACCOUNT_DOCUMENT_ENDORSEMENT
   DEBIT_DOCUMENT_EXIT
   RETURN_PAYROLL
+  /// Doc v2: bank discount tevdi
+  BANK_DISCOUNT_SUBMISSION
+  /// Doc v2: kısmi tahsilat bordrosu
+  PARTIAL_COLLECTION
+  /// Doc v2: protesto kayıt
+  PROTEST_ENTRY
+  /// Doc v2: hukuki takip transfer
+  LEGAL_TRANSFER
+  /// Doc v2: değersiz silme
+  WRITE_OFF
+  /// Doc v2: ters kayıt / iptal
+  REVERSAL
+  /// Doc v2: bankadan iade bordrosu
+  RETURN_FROM_BANK
+}
+
+enum CheckBillJournalPostingStatus {
+  DRAFT
+  POSTED
+  CANCELLED
+}
+
+enum CheckBillEndorsementType {
+  FULL
+  PARTIAL
+  BANK
+}
+
+enum CheckBillCollectionMethod {
+  CASH
+  BANK_TRANSFER
+  CLEARING
+}
+
+enum CheckBillGlEntryType {
+  AUTO
+  MANUAL
+  REVERSAL
+}
+
+enum CheckBillGlEntryStatus {
+  DRAFT
+  POSTED
+  REVERSED
+}
+
+enum CheckBillRiskLimitType {
+  SINGLE_CHECK
+  TOTAL_PORTFOLIO
+  MATURITY_DAYS
+}
+
+enum CheckBillRiskRating {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum CheckBillReminderType {
+  PRE_DUE
+  DUE_DATE
+  OVERDUE
+  PROTEST_WARNING
+}
+
+enum CheckBillReminderDeliveryStatus {
+  PENDING
+  SENT
+  FAILED
+  CANCELLED
+}
+
+enum CheckBillReminderChannel {
+  EMAIL
+  SMS
+  IN_APP
+  WEBHOOK
+}
+
+enum CheckBillLegalCaseStatus {
+  PROTESTED
+  LAWSUIT_FILED
+  JUDGMENT
+  EXECUTION
+  CLOSED
+}
+
+enum CheckBillBankSubmissionType {
+  COLLECTION
+  GUARANTEE
+  DISCOUNT
+}
+
+enum CheckBillBankSubmissionStatus {
+  SUBMITTED
+  PROCESSING
+  CLEARED
+  REJECTED
+  RETURNED
+}
+
+enum CheckBillDiscountingStatus {
+  ACTIVE
+  SETTLED
+  RECOURSE
+  CANCELLED
+}
+
+enum CheckBillReconciliationStatus {
+  MATCHED
+  UNMATCHED
+  EXCEPTION
+  RESOLVED
+}
+
+enum CheckBillApprovalWorkflowType {
+  CREATION
+  COLLECTION
+  DISCOUNT
+  PROTEST
+}
+
+enum CheckBillApprovalStepStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  DELEGATED
 }
 
 enum RiskStatus {
@@ -2098,6 +2265,9 @@ model CheckBillJournal {
   journalNo   String      @map("journal_no")
   type        JournalType @map("type")
   date        DateTime    @default(now()) @map("date")
+  /// Muhasebe kayıt tarihi (işlem tarihinden farklı olabilir)
+  accountingDate DateTime? @map("accounting_date")
+  fiscalPeriodId String?   @map("fiscal_period_id")
   accountId   String?     @map("account_id")
   notes       String?     @map("notes")
   tenantId    String?
@@ -2106,11 +2276,19 @@ model CheckBillJournal {
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
   deletedAt   DateTime?   @map("deleted_at")
+  glJournalId String?     @map("gl_journal_id")
+  totalAmount Decimal?    @map("total_amount") @db.Decimal(15, 2)
+  totalCount  Int?        @map("total_count")
+  /// Bordro muhasebe/posta durumu (DRAFT | POSTED | CANCELLED)
+  journalStatus CheckBillJournalPostingStatus? @map("status")
+  approvedById  String?   @map("approved_by_id")
+  approvedAt    DateTime? @map("approved_at")
 
   bankAccountId String?                @map("bank_account_id")
   bankAccount   BankAccount?           @relation(fields: [bankAccountId], references: [id])
   account       Account?               @relation(fields: [accountId], references: [id])
   createdBy     User?                  @relation("CheckBillJournalCreatedBy", fields: [createdById], references: [id])
+  approvedBy    User?                  @relation("CheckBillJournalApprovedBy", fields: [approvedById], references: [id])
   tenant        Tenant?                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   cashbox       Cashbox?               @relation("CheckBillJournalCashbox", fields: [cashboxId], references: [id])
   checkBills    CheckBill[]            @relation("CheckBillLastJournal")
@@ -2118,8 +2296,12 @@ model CheckBillJournal {
   endorsements  CheckBillEndorsement[]
   collections   CheckBillCollection[]
   logs          CheckBillLog[]
+  glEntries     CheckBillGlEntry[]
+  approvalWorkflows CheckBillApprovalWorkflow[]
 
   @@unique([tenantId, journalNo])
+  @@index([tenantId, journalStatus])
+  @@index([tenantId, date])
   @@map("check_bill_journals")
 }
 
@@ -2128,6 +2310,8 @@ model CheckBillJournalItem {
   journalId   String   @map("journal_id")
   checkBillId String   @map("check_bill_id")
   tenantId    String?
+  lineAmount  Decimal? @map("line_amount") @db.Decimal(15, 2)
+  lineNote    String?  @map("line_note")
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -2149,32 +2333,62 @@ model CheckBill {
   accountId           String                 @map("account_id")
   amount              Decimal                @map("amount") @db.Decimal(15, 2)
   remainingAmount     Decimal                @default(0) @map("remaining_amount") @db.Decimal(15, 2)
+  currency            String?                @map("currency") @db.Char(3)
+  exchangeRate        Decimal?               @map("exchange_rate") @db.Decimal(15, 6)
+  amountTRY           Decimal?               @map("amount_try") @db.Decimal(15, 2)
   dueDate             DateTime               @map("due_date")
+  issueDate           DateTime?              @map("issue_date")
+  presentationDate    DateTime?              @map("presentation_date")
   bank                String?                @map("bank")
+  bankCode            String?                @map("bank_code")
   branch              String?                @map("branch")
+  branchCode          String?                @map("branch_code")
   accountNo           String?                @map("account_no")
+  iban                String?                @map("iban") @db.VarChar(34)
   checkNo             String?                @map("check_no")
   serialNo            String?                @map("serial_no")
+  micrLine            String?                @map("micr_line")
+  drawerName          String?                @map("drawer_name")
+  drawerTaxNo         String?                @map("drawer_tax_no")
+  payeeName           String?                @map("payee_name")
   status              CheckBillStatus?       @map("status")
+  riskScore           Int?                   @map("risk_score")
   collectionDate      DateTime?              @map("collection_date")
   collectionCashboxId String?                @map("collection_cashbox_id")
   isEndorsed          Boolean                @default(false) @map("is_endorsed")
   endorsementDate     DateTime?              @map("endorsement_date")
   endorsedTo          String?                @map("endorsed_to")
+  isProtested         Boolean                @default(false) @map("is_protested")
+  protestedAt         DateTime?              @map("protested_at")
+  protestReason       String?                @map("protest_reason")
+  legalFollowupStarted Boolean?              @default(false) @map("legal_followup_started")
+  legalFollowupDate   DateTime?              @map("legal_followup_date")
+  glEntryId           String?                @map("gl_entry_id")
+  isReconciled        Boolean?               @default(false) @map("is_reconciled")
+  reconciledAt        DateTime?              @map("reconciled_at")
+  taxWithholdingRate  Decimal?               @map("tax_withholding_rate") @db.Decimal(5, 2)
+  taxWithholdingAmount Decimal?              @map("tax_withholding_amount") @db.Decimal(15, 2)
+  vatRate             Decimal?               @map("vat_rate") @db.Decimal(5, 2)
+  vatAmount           Decimal?               @map("vat_amount") @db.Decimal(15, 2)
   notes               String?                @map("notes")
+  internalRef         String?                @map("internal_ref")
+  externalRef         String?                @map("external_ref")
+  attachmentUrls      Json?                  @map("attachment_urls")
+  tags                Json?
   createdBy           String?                @map("created_by")
   updatedBy           String?                @map("updated_by")
+  approvedBy          String?                @map("approved_by")
+  approvedAt          DateTime?              @map("approved_at")
   deletedAt           DateTime?              @map("deleted_at")
   deletedBy           String?                @map("deleted_by")
   currentHolderId     String?                @map("current_holder_id")
-  isProtested         Boolean                @default(false) @map("is_protested")
-  protestedAt         DateTime?              @map("protested_at")
   createdAt           DateTime               @default(now())
   updatedAt           DateTime               @updatedAt
   logs                CheckBillLog[]
   account             Account                @relation(fields: [accountId], references: [id])
   createdByUser       User?                  @relation("CheckBillCreatedBy", fields: [createdBy], references: [id])
   deletedByUser       User?                  @relation("CheckBillDeletedBy", fields: [deletedBy], references: [id])
+  approvedByUser      User?                  @relation("CheckBillApprovedBy", fields: [approvedBy], references: [id])
   collectionCashbox   Cashbox?               @relation(fields: [collectionCashboxId], references: [id])
   tenant              Tenant?                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   updatedByUser       User?                  @relation("CheckBillUpdatedBy", fields: [updatedBy], references: [id])
@@ -2185,6 +2399,13 @@ model CheckBill {
   endorsements        CheckBillEndorsement[]
   accountMovements    AccountMovement[]
   collections         CheckBillCollection[]
+  glEntries           CheckBillGlEntry[]
+  reminders           CheckBillReminder[]
+  protestTrackings    CheckBillProtestTracking[]
+  bankSubmissions     CheckBillBankSubmission[]
+  discountings        CheckBillDiscounting[]
+  reconciliations     CheckBillReconciliation[]
+  approvalWorkflows   CheckBillApprovalWorkflow[]
 
   @@index([tenantId])
   @@index([tenantId, dueDate])
@@ -2193,6 +2414,8 @@ model CheckBill {
   @@index([status])
   @@index([type])
   @@index([portfolioType])
+  @@index([tenantId, status])
+  @@index([tenantId, currency])
   @@map("checks_bills")
 }
 
@@ -2239,7 +2462,8 @@ model CheckBillLog {
   checkBillId   String           @map("check_bill_id")
   userId        String?          @map("user_id")
   actionType    LogAction        @map("action_type")
-  changes       String?          @map("changes")
+  /// Alan bazlı before/after (JSONB)
+  changes       Json?            @map("changes")
   ipAddress     String?          @map("ip_address")
   userAgent     String?          @map("user_agent")
   fromStatus    CheckBillStatus? @map("from_status")
@@ -2247,6 +2471,10 @@ model CheckBillLog {
   journalId     String?          @map("journal_id")
   performedById String?          @map("performed_by_id")
   notes         String?
+  sessionId     String?          @map("session_id")
+  requestId     String?          @map("request_id")
+  duration      Int?             @map("duration")
+  isSystem      Boolean?         @default(false) @map("is_system")
   createdAt     DateTime         @default(now())
   tenantId      String?
 
@@ -2258,18 +2486,25 @@ model CheckBillLog {
   @@index([checkBillId])
   @@index([userId])
   @@index([tenantId])
+  @@index([tenantId, createdAt])
   @@map("check_bill_logs")
 }
 
 model CheckBillEndorsement {
-  id            String   @id @default(uuid())
-  tenantId      String?
-  checkBillId   String   @map("check_bill_id")
-  sequence      Int
-  fromAccountId String   @map("from_account_id")
-  toAccountId   String   @map("to_account_id")
-  endorsedAt    DateTime @map("endorsed_at")
-  journalId     String   @map("journal_id")
+  id                String                   @id @default(uuid())
+  tenantId          String?
+  checkBillId       String                   @map("check_bill_id")
+  sequence          Int
+  fromAccountId     String                   @map("from_account_id")
+  toAccountId       String                   @map("to_account_id")
+  endorsedAt        DateTime                 @map("endorsed_at")
+  journalId         String                   @map("journal_id")
+  endorsementType   CheckBillEndorsementType? @map("endorsement_type")
+  endorsedAmount    Decimal?                 @map("endorsed_amount") @db.Decimal(15, 2)
+  endorsementReason String?                  @map("endorsement_reason")
+  isReturned        Boolean?                 @default(false) @map("is_returned")
+  returnedAt        DateTime?                @map("returned_at")
+  createdAt         DateTime                 @default(now()) @map("created_at")
 
   checkBill   CheckBill        @relation(fields: [checkBillId], references: [id])
   fromAccount Account          @relation("EndorsementFrom", fields: [fromAccountId], references: [id])
@@ -2283,16 +2518,24 @@ model CheckBillEndorsement {
 }
 
 model CheckBillCollection {
-  id              String   @id @default(uuid())
-  tenantId        String?
-  checkBillId     String   @map("check_bill_id")
-  collectedAmount Decimal  @map("collected_amount") @db.Decimal(15, 2)
-  collectionDate  DateTime @map("collection_date")
-  cashboxId       String?  @map("cashbox_id")
-  bankAccountId   String?  @map("bank_account_id")
-  journalId       String   @map("journal_id")
-  createdById     String?  @map("created_by_id")
-  createdAt       DateTime @default(now())
+  id                   String                   @id @default(uuid())
+  tenantId             String?
+  checkBillId          String                   @map("check_bill_id")
+  collectedAmount      Decimal                  @map("collected_amount") @db.Decimal(15, 2)
+  collectionDate       DateTime                 @map("collection_date")
+  collectionMethod       CheckBillCollectionMethod? @map("collection_method")
+  cashboxId            String?                  @map("cashbox_id")
+  bankAccountId        String?                  @map("bank_account_id")
+  bankTransactionRef   String?                  @map("bank_transaction_ref")
+  exchangeRate         Decimal?                 @map("exchange_rate") @db.Decimal(15, 6)
+  amountTRY            Decimal?                 @map("amount_try") @db.Decimal(15, 2)
+  taxWithholdingAmount Decimal?                 @map("tax_withholding_amount") @db.Decimal(15, 2)
+  netAmount            Decimal?                 @map("net_amount") @db.Decimal(15, 2)
+  journalId            String                   @map("journal_id")
+  glEntryId            String?                  @map("gl_entry_id")
+  createdById          String?                  @map("created_by_id")
+  createdAt            DateTime                 @default(now())
+  updatedAt            DateTime                 @updatedAt @map("updated_at")
 
   checkBill   CheckBill        @relation(fields: [checkBillId], references: [id])
   cashbox     Cashbox?         @relation("CheckBillCollectionCashbox", fields: [cashboxId], references: [id])
@@ -2304,6 +2547,240 @@ model CheckBillCollection {
   @@index([checkBillId])
   @@index([tenantId])
   @@map("check_bill_collections")
+}
+
+/// Doc §3.1 — çek/senet GL yevmiye satırları
+model CheckBillGlEntry {
+  id                 String                 @id @default(uuid())
+  tenantId           String                 @map("tenant_id")
+  checkBillId        String                 @map("check_bill_id")
+  journalId          String?                @map("journal_id")
+  glJournalNo        String                 @map("gl_journal_no")
+  accountingDate     DateTime               @map("accounting_date")
+  fiscalYear         Int                    @map("fiscal_year")
+  fiscalPeriod       Int                    @map("fiscal_period")
+  debitAccountCode   String                 @map("debit_account_code")
+  creditAccountCode  String                 @map("credit_account_code")
+  debitAmount        Decimal                @map("debit_amount") @db.Decimal(15, 2)
+  creditAmount       Decimal                @map("credit_amount") @db.Decimal(15, 2)
+  currency           String                 @map("currency") @db.Char(3)
+  exchangeRate       Decimal?               @map("exchange_rate") @db.Decimal(15, 6)
+  description        String
+  entryType          CheckBillGlEntryType   @map("entry_type")
+  status             CheckBillGlEntryStatus
+  reversalOfId       String?                @map("reversal_of_id")
+  postedById         String?                @map("posted_by_id")
+  postedAt           DateTime?              @map("posted_at")
+  createdAt          DateTime               @default(now()) @map("created_at")
+
+  tenant     Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  checkBill  CheckBill         @relation(fields: [checkBillId], references: [id], onDelete: Cascade)
+  journal    CheckBillJournal? @relation(fields: [journalId], references: [id])
+  reversalOf CheckBillGlEntry? @relation("GlEntryReversal", fields: [reversalOfId], references: [id])
+  reversals  CheckBillGlEntry[] @relation("GlEntryReversal")
+  postedBy   User?             @relation("CheckBillGlEntryPostedBy", fields: [postedById], references: [id])
+
+  @@index([tenantId])
+  @@index([tenantId, checkBillId])
+  @@index([tenantId, journalId])
+  @@index([tenantId, status])
+  @@map("check_bill_gl_entries")
+}
+
+/// Doc §3.2 — cari bazlı risk limitleri
+model CheckBillRiskLimit {
+  id                String               @id @default(uuid())
+  tenantId          String               @map("tenant_id")
+  accountId         String               @map("account_id")
+  limitType         CheckBillRiskLimitType @map("limit_type")
+  limitAmount       Decimal?             @map("limit_amount") @db.Decimal(15, 2)
+  limitDays         Int?                 @map("limit_days")
+  currentExposure   Decimal              @map("current_exposure") @db.Decimal(15, 2)
+  utilizationRate   Decimal              @map("utilization_rate") @db.Decimal(5, 2)
+  riskRating        CheckBillRiskRating? @map("risk_rating")
+  alertThreshold    Decimal?             @map("alert_threshold") @db.Decimal(5, 2)
+  isActive          Boolean              @default(true) @map("is_active")
+  validFrom         DateTime             @map("valid_from")
+  validUntil        DateTime?            @map("valid_until")
+  approvedById      String?              @map("approved_by_id")
+  notes             String?
+  createdAt         DateTime             @default(now()) @map("created_at")
+  updatedAt         DateTime             @updatedAt @map("updated_at")
+
+  tenant     Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  account    Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  approvedBy User?   @relation("CheckBillRiskLimitApprovedBy", fields: [approvedById], references: [id])
+
+  @@index([tenantId])
+  @@index([tenantId, accountId])
+  @@map("check_bill_risk_limits")
+}
+
+/// Doc §3.3 — hatırlatmalar
+model CheckBillReminder {
+  id                String                        @id @default(uuid())
+  tenantId          String                        @map("tenant_id")
+  checkBillId       String                        @map("check_bill_id")
+  reminderType      CheckBillReminderType         @map("reminder_type")
+  triggerDaysBefore Int                           @map("trigger_days_before")
+  scheduledAt       DateTime                      @map("scheduled_at")
+  sentAt            DateTime?                     @map("sent_at")
+  status            CheckBillReminderDeliveryStatus @map("status")
+  channel           CheckBillReminderChannel      @map("channel")
+  recipients        Json                          @map("recipients")
+  templateId        String?                       @map("template_id")
+  retryCount        Int?                          @default(0) @map("retry_count")
+  errorMessage      String?                       @map("error_message")
+  createdAt         DateTime                      @default(now()) @map("created_at")
+
+  tenant    Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  checkBill CheckBill @relation(fields: [checkBillId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([tenantId, checkBillId])
+  @@index([tenantId, scheduledAt])
+  @@map("check_bill_reminders")
+}
+
+/// Doc §3.4 — protesto & hukuki takip
+model CheckBillProtestTracking {
+  id                   String                 @id @default(uuid())
+  tenantId             String                 @map("tenant_id")
+  checkBillId          String                 @map("check_bill_id")
+  protestDate          DateTime               @map("protest_date")
+  protestReason        String                 @map("protest_reason")
+  protestingNotaryId   String?                @map("protesting_notary_id")
+  protestNo            String?                @map("protest_no")
+  legalStatus          CheckBillLegalCaseStatus @map("legal_status")
+  lawsuitDate          DateTime?              @map("lawsuit_date")
+  lawsuitNo            String?                @map("lawsuit_no")
+  courtId              String?                @map("court_id")
+  judgmentDate         DateTime?              @map("judgment_date")
+  judgmentAmount       Decimal?               @map("judgment_amount") @db.Decimal(15, 2)
+  executionDate        DateTime?              @map("execution_date")
+  executionNo          String?                @map("execution_no")
+  collectedViaLegal    Decimal?               @map("collected_via_legal") @db.Decimal(15, 2)
+  lawyerId             String?                @map("lawyer_id")
+  notes                String?
+  createdAt            DateTime               @default(now()) @map("created_at")
+  updatedAt            DateTime               @updatedAt @map("updated_at")
+
+  tenant    Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  checkBill CheckBill @relation(fields: [checkBillId], references: [id], onDelete: Cascade)
+  lawyer    User?     @relation("CheckBillProtestLawyer", fields: [lawyerId], references: [id])
+
+  @@index([tenantId])
+  @@index([tenantId, checkBillId])
+  @@map("check_bill_protest_tracking")
+}
+
+/// Doc §3.5 — banka gönderim
+model CheckBillBankSubmission {
+  id               String                      @id @default(uuid())
+  tenantId         String                      @map("tenant_id")
+  checkBillId      String                      @map("check_bill_id")
+  bankAccountId    String                      @map("bank_account_id")
+  submissionType   CheckBillBankSubmissionType @map("submission_type")
+  submittedAt      DateTime                    @map("submitted_at")
+  submissionRef    String?                     @map("submission_ref")
+  expectedDate     DateTime?                   @map("expected_date")
+  actualDate       DateTime?                   @map("actual_date")
+  status           CheckBillBankSubmissionStatus
+  bankFee          Decimal?                    @map("bank_fee") @db.Decimal(15, 2)
+  rejectionReason  String?                     @map("rejection_reason")
+  createdById      String                      @map("created_by_id")
+  createdAt        DateTime                    @default(now()) @map("created_at")
+  updatedAt        DateTime                    @updatedAt @map("updated_at")
+
+  tenant      Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  checkBill   CheckBill   @relation(fields: [checkBillId], references: [id], onDelete: Cascade)
+  bankAccount BankAccount @relation(fields: [bankAccountId], references: [id])
+  createdBy   User        @relation("CheckBillBankSubmissionCreatedBy", fields: [createdById], references: [id])
+
+  @@index([tenantId])
+  @@index([tenantId, checkBillId])
+  @@map("check_bill_bank_submissions")
+}
+
+/// Doc §3.6 — iskonto
+model CheckBillDiscounting {
+  id                 String                   @id @default(uuid())
+  tenantId           String                   @map("tenant_id")
+  checkBillId        String                   @map("check_bill_id")
+  bankAccountId      String                   @map("bank_account_id")
+  faceValue          Decimal                  @map("face_value") @db.Decimal(15, 2)
+  discountRate       Decimal                  @map("discount_rate") @db.Decimal(7, 4)
+  discountAmount     Decimal                  @map("discount_amount") @db.Decimal(15, 2)
+  bankingCommission  Decimal?                 @map("banking_commission") @db.Decimal(15, 2)
+  netProceeds        Decimal                  @map("net_proceeds") @db.Decimal(15, 2)
+  discountDate       DateTime                 @map("discount_date")
+  maturityDate       DateTime                 @map("maturity_date")
+  status             CheckBillDiscountingStatus
+  glEntryId          String?                  @map("gl_entry_id")
+  createdAt          DateTime                 @default(now()) @map("created_at")
+
+  tenant      Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  checkBill   CheckBill   @relation(fields: [checkBillId], references: [id], onDelete: Cascade)
+  bankAccount BankAccount @relation(fields: [bankAccountId], references: [id])
+
+  @@index([tenantId])
+  @@index([tenantId, checkBillId])
+  @@map("check_bill_discounting")
+}
+
+/// Doc §3.7 — mutabakat
+model CheckBillReconciliation {
+  id                   String                       @id @default(uuid())
+  tenantId             String                       @map("tenant_id")
+  checkBillId          String                       @map("check_bill_id")
+  bankAccountId        String                       @map("bank_account_id")
+  reconciliationDate   DateTime                     @map("reconciliation_date")
+  bankAmount           Decimal                      @map("bank_amount") @db.Decimal(15, 2)
+  systemAmount         Decimal                      @map("system_amount") @db.Decimal(15, 2)
+  difference           Decimal                      @map("difference") @db.Decimal(15, 2)
+  status               CheckBillReconciliationStatus
+  bankReference        String?                      @map("bank_reference")
+  resolvedById         String?                      @map("resolved_by_id")
+  resolvedAt           DateTime?                    @map("resolved_at")
+  notes                String?
+  createdAt            DateTime                     @default(now()) @map("created_at")
+
+  tenant      Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  checkBill   CheckBill   @relation(fields: [checkBillId], references: [id], onDelete: Cascade)
+  bankAccount BankAccount @relation(fields: [bankAccountId], references: [id])
+  resolvedBy  User?       @relation("CheckBillReconciliationResolvedBy", fields: [resolvedById], references: [id])
+
+  @@index([tenantId])
+  @@index([tenantId, checkBillId])
+  @@map("check_bill_reconciliation")
+}
+
+/// Doc §3.8 — onay akışı
+model CheckBillApprovalWorkflow {
+  id               String                        @id @default(uuid())
+  tenantId         String                        @map("tenant_id")
+  checkBillId      String?                       @map("check_bill_id")
+  journalId        String?                       @map("journal_id")
+  workflowType     CheckBillApprovalWorkflowType @map("workflow_type")
+  step             Int
+  approverId       String                        @map("approver_id")
+  status           CheckBillApprovalStepStatus
+  actionAt         DateTime?                     @map("action_at")
+  comments         String?
+  delegatedToId    String?                       @map("delegated_to_id")
+  amountThreshold  Decimal?                      @map("amount_threshold") @db.Decimal(15, 2)
+  createdAt        DateTime                      @default(now()) @map("created_at")
+
+  tenant      Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  checkBill   CheckBill?        @relation(fields: [checkBillId], references: [id], onDelete: Cascade)
+  journal     CheckBillJournal? @relation(fields: [journalId], references: [id], onDelete: Cascade)
+  approver    User              @relation("CheckBillApprovalApprover", fields: [approverId], references: [id])
+  delegatedTo User?             @relation("CheckBillApprovalDelegated", fields: [delegatedToId], references: [id])
+
+  @@index([tenantId])
+  @@index([tenantId, checkBillId])
+  @@index([tenantId, journalId])
+  @@map("check_bill_approval_workflows")
 }
 
 model AccountTransaction {
@@ -2561,6 +3038,10 @@ model ProcurementOrderItem {
   vatRate           Int              @map("vat_rate")
   vatAmount         Decimal          @map("vat_amount") @db.Decimal(10, 2)
   amount            Decimal          @map("amount") @db.Decimal(10, 2)
+  discountRate      Decimal?         @default(0) @map("discount_rate") @db.Decimal(10, 2)
+  discountAmount    Decimal?         @default(0) @map("discount_amount") @db.Decimal(10, 2)
+  discountType      String?          @default("pct") @map("discount_type")
+  unit              String?          @map("unit")
   createdAt         DateTime         @default(now())
   order             ProcurementOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
   product           Product          @relation("ProcurementOrderItemProduct", fields: [productId], references: [id])
@@ -3450,6 +3931,7 @@ enum InvoiceType {
 
 enum InvoiceStatus {
   DRAFT
+  PENDING
   OPEN
   CLOSED
   PARTIALLY_PAID
@@ -3489,6 +3971,7 @@ enum SalesOrderStatus {
   PREPARING
   PREPARED
   SHIPPED
+  COMPLETED
   PARTIALLY_SHIPPED
   INVOICED
   CANCELLED
@@ -3556,7 +4039,8 @@ enum PortfolioType {
 enum CheckBillStatus {
   IN_PORTFOLIO
   UNPAID
-  GIVEN_TO_BANK
+  /// Doc v2: bankaya tevdi (eski: GIVEN_TO_BANK)
+  SENT_TO_BANK
   COLLECTED
   PAID
   ENDORSED
@@ -3566,6 +4050,14 @@ enum CheckBillStatus {
   IN_BANK_GUARANTEE
   PARTIAL_PAID
   PROTESTED
+  DISCOUNTED
+  LEGAL_FOLLOWUP
+  WRITTEN_OFF
+  CANCELLED
+  /// İskonto sonrası rücu / iade süreci
+  RECOURSE
+  /// Müşteriye iade / portföyden çıkış
+  GIVEN_TO_CUSTOMER
 }
 
 enum Gender {
@@ -3619,7 +4111,14 @@ enum DeliveryNoteSourceType {
 
 enum DeliveryNoteStatus {
   NOT_INVOICED
+  PARTIALLY_INVOICED
   INVOICED
+  CANCELLED
+  // Backward-compat aliases (mapped to same DB values via migration)
+  TESLIM_EDILDI    @map("TESLIM_EDILDI")
+  BEKLEMEDE        @map("BEKLEMEDE")
+  FATURAYA_BAGLANDI @map("FATURAYA_BAGLANDI")
+  IPTAL            @map("IPTAL")
 }
 
 enum OrderStatus {
@@ -3645,6 +4144,8 @@ enum SimpleOrderStatus {
 
 enum PurchaseOrderLocalStatus {
   PENDING
+  PARTIAL
+  COMPLETED
   PREPARING
   PREPARED
   SHIPPED
@@ -4623,6 +5124,7 @@ model B2BTenantConfig {
   erpAdapterType      B2BErpAdapter
   erpConnectionString String?
   lastSyncedAt        DateTime?
+  lastSyncRequestedAt DateTime?
   syncIntervalMinutes Int                  @default(60)
   orderApprovalMode   B2BOrderApprovalMode @default(MANUAL)
   isActive            Boolean              @default(true)
@@ -4644,6 +5146,20 @@ model B2BDomain {
 
   @@index([tenantId])
   @@map("b2b_domains")
+}
+
+model B2BSyncLoop {
+  id           String      @id @default(cuid())
+  tenantId     String      @map("tenant_id")
+  syncType     B2BSyncType @map("sync_type")
+  lastRunAt    DateTime?   @map("last_run_at")
+  lastUserId   String?     @map("last_user_id")
+  
+  tenant       Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  lastUser     User?       @relation("UserLastSyncLoops", fields: [lastUserId], references: [id], onDelete: SetNull)
+
+  @@unique([tenantId, syncType])
+  @@map("b2b_sync_loops")
 }
 
 model B2BProduct {
@@ -4670,6 +5186,7 @@ model B2BProduct {
   stocks           B2BStock[]
   cartItems        B2BCartItem[]
   orderItems       B2BOrderItem[]
+  product          Product?       @relation(fields: [erpProductId], references: [id])
 
   @@unique([tenantId, erpProductId])
   @@unique([tenantId, stockCode])
@@ -4684,6 +5201,7 @@ model B2BStock {
   warehouseId   String
   warehouseName String
   isAvailable   Boolean    @default(true)
+  quantity      Decimal    @default(0) @db.Decimal(12, 2)
   displayOrder  Int        @default(0)
   updatedAt     DateTime   @updatedAt
   tenant        Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
@@ -4711,13 +5229,13 @@ model B2BWarehouseConfig {
 }
 
 model B2BCustomerClass {
-  id           String        @id @default(cuid())
+  id           String   @id @default(cuid())
   tenantId     String
   name         String
-  discountRate Decimal       @default(0) @db.Decimal(5, 2)
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
-  tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  discountRate Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  tenant       Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   customers    B2BCustomer[]
 
   @@unique([tenantId, name])
@@ -4725,16 +5243,31 @@ model B2BCustomerClass {
   @@map("b2b_customer_classes")
 }
 
+model B2BDiscountGroup {
+  id        String        @id @default(cuid())
+  tenantId  String
+  name      String
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+  tenant   Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  customers B2BCustomer[]
+
+  @@unique([tenantId, name])
+  @@index([tenantId])
+  @@map("b2b_discount_groups")
+}
+
 model B2BCustomer {
   id              String    @id @default(cuid())
   tenantId        String
-  erpNum          Int?
+  erpNum          String?
   erpAccountId    String
   name            String
   email           String
   passwordHash    String
   isActive        Boolean   @default(true)
   customerClassId String?
+  discountGroupId String?
   vatDays         Int       @default(30)
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
@@ -4745,11 +5278,10 @@ model B2BCustomer {
   canUseVirtualPos Boolean @default(true)
   blockOrderOnRisk Boolean @default(false)
   customerGrade    String?
-  discountGroupId  String?
 
-  tenant           Tenant                   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  customerClass    B2BCustomerClass?        @relation(fields: [customerClassId], references: [id], onDelete: SetNull)
-  discountGroup    B2BDiscount?             @relation(fields: [discountGroupId], references: [id], onDelete: SetNull)
+  tenant           Tenant                    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  customerClass    B2BCustomerClass?         @relation(fields: [customerClassId], references: [id], onDelete: SetNull)
+  discountGroup    B2BDiscountGroup?         @relation(fields: [discountGroupId], references: [id], onDelete: SetNull)
   salespersonLinks B2BSalespersonCustomer[]
   carts            B2BCart[]
   orders           B2BOrder[]
@@ -4806,7 +5338,6 @@ model B2BDiscount {
   createdAt    DateTime        @default(now())
   updatedAt    DateTime        @updatedAt
   tenant       Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  customers    B2BCustomer[]
 
   @@index([tenantId, isActive])
   @@map("b2b_discounts")
@@ -5032,6 +5563,7 @@ enum B2BMovementType {
 
 enum B2BSyncType {
   PRODUCTS
+  PRICES
   STOCK
   ACCOUNT_MOVEMENTS
   FULL

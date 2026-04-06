@@ -1,14 +1,30 @@
 'use client';
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import {
   DataGrid,
   GridColDef,
   GridActionsCellItem,
   GridRowParams,
 } from '@mui/x-data-grid';
-import { Visibility, Download, Receipt, PictureAsPdf } from '@mui/icons-material';
-import { Box, IconButton, Tooltip, Chip } from '@mui/material';
+import {
+  Visibility as ViewIcon,
+  Download as DownloadIcon,
+  Receipt as ReceiptIcon,
+  PictureAsPdf as PdfIcon,
+  Code as CodeIcon,
+  Business as BusinessIcon,
+  Event as DateIcon
+} from '@mui/icons-material';
+import {
+  Box,
+  IconButton,
+  Tooltip,
+  Chip,
+  Typography,
+  alpha,
+  useTheme
+} from '@mui/material';
 import { useQuery } from '@tanstack/react-query';
 import axios from '@/lib/axios';
 import XmlModal from './XmlModal';
@@ -36,11 +52,11 @@ interface IncomingGridProps {
 }
 
 export default function IncomingGrid({ onViewXml, startDate, endDate }: IncomingGridProps) {
-  const [selectedDocument, setSelectedDocument] = React.useState<IncomingDocument | null>(null);
-  const [xmlModalOpen, setXmlModalOpen] = React.useState(false);
-  const [invoiceModalOpen, setInvoiceModalOpen] = React.useState(false);
+  const theme = useTheme();
+  const [selectedDocument, setSelectedDocument] = useState<IncomingDocument | null>(null);
+  const [xmlModalOpen, setXmlModalOpen] = useState(false);
+  const [invoiceModalOpen, setInvoiceModalOpen] = useState(false);
 
-  // Tarih formatını ISO 8601 string'e çevir (YYYY-MM-DD)
   const formatDateForApi = (date: Date | null): string | undefined => {
     if (!date) return undefined;
     const year = date.getFullYear();
@@ -49,84 +65,56 @@ export default function IncomingGrid({ onViewXml, startDate, endDate }: Incoming
     return `${year}-${month}-${day}`;
   };
 
-  // React Query ile veri çekme
-  // Proxy üzerinden backend'e istek atıyoruz (Authorization header otomatik eklenir)
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['hizli-incoming', startDate, endDate],
     queryFn: async () => {
-      // Tarih parametrelerini query string'e ekle
       const params = new URLSearchParams();
-      if (startDate) {
-        params.append('startDate', formatDateForApi(startDate) || '');
-      }
-      if (endDate) {
-        params.append('endDate', formatDateForApi(endDate) || '');
-      }
+      if (startDate) params.append('startDate', formatDateForApi(startDate) || '');
+      if (endDate) params.append('endDate', formatDateForApi(endDate) || '');
 
       const queryString = params.toString();
       const url = `/hizli/incoming${queryString ? `?${queryString}` : ''}`;
-
-      // Proxy kullanarak backend'e istek at (axios instance Authorization header ekler)
       const response = await axios.get(url);
 
-      console.log('[IncomingGrid] Response:', response.status, response.data);
-
-      // Backend response: { success: true, documents: [...], count: ... }
       if (!response.data.success) {
         throw new Error(response.data.message || 'E-faturalar getirilemedi');
       }
-
       return response.data.documents || [];
     },
-    refetchInterval: 30000, // 30 saniyede bir yenile
-    retry: 2, // 2 kez dene
-    retryDelay: 1000, // 1 saniye bekle
+    refetchInterval: 30000,
+    retry: 2,
+    retryDelay: 1000,
   });
 
-  // Manuel yenileme için event listener
-  React.useEffect(() => {
+  useEffect(() => {
     const handleRefresh = (event: Event) => {
-      // CustomEvent'ten tarih bilgilerini al (varsa)
-      const customEvent = event as CustomEvent;
-      if (customEvent.detail?.startDate !== undefined || customEvent.detail?.endDate !== undefined) {
-        // Tarih değişti, query otomatik yenilenecek (queryKey'de startDate/endDate var)
-        refetch();
-      } else {
-        // Sadece yenileme isteği
-        refetch();
-      }
+      refetch();
     };
-
     window.addEventListener('refresh-incoming-grid', handleRefresh);
-    return () => {
-      window.removeEventListener('refresh-incoming-grid', handleRefresh);
-    };
-  }, [refetch, startDate, endDate]);
+    return () => window.removeEventListener('refresh-incoming-grid', handleRefresh);
+  }, [refetch]);
 
   const documents: IncomingDocument[] = useMemo(() => {
     if (!data || !Array.isArray(data)) return [];
 
     return data.map((doc: any, index: number) => {
-      // SOAP response'undan gelen belgeler için field mapping
-      // UUID = ETTN (Electronic Tax Transaction Number)
       const uuid = doc.UUID || doc.uuid || '';
       const documentId = doc.DocumentId || doc.documentId || '';
       const issueDate = doc.IssueDate || doc.issueDate || null;
       const createdDate = doc.CreatedDate || doc.createdDate || null;
       const targetTitle = doc.TargetTitle || doc.targetTitle || '';
       const targetIdentifier = doc.TargetIdentifier || doc.targetIdentifier || '';
-
       const payableAmount = doc.PayableAmount || doc.payableAmount || null;
       const status = doc.Status || doc.status || null;
       const statusExp = doc.StatusExp || doc.statusExp || null;
 
       return {
         id: doc.id || index,
-        ettn: uuid, // UUID = ETTN
-        uuid: uuid, // UUID'yi ayrıca sakla
-        senderVkn: targetIdentifier, // TargetIdentifier = Gönderen VKN
-        senderTitle: targetTitle, // TargetTitle = Gönderen Ünvan
-        invoiceNo: documentId, // DocumentId = Fatura No
+        ettn: uuid,
+        uuid: uuid,
+        senderVkn: targetIdentifier,
+        senderTitle: targetTitle,
+        invoiceNo: documentId,
         invoiceDate: issueDate ? (typeof issueDate === 'string' ? issueDate : new Date(issueDate).toISOString()) : undefined,
         rawXml: doc.rawXml || doc.RawXml || doc.xml || doc.XML || null,
         createdAt: createdDate ? (typeof createdDate === 'string' ? createdDate : new Date(createdDate).toISOString()) : undefined,
@@ -137,20 +125,8 @@ export default function IncomingGrid({ onViewXml, startDate, endDate }: Incoming
     });
   }, [data]);
 
-  const handleViewXml = (document: IncomingDocument) => {
-    setSelectedDocument(document);
-    setXmlModalOpen(true);
-    if (onViewXml && document.rawXml) {
-      onViewXml(document.rawXml, document);
-    }
-  };
-
   const handleDownloadXml = async (doc: IncomingDocument) => {
-    if (!doc.rawXml) {
-      alert('XML içeriği bulunamadı');
-      return;
-    }
-
+    if (!doc.rawXml) return;
     const blob = new Blob([doc.rawXml], { type: 'application/xml' });
     const url = window.URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -163,48 +139,16 @@ export default function IncomingGrid({ onViewXml, startDate, endDate }: Incoming
   };
 
   const handleDownloadPdf = async (docInfo: IncomingDocument) => {
-    // Client-side kontrolü - SSR sırasında çalışmamalı
-    if (typeof window === 'undefined' || typeof document === 'undefined') {
-      // #region agent log
-      fetch('http://localhost:7244/ingest/fde0823c-7edc-4232-a192-3b97a49bcd3d', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'IncomingGrid.tsx:163', message: 'handleDownloadPdf called on server side', data: {}, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run7', hypothesisId: 'I' }) }).catch(() => { });
-      // #endregion
-      return;
-    }
-
-    if (!docInfo.uuid && !docInfo.ettn) {
-      // #region agent log
-      fetch('http://localhost:7244/ingest/fde0823c-7edc-4232-a192-3b97a49bcd3d', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'IncomingGrid.tsx:168', message: 'UUID/ETTN missing for PDF download', data: { uuid: docInfo.uuid, ettn: docInfo.ettn }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run7', hypothesisId: 'I' }) }).catch(() => { });
-      // #endregion
-      alert('UUID veya ETTN bulunamadı');
-      return;
-    }
-
+    if (!docInfo.uuid && !docInfo.ettn) return;
     try {
-      // #region agent log
-      fetch('http://localhost:7244/ingest/fde0823c-7edc-4232-a192-3b97a49bcd3d', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'IncomingGrid.tsx:175', message: 'Downloading PDF', data: { uuid: docInfo.uuid, ettn: docInfo.ettn }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run7', hypothesisId: 'I' }) }).catch(() => { });
-      // #endregion
-
       const uuid = docInfo.uuid || docInfo.ettn;
-      const response = await axios.get(`/hizli/document-content?uuid=${uuid}&type=PDF`, {
-        responseType: 'json',
-      });
+      const response = await axios.get(`/hizli/document-content?uuid=${uuid}&type=PDF`);
+      if (!response.data?.content) throw new Error('PDF bulunamadı');
 
-      // #region agent log
-      fetch('http://localhost:7244/ingest/fde0823c-7edc-4232-a192-3b97a49bcd3d', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'IncomingGrid.tsx:183', message: 'PDF response received', data: { hasContent: !!response.data?.content, contentLength: response.data?.content?.length }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run7', hypothesisId: 'I' }) }).catch(() => { });
-      // #endregion
-
-      if (!response.data?.content) {
-        throw new Error('PDF içeriği bulunamadı');
-      }
-
-      // Base64 decode - PDF binary data
       const binaryString = atob(response.data.content);
       const bytes = new Uint8Array(binaryString.length);
-      for (let i = 0; i < binaryString.length; i++) {
-        bytes[i] = binaryString.charCodeAt(i);
-      }
+      for (let i = 0; i < binaryString.length; i++) bytes[i] = binaryString.charCodeAt(i);
 
-      // PDF blob oluştur ve indir
       const blob = new Blob([bytes], { type: 'application/pdf' });
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
@@ -214,201 +158,130 @@ export default function IncomingGrid({ onViewXml, startDate, endDate }: Incoming
       link.click();
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
-
-      // #region agent log
-      fetch('http://localhost:7244/ingest/fde0823c-7edc-4232-a192-3b97a49bcd3d', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'IncomingGrid.tsx:202', message: 'PDF downloaded successfully', data: { fileName: `${docInfo.invoiceNo || docInfo.ettn || 'invoice'}.pdf` }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run7', hypothesisId: 'I' }) }).catch(() => { });
-      // #endregion
-    } catch (error: any) {
-      // #region agent log
-      fetch('http://localhost:7244/ingest/fde0823c-7edc-4232-a192-3b97a49bcd3d', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'IncomingGrid.tsx:205', message: 'PDF download error', data: { error: error?.message || String(error) }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run7', hypothesisId: 'I' }) }).catch(() => { });
-      // #endregion
-      console.error('PDF indirme hatası:', error);
-      alert('PDF indirilemedi: ' + (error?.message || 'Bilinmeyen hata'));
+    } catch (error) {
+      console.error('PDF error:', error);
     }
-  };
-
-  const handleViewInvoice = (document: IncomingDocument) => {
-    setSelectedDocument(document);
-    setInvoiceModalOpen(true);
   };
 
   const columns: GridColDef[] = [
     {
-      field: 'ettn',
-      headerName: 'ETTN',
-      width: 280,
-      flex: 1,
-      renderCell: (params) => (
-        <Box
-          sx={{
-            fontFamily: 'monospace',
-            fontSize: '0.75rem',
-            wordBreak: 'break-all',
-          }}
-        >
-          {params.value || '-'}
+      field: 'invoiceNo',
+      headerName: 'Fatura Bilgisi',
+      width: 200,
+      renderCell: (params: GridRenderCellParams) => (
+        <Box>
+          <Typography variant="body2" sx={{ fontWeight: 800, color: 'primary.main' }}>
+            {params.value || 'Faturasız'}
+          </Typography>
+          <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', fontSize: '0.65rem', fontFamily: 'monospace' }}>
+            {params.row.ettn?.substring(0, 18)}...
+          </Typography>
         </Box>
       ),
     },
     {
       field: 'senderTitle',
-      headerName: 'Gönderen Ünvan',
+      headerName: 'Gönderen',
       width: 250,
       flex: 1,
-    },
-    {
-      field: 'senderVkn',
-      headerName: 'VKN',
-      width: 150,
-      renderCell: (params) => (
-        <Chip
-          label={params.value || '-'}
-          size="small"
-          sx={{ fontFamily: 'monospace' }}
-        />
-      ),
-    },
-    {
-      field: 'invoiceNo',
-      headerName: 'Fatura No',
-      width: 150,
-      renderCell: (params) => params.value || '-',
+      renderCell: (params: GridRenderCellParams) => (
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <BusinessIcon sx={{ fontSize: 16, color: 'text.disabled' }} />
+          <Box>
+            <Typography variant="body2" sx={{ fontWeight: 700, lineHeight: 1.2 }}>{params.value}</Typography>
+            <Typography variant="caption" sx={{ color: 'text.secondary' }}>VKN: {params.row.senderVkn}</Typography>
+          </Box>
+        </Box>
+      )
     },
     {
       field: 'invoiceDate',
-      headerName: 'Fatura Tarihi',
-      width: 150,
-      renderCell: (params) => {
-        if (!params.value) return '-';
-        const date = new Date(params.value);
-        return date.toLocaleDateString('tr-TR');
-      },
+      headerName: 'Tarih',
+      width: 140,
+      renderCell: (params: GridRenderCellParams) => (
+        <Box>
+          <Typography variant="body2" sx={{ fontWeight: 600 }}>{params.value ? new Date(params.value).toLocaleDateString('tr-TR') : '-'}</Typography>
+          <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block' }}>
+            Geliş: {params.row.createdAt ? new Date(params.row.createdAt).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }) : '-'}
+          </Typography>
+        </Box>
+      ),
     },
     {
-      field: 'createdAt',
-      headerName: 'Geliş Tarihi',
-      width: 150,
-      renderCell: (params) => {
-        if (!params.value) return '-';
-        const date = new Date(params.value);
-        return date.toLocaleDateString('tr-TR', {
-          day: '2-digit',
-          month: '2-digit',
-          year: 'numeric',
-          hour: '2-digit',
-          minute: '2-digit',
-        });
-      },
+      field: 'payableAmount',
+      headerName: 'Tutar',
+      width: 130,
+      align: 'right',
+      headerAlign: 'right',
+      renderCell: (params: GridRenderCellParams) => (
+        <Typography variant="body2" sx={{ fontWeight: 900, color: 'success.main' }}>
+          {params.value ? new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY' }).format(params.value) : '-'}
+        </Typography>
+      ),
     },
     {
       field: 'statusExp',
       headerName: 'Durum',
       width: 180,
-      renderCell: (params) => {
+      renderCell: (params: GridRenderCellParams) => {
         const status = params.value || params.row.statusExp;
         if (!status) return '-';
 
-        // Durum renklerini belirle
         let color: 'default' | 'primary' | 'success' | 'warning' | 'error' = 'default';
-        if (status.includes('Kabul') || status.includes('Onaylandı')) {
-          color = 'success';
-        } else if (status.includes('Bekliyor') || status.includes('Cevap')) {
-          color = 'warning';
-        } else if (status.includes('Reddedildi') || status.includes('Hatalı')) {
-          color = 'error';
-        } else if (status.includes('İptal')) {
-          color = 'error';
-        }
+        if (status.includes('Kabul') || status.includes('Onaylandı')) color = 'success';
+        else if (status.includes('Bekliyor') || status.includes('Cevap')) color = 'warning';
+        else if (status.includes('Reddedildi') || status.includes('Hatalı') || status.includes('İptal')) color = 'error';
 
         return (
           <Chip
             label={status}
             size="small"
             color={color}
-            sx={{ fontSize: '0.75rem' }}
+            sx={{ fontWeight: 800, fontSize: '0.7rem', borderRadius: 1.5 }}
           />
         );
-      },
-    },
-    {
-      field: 'payableAmount',
-      headerName: 'Tutar',
-      width: 120,
-      renderCell: (params) => {
-        if (!params.value) return '-';
-        return new Intl.NumberFormat('tr-TR', {
-          style: 'currency',
-          currency: 'TRY',
-        }).format(params.value);
       },
     },
     {
       field: 'actions',
       type: 'actions',
       headerName: 'İşlemler',
-      width: 120,
+      width: 150,
       getActions: (params: GridRowParams) => {
         const doc = params.row as IncomingDocument;
         return [
           <GridActionsCellItem
             key="view-invoice"
-            icon={
-              <Tooltip title="Fatura Görüntüle">
-                <Receipt fontSize="small" />
-              </Tooltip>
-            }
-            label="Fatura Görüntüle"
-            onClick={() => handleViewInvoice(doc)}
+            icon={<Tooltip title="Görüntüle"><ReceiptIcon sx={{ color: 'primary.main' }} /></Tooltip>}
+            label="Görüntüle"
+            onClick={() => { setSelectedDocument(doc); setInvoiceModalOpen(true); }}
             disabled={!doc.uuid && !doc.ettn}
           />,
           <GridActionsCellItem
-            key="view"
-            icon={
-              <Tooltip title="XML Görüntüle">
-                <Visibility fontSize="small" />
-              </Tooltip>
-            }
-            label="XML Görüntüle"
-            onClick={() => handleViewXml(doc)}
-            disabled={!doc.rawXml}
-          />,
-          <GridActionsCellItem
-            key="download"
-            icon={
-              <Tooltip title="XML İndir">
-                <Download fontSize="small" />
-              </Tooltip>
-            }
-            label="XML İndir"
-            onClick={() => handleDownloadXml(doc)}
+            key="view-xml"
+            icon={<Tooltip title="XML"><CodeIcon sx={{ color: 'info.main' }} /></Tooltip>}
+            label="XML"
+            onClick={() => { setSelectedDocument(doc); setXmlModalOpen(true); }}
             disabled={!doc.rawXml}
           />,
           <GridActionsCellItem
             key="download-pdf"
-            icon={
-              <Tooltip title="PDF İndir">
-                <PictureAsPdf fontSize="small" />
-              </Tooltip>
-            }
-            label="PDF İndir"
+            icon={<Tooltip title="PDF İndir"><PdfIcon sx={{ color: 'error.main' }} /></Tooltip>}
+            label="PDF"
             onClick={() => handleDownloadPdf(doc)}
             disabled={!doc.uuid && !doc.ettn}
+          />,
+          <GridActionsCellItem
+            key="download-xml"
+            icon={<Tooltip title="XML İndir"><DownloadIcon sx={{ color: 'text.secondary' }} /></Tooltip>}
+            label="XML İndir"
+            onClick={() => handleDownloadXml(doc)}
+            disabled={!doc.rawXml}
           />,
         ];
       },
     },
   ];
-
-  if (error) {
-    return (
-      <Box sx={{ p: 3, textAlign: 'center' }}>
-        <p style={{ color: 'red' }}>
-          Hata: {error instanceof Error ? error.message : 'Bilinmeyen hata'}
-        </p>
-        <button onClick={() => refetch()}>Yeniden Dene</button>
-      </Box>
-    );
-  }
 
   return (
     <>
@@ -417,44 +290,40 @@ export default function IncomingGrid({ onViewXml, startDate, endDate }: Incoming
           rows={documents}
           columns={columns}
           loading={isLoading}
-          pageSizeOptions={[10, 25, 50, 100]}
-          initialState={{
-            pagination: {
-              paginationModel: { pageSize: 25 },
-            },
-          }}
+          pageSizeOptions={[25, 50, 100]}
+          initialState={{ pagination: { paginationModel: { pageSize: 25 } } }}
           disableRowSelectionOnClick
           sx={{
-            '& .MuiDataGrid-cell': {
-              borderBottom: '1px solid #e0e0e0',
-            },
+            border: 'none',
             '& .MuiDataGrid-columnHeaders': {
-              backgroundColor: 'var(--muted)',
-              fontWeight: 'bold',
+              bgcolor: alpha(theme.palette.primary.main, 0.04),
+              borderBottom: '1px solid',
+              borderColor: 'divider',
             },
+            '& .MuiDataGrid-cell': {
+              borderColor: 'divider',
+              py: 1
+            },
+            '& .MuiDataGrid-row:hover': {
+              bgcolor: alpha(theme.palette.primary.main, 0.02)
+            }
           }}
+          getRowHeight={() => 'auto'}
         />
       </Box>
 
       <XmlModal
         open={xmlModalOpen}
-        onClose={() => {
-          setXmlModalOpen(false);
-          setSelectedDocument(null);
-        }}
+        onClose={() => { setXmlModalOpen(false); setSelectedDocument(null); }}
         xml={selectedDocument?.rawXml || ''}
         document={selectedDocument}
       />
 
       <InvoiceViewModal
         open={invoiceModalOpen}
-        onClose={() => {
-          setInvoiceModalOpen(false);
-          setSelectedDocument(null);
-        }}
+        onClose={() => { setInvoiceModalOpen(false); setSelectedDocument(null); }}
         document={selectedDocument}
       />
     </>
   );
 }
-

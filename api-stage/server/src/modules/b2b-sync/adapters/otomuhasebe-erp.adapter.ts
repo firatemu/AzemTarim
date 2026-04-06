@@ -17,6 +17,7 @@ import type {
   ErpAddress,
   ErpMovementType,
   ErpProduct,
+  ErpSalesperson,
   ErpStockItem,
   ErpWarehouse,
 } from '../dto/erp-types.dto';
@@ -34,12 +35,15 @@ export class OtomuhasebeErpAdapter implements IErpAdapter {
     const started = Date.now();
     const where: Prisma.ProductWhereInput = {
       tenantId: this.tenantId,
-      isB2B: true, // Sadece B2B ürünleri senkronize et
+      // Kategori veya marka placeholder'ları hariç tut
+      isCategoryOnly: { not: true },
+      isBrandOnly: { not: true },
     };
     if (lastSyncedAt) {
       where.OR = [
         { updatedAt: { gt: lastSyncedAt } },
         { createdAt: { gt: lastSyncedAt } },
+        { priceCards: { some: { updatedAt: { gt: lastSyncedAt } } } },
       ];
     }
 
@@ -96,14 +100,113 @@ export class OtomuhasebeErpAdapter implements IErpAdapter {
     return map;
   }
 
-  async getStock(productIds: string[]): Promise<ErpStockItem[]> {
+  async getPrices(lastSyncedAt: Date | null): Promise<{ erpProductId: string, listPrice: number }[]> {
+    const started = Date.now();
+
+    // 1. Fiyat kartı veya Ürün kartı (Stok kartı) değişenleri saptıyoruz
+    const wherePrice: Prisma.PriceCardWhereInput = {
+      tenantId: this.tenantId,
+      isActive: true,
+      type: { in: [PriceCardType.LIST, PriceCardType.SALE] },
+    };
+
+    const whereProduct: Prisma.ProductWhereInput = {
+      tenantId: this.tenantId,
+    };
+
+    if (lastSyncedAt) {
+      wherePrice.updatedAt = { gt: lastSyncedAt };
+      whereProduct.updatedAt = { gt: lastSyncedAt };
+    }
+
+    // Değişen ürünlerin ID'lerini bulalım
+    const [cardsByPriceUpdate, productsByUpdate] = await Promise.all([
+      this.prisma.priceCard.findMany({
+        where: wherePrice,
+        select: { productId: true },
+      }),
+      this.prisma.product.findMany({
+        where: whereProduct,
+        select: { id: true },
+      }),
+    ]);
+
+    const affectedProductIds = new Set([
+      ...cardsByPriceUpdate.map((c) => c.productId),
+      ...productsByUpdate.map((p) => p.id),
+    ]);
+
+    if (affectedProductIds.size === 0) return [];
+
+    // Etkilenen tüm ürünlerin GÜNCEL (en son) fiyatlarını çekiyoruz
+    const latestCards = await this.prisma.priceCard.findMany({
+      where: {
+        tenantId: this.tenantId,
+        productId: { in: Array.from(affectedProductIds) },
+        isActive: true,
+        type: { in: [PriceCardType.LIST, PriceCardType.SALE] },
+      },
+      orderBy: { updatedAt: 'desc' },
+    });
+
+    const distinctMap = new Map<string, number>();
+    for (const c of latestCards) {
+      if (!distinctMap.has(c.productId)) {
+        distinctMap.set(c.productId, Number(c.price));
+      }
+    }
+
+    const result = Array.from(distinctMap.entries()).map(([erpProductId, listPrice]) => ({
+      erpProductId,
+      listPrice,
+    }));
+
+    this.logger.log(
+      `getPrices tenant=${this.tenantId} affected=${affectedProductIds.size} result=${result.length} ms=${Date.now() - started}`,
+    );
+    return result;
+  }
+
+  async getStock(productIds: string[], lastSyncedAt?: Date | null): Promise<ErpStockItem[]> {
     const started = Date.now();
     if (productIds.length === 0) return [];
+
+    // Hareket bazlı filtreleme:
+    // lastSyncedAt verilmişse, ProductLocationStock.updatedAt > lastSyncedAt olan
+    // (yani son senkronizasyondan sonra stok miktarı değişmiş) ürünleri bul.
+    // Bu yaklaşım hem yeni kayıt eklemeleri hem de fatura güncellemelerini kapsar,
+    // çünkü ProductLocationStock Prisma @updatedAt ile otomatik güncellenir.
+    let filteredIds = productIds;
+
+    if (lastSyncedAt) {
+      const changedStocks = await this.prisma.productLocationStock.findMany({
+        where: {
+          tenantId: this.tenantId,
+          productId: { in: productIds },
+          updatedAt: { gt: lastSyncedAt },
+        },
+        select: { productId: true },
+        distinct: ['productId'],
+      });
+
+      // Eğer hiçbir stok değişmemişse erken çık
+      if (changedStocks.length === 0) {
+        this.logger.log(
+          `getStock tenant=${this.tenantId} no changes since ${lastSyncedAt.toISOString()} — skipped`,
+        );
+        return [];
+      }
+
+      filteredIds = changedStocks.map((s) => s.productId);
+      this.logger.log(
+        `getStock tenant=${this.tenantId} incremental: ${filteredIds.length}/${productIds.length} products affected`,
+      );
+    }
 
     const rows = await this.prisma.productLocationStock.findMany({
       where: {
         tenantId: this.tenantId,
-        productId: { in: productIds },
+        productId: { in: filteredIds },
       },
       include: { warehouse: true },
     });
@@ -172,11 +275,32 @@ export class OtomuhasebeErpAdapter implements IErpAdapter {
       },
     });
     return rows.map((a) => ({
+      erpNum: a.code, // code alanını erpNum olarak kullan
       erpAccountId: a.id,
       name: a.title,
       email: a.email ?? undefined,
       phone: a.phone ?? undefined,
       addresses: [],
+      salespersonId: a.salesAgentId ?? undefined,
+    }));
+  }
+
+  async getSalespersons(): Promise<ErpSalesperson[]> {
+    const rows = await this.prisma.salesAgent.findMany({
+      where: {
+        OR: [
+          { tenantId: this.tenantId },
+          { tenantId: null }, // TenantId null olan eski kayıtları da al
+        ],
+        isActive: true,
+      },
+    });
+    return rows.map((s) => ({
+      erpSalespersonId: s.id,
+      name: s.fullName,
+      email: s.email ?? undefined,
+      phone: s.phone ?? undefined,
+      isActive: s.isActive,
     }));
   }
 

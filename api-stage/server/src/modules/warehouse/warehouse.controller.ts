@@ -25,11 +25,6 @@ export class WarehouseController {
     return this.warehouseService.findAll(activeValue);
   }
 
-  @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.warehouseService.findOne(id);
-  }
-
   @Get('code/:code')
   findByCode(@Param('code') code: string) {
     return this.warehouseService.findByCode(code);
@@ -38,6 +33,26 @@ export class WarehouseController {
   @Get('default/get')
   getDefault() {
     return this.warehouseService.getDefaultWarehouse();
+  }
+
+  @Get('product/:productId/stock-history')
+  getProductStockHistory(
+    @Param('productId') productId: string,
+    @Query('date') date: string,
+  ) {
+    const targetDate = date ? new Date(date) : new Date();
+    return this.warehouseService.getProductStockHistory(productId, targetDate);
+  }
+
+  @Get('all/universal-stock-report')
+  getUniversalStockReport(@Query('date') date: string) {
+    const targetDate = date ? new Date(date) : new Date();
+    return this.warehouseService.getUniversalStockReport(targetDate);
+  }
+
+  @Get(':id')
+  findOne(@Param('id') id: string) {
+    return this.warehouseService.findOne(id);
   }
 
   @Get(':id/inventory')
@@ -63,20 +78,5 @@ export class WarehouseController {
   @Get(':id/stock-report')
   getStockReport(@Param('id') id: string) {
     return this.warehouseService.getStockReport(id);
-  }
-
-  @Get('product/:productId/stock-history')
-  getProductStockHistory(
-    @Param('productId') productId: string,
-    @Query('date') date: string,
-  ) {
-    const targetDate = date ? new Date(date) : new Date();
-    return this.warehouseService.getProductStockHistory(productId, targetDate);
-  }
-
-  @Get('all/universal-stock-report')
-  getUniversalStockReport(@Query('date') date: string) {
-    const targetDate = date ? new Date(date) : new Date();
-    return this.warehouseService.getUniversalStockReport(targetDate);
   }
 }

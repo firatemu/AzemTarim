@@ -94,6 +94,16 @@ export class PrismaExceptionFilter implements ExceptionFilter {
       };
     }
 
+    // Invalid query / args (e.g. Invalid Date in where) — log full message for diagnostics
+    if (exception instanceof Prisma.PrismaClientValidationError) {
+      this.logger.error(`[PrismaClientValidationError] ${exception.message}`);
+      return {
+        status: HttpStatus.BAD_REQUEST,
+        message: 'Geçersiz veritabanı sorgusu',
+        logLevel: 'error',
+      };
+    }
+
     // Known Prisma request errors
     if (exception instanceof Prisma.PrismaClientKnownRequestError) {
       switch (exception.code) {

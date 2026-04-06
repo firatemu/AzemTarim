@@ -246,8 +246,8 @@ const SidebarSubItem = React.memo(({
             background: isSubActive
               ? subColor
               : (theme.palette.mode === 'light'
-                ? 'rgba(255, 255, 255, 0.7)'
-                : 'rgba(30, 41, 59, 0.7)'),
+                ? 'rgba(59, 130, 246, 0.1)'
+                : 'rgba(59, 130, 246, 0.18)'),
             transform: 'translateX(2px)',
           },
         }}
@@ -347,8 +347,8 @@ const SidebarSubItem = React.memo(({
                         background: isNestedActive
                           ? nestedColor
                           : (theme.palette.mode === 'light'
-                            ? 'rgba(255, 255, 255, 0.5)'
-                            : 'rgba(30, 41, 59, 0.5)'),
+                            ? 'rgba(59, 130, 246, 0.08)'
+                            : 'rgba(59, 130, 246, 0.15)'),
                         transform: 'translateX(2px)',
                       },
                     }}
@@ -470,12 +470,12 @@ const SidebarItem = React.memo(({
             background: isActive
               ? itemColor
               : (theme.palette.mode === 'light'
-                ? 'rgba(255, 255, 255, 0.8)'
-                : 'rgba(30, 41, 59, 0.8)'),
+                ? 'rgba(59, 130, 246, 0.12)'
+                : 'rgba(59, 130, 246, 0.2)'),
             transform: 'translateX(2px)',
             boxShadow: theme.palette.mode === 'light'
-              ? '0 2px 8px rgba(0, 0, 0, 0.06)'
-              : '0 2px 8px rgba(0, 0, 0, 0.3)',
+              ? '0 2px 8px rgba(59, 130, 246, 0.15)'
+              : '0 2px 8px rgba(59, 130, 246, 0.25)',
           },
         }}
       >
@@ -994,7 +994,7 @@ export default function Sidebar({ open, pinned, onClose, onTogglePin, menuItems 
           fullWidth
           variant="contained"
           startIcon={<FlashOn sx={{ fontSize: 14 }} />}
-          onClick={(e) => setQuickMenuAnchor(e.currentTarget)}
+          onClick={(e: React.MouseEvent<HTMLButtonElement>) => setQuickMenuAnchor(e.currentTarget)}
           sx={{
             background: 'rgba(255, 255, 255, 0.6)',
             backdropFilter: 'blur(12px)',
@@ -1103,63 +1103,72 @@ export default function Sidebar({ open, pinned, onClose, onTogglePin, menuItems 
 
       {/* Glassmorphism Search */}
       <Box sx={{ px: 1, pt: 0, pb: 0.5, position: 'relative', zIndex: 1 }}>
-        <TextField
-          size="small"
-          fullWidth
-          placeholder="Ara..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <Search sx={{ color: theme.palette.mode === 'light' ? '#94A3B8' : '#64748B', fontSize: 16 }} />
-              </InputAdornment>
-            ),
-          }}
-          sx={{
-            '& .MuiOutlinedInput-root': {
-              bgcolor: theme.palette.mode === 'light'
-                ? 'rgba(255, 255, 255, 0.6)'
-                : 'rgba(30, 41, 59, 0.6)',
-              backdropFilter: 'blur(10px)',
-              borderRadius: '8px',
-              border: theme.palette.mode === 'light'
-                ? '1px solid rgba(255, 255, 255, 0.8)'
-                : '1px solid rgba(255, 255, 255, 0.1)',
-              '& fieldset': {
-                borderColor: 'transparent',
-              },
-              '&:hover': {
+        <Box sx={{ position: 'relative' }}>
+          <Search
+            sx={{
+              position: 'absolute',
+              left: 10,
+              top: '50%',
+              transform: 'translateY(-50%)',
+              color: theme.palette.mode === 'light' ? '#94A3B8' : '#64748B',
+              fontSize: 16,
+              pointerEvents: 'none',
+              zIndex: 1,
+            }}
+          />
+          <TextField
+            variant="outlined"
+            size="small"
+            fullWidth
+            placeholder="Ara..."
+            value={searchTerm}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchTerm(e.target.value)}
+            sx={{
+              '& .MuiOutlinedInput-root': {
                 bgcolor: theme.palette.mode === 'light'
-                  ? 'rgba(255, 255, 255, 0.8)'
-                  : 'rgba(30, 41, 59, 0.8)',
+                  ? 'rgba(255, 255, 255, 0.6)'
+                  : 'rgba(30, 41, 59, 0.6)',
+                backdropFilter: 'blur(10px)',
+                borderRadius: '8px',
                 border: theme.palette.mode === 'light'
-                  ? '1px solid rgba(255, 255, 255, 1)'
-                  : '1px solid rgba(255, 255, 255, 0.15)',
-              },
-              '&.Mui-focused': {
-                bgcolor: theme.palette.mode === 'light'
-                  ? 'rgba(255, 255, 255, 0.9)'
-                  : 'rgba(30, 41, 59, 0.9)',
-                border: theme.palette.mode === 'light'
-                  ? '1px solid #BBDEFB'
-                  : '1px solid rgba(59, 130, 246, 0.5)',
+                  ? '1px solid rgba(255, 255, 255, 0.8)'
+                  : '1px solid rgba(255, 255, 255, 0.1)',
                 '& fieldset': {
                   borderColor: 'transparent',
                 },
+                '&:hover': {
+                  bgcolor: theme.palette.mode === 'light'
+                    ? 'rgba(255, 255, 255, 0.8)'
+                    : 'rgba(30, 41, 59, 0.8)',
+                  border: theme.palette.mode === 'light'
+                    ? '1px solid rgba(255, 255, 255, 1)'
+                    : '1px solid rgba(255, 255, 255, 0.15)',
+                },
+                '&.Mui-focused': {
+                  bgcolor: theme.palette.mode === 'light'
+                    ? 'rgba(255, 255, 255, 0.9)'
+                    : 'rgba(30, 41, 59, 0.9)',
+                  border: theme.palette.mode === 'light'
+                    ? '1px solid #BBDEFB'
+                    : '1px solid rgba(59, 130, 246, 0.5)',
+                  '& fieldset': {
+                    borderColor: 'transparent',
+                  },
+                },
               },
-            },
-            '& .MuiOutlinedInput-input': {
-              fontSize: '0.75rem',
-              py: 0.75,
-              color: '#1E293B',
-              '&::placeholder': {
-                color: '#94A3B8',
-                opacity: 1,
+              '& .MuiOutlinedInput-input': {
+                fontSize: '0.75rem',
+                py: 0.75,
+                pl: 3.5,
+                color: '#1E293B',
+                '&::placeholder': {
+                  color: '#94A3B8',
+                  opacity: 1,
+                },
               },
-            },
-          }}
-        />
+            }}
+          />
+        </Box>
       </Box>
 
       {/* Menu Items Container */}

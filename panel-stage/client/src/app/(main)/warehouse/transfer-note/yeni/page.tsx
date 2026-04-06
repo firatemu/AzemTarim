@@ -4,7 +4,6 @@ import React, { useState, useEffect } from 'react';
 import {
   Box,
   Typography,
-  Paper,
   TextField,
   Button,
   FormControl,
@@ -21,11 +20,25 @@ import {
   Autocomplete,
   Alert,
   Snackbar,
+  Grid,
+  Stack,
+  Divider,
 } from '@mui/material';
-import { ArrowBack, Add, Delete, Save, CheckCircle } from '@mui/icons-material';
-import MainLayout from '@/components/Layout/MainLayout';
+import {
+  ArrowBack,
+  Add,
+  Delete,
+  Save,
+  CheckCircle,
+  SwapHoriz,
+  Event,
+  LocalShipping,
+  Description,
+  Inventory,
+} from '@mui/icons-material';
 import axios from '@/lib/axios';
 import { useRouter } from 'next/navigation';
+import { StandardPage, StandardCard } from '@/components/common';
 
 interface Warehouse {
   id: string;
@@ -240,261 +253,257 @@ export default function YeniTransferFisiPage() {
   };
 
   return (
-    <MainLayout>
-      <Box sx={{ p: 3 }}>
-        {/* Header */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
-          <IconButton onClick={() => router.back()}>
-            <ArrowBack />
-          </IconButton>
+    <StandardPage>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3, justifyContent: 'space-between' }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          <Button startIcon={<ArrowBack />} onClick={() => router.back()} variant="outlined" sx={{ borderRadius: 2 }}>Geri</Button>
           <Box>
-            <Typography variant="h4" sx={{ fontWeight: 700, color: 'var(--foreground)' }}>
+            <Typography variant="h5" fontWeight="800" sx={{ letterSpacing: '-0.02em', display: 'flex', alignItems: 'center', gap: 1 }}>
+              <SwapHoriz sx={{ fontSize: 32, color: 'primary.main' }} />
               Yeni Ambar Transfer Fişi
-            </Typography>
-            <Typography variant="body2" sx={{ color: 'var(--muted-foreground)' }}>
-              Ambarlar arası malzeme transferi oluşturun
             </Typography>
           </Box>
         </Box>
+        <Stack direction="row" spacing={1.5}>
+          <Button
+            variant="contained"
+            startIcon={<CheckCircle />}
+            onClick={() => handleSubmit(true)}
+            disabled={loading}
+            color="success"
+            sx={{ borderRadius: 2, fontWeight: 700 }}
+          >
+            Kaydet ve Onayla
+          </Button>
+          <Button
+            variant="contained"
+            startIcon={<Save />}
+            onClick={() => handleSubmit(false)}
+            disabled={loading}
+            sx={{ borderRadius: 2, fontWeight: 700 }}
+          >
+            Taslak Kaydet
+          </Button>
+        </Stack>
+      </Box>
 
-        <Paper sx={{ p: 3 }}>
-          {/* Üst Bilgiler */}
-          <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
-            Transfer Bilgileri
-          </Typography>
+      <Grid container spacing={3}>
+        <Grid item xs={12} md={7}>
+          <StandardCard sx={{ mb: 3 }}>
+            <Typography variant="subtitle2" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+              <Inventory sx={{ fontSize: 18 }} /> Ambar Bilgileri
+            </Typography>
+            <Grid container spacing={3}>
+              <Grid item xs={12} sm={6}>
+                <FormControl fullWidth required>
+                  <InputLabel>Çıkış Ambarı</InputLabel>
+                  <Select
+                    value={formData.fromWarehouseId}
+                    onChange={(e) => setFormData({ ...formData, fromWarehouseId: e.target.value })}
+                    label="Çıkış Ambarı"
+                    sx={{ borderRadius: 2 }}
+                  >
+                    {warehouses.map((wh) => (
+                      <MenuItem key={wh.id} value={wh.id}>
+                        {wh.name} {wh.isDefault && '(Varsayılan)'}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <FormControl fullWidth required>
+                  <InputLabel>Giriş Ambarı</InputLabel>
+                  <Select
+                    value={formData.toWarehouseId}
+                    onChange={(e) => setFormData({ ...formData, toWarehouseId: e.target.value })}
+                    label="Giriş Ambarı"
+                    sx={{ borderRadius: 2 }}
+                  >
+                    {warehouses.map((wh) => (
+                      <MenuItem key={wh.id} value={wh.id}>
+                        {wh.name} {wh.isDefault && '(Varsayılan)'}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+            </Grid>
+          </StandardCard>
 
-          <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 2, mb: 3 }}>
+          <StandardCard padding={0}>
+            <Box sx={{ p: 2.5, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Typography variant="subtitle2" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <SwapHoriz sx={{ fontSize: 18 }} /> Transfer Kalemleri
+              </Typography>
+              <Button
+                variant="outlined"
+                startIcon={<Add />}
+                onClick={handleAddItem}
+                disabled={!formData.fromWarehouseId}
+                size="small"
+                sx={{ borderRadius: 1.5 }}
+              >
+                Malzeme Ekle
+              </Button>
+            </Box>
+            <Divider />
+
+            {!formData.fromWarehouseId && (
+              <Box sx={{ p: 4, textAlign: 'center' }}>
+                <Alert severity="info" sx={{ borderRadius: 2, display: 'inline-flex' }}>
+                  Malzeme eklemek için önce çıkış ambarını seçin
+                </Alert>
+              </Box>
+            )}
+
+            <TableContainer>
+              <Table size="small">
+                <TableHead sx={{ bgcolor: 'action.hover' }}>
+                  <TableRow>
+                    <TableCell sx={{ fontWeight: 700 }}>Malzeme</TableCell>
+                    <TableCell sx={{ fontWeight: 700 }} width="100" align="center">Mevcut</TableCell>
+                    <TableCell sx={{ fontWeight: 700 }} width="120">Miktar</TableCell>
+                    <TableCell sx={{ fontWeight: 700 }} width="50"></TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {formData.kalemler.map((kalem, index) => (
+                    <TableRow key={index} hover>
+                      <TableCell>
+                        <Autocomplete
+                          options={stoklar}
+                          getOptionLabel={(option) => `${option.stokKodu} - ${option.stokAdi}`}
+                          value={stoklar.find(s => s.id === kalem.stokId) || null}
+                          onChange={(_, value) => handleItemChange(index, 'stokId', value?.id || '')}
+                          renderInput={(params) => (
+                            <TextField
+                              {...params}
+                              placeholder="Malzeme/Hizmet Ara..."
+                              variant="standard"
+                              InputProps={{ ...params.InputProps, disableUnderline: true }}
+                              sx={{ py: 0.5 }}
+                            />
+                          )}
+                        />
+                        {kalem.stok?.marka && (
+                          <Typography variant="caption" display="block" color="primary.main" fontWeight={600}>
+                            {kalem.stok.marka}
+                          </Typography>
+                        )}
+                      </TableCell>
+                      <TableCell align="center">
+                        <Typography
+                          variant="body2"
+                          sx={{
+                            fontWeight: 700,
+                            color: kalem.availableStock !== undefined && kalem.miktar > kalem.availableStock ? 'error.main' : 'text.primary',
+                            bgcolor: kalem.availableStock !== undefined && kalem.miktar > kalem.availableStock ? 'error.lighter' : 'action.hover',
+                            px: 1, py: 0.5, borderRadius: 1, display: 'inline-block'
+                          }}
+                        >
+                          {kalem.availableStock !== undefined ? kalem.availableStock : '-'}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>
+                        <TextField
+                          type="number"
+                          value={kalem.miktar}
+                          onChange={(e) => handleItemChange(index, 'miktar', parseInt(e.target.value) || 0)}
+                          variant="outlined"
+                          size="small"
+                          inputProps={{ min: 1, style: { fontWeight: 700, textAlign: 'center' } }}
+                          sx={{ '& .MuiOutlinedInput-root': { borderRadius: 1.5 } }}
+                        />
+                      </TableCell>
+                      <TableCell align="center">
+                        <IconButton
+                          size="small"
+                          onClick={() => handleRemoveItem(index)}
+                          sx={{ color: 'error.main', bgcolor: 'error.lighter', '&:hover': { bgcolor: 'error.light' } }}
+                        >
+                          <Delete fontSize="small" />
+                        </IconButton>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                  {formData.kalemler.length === 0 && formData.fromWarehouseId && (
+                    <TableRow>
+                      <TableCell colSpan={4} align="center" sx={{ py: 6, color: 'text.secondary' }}>
+                        Henüz malzeme eklenmedi. Malzeme eklemek için butona tıklayın.
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </StandardCard>
+        </Grid>
+
+        <Grid item xs={12} md={5}>
+          <StandardCard sx={{ mb: 3 }}>
+            <Typography variant="subtitle2" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+              <Event sx={{ fontSize: 18 }} /> Genel Bilgiler
+            </Typography>
             <TextField
-              label="Tarih"
+              label="Transfer Tarihi"
               type="date"
               value={formData.tarih}
               onChange={(e) => setFormData({ ...formData, tarih: e.target.value })}
               InputLabelProps={{ shrink: true }}
               required
+              fullWidth
+              sx={{ mb: 2, '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
             />
-
-            <Box />
-
-            <FormControl required>
-              <InputLabel>Çıkış Ambarı</InputLabel>
-              <Select
-                value={formData.fromWarehouseId}
-                onChange={(e) => setFormData({ ...formData, fromWarehouseId: e.target.value })}
-                label="Çıkış Ambarı"
-              >
-                {warehouses.map((wh) => (
-                  <MenuItem key={wh.id} value={wh.id}>
-                    {wh.name} {wh.isDefault && '(Varsayılan)'}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-
-            <FormControl required>
-              <InputLabel>Giriş Ambarı</InputLabel>
-              <Select
-                value={formData.toWarehouseId}
-                onChange={(e) => setFormData({ ...formData, toWarehouseId: e.target.value })}
-                label="Giriş Ambarı"
-              >
-                {warehouses.map((wh) => (
-                  <MenuItem key={wh.id} value={wh.id}>
-                    {wh.name} {wh.isDefault && '(Varsayılan)'}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          </Box>
-
-          {/* Lojistik Bilgileri */}
-          <Typography variant="h6" sx={{ mb: 2, mt: 3, fontWeight: 600 }}>
-            Lojistik Bilgileri
-          </Typography>
-
-          <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 2, mb: 3 }}>
             <TextField
-              label="Sürücü Adı"
-              value={formData.driverName}
-              onChange={(e) => setFormData({ ...formData, driverName: e.target.value })}
-            />
-
-            <TextField
-              label="Araç Plakası"
-              value={formData.vehiclePlate}
-              onChange={(e) => setFormData({ ...formData, vehiclePlate: e.target.value })}
-            />
-
-            <TextField
-              label="Açıklama"
+              label="Genel Açıklama"
               value={formData.aciklama}
               onChange={(e) => setFormData({ ...formData, aciklama: e.target.value })}
               multiline
-              rows={2}
-              sx={{ gridColumn: 'span 2' }}
+              rows={3}
+              fullWidth
+              placeholder="Transfer ile ilgili notlar..."
+              sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
             />
-          </Box>
+          </StandardCard>
 
-          {/* Malzeme Listesi */}
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, mt: 3 }}>
-            <Typography variant="h6" sx={{ fontWeight: 600 }}>
-              Transfer Edilecek Malzemeler
+          <StandardCard>
+            <Typography variant="subtitle2" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+              <LocalShipping sx={{ fontSize: 18 }} /> Lojistik Bilgileri
             </Typography>
-            <Button
-              variant="outlined"
-              startIcon={<Add />}
-              onClick={handleAddItem}
-              disabled={!formData.fromWarehouseId}
-            >
-              Malzeme Ekle
-            </Button>
-          </Box>
+            <Stack spacing={2.5}>
+              <TextField
+                label="Sürücü Adı Soyadı"
+                value={formData.driverName}
+                onChange={(e) => setFormData({ ...formData, driverName: e.target.value })}
+                fullWidth
+                placeholder="Ad Soyad"
+                sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+              />
 
-          {!formData.fromWarehouseId && (
-            <Alert severity="info" sx={{ mb: 2 }}>
-              Malzeme eklemek için önce çıkış ambarını seçin
-            </Alert>
-          )}
+              <TextField
+                label="Araç Plakası"
+                value={formData.vehiclePlate}
+                onChange={(e) => setFormData({ ...formData, vehiclePlate: e.target.value })}
+                fullWidth
+                placeholder="06 AA 001"
+                sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+              />
+            </Stack>
+          </StandardCard>
+        </Grid>
+      </Grid>
 
-          <TableContainer>
-            <Table>
-              <TableHead>
-                <TableRow>
-                  <TableCell>Malzeme</TableCell>
-                  <TableCell>Marka</TableCell>
-                  <TableCell width="120">Miktar</TableCell>
-                  <TableCell width="120">Çıkış Stok</TableCell>
-                  <TableCell width="120">Giriş Stok</TableCell>
-                  <TableCell width="80">İşlem</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {formData.kalemler.map((kalem, index) => (
-                  <TableRow key={index}>
-                    <TableCell>
-                      <Autocomplete
-                        options={stoklar}
-                        getOptionLabel={(option) => `${option.stokKodu} - ${option.stokAdi}`}
-                        value={stoklar.find(s => s.id === kalem.stokId) || null}
-                        onChange={(_, value) => handleItemChange(index, 'stokId', value?.id || '')}
-                        renderInput={(params) => (
-                          <TextField
-                            {...params}
-                            placeholder="Malzeme seçin..."
-                            size="small"
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') {
-                                e.preventDefault();
-                                handleAddItem();
-                              }
-                            }}
-                          />
-                        )}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body2">
-                        {kalem.stok?.marka || '-'}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <TextField
-                        type="number"
-                        value={kalem.miktar}
-                        onChange={(e) => handleItemChange(index, 'miktar', parseInt(e.target.value) || 0)}
-                        size="small"
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            e.preventDefault();
-                            handleAddItem();
-                          }
-                        }}
-                        inputProps={{ min: 1 }}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Typography
-                        sx={{
-                          color: kalem.availableStock !== undefined && kalem.miktar > kalem.availableStock
-                            ? '#ef4444'
-                            : 'var(--foreground)',
-                          fontWeight: 600,
-                        }}
-                      >
-                        {kalem.availableStock !== undefined ? kalem.availableStock : '-'}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Typography
-                        sx={{
-                          fontWeight: 600,
-                          color: 'var(--foreground)',
-                        }}
-                      >
-                        {kalem.targetAvailableStock !== undefined ? kalem.targetAvailableStock : '-'}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <IconButton
-                        size="small"
-                        onClick={() => handleRemoveItem(index)}
-                        sx={{ color: '#ef4444' }}
-                      >
-                        <Delete />
-                      </IconButton>
-                    </TableCell>
-                  </TableRow>
-                ))}
-                {formData.kalemler.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={6} align="center" sx={{ py: 4 }}>
-                      <Typography color="text.secondary">
-                        Henüz malzeme eklenmedi
-                      </Typography>
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </TableContainer>
-
-          {/* Actions */}
-          <Box sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end', mt: 3 }}>
-            <Button
-              variant="outlined"
-              onClick={() => router.back()}
-            >
-              İptal
-            </Button>
-            <Button
-              variant="contained"
-              startIcon={<Save />}
-              onClick={() => handleSubmit(false)}
-              disabled={loading}
-            >
-              Kaydet
-            </Button>
-            <Button
-              variant="contained"
-              startIcon={<CheckCircle />}
-              onClick={() => handleSubmit(true)}
-              disabled={loading}
-              sx={{ bgcolor: '#10b981', '&:hover': { bgcolor: '#059669' } }}
-            >
-              Kaydet ve Onayla
-            </Button>
-          </Box>
-        </Paper>
-
-        <Snackbar
-          open={snackbar.open}
-          autoHideDuration={4000}
-          onClose={() => setSnackbar({ ...snackbar, open: false })}
-        >
-          <Alert severity={snackbar.severity} onClose={() => setSnackbar({ ...snackbar, open: false })}>
-            {snackbar.message}
-          </Alert>
-        </Snackbar>
-      </Box>
-    </MainLayout>
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={4000}
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert severity={snackbar.severity} sx={{ borderRadius: 2, fontWeight: 600 }}>
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
+    </StandardPage>
   );
 }

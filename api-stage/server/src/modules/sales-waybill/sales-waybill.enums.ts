@@ -6,5 +6,9 @@ export enum DeliveryNoteSourceType {
 
 export enum DeliveryNoteStatus {
     NOT_INVOICED = 'NOT_INVOICED',
-    INVOICED = 'INVOICED'
+    INVOICED = 'INVOICED',
+    TESLIM_EDILDI = 'TESLIM_EDILDI',
+    BEKLEMEDE = 'BEKLEMEDE',
+    FATURAYA_BAGLANDI = 'FATURAYA_BAGLANDI',
+    IPTAL = 'IPTAL'
 }

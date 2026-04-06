@@ -193,6 +193,11 @@ const nextConfig: NextConfig = {
         destination: '/ik/maas-yonetimi',
         permanent: true,
       },
+      {
+        source: '/settings/check-bill',
+        destination: '/settings/parameters',
+        permanent: true,
+      },
     ];
   },
 };

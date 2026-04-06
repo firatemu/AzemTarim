@@ -4,7 +4,6 @@ import React, { useState, useEffect, Suspense } from 'react';
 import {
   Box,
   Typography,
-  Paper,
   Table,
   TableBody,
   TableCell,
@@ -27,11 +26,15 @@ import {
   Stepper,
   Step,
   StepLabel,
+  Stack,
+  alpha,
+  Divider,
 } from '@mui/material';
-import { Search, Visibility, Add, ArrowBack } from '@mui/icons-material';
+import { Search, Visibility, Add, ArrowBack, Receipt, ReceiptLong, Timer, DirectionsCar, Inventory, Engineering, Build } from '@mui/icons-material';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useDebounce } from '@/hooks/useDebounce';
 import axios from '@/lib/axios';
+import { StandardPage, StandardCard } from '@/components/common';
 import type { ServiceInvoice, WorkOrder, WorkOrderItem } from '@/types/servis';
 
 type WorkOrderOption = {
@@ -170,7 +173,7 @@ function ServisFaturalariContent() {
       setSelectedWorkOrder(null);
       setItemPrices([]);
       fetchInvoices();
-      if (id) router.push(`/servis/faturalar/${id}`);
+      if (id) router.push(`/service/invoices/${id}`);
     } catch (err: any) {
       setCreateError(err?.response?.data?.message ?? 'Fatura oluşturulamadı');
     } finally {
@@ -184,105 +187,98 @@ function ServisFaturalariContent() {
   const formatDate = (d: string) => new Date(d).toLocaleDateString('tr-TR');
 
   return (
-    <>
-      <Typography
-        variant="h4"
-        sx={{
-          fontWeight: 700,
-          fontSize: '1.875rem',
-          color: 'var(--foreground)',
-          letterSpacing: '-0.02em',
-          mb: 1,
-        }}
-      >
-        Servis Faturaları
-      </Typography>
-      <Typography variant="body1" sx={{ mb: 3, color: 'var(--muted-foreground)', fontSize: '0.875rem' }}>
-        Servis faturalarını görüntüleyin ve yönetin
-      </Typography>
+    <StandardPage>
+      <Box sx={{ mb: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <Box>
+          <Typography variant="h5" fontWeight="800" sx={{ letterSpacing: '-0.02em', display: 'flex', alignItems: 'center', gap: 1.5 }}>
+            <ReceiptLong sx={{ fontSize: 32, color: 'primary.main' }} />
+            Servis Faturaları
+          </Typography>
+          <Typography variant="body2" color="text.secondary">Tüm servis operasyonlarına ait faturaları görüntüleyin ve yönetin.</Typography>
+        </Box>
+        <Button
+          variant="contained"
+          startIcon={<Add />}
+          onClick={() => openNewInvoiceDialog()}
+          sx={{ px: 3, py: 1, fontWeight: 700, borderRadius: 2 }}
+        >
+          Yeni Fatura
+        </Button>
+      </Box>
 
-      <Paper
-        sx={{
-          borderRadius: 'var(--radius)',
-          border: '1px solid var(--border)',
-          overflow: 'hidden',
-        }}
-      >
-        <Box sx={{ p: 2, display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
+      <StandardCard sx={{ p: 0, overflow: 'hidden' }}>
+        <Box sx={{ p: 2.5, borderBottom: '1px solid', borderColor: 'divider', bgcolor: alpha('#f8fafc', 0.5) }}>
           <TextField
             size="small"
             placeholder="Fatura no veya iş emri no ile ara..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            sx={{ width: { xs: '100%', md: 320 } }}
+            sx={{ width: { xs: '100%', md: 400 } }}
+            autoComplete="off"
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">
-                  <Search fontSize="small" />
+                  <Search fontSize="small" sx={{ color: 'text.disabled' }} />
                 </InputAdornment>
               ),
+              sx: { borderRadius: 2, bgcolor: 'background.paper' }
             }}
           />
-          <Button
-            variant="contained"
-            startIcon={<Add />}
-            onClick={() => openNewInvoiceDialog()}
-            sx={{ ml: 'auto' }}
-          >
-            Yeni Fatura
-          </Button>
         </Box>
 
         <TableContainer>
           <Table>
             <TableHead>
               <TableRow>
-                <TableCell sx={{ fontWeight: 600 }}>Fatura No</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>İş Emri No</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>Araç</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>Müşteri</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>Tarih</TableCell>
-                <TableCell sx={{ fontWeight: 600 }} align="right">
-                  Toplam
-                </TableCell>
-                <TableCell align="right" sx={{ fontWeight: 600 }}>
-                  İşlem
-                </TableCell>
+                <TableCell sx={{ fontWeight: 800, py: 2 }}>FATURA NO</TableCell>
+                <TableCell sx={{ fontWeight: 800, py: 2 }}>İŞ EMRİ NO</TableCell>
+                <TableCell sx={{ fontWeight: 800, py: 2 }}>ARAÇ / MÜŞTERİ</TableCell>
+                <TableCell sx={{ fontWeight: 800, py: 2 }}>TARİH</TableCell>
+                <TableCell sx={{ fontWeight: 800, py: 2 }} align="right">TOPLAM</TableCell>
+                <TableCell align="right" sx={{ fontWeight: 800, py: 2 }}>İŞLEM</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
+                  <TableCell colSpan={6} align="center" sx={{ py: 6 }}>
                     <CircularProgress size={32} />
                   </TableCell>
                 </TableRow>
               ) : invoices.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} align="center" sx={{ py: 4, color: 'var(--muted-foreground)' }}>
-                    Kayıt bulunamadı
+                  <TableCell colSpan={6} align="center" sx={{ py: 8 }}>
+                    <Stack spacing={1} alignItems="center">
+                      <Receipt sx={{ fontSize: 48, color: 'text.disabled' }} />
+                      <Typography color="text.secondary" fontWeight={600}>Kayıt bulunamadı</Typography>
+                    </Stack>
                   </TableCell>
                 </TableRow>
               ) : (
                 invoices.map((inv) => (
-                  <TableRow key={inv.id} hover>
-                    <TableCell>{inv.invoiceNo}</TableCell>
+                  <TableRow key={inv.id} hover sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
+                    <TableCell sx={{ fontWeight: 700, color: 'primary.main' }}>{inv.invoiceNo}</TableCell>
+                    <TableCell sx={{ fontWeight: 600 }}>{(inv as any).workOrder?.workOrderNo ?? '-'}</TableCell>
                     <TableCell>
-                      {(inv as any).workOrder?.workOrderNo ?? '-'}
+                      <Stack spacing={0.5}>
+                        <Typography variant="body2" fontWeight={700}>
+                          {(inv as any).workOrder?.customerVehicle
+                            ? `${(inv as any).workOrder.customerVehicle.plaka}`
+                            : '-'}
+                        </Typography>
+                        <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 500 }}>
+                          {inv.cari?.unvan ?? inv.cari?.cariKodu ?? '-'}
+                        </Typography>
+                      </Stack>
                     </TableCell>
-                    <TableCell>
-                      {(inv as any).workOrder?.customerVehicle
-                        ? `${(inv as any).workOrder.customerVehicle.plaka} - ${(inv as any).workOrder.customerVehicle.aracMarka} ${(inv as any).workOrder.customerVehicle.aracModel}`
-                        : '-'}
-                    </TableCell>
-                    <TableCell>{inv.cari?.unvan ?? inv.cari?.cariKodu ?? '-'}</TableCell>
                     <TableCell>{formatDate(inv.issueDate)}</TableCell>
-                    <TableCell align="right">{formatCurrency(inv.grandTotal)}</TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 800 }}>{formatCurrency(inv.grandTotal)}</TableCell>
                     <TableCell align="right">
                       <IconButton
                         size="small"
-                        onClick={() => router.push(`/servis/faturalar/${inv.id}`)}
-                        title="Detay"
+                        onClick={() => router.push(`/service/invoices/${inv.id}`)}
+                        sx={{ color: 'primary.main', bgcolor: alpha('#6366f1', 0.05), '&:hover': { bgcolor: alpha('#6366f1', 0.1) } }}
+                        title="Detay Görüntüle"
                       >
                         <Visibility fontSize="small" />
                       </IconButton>
@@ -293,65 +289,100 @@ function ServisFaturalariContent() {
             </TableBody>
           </Table>
         </TableContainer>
-      </Paper>
+      </StandardCard>
 
-      <Dialog open={newInvoiceOpen} onClose={() => { setNewInvoiceOpen(false); setInvoiceStep(1); }} maxWidth={invoiceStep === 2 ? 'md' : 'sm'} fullWidth>
-        <DialogTitle>
+      <Dialog
+        open={newInvoiceOpen}
+        onClose={() => { setNewInvoiceOpen(false); setInvoiceStep(1); }}
+        maxWidth={invoiceStep === 2 ? 'md' : 'sm'}
+        fullWidth
+        PaperProps={{ sx: { borderRadius: 3 } }}
+      >
+        <DialogTitle sx={{ fontWeight: 800, p: 3, pb: 2 }}>
           {invoiceStep === 1 ? 'Yeni Fatura Oluştur' : 'Kalem Fiyatlarını Girin'}
         </DialogTitle>
-        <DialogContent>
-          <Stepper activeStep={invoiceStep - 1} sx={{ mb: 2 }}>
-            <Step><StepLabel>İş emri seç</StepLabel></Step>
-            <Step><StepLabel>Fiyat girişi</StepLabel></Step>
+        <Divider />
+        <DialogContent sx={{ p: 4 }}>
+          <Stepper activeStep={invoiceStep - 1} sx={{ mb: 4 }} alternativeLabel>
+            <Step><StepLabel>İş Emri Seçimi</StepLabel></Step>
+            <Step><StepLabel>Fiyatlandırma</StepLabel></Step>
           </Stepper>
+
           {createError && (
-            <Alert severity="error" sx={{ mb: 2 }} onClose={() => setCreateError(null)}>
+            <Alert severity="error" sx={{ mb: 3, borderRadius: 2 }} onClose={() => setCreateError(null)}>
               {createError}
             </Alert>
           )}
+
           {invoiceStep === 1 && (
-            <>
-              <Typography variant="body2" sx={{ mb: 2, color: 'var(--muted-foreground)' }}>
-                Faturalanacak iş emrini seçin. Sadece araç hazır durumundaki iş emirleri listelenir.
+            <Box>
+              <Typography variant="body2" sx={{ mb: 3, color: 'text.secondary', fontWeight: 500 }}>
+                Faturalanacak iş emrini seçin. Listede sadece <Typography component="span" fontWeight={800} color="success.main">"Araç Hazır"</Typography> durumundaki iş emirleri gösterilmektedir.
               </Typography>
-              <List sx={{ maxHeight: 320, overflow: 'auto' }}>
+              <List sx={{ maxHeight: 350, overflow: 'auto', border: '1px solid', borderColor: 'divider', borderRadius: 2 }}>
                 {workOrders.length === 0 ? (
-                  <ListItemText primary="Faturalanabilir iş emri bulunamadı" sx={{ py: 2 }} />
+                  <Box sx={{ p: 4, textAlign: 'center' }}>
+                    <DirectionsCar sx={{ fontSize: 48, color: 'text.disabled', mb: 1 }} />
+                    <Typography variant="body2" color="text.secondary">Faturalanabilir iş emri bulunamadı</Typography>
+                  </Box>
                 ) : (
                   workOrders.map((wo) => (
                     <ListItemButton
                       key={wo.id}
                       selected={selectedWorkOrderId === wo.id}
                       onClick={() => handleSelectWorkOrder(wo.id)}
+                      sx={{
+                        borderBottom: '1px solid',
+                        borderColor: 'divider',
+                        '&:last-child': { borderBottom: 0 },
+                        '&.Mui-selected': { bgcolor: alpha('#6366f1', 0.08) }
+                      }}
                     >
-                      <ListItemText
-                        primary={`${wo.workOrderNo} - ${wo.customerVehicle?.plaka ?? '-'} ${wo.customerVehicle?.aracMarka ?? ''} ${wo.customerVehicle?.aracModel ?? ''}`}
-                        secondary={wo.cari?.unvan ?? wo.cari?.cariKodu ?? '-'}
-                      />
+                      <Stack spacing={0.5} sx={{ width: '100%' }}>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <Typography variant="subtitle2" fontWeight={800} color="primary.main">{wo.workOrderNo}</Typography>
+                          <Typography variant="caption" fontWeight={700} sx={{ bgcolor: alpha('#6366f1', 0.1), px: 1, py: 0.5, borderRadius: 1 }}>
+                            {wo.customerVehicle?.plaka ?? '-'}
+                          </Typography>
+                        </Box>
+                        <Typography variant="body2" color="text.secondary" fontWeight={500}>{wo.cari?.unvan ?? wo.cari?.cariKodu ?? '-'}</Typography>
+                      </Stack>
                     </ListItemButton>
                   ))
                 )}
               </List>
-            </>
+            </Box>
           )}
+
           {invoiceStep === 2 && selectedWorkOrder && (
-            <>
-              <Box sx={{ mb: 2 }}>
-                <Typography variant="body2" color="text.secondary">
-                  {selectedWorkOrder.workOrderNo} · {selectedWorkOrder.customerVehicle?.plaka ?? '-'} · {selectedWorkOrder.cari?.unvan ?? selectedWorkOrder.cari?.cariKodu ?? '-'}
-                </Typography>
+            <Box>
+              <Box sx={{ mb: 3, p: 2, bgcolor: alpha('#6366f1', 0.05), borderRadius: 2, border: '1px solid', borderColor: alpha('#6366f1', 0.1) }}>
+                <Stack direction="row" spacing={3} divider={<Divider orientation="vertical" flexItem sx={{ borderStyle: 'dashed' }} />}>
+                  <Box>
+                    <Typography variant="caption" color="text.secondary" fontWeight={700}>İŞ EMRİ</Typography>
+                    <Typography variant="body2" fontWeight={800}>{selectedWorkOrder.workOrderNo}</Typography>
+                  </Box>
+                  <Box>
+                    <Typography variant="caption" color="text.secondary" fontWeight={700}>PLAKA</Typography>
+                    <Typography variant="body2" fontWeight={800}>{selectedWorkOrder.customerVehicle?.plaka ?? '-'}</Typography>
+                  </Box>
+                  <Box sx={{ flex: 1 }}>
+                    <Typography variant="caption" color="text.secondary" fontWeight={700}>MÜŞTERİ</Typography>
+                    <Typography variant="body2" fontWeight={800}>{selectedWorkOrder.cari?.unvan ?? selectedWorkOrder.cari?.cariKodu ?? '-'}</Typography>
+                  </Box>
+                </Stack>
               </Box>
-              <TableContainer>
+
+              <TableContainer sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2 }}>
                 <Table size="small">
                   <TableHead>
-                    <TableRow>
-                      <TableCell sx={{ fontWeight: 600 }}>Tip</TableCell>
-                      <TableCell sx={{ fontWeight: 600 }}>Açıklama</TableCell>
-                      <TableCell sx={{ fontWeight: 600 }}>Stok</TableCell>
-                      <TableCell sx={{ fontWeight: 600 }} align="right">Miktar</TableCell>
-                      <TableCell sx={{ fontWeight: 600 }} align="right">Birim Fiyat</TableCell>
-                      <TableCell sx={{ fontWeight: 600 }} align="right">KDV %</TableCell>
-                      <TableCell sx={{ fontWeight: 600 }} align="right">Toplam</TableCell>
+                    <TableRow sx={{ bgcolor: alpha('#000', 0.02) }}>
+                      <TableCell sx={{ fontWeight: 800 }}>TİP</TableCell>
+                      <TableCell sx={{ fontWeight: 800 }}>AÇIKLAMA / STOK</TableCell>
+                      <TableCell sx={{ fontWeight: 800 }} align="right">MİKTAR</TableCell>
+                      <TableCell sx={{ fontWeight: 800 }} align="right">BİRİM FİYAT</TableCell>
+                      <TableCell sx={{ fontWeight: 800 }} align="right">KDV %</TableCell>
+                      <TableCell sx={{ fontWeight: 800 }} align="right">TOPLAM</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
@@ -362,18 +393,27 @@ function ServisFaturalariContent() {
                       const total = item.quantity * unitPrice * (1 + taxRate / 100);
                       return (
                         <TableRow key={item.id}>
-                          <TableCell>{item.type === 'LABOR' ? 'İşçilik' : 'Parça'}</TableCell>
-                          <TableCell>{item.description}</TableCell>
-                          <TableCell>{item.stok ? `${item.stok.stokKodu} - ${item.stok.stokAdi}` : '-'}</TableCell>
-                          <TableCell align="right">{item.quantity}</TableCell>
+                          <TableCell>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                              {item.type === 'LABOR' ? <Engineering sx={{ fontSize: 16, color: 'info.main' }} /> : <Inventory sx={{ fontSize: 16, color: 'warning.main' }} />}
+                              <Typography variant="caption" fontWeight={700}>{item.type === 'LABOR' ? 'İşçilik' : 'Parça'}</Typography>
+                            </Box>
+                          </TableCell>
+                          <TableCell>
+                            <Typography variant="body2" fontWeight={600}>{item.description}</Typography>
+                            {item.stok && (
+                              <Typography variant="caption" color="text.secondary">{item.stok.stokKodu}</Typography>
+                            )}
+                          </TableCell>
+                          <TableCell align="right" sx={{ fontWeight: 700 }}>{item.quantity}</TableCell>
                           <TableCell align="right">
                             <TextField
                               size="small"
                               type="number"
                               value={unitPrice}
                               onChange={(e) => updateItemPrice(item.id, 'unitPrice', parseFloat(e.target.value) || 0)}
-                              inputProps={{ min: 0, step: 0.01 }}
-                              sx={{ width: 100 }}
+                              inputProps={{ min: 0, step: 0.01, sx: { textAlign: 'right', fontWeight: 700 } }}
+                              sx={{ width: 110 }}
                             />
                           </TableCell>
                           <TableCell align="right">
@@ -382,45 +422,63 @@ function ServisFaturalariContent() {
                               type="number"
                               value={taxRate}
                               onChange={(e) => updateItemPrice(item.id, 'taxRate', parseInt(e.target.value, 10) || 20)}
-                              inputProps={{ min: 0, max: 100 }}
-                              sx={{ width: 70 }}
+                              inputProps={{ min: 0, max: 100, sx: { textAlign: 'center', fontWeight: 700 } }}
+                              sx={{ width: 60 }}
                             />
                           </TableCell>
-                          <TableCell align="right">{formatCurrency(total)}</TableCell>
+                          <TableCell align="right" sx={{ fontWeight: 800 }}>{formatCurrency(total)}</TableCell>
                         </TableRow>
                       );
                     })}
                   </TableBody>
                 </Table>
               </TableContainer>
-            </>
+            </Box>
           )}
         </DialogContent>
-        <DialogActions>
+        <Divider />
+        <DialogActions sx={{ p: 2.5, px: 4 }}>
           {invoiceStep === 2 ? (
             <>
-              <Button startIcon={<ArrowBack />} onClick={() => { setInvoiceStep(1); setSelectedWorkOrder(null); setItemPrices([]); }}>
-                Geri
+              <Button
+                variant="outlined"
+                startIcon={<ArrowBack />}
+                onClick={() => { setInvoiceStep(1); setSelectedWorkOrder(null); setItemPrices([]); }}
+                sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700 }}
+              >
+                Geri Dön
               </Button>
               <Box sx={{ flex: 1 }} />
-              <Button onClick={() => { setNewInvoiceOpen(false); setInvoiceStep(1); }}>İptal</Button>
+              <Button
+                onClick={() => { setNewInvoiceOpen(false); setInvoiceStep(1); }}
+                sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700, color: 'text.secondary' }}
+              >
+                İptal
+              </Button>
               <Button
                 variant="contained"
                 onClick={handleCreateInvoice}
                 disabled={createLoading || (selectedWorkOrder?.items ?? []).length === 0}
-                startIcon={createLoading ? <CircularProgress size={18} color="inherit" /> : undefined}
+                startIcon={createLoading ? <CircularProgress size={18} color="inherit" /> : <Build />}
+                sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700, px: 3, bgcolor: 'success.main', '&:hover': { bgcolor: 'success.dark' } }}
               >
-                {createLoading ? 'Oluşturuluyor...' : 'Fatura Oluştur'}
+                {createLoading ? 'Fatura Kesiliyor...' : 'Kes ve Tamamla'}
               </Button>
             </>
           ) : (
             <>
-              <Button onClick={() => { setNewInvoiceOpen(false); setInvoiceStep(1); }}>İptal</Button>
+              <Box sx={{ flex: 1 }} />
+              <Button
+                onClick={() => { setNewInvoiceOpen(false); setInvoiceStep(1); }}
+                sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700, color: 'text.secondary' }}
+              >
+                İptal
+              </Button>
             </>
           )}
         </DialogActions>
       </Dialog>
-    </>
+    </StandardPage>
   );
 }
 
@@ -428,8 +486,8 @@ export default function ServisFaturalariPage() {
   return (
     <Suspense
       fallback={
-        <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
-          <CircularProgress />
+        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 400 }}>
+          <CircularProgress size={32} />
         </Box>
       }
     >

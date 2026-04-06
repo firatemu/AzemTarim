@@ -23,6 +23,7 @@ export type B2bSyncProductsJob = {
 export type B2bSyncStockJob = {
   tenantId: string;
   erpAdapterType: B2BErpAdapter;
+  forceFull?: boolean;
 };
 
 export type B2bSyncMovementsJob = {
@@ -44,12 +45,12 @@ export class B2bSyncService {
   constructor(
     private readonly prisma: PrismaService,
     @InjectQueue(B2B_SYNC_QUEUE) private readonly queue: Queue,
-  ) {}
+  ) { }
 
   async manualTrigger(
     tenantId: string,
     syncType: B2BSyncType,
-    extra?: { erpAccountId?: string; orderId?: string },
+    extra?: { erpAccountId?: string; orderId?: string; forceFull?: boolean },
   ): Promise<{ jobId: string | undefined }> {
     const config = await this.prisma.b2BTenantConfig.findUnique({
       where: { tenantId },
@@ -67,9 +68,17 @@ export class B2bSyncService {
         jobName = 'SYNC_PRODUCTS';
         payload = { tenantId, erpAdapterType };
         break;
+      case B2BSyncType.PRICES:
+        jobName = 'SYNC_PRICES';
+        payload = { tenantId, erpAdapterType };
+        break;
       case B2BSyncType.STOCK:
         jobName = 'SYNC_STOCK';
-        payload = { tenantId, erpAdapterType };
+        payload = {
+          tenantId,
+          erpAdapterType,
+          forceFull: extra?.forceFull ?? false,
+        };
         break;
       case B2BSyncType.ACCOUNT_MOVEMENTS:
         if (!extra?.erpAccountId) {
@@ -140,6 +149,7 @@ export class B2bSyncService {
     });
     return {
       lastSyncedAt: config?.lastSyncedAt ?? null,
+      lastSyncRequestedAt: config?.lastSyncRequestedAt ?? null,
       syncIntervalMinutes: config?.syncIntervalMinutes ?? null,
       recentLogs: logs.map((l) => ({
         id: l.id,

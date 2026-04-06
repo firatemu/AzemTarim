@@ -1,11 +1,12 @@
 'use client';
 
 import React, { useEffect, useRef, useCallback, useState } from 'react';
-import { Snackbar, Alert } from '@mui/material';
+import { Box, Typography, alpha, useTheme, Divider } from '@mui/material';
+import { useSnackbar } from 'notistack';
 import MainLayout from '@/components/Layout/MainLayout';
 import ProductGrid from './components/ProductGrid';
 import { CartPanel } from './components/CartPanel';
-import { ReceiptDialog } from './components/ReceiptDialog';
+import { PosReceiptDialog } from './components/ReceiptDialog';
 import PaymentDialog from './components/PaymentDialog';
 import { usePosStore } from '@/stores/posStore';
 import axios from '@/lib/axios';
@@ -13,16 +14,12 @@ import axios from '@/lib/axios';
 // ─────────────────────────────────────────────────────────────────────────────
 // Toast tipi
 // ─────────────────────────────────────────────────────────────────────────────
-interface ToastState {
-  open: boolean;
-  message: string;
-  severity: 'success' | 'error' | 'info' | 'warning';
-}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Topbar — saatli başlık çubuğu
 // ─────────────────────────────────────────────────────────────────────────────
 function PosTopbar() {
+  const theme = useTheme();
   const [clock, setClock] = useState('--:--');
 
   useEffect(() => {
@@ -35,90 +32,96 @@ function PosTopbar() {
   }, []);
 
   return (
-    <div
-      style={{
-        height: 52,
-        background: 'var(--surface)',
-        borderBottom: '1px solid var(--border)',
+    <Box
+      sx={{
+        height: 56,
+        bgcolor: 'background.paper',
+        borderBottom: '1px solid',
+        borderColor: 'divider',
         display: 'flex',
         alignItems: 'center',
-        padding: '0 18px',
-        gap: 14,
+        px: 2,
+        gap: 2,
         flexShrink: 0,
         zIndex: 100,
+        boxShadow: `0 2px 8px ${alpha(theme.palette.common.black, 0.04)}`
       }}
     >
-      {/* Marka */}
-      <div
-        style={{
-          fontSize: 14,
+      <Box
+        sx={{
+          fontSize: 16,
           fontWeight: 800,
-          color: 'var(--accent)',
-          letterSpacing: '-0.02em',
+          color: 'primary.main',
+          letterSpacing: '-0.02e',
           display: 'flex',
           alignItems: 'center',
-          gap: 9,
+          gap: 1,
         }}
       >
-        <div style={{
-          width: 32,
-          height: 32,
-          borderRadius: 'var(--rs)',
-          background: 'var(--accent)',
+        <Box sx={{
+          width: 34,
+          height: 34,
+          borderRadius: 1.25,
+          background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.primary.dark} 100%)`,
           color: '#fff',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          boxShadow: '0 4px 12px var(--accent-g)'
+          boxShadow: `0 4px 12px ${alpha(theme.palette.primary.main, 0.3)}`
         }}>
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
             <rect x="2" y="3" width="20" height="14" rx="2" />
             <path d="M8 21h8M12 17v4" />
           </svg>
-        </div>
-        <span style={{ color: 'var(--text)' }}>Oto<span style={{ color: 'var(--accent)' }}>Muhasebe</span></span>
-      </div>
+        </Box>
+        <Typography variant="h6" sx={{ fontWeight: 800, letterSpacing: -0.5 }}>
+          Oto<Box component="span" sx={{ color: 'primary.main' }}>Muhasebe</Box>
+        </Typography>
+      </Box>
 
-      {/* Ayırıcı */}
-      <div style={{ width: 1, height: 20, background: 'var(--border)', opacity: 0.5 }} />
-      <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', opacity: 0.8 }}>Hızlı Satış Ekranı</div>
+      <Divider orientation="vertical" flexItem sx={{ mx: 0.5, height: 24, alignSelf: 'center' }} />
+      <Typography variant="subtitle2" sx={{ fontWeight: 700, color: 'text.secondary', opacity: 0.8 }}>Hızlı Satış Ekranı</Typography>
 
-      {/* Sağ taraf */}
-      <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 12 }}>
-        <div
-          style={{
+      <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 2 }}>
+        <Box
+          sx={{
             display: 'flex',
             alignItems: 'center',
-            gap: 7,
-            padding: '5px 12px',
-            background: 'var(--accent-g)',
-            border: '1px solid var(--accent)',
-            borderRadius: 20,
+            gap: 1,
+            px: 1.5,
+            py: 0.5,
+            bgcolor: alpha(theme.palette.primary.main, 0.08),
+            border: '1px solid',
+            borderColor: alpha(theme.palette.primary.main, 0.2),
+            borderRadius: 5,
             fontSize: 11,
-            fontWeight: 700,
-            color: 'var(--accent)',
+            fontWeight: 800,
+            color: 'primary.main',
+            textTransform: 'uppercase',
+            letterSpacing: 0.5
           }}
         >
-          <div
-            style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--accent)', boxShadow: '0 0 8px var(--accent)' }}
+          <Box
+            sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: 'primary.main', boxShadow: `0 0 8px ${theme.palette.primary.main}` }}
           />
           VARSAYILAN AMBAR
-        </div>
+        </Box>
 
-        <div style={{ width: 1, height: 16, background: 'var(--border)' }} />
+        <Divider orientation="vertical" flexItem sx={{ height: 20, alignSelf: 'center' }} />
 
-        <div
-          style={{
-            fontFamily: "'DM Mono', monospace",
-            fontSize: 13,
-            fontWeight: 600,
-            color: 'var(--text)',
+        <Typography
+          sx={{
+            fontFamily: "'Inter', sans-serif",
+            fontSize: 14,
+            fontWeight: 700,
+            color: 'text.primary',
+            minWidth: 45
           }}
         >
           {clock}
-        </div>
-      </div>
-    </div>
+        </Typography>
+      </Box>
+    </Box>
   );
 }
 
@@ -126,18 +129,15 @@ function PosTopbar() {
 // POS Ana Sayfa
 // ─────────────────────────────────────────────────────────────────────────────
 export default function PosPage() {
+  const theme = useTheme();
   const store = usePosStore();
-  const [toast, setToast] = useState<ToastState>({
-    open: false,
-    message: '',
-    severity: 'info',
-  });
+  const { enqueueSnackbar } = useSnackbar();
 
   const bufferRef = useRef('');
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  function showToast(message: string, severity: ToastState['severity'] = 'info') {
-    setToast({ open: true, message, severity });
+  function showToast(message: string, severity: 'success' | 'error' | 'info' | 'warning' = 'info') {
+    enqueueSnackbar(message, { variant: severity });
   }
 
   // ── Barkod Tarayıcı Handler ─────────────────────────────────────────────
@@ -236,9 +236,6 @@ export default function PosPage() {
     };
   }, [processBarcode]);
 
-  // ── Receipt Dialog ────────────────────────────────────────────────────────
-  // Checkout sonrası store boşaltıldığı için verileri ReceiptDialog'a prop olarak geçirmek yerine
-  // dialog null data ile preview modunda açılır (fiş verisi completeCheckout'tan önce yakalanır)
   function handleReceiptClose() {
     store.setReceiptDialogOpen(false);
     store.clearCart();
@@ -246,186 +243,67 @@ export default function PosPage() {
 
   return (
     <MainLayout>
-      <div
+      <Box
         id="pos-root"
-        style={{
+        sx={{
           display: 'flex',
           flexDirection: 'column',
-          // Header + TabBar yüksekliğini yaklaşık çıkarıyoruz.
-          // Mobilde adres çubuğu dinamik olduğu için `100dvh` tercih edildi.
-          height: 'calc(100dvh - 112px)',
-          background: 'var(--bg)',
-          color: 'var(--text)',
+          height: 'calc(100vh - 112px)',
+          bgcolor: 'background.default',
+          color: 'text.primary',
           overflow: 'hidden',
-          fontFamily: "'DM Sans', sans-serif",
+          fontFamily: theme.typography.fontFamily,
         }}
       >
-        {/* Topbar */}
         <PosTopbar />
 
-        {/* Ana Bölünmüş Düzen */}
-        <div className="pos-main-split" style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+        <Box
+          className="pos-main-split"
+          sx={{
+            display: 'flex',
+            flex: 1,
+            overflow: 'hidden',
+            flexDirection: { xs: 'column', md: 'row' }
+          }}
+        >
           {/* Sol: Ürün Kataloğu */}
-          <div
+          <Box
             className="pos-left-panel"
-            style={{
+            sx={{
               flex: 1,
               display: 'flex',
               flexDirection: 'column',
-              borderRight: '1px solid var(--border)',
+              borderRight: { xs: 'none', md: '1px solid' },
+              borderBottom: { xs: '1px solid', md: 'none' },
+              borderColor: 'divider',
               overflow: 'hidden',
               minWidth: 0,
             }}
           >
             <ProductGrid />
-          </div>
+          </Box>
 
           {/* Sağ: Sepet */}
-          <div
+          <Box
             className="pos-right-panel"
-            style={{
-              width: 520,
-              maxWidth: '100%',
-              flexBasis: 520,
+            sx={{
+              width: { xs: '100%', md: 520, lg: 620 },
               flexShrink: 0,
               display: 'flex',
               flexDirection: 'column',
               overflow: 'hidden',
+              bgcolor: 'background.paper'
             }}
           >
             <CartPanel />
-          </div>
-        </div>
-      </div>
+          </Box>
+        </Box>
+      </Box>
 
-      {/* MUI Snackbar — barkod bildirimleri */}
-      <Snackbar
-        open={toast.open}
-        autoHideDuration={2800}
-        onClose={() => setToast((s) => ({ ...s, open: false }))}
-        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
-      >
-        <Alert
-          severity={toast.severity}
-          sx={{ minWidth: 300, fontFamily: "'DM Sans', sans-serif", fontWeight: 500 }}
-          onClose={() => setToast((s) => ({ ...s, open: false }))}
-        >
-          {toast.message}
-        </Alert>
-      </Snackbar>
 
-      {/* Receipt Dialog */}
-      <ReceiptDialog
-        open={store.receiptDialogOpen}
-        data={null}
-        onClose={handleReceiptClose}
-      />
+      <PosReceiptDialog />
 
       <PaymentDialog />
-
-      {/* Global CSS değişkenleri ve tipografi */}
-      <style>{`
-        /* === POS THEME VARIABLES === */
-        #pos-root {
-          /* Light mode (POS follows app theme) */
-          --bg: #f7fafc;
-          --surface: #ffffff;
-          --surface2: #f3f6fb;
-          --surface3: #e9eef7;
-          --border: rgba(15, 23, 42, 0.10);
-          --border-h: rgba(79, 70, 229, 0.28);
-          --text: #0f172a;
-          --muted: rgba(15, 23, 42, 0.62);
-          --dim: rgba(15, 23, 42, 0.42);
-          --accent: #4f46e5;
-          --accent-g: rgba(79, 70, 229, 0.10);
-          --accent-l: #6366f1;
-          --green: #10b981;
-          --green-d: #eafff4;
-          --amber: #f59e0b;
-          --amber-d: #fff7e6;
-          --red: #ef4444;
-          --red-d: #fff1f1;
-          --blue: #3b82f6;
-          --blue-d: #edf4ff;
-          --pink: #ec4899;
-          --pink-d: #fff0f7;
-
-          --shadow-sm: 0 1px 2px rgba(2, 6, 23, 0.06);
-          --shadow-md: 0 10px 20px rgba(2, 6, 23, 0.10);
-          --shadow-lg: 0 24px 48px rgba(2, 6, 23, 0.16);
-          --backdrop: rgba(2, 6, 23, 0.48);
-
-          --receipt-paper: #ffffff;
-          --receipt-ink: #0f172a;
-          --receipt-ink-muted: rgba(15, 23, 42, 0.60);
-          --receipt-header: #0b1220;
-
-          --r: 12px;
-          --rs: 8px;
-          --rl: 16px;
-        }
-
-        .dark #pos-root {
-          /* Dark mode */
-          --bg: #0b1220;
-          --surface: #0f172a;
-          --surface2: #111c32;
-          --surface3: #162444;
-          --border: rgba(148, 163, 184, 0.14);
-          --border-h: rgba(99, 102, 241, 0.40);
-          --text: rgba(241, 245, 249, 0.92);
-          --muted: rgba(241, 245, 249, 0.62);
-          --dim: rgba(241, 245, 249, 0.40);
-          --accent: #7c7bff;
-          --accent-g: rgba(124, 123, 255, 0.14);
-          --accent-l: #9a99ff;
-          --green-d: rgba(16, 185, 129, 0.14);
-          --amber-d: rgba(245, 158, 11, 0.14);
-          --red-d: rgba(239, 68, 68, 0.14);
-          --blue-d: rgba(59, 130, 246, 0.14);
-          --pink-d: rgba(236, 72, 153, 0.14);
-
-          --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.35);
-          --shadow-md: 0 12px 22px rgba(0, 0, 0, 0.42);
-          --shadow-lg: 0 32px 64px rgba(0, 0, 0, 0.60);
-          --backdrop: rgba(0, 0, 0, 0.72);
-
-          --receipt-paper: #0f172a;
-          --receipt-ink: rgba(241, 245, 249, 0.92);
-          --receipt-ink-muted: rgba(241, 245, 249, 0.62);
-          --receipt-header: #070b14;
-        }
-
-        /* POS: masaüstünde 2 kolon, dar ekranlarda üst üste */
-        .pos-main-split {
-          width: 100%;
-        }
-
-        @media (max-width: 980px) {
-          .pos-main-split {
-            flex-direction: column;
-          }
-
-          .pos-left-panel {
-            border-right: none !important;
-            border-bottom: 1px solid var(--border) !important;
-          }
-
-          .pos-right-panel {
-            width: 100% !important;
-            flex-basis: auto !important;
-            flex: 1 1 auto !important;
-          }
-        }
-
-        @media (min-width: 1280px) {
-          .pos-right-panel {
-            width: 620px !important;
-            flex-basis: 620px !important;
-          }
-        }
-      `}</style>
     </MainLayout>
   );
 }

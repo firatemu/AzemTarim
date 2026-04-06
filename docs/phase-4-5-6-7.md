@@ -446,29 +446,26 @@ This is the finishing pass — animations, transitions, edge cases.
 
 ---
 
-## PAGE 1: `/settings/check-bill` — Ayarlar
+## PAGE 1: Çek/Senet ayarları — `Sistem Parametreleri`
 
-### File: `src/app/settings/check-bill/page.tsx`
+**Route:** `/settings/parameters` (bölüm anchor: `#cek-senet`)
 
-Settings sections:
+**Bileşen:** `panel-stage/client/src/components/settings/CheckBillSettingsSection.tsx`  
+(Aynı bölüm `Sistem Parametreleri` sayfasına gömülü; ayrı `/settings/check-bill` rotası yok — eski URL `next.config` ile `/settings/parameters` adresine yönlendirilir.)
 
-**Section A — Bordro Numaralandırma**
-- Prefix text input (e.g. "B-2025-")
-- Başlangıç numarası: number input
-- Otomatik sıralama: toggle
+**Bordro numaralandırma (ön ek, hane, sayaç):** `/settings/number-templates` — modül **Bordro Numaralandırma** (`CHECK_BILL_JOURNAL`). Sistem parametresi `CHECK_BILL_SETTINGS` içinde tutulmaz.
 
-**Section B — Otomatik Durum Geçişleri**
+**Section A — Otomatik Durum Geçişleri**
 - Vadesi geçince otomatik UNPAID yap: Switch
   - Helper: "Her gece 01:00'de çalışır"
 - Hatırlatma gönder: Switch
-  - Kaç gün önce: Select (1 / 3 / 7 gün)
+  - Kaç gün önce: Select (1 / 3 / 7 / 15 gün)
 
-**Section C — Varsayılan Değerler**
+**Section B — Varsayılan Değerler**
 - Varsayılan Banka Hesabı: BankAccountSelect
 - Varsayılan Kasa: CashboxSelect
 
-Each section: Card with header, description, form fields, and "Kaydet" button.
-Changes saved individually per section (not a global form).
+Her bölümde ayrı "Kaydet"; kalıcı veri `PUT /system-parameters/CHECK_BILL_SETTINGS` ile saklanır.
 
 ---
 
@@ -524,7 +521,7 @@ Ensure every mutation (create, update, delete, collect) shows:
 
 ## OUTPUT REQUIREMENTS
 
-1. `src/app/settings/check-bill/page.tsx`
+1. `src/components/settings/CheckBillSettingsSection.tsx` (ve `src/app/(main)/settings/parameters/page.tsx` içinde kullanımı)
 2. `src/app/error.tsx`
 3. `src/app/not-found.tsx`
 4. `src/components/layout/mobile-sidebar.tsx`

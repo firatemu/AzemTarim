@@ -13,7 +13,6 @@ export class UsersController {
   constructor(private readonly usersService: UsersService) { }
 
   @Get()
-  @RequirePermissions({ module: 'users', action: 'list' })
   findAll(
     @Query('search') search?: string,
     @Query('limit') limit?: string,

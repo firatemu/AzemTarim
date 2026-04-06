@@ -120,7 +120,11 @@ export async function getProfitByProduct(
   const response = await axios.get('/invoices-profits/by-product', {
     params: filters,
   });
-  return response.data;
+  // Handle API response format - extract data array if present
+  if (response.data && typeof response.data === 'object' && 'data' in response.data) {
+    return response.data.data || [];
+  }
+  return response.data || [];
 }
 
 /**
@@ -132,7 +136,11 @@ export async function getProfitList(
   const response = await axios.get('/invoices-profits/list', {
     params: filters,
   });
-  return response.data;
+  // Handle API response format - extract data array if present
+  if (response.data && typeof response.data === 'object' && 'data' in response.data) {
+    return response.data.data || [];
+  }
+  return response.data || [];
 }
 
 /**
@@ -142,7 +150,11 @@ export async function getProfitDetail(
   faturaId: string,
 ): Promise<ProfitDetailItem[]> {
   const response = await axios.get(`/invoice-profits/detail/${faturaId}`);
-  return response.data;
+  // Handle API response format - extract data array if present
+  if (response.data && typeof response.data === 'object' && 'data' in response.data) {
+    return response.data.data || [];
+  }
+  return response.data || [];
 }
 
 /**

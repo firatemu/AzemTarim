@@ -46,6 +46,16 @@ export class CreateOrderItemDto {
   @Min(0)
   @ApiProperty({ required: false })
   discountAmount?: number;
+
+  @IsString()
+  @IsOptional()
+  @ApiProperty({ required: false })
+  discountType?: string;
+
+  @IsString()
+  @IsOptional()
+  @ApiProperty({ required: false })
+  unit?: string;
 }
 
 export class CreateOrderDto {

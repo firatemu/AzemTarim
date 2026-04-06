@@ -1,12 +1,14 @@
 'use client';
 
+import React from 'react';
+
 import { Drawer, Box, Typography, IconButton, SxProps, Theme } from '@mui/material';
 import { Close as CloseIcon } from '@mui/icons-material';
 
 interface B2bDrawerProps {
   open: boolean;
   onClose: () => void;
-  title: string;
+  title: React.ReactNode;
   children: React.ReactNode;
   width?: number | string;
   sx?: SxProps<Theme>;

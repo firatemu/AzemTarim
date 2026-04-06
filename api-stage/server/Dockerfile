@@ -13,7 +13,7 @@ WORKDIR /app
 # Security: run as non-root user
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 
-COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/dist-local ./dist-local
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/package.json ./
 COPY --from=builder /app/prisma ./prisma
@@ -28,4 +28,4 @@ LABEL org.opencontainers.image.source="https://github.com/firatemu/otomuhasebe"
 LABEL org.opencontainers.image.description="Oto Muhasebe API"
 LABEL org.opencontainers.image.licenses="UNLICENSED"
 
-CMD ["node", "dist/main.js"]
+CMD ["node", "dist-local/main.js"]

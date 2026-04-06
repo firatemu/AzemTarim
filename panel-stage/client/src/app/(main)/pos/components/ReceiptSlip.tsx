@@ -84,166 +84,170 @@ export const ReceiptSlip: React.FC<ReceiptSlipProps> = ({ data }) => {
     return (
         <>
             <style jsx>{`
-                @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap');
 
-                .receipt-container {
-                    --paper: #ffffff;
-                    --ink: #000000;
-                    --ink-light: #000000;
-                    --ink-faint: #999999;
-                    --receipt-width: 302px;
-                    display: flex;
-                    flex-direction: column;
-                    align-items: center;
-                    font-family: 'IBM Plex Mono', monospace;
-                }
+        .receipt-container {
+          --paper: #ffffff;
+          --ink: #000000;
+          --ink-light: #333333;
+          --ink-faint: #999999;
+          --receipt-width: 302px;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          font-family: 'IBM Plex Mono', monospace;
+          background: #f8fafc;
+          padding: 20px 0;
+        }
 
-                .tear-top {
-                    width: var(--receipt-width);
-                    height: 14px;
-                    background: var(--paper);
-                    clip-path: polygon(
-                        0% 100%, 2.5% 0%, 5% 100%, 7.5% 0%, 10% 100%, 12.5% 0%,
-                        15% 100%, 17.5% 0%, 20% 100%, 22.5% 0%, 25% 100%, 27.5% 0%,
-                        30% 100%, 32.5% 0%, 35% 100%, 37.5% 0%, 40% 100%, 42.5% 0%,
-                        45% 100%, 47.5% 0%, 50% 100%, 52.5% 0%, 55% 100%, 57.5% 0%,
-                        60% 100%, 62.5% 0%, 65% 100%, 67.5% 0%, 70% 100%, 72.5% 0%,
-                        75% 100%, 77.5% 0%, 80% 100%, 82.5% 0%, 85% 100%, 87.5% 0%,
-                        90% 100%, 92.5% 0%, 95% 100%, 97.5% 0%, 100% 100%
-                    );
-                }
+        .receipt-body-wrapper {
+          width: var(--receipt-width);
+          background: var(--paper);
+          font-size: 9px;
+          color: var(--ink);
+          line-height: 1.5;
+          box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+          position: relative;
+        }
+        
+        .receipt-body-wrapper::before {
+          content: "";
+          position: absolute;
+          top: -10px;
+          left: 0;
+          right: 0;
+          height: 10px;
+          background: linear-gradient(135deg, transparent 5px, var(--paper) 0) 0 5px,
+                      linear-gradient(-135deg, transparent 5px, var(--paper) 0) 0 5px;
+          background-position: center bottom;
+          background-size: 10px 10px;
+          background-repeat: repeat-x;
+        }
 
-                .tear-bottom {
-                    width: var(--receipt-width);
-                    height: 14px;
-                    background: var(--paper);
-                    clip-path: polygon(
-                        0% 0%, 2.5% 100%, 5% 0%, 7.5% 100%, 10% 0%, 12.5% 100%,
-                        15% 0%, 17.5% 100%, 20% 0%, 22.5% 100%, 25% 0%, 27.5% 100%,
-                        30% 0%, 32.5% 100%, 35% 0%, 37.5% 100%, 40% 0%, 42.5% 100%,
-                        45% 0%, 47.5% 100%, 50% 0%, 52.5% 100%, 55% 0%, 57.5% 100%,
-                        60% 0%, 62.5% 100%, 65% 0%, 67.5% 100%, 70% 0%, 72.5% 100%,
-                        75% 0%, 77.5% 100%, 80% 0%, 82.5% 100%, 85% 0%, 87.5% 100%,
-                        90% 0%, 92.5% 100%, 95% 0%, 97.5% 100%, 100% 0%
-                    );
-                }
+        .receipt-body-wrapper::after {
+          content: "";
+          position: absolute;
+          bottom: -10px;
+          left: 0;
+          right: 0;
+          height: 10px;
+          background: linear-gradient(45deg, transparent 5px, var(--paper) 0) 0 5px,
+                      linear-gradient(-45deg, transparent 5px, var(--paper) 0) 0 5px;
+          background-position: center top;
+          background-size: 10px 10px;
+          background-repeat: repeat-x;
+        }
 
-                .receipt-body-wrapper {
-                    width: var(--receipt-width);
-                    background: var(--paper);
-                    font-size: 8px;
-                    color: var(--ink);
-                    line-height: 1.45;
-                }
+        .receipt-header {
+          background: #111;
+          color: #fff;
+          padding: 20px 14px 15px;
+          text-align: center;
+        }
 
-                .receipt-header {
-                    background: #000;
-                    color: #fff;
-                    padding: 13px 14px 11px;
-                    text-align: center;
-                }
+        .company-name {
+          font-family: 'IBM Plex Sans', sans-serif;
+          font-size: 16px;
+          font-weight: 900;
+          letter-spacing: 3px;
+          text-transform: uppercase;
+          margin-bottom: 4px;
+        }
 
-                .company-name {
-                    font-family: 'IBM Plex Sans', sans-serif;
-                    font-size: 14px;
-                    font-weight: 700;
-                    letter-spacing: 4px;
-                    text-transform: uppercase;
-                    margin-bottom: 2px;
-                }
+        .company-sub {
+          font-size: 7px;
+          letter-spacing: 1px;
+          color: rgba(255,255,255,0.7);
+          text-transform: uppercase;
+          margin-bottom: 12px;
+        }
 
-                .company-sub {
-                    font-size: 6.5px;
-                    letter-spacing: 1.5px;
-                    color: rgba(255,255,255,0.85);
-                    text-transform: uppercase;
-                    margin-bottom: 9px;
-                }
+        .header-rule {
+          border: none;
+          border-top: 1px solid rgba(255,255,255,0.1);
+          margin: 0 0 10px;
+        }
 
-                .header-rule {
-                    border: none;
-                    border-top: 1px solid rgba(255,255,255,0.15);
-                    margin: 0 0 8px;
-                }
+        .header-grid {
+          display: grid;
+          grid-template-columns: 1fr 1fr 1fr;
+          font-size: 7px;
+          color: rgba(255,255,255,0.8);
+          margin-bottom: 12px;
+          font-weight: 600;
+        }
+        .header-grid span:nth-child(2) { text-align: center; }
+        .header-grid span:nth-child(3) { text-align: right; }
 
-                .header-grid {
-                    display: grid;
-                    grid-template-columns: 1fr 1fr 1fr;
-                    font-size: 6.5px;
-                    color: rgba(255,255,255,0.9);
-                    letter-spacing: 0.3px;
-                    margin-bottom: 9px;
-                }
-                .header-grid span:nth-child(2) { text-align: center; }
-                .header-grid span:nth-child(3) { text-align: right; }
+        .bilgi-fisi-badge {
+          display: inline-block;
+          background: #fff;
+          color: #000;
+          font-family: 'IBM Plex Sans', sans-serif;
+          font-size: 8px;
+          font-weight: 900;
+          letter-spacing: 2px;
+          text-transform: uppercase;
+          padding: 4px 16px;
+          border-radius: 1px;
+        }
 
-                .bilgi-fisi-badge {
-                    display: inline-block;
-                    background: #fff;
-                    color: #000;
-                    font-family: 'IBM Plex Sans', sans-serif;
-                    font-size: 7.5px;
-                    font-weight: 700;
-                    letter-spacing: 3.5px;
-                    text-transform: uppercase;
-                    padding: 3px 12px;
-                    border-radius: 2px;
-                }
+        .receipt-content { padding: 15px 16px; }
 
-                .receipt-content { padding: 11px 13px; }
+        .info-section { margin-bottom: 12px; }
+        .info-row { display: flex; justify-content: space-between; font-size: 8.5px; line-height: 1.8; }
+        .info-row .lbl { color: var(--ink-light); font-size: 7px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .info-row .val { text-align: right; font-weight: 700; color: var(--ink); }
 
-                .info-section { margin-bottom: 9px; }
-                .info-row { display: flex; justify-content: space-between; font-size: 7.5px; line-height: 1.7; }
-                .info-row .lbl { color: var(--ink-light); font-size: 6.5px; text-transform: uppercase; letter-spacing: 0.4px; flex-shrink: 0; min-width: 76px; }
-                .info-row .val { text-align: right; font-weight: 600; color: var(--ink); }
+        .dash { border: none; border-top: 1px dashed #ddd; margin: 10px 0; }
 
-                .dash { border: none; border-top: 1px dashed var(--ink-faint); margin: 8px 0; }
+        .sec-label { font-size: 7px; letter-spacing: 1px; text-transform: uppercase; color: var(--ink-light); margin-bottom: 8px; display: flex; align-items: center; gap: 8px; font-weight: 700; }
+        .sec-label::after { content: ''; flex: 1; height: 1px; background: #eee; }
 
-                .sec-label { font-size: 6.5px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--ink-light); margin-bottom: 6px; display: flex; align-items: center; gap: 5px; }
-                .sec-label::after { content: ''; flex: 1; height: 1px; background: #ddd; }
+        .items-header { display: grid; grid-template-columns: 1fr 30px 60px 60px; gap: 4px; font-size: 6.5px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--ink-light); padding-bottom: 6px; border-bottom: 1px solid #eee; margin-bottom: 8px; font-weight: 700; }
+        .items-header span:not(:first-child) { text-align: right; }
 
-                .items-header { display: grid; grid-template-columns: 1fr 24px 50px 50px; gap: 2px; font-size: 6px; text-transform: uppercase; letter-spacing: 0.8px; color: var(--ink-light); padding-bottom: 4px; border-bottom: 1px solid #ddd; margin-bottom: 5px; }
-                .items-header span:not(:first-child) { text-align: right; }
+        .item-row { margin-bottom: 10px; }
+        .item-top { font-size: 9px; font-weight: 800; color: var(--ink); display: flex; align-items: center; gap: 6px; margin-bottom: 2px; }
+        .discount-tag { font-size: 6.5px; font-weight: 900; border: 1.5px solid #000; padding: 0 3px; border-radius: 1px; line-height: 1.4; }
+        .item-detail { display: grid; grid-template-columns: 1fr 30px 60px 60px; gap: 4px; font-size: 8px; color: var(--ink); }
+        .item-detail span:not(:first-child) { text-align: right; }
+        .strike { text-decoration: line-through; color: var(--ink-faint); font-size: 7px; margin-right: 2px; }
 
-                .item-row { margin-bottom: 7px; }
-                .item-top { font-size: 8px; font-weight: 700; color: var(--ink); display: flex; align-items: center; gap: 4px; margin-bottom: 1px; }
-                .discount-tag { font-size: 6px; font-weight: 700; border: 1px solid #000; padding: 0 2px; border-radius: 1px; letter-spacing: 0.3px; line-height: 1.4; }
-                .item-detail { display: grid; grid-template-columns: 1fr 24px 50px 50px; gap: 2px; font-size: 7px; color: var(--ink); }
-                .item-detail span:not(:first-child) { text-align: right; }
-                .strike { text-decoration: line-through; color: var(--ink-faint); font-size: 6.5px; }
+        .total-row { display: flex; justify-content: space-between; font-size: 8.5px; color: var(--ink); line-height: 2; }
+        .total-row .tl { font-size: 7px; text-transform: uppercase; letter-spacing: 0.4px; font-weight: 600; }
+        .total-row .tv { font-weight: 700; color: var(--ink); }
 
-                .total-row { display: flex; justify-content: space-between; font-size: 7.5px; color: var(--ink); line-height: 1.85; }
-                .total-row .tl { font-size: 6.5px; text-transform: uppercase; letter-spacing: 0.4px; }
-                .total-row .tv { font-weight: 600; color: var(--ink); }
+        .grand-row { display: flex; justify-content: space-between; align-items: baseline; margin-top: 8px; padding-top: 10px; border-top: 2.5px solid #000; }
+        .grand-lbl { font-family: 'IBM Plex Sans', sans-serif; font-size: 10px; font-weight: 900; letter-spacing: 1px; text-transform: uppercase; }
+        .grand-amt { font-family: 'IBM Plex Sans', sans-serif; font-size: 22px; font-weight: 900; letter-spacing: -0.5px; }
 
-                .grand-row { display: flex; justify-content: space-between; align-items: baseline; margin-top: 5px; padding-top: 7px; border-top: 2px solid #000; }
-                .grand-lbl { font-family: 'IBM Plex Sans', sans-serif; font-size: 9px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; }
-                .grand-amt { font-family: 'IBM Plex Sans', sans-serif; font-size: 18px; font-weight: 700; letter-spacing: -0.5px; }
+        .pay-box { border: 1.5px solid #000; padding: 10px 12px; margin-top: 15px; }
+        .pay-box-title { font-size: 7px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--ink-light); margin-bottom: 8px; padding-bottom: 5px; border-bottom: 1px dashed #eee; font-weight: 700; }
+        .pay-row { display: flex; justify-content: space-between; font-size: 8.5px; line-height: 1.8; }
+        .pay-row .pl { color: var(--ink); font-weight: 600; }
+        .pay-row .pv { font-weight: 800; }
 
-                .pay-box { border: 1px solid #000; padding: 7px 9px; margin-top: 9px; }
-                .pay-box-title { font-size: 6px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--ink-light); margin-bottom: 5px; padding-bottom: 4px; border-bottom: 1px dashed #ddd; }
-                .pay-row { display: flex; justify-content: space-between; font-size: 7.5px; line-height: 1.7; }
-                .pay-row .pl { color: var(--ink); }
-                .pay-row .pv { font-weight: 700; }
-
-                .receipt-footer { border-top: 1px dashed #ccc; padding: 10px 13px 14px; text-align: center; }
-                .qr-wrap { display: flex; flex-direction: column; align-items: center; margin: 4px 0 11px; }
-                #qr-canvas { display: block; image-rendering: pixelated; }
-                .qr-label { font-size: 6.5px; color: var(--ink-light); letter-spacing: 2px; margin-top: 5px; font-family: 'IBM Plex Mono', monospace; }
-                .footer-company { font-size: 7px; color: var(--ink); line-height: 1.8; margin-bottom: 9px; }
-                .footer-company strong { font-family: 'IBM Plex Sans', sans-serif; font-size: 8px; font-weight: 700; color: var(--ink); letter-spacing: 0.5px; display: block; margin-bottom: 1px; }
-                .footer-disclaimer { font-size: 6.5px; color: var(--ink-light); line-height: 1.8; border-top: 1px dashed #ccc; padding-top: 8px; font-style: italic; }
-                .footer-bye { font-family: 'IBM Plex Sans', sans-serif; font-size: 8.5px; font-weight: 700; letter-spacing: 3px; text-transform: uppercase; margin-top: 11px; color: var(--ink); }
-                
-                @media print {
-                    .receipt-container { margin: 0; padding: 0; box-shadow: none; }
-                    .tear-top, .tear-bottom { display: none !important; }
-                }
-            `}</style>
+        .receipt-footer { border-top: 1px dashed #eee; padding: 15px 16px 20px; text-align: center; }
+        .qr-wrap { display: flex; flex-direction: column; align-items: center; margin: 5px 0 15px; }
+        #qr-canvas { display: block; image-rendering: pixelated; }
+        .qr-label { font-size: 7px; color: var(--ink-light); letter-spacing: 2px; margin-top: 6px; font-family: 'IBM Plex Mono', monospace; font-weight: 600; }
+        .footer-company { font-size: 8px; color: var(--ink); line-height: 1.8; margin-bottom: 12px; }
+        .footer-company strong { font-family: 'IBM Plex Sans', sans-serif; font-size: 9px; font-weight: 800; color: var(--ink); letter-spacing: 0.5px; display: block; margin-bottom: 2px; }
+        .footer-disclaimer { font-size: 7px; color: var(--ink-light); line-height: 1.6; border-top: 1px dashed #eee; padding-top: 10px; font-style: italic; opacity: 0.8; }
+        .footer-bye { font-family: 'IBM Plex Sans', sans-serif; font-size: 10px; font-weight: 900; letter-spacing: 4px; text-transform: uppercase; margin-top: 15px; color: #000; }
+        
+        @media print {
+          body * { visibility: hidden; }
+          #printable-receipt, #printable-receipt * { visibility: visible; }
+          #printable-receipt { position: absolute; left: 0; top: 0; width: 100%; padding: 0; margin: 0; background: #fff; }
+          .receipt-body-wrapper { box-shadow: none; }
+          .receipt-container { background: white; padding: 0; }
+          .receipt-body-wrapper::before, .receipt-body-wrapper::after { display: none; }
+        }
+      `}</style>
 
             <div className="receipt-container" id="printable-receipt">
-                <div className="tear-top"></div>
-
                 <div className="receipt-body-wrapper">
                     {/* HEADER */}
                     <div className="receipt-header">
@@ -287,16 +291,16 @@ export const ReceiptSlip: React.FC<ReceiptSlipProps> = ({ data }) => {
                         {data.items.map((item, index) => (
                             <div className="item-row" key={index}>
                                 <div className="item-top">
-                                    {item.name} {item.discountRate != null && <span className="discount-tag">%{(item.discountRate).toFixed(0)}</span>}
+                                    {item.name} {item.discountRate != null && item.discountRate > 0 && <span className="discount-tag">%{(item.discountRate).toFixed(0)}</span>}
                                 </div>
                                 <div className="item-detail">
                                     <span></span>
                                     <span>{item.quantity}</span>
                                     <span>
-                                        {item.originalPrice != null && <span className="strike">{formatCurrency(item.originalPrice)}</span>}{' '}
+                                        {item.originalPrice != null && item.originalPrice !== item.unitPrice && <span className="strike">{formatCurrency(item.originalPrice)}</span>}{' '}
                                         {formatCurrency(item.unitPrice)}
                                     </span>
-                                    <span style={{ fontWeight: 700 }}>{formatCurrency(item.lineTotal)}</span>
+                                    <span style={{ fontWeight: 800 }}>{formatCurrency(item.lineTotal)}</span>
                                 </div>
                             </div>
                         ))}
@@ -321,19 +325,19 @@ export const ReceiptSlip: React.FC<ReceiptSlipProps> = ({ data }) => {
                         </div>
 
                         <div className="grand-row">
-                            <span className="grand-lbl">Genel Toplam</span>
+                            <span className="grand-lbl">Toplam</span>
                             <span className="grand-amt">{formatCurrency(data.grandTotal)}</span>
                         </div>
 
                         <div className="pay-box">
-                            <div className="pay-box-title">Ödeme Detayı</div>
+                            <div className="pay-box-title">ÖDEME DETAYI</div>
                             <div className="pay-row">
-                                <span className="pl">Ödeme Yöntemi</span>
+                                <span className="pl">Yöntem</span>
                                 <span className="pv">{data.paymentMethod}</span>
                             </div>
                             {data.amountPaid != null && (
-                                <div className="pay-row">
-                                    <span className="pl">Ödenen Tutar</span>
+                                <div className="pay-row" style={{ marginTop: 2 }}>
+                                    <span className="pl">Ödenen</span>
                                     <span className="pv">{formatCurrency(data.amountPaid)}</span>
                                 </div>
                             )}
@@ -349,20 +353,18 @@ export const ReceiptSlip: React.FC<ReceiptSlipProps> = ({ data }) => {
 
                         <div className="footer-company">
                             <strong>{data.companyFullName}</strong>
-                            {data.address.split('\n').map((line, i) => React.cloneElement(<span>{line}<br /></span>, { key: i }))}
+                            {data.address.split('\n').map((line, i) => <React.Fragment key={i}>{line}<br /></React.Fragment>)}
                             Tel: {data.phone}
                         </div>
 
                         <div className="footer-disclaimer">
-                            Bu fiş bilgi amaçlı yazdırılmış olup<br />
-                            herhangi bir mali değeri yoktur.
+                            Bu belge bilgi amaçlıdır.<br />
+                            Mali değeri yoktur.
                         </div>
 
-                        <div className="footer-bye">İyi Günler</div>
+                        <div className="footer-bye">Yine Bekleriz</div>
                     </div>
                 </div>
-
-                <div className="tear-bottom"></div>
             </div>
         </>
     );

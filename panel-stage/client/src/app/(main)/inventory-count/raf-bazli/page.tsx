@@ -22,9 +22,26 @@ import {
   DialogContent,
   DialogActions,
   Autocomplete,
+  Stack,
+  Grid,
+  alpha,
+  useTheme,
+  Tooltip,
+  Divider,
 } from '@mui/material';
-import { Save, ArrowBack, Delete, QrCodeScanner, Add } from '@mui/icons-material';
-import MainLayout from '@/components/Layout/MainLayout';
+import {
+  Save as SaveIcon,
+  ArrowBack as BackIcon,
+  Delete as DeleteIcon,
+  QrCodeScanner as ScanIcon,
+  Add as AddIcon,
+  Warehouse as WarehouseIcon,
+  LocationOn as LocationIcon,
+  Inventory as InventoryIcon,
+  KeyboardReturn as EnterIcon,
+  CheckCircle as CheckIcon,
+} from '@mui/icons-material';
+import StandardPage from '@/components/common/StandardPage';
 import axios from '@/lib/axios';
 import { useRouter } from 'next/navigation';
 
@@ -56,6 +73,7 @@ interface SayimKalemi {
 }
 
 export default function RafBazliSayimPage() {
+  const theme = useTheme();
   const router = useRouter();
   const rafBarcodeRef = useRef<HTMLInputElement>(null);
   const urunBarcodeRef = useRef<HTMLInputElement>(null);
@@ -63,7 +81,7 @@ export default function RafBazliSayimPage() {
   const [sayimNo, setSayimNo] = useState('');
   const [aciklama, setAciklama] = useState('');
   const [kalemler, setKalemler] = useState<SayimKalemi[]>([]);
-  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' });
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as any });
   const [loading, setLoading] = useState(false);
 
   // Barkod okuma için state'ler
@@ -99,7 +117,7 @@ export default function RafBazliSayimPage() {
       const response = await axios.get('/products', { params: { limit: 1000 } });
       setUrunler(Array.isArray(response.data.data) ? response.data.data : []);
     } catch (error) {
-      console.error('Ürün listesi yüklenemedi:', error);
+      console.error('Ürün listesi hatası:', error);
     }
   };
 
@@ -108,549 +126,391 @@ export default function RafBazliSayimPage() {
       const response = await axios.get('/location', { params: { active: true } });
       setLokasyonlar(Array.isArray(response.data) ? response.data : []);
     } catch (error) {
-      console.error('Lokasyon listesi yüklenemedi:', error);
+      console.error('Lokasyon hatası:', error);
     }
   };
 
   const generateSayimNo = async () => {
     try {
-      const response = await axios.get('/inventory-count', {
-        params: { sayimTipi: 'RAF_BAZLI', limit: 1 },
-      });
+      const response = await axios.get('/inventory-count', { params: { sayimTipi: 'RAF_BAZLI', limit: 1 } });
       const sayimlar = response.data || [];
       const lastSayim = sayimlar[0];
       const lastNo = lastSayim ? parseInt(lastSayim.sayimNo.split('-')[2]) : 0;
       const newNo = (lastNo + 1).toString().padStart(3, '0');
       setSayimNo(`SAYRAF-${new Date().getFullYear()}-${newNo}`);
     } catch (error) {
-      console.error('Sayım numarası oluşturulurken hata:', error);
+      console.error('Sayım no hatası:', error);
     }
   };
 
   const handleRafBarcodeSubmit = async () => {
     if (!rafBarcodeInput.trim()) return;
-
     try {
       const response = await axios.get(`/inventory-count/barcode/location/${rafBarcodeInput}`);
       setCurrentLocation(response.data);
       setRafBarcodeInput('');
-      showSnackbar(`Raf: ${response.data.code} - Ürün okutmaya başlayın`, 'success');
+      showSnackbar(`Raf Seçildi: ${response.data.code}`, 'success');
     } catch (error: any) {
-      showSnackbar(error.response?.data?.message || 'Raf barkodu bulunamadı', 'error');
+      showSnackbar('Raf barkodu bulunamadı', 'error');
       setRafBarcodeInput('');
     }
   };
 
   const handleUrunBarcodeSubmit = async () => {
     if (!urunBarcodeInput.trim() || !currentLocation) return;
-
     try {
       const response = await axios.get(`/inventory-count/barcode/products/${urunBarcodeInput}`);
       const stok = response.data;
-
-      // Bu rafta bu ürün için kalem var mı?
-      const existingIndex = kalemler.findIndex(
-        k => k.stokId === stok.id && k.locationId === currentLocation.id
-      );
+      const existingIndex = kalemler.findIndex(k => k.stokId === stok.id && k.locationId === currentLocation.id);
 
       if (existingIndex >= 0) {
-        // Varsa miktarı artır
         const newKalemler = [...kalemler];
         newKalemler[existingIndex].sayilanMiktar += 1;
         newKalemler[existingIndex].farkMiktari = newKalemler[existingIndex].sayilanMiktar - newKalemler[existingIndex].sistemMiktari;
         setKalemler(newKalemler);
-        showSnackbar(`${stok.stokAdi} - ${currentLocation.code}: ${newKalemler[existingIndex].sayilanMiktar}`, 'success');
+        showSnackbar(`${stok.stokAdi} (+1)`, 'success');
       } else {
-        // Yeni kalem ekle - sistem miktarını getir
-        try {
-          const locationStockResponse = await axios.get(`/location/${currentLocation.id}`);
-          const locationData = locationStockResponse.data;
-          const productStock = locationData.productLocationStocks?.find((pls: any) => pls.productId === stok.id);
-          const sistemMiktari = productStock?.qtyOnHand || 0;
+        const locRes = await axios.get(`/location/${currentLocation.id}`);
+        const productStock = locRes.data.productLocationStocks?.find((pls: any) => pls.productId === stok.id);
+        const sistemMiktari = productStock?.qtyOnHand || 0;
 
-          setKalemler([
-            ...kalemler,
-            {
-              stokId: stok.id,
-              locationId: currentLocation.id,
-              stok,
-              location: currentLocation,
-              sistemMiktari,
-              sayilanMiktar: 1,
-              farkMiktari: 1 - sistemMiktari,
-            },
-          ]);
-          showSnackbar(`${stok.stokAdi} - ${currentLocation.code} eklendi`, 'success');
-        } catch (error) {
-          // Sistem miktarı alınamazsa 0 olarak ekle
-          setKalemler([
-            ...kalemler,
-            {
-              stokId: stok.id,
-              locationId: currentLocation.id,
-              stok,
-              location: currentLocation,
-              sistemMiktari: 0,
-              sayilanMiktar: 1,
-              farkMiktari: 1,
-            },
-          ]);
-          showSnackbar(`${stok.stokAdi} - ${currentLocation.code} eklendi`, 'success');
-        }
+        setKalemler([...kalemler, {
+          stokId: stok.id,
+          locationId: currentLocation.id,
+          stok,
+          location: currentLocation,
+          sistemMiktari,
+          sayilanMiktar: 1,
+          farkMiktari: 1 - sistemMiktari
+        }]);
+        showSnackbar(`${stok.stokAdi} eklendi`, 'success');
       }
-
       setUrunBarcodeInput('');
     } catch (error: any) {
-      showSnackbar(error.response?.data?.message || 'Ürün barkodu bulunamadı', 'error');
+      showSnackbar('Ürün barkodu bulunamadı', 'error');
       setUrunBarcodeInput('');
     }
   };
 
   const handleManuelEkle = async () => {
-    if (!secilenUrun) {
-      showSnackbar('Lütfen ürün seçin', 'error');
-      return;
-    }
-
-    if (!secilenLokasyon) {
-      showSnackbar('Lütfen lokasyon seçin', 'error');
-      return;
-    }
-
-    if (manuelMiktar <= 0) {
-      showSnackbar('Miktar 0\'dan büyük olmalı', 'error');
-      return;
-    }
-
+    if (!secilenUrun || !secilenLokasyon || manuelMiktar <= 0) return;
     try {
-      // Sistem miktarını getir
-      const locationStockResponse = await axios.get(`/location/${secilenLokasyon.id}`);
-      const locationData = locationStockResponse.data;
-      const productStock = locationData.productLocationStocks?.find((pls: any) => pls.productId === secilenUrun.id);
+      const locRes = await axios.get(`/location/${secilenLokasyon.id}`);
+      const productStock = locRes.data.productLocationStocks?.find((pls: any) => pls.productId === secilenUrun.id);
       const sistemMiktari = productStock?.qtyOnHand || 0;
 
-      // Mevcut kalemde var mı kontrol et
-      const existingIndex = kalemler.findIndex(
-        k => k.stokId === secilenUrun.id && k.locationId === secilenLokasyon.id
-      );
-
+      const existingIndex = kalemler.findIndex(k => k.stokId === secilenUrun.id && k.locationId === secilenLokasyon.id);
       if (existingIndex >= 0) {
-        // Varsa miktarı güncelle
         const newKalemler = [...kalemler];
         newKalemler[existingIndex].sayilanMiktar = manuelMiktar;
         newKalemler[existingIndex].farkMiktari = manuelMiktar - newKalemler[existingIndex].sistemMiktari;
         setKalemler(newKalemler);
-        showSnackbar(`${secilenUrun.stokAdi} - ${secilenLokasyon.code} güncellendi`, 'success');
       } else {
-        // Yoksa yeni kalem ekle
-        setKalemler([
-          ...kalemler,
-          {
-            stokId: secilenUrun.id,
-            locationId: secilenLokasyon.id,
-            stok: secilenUrun,
-            location: secilenLokasyon,
-            sistemMiktari,
-            sayilanMiktar: manuelMiktar,
-            farkMiktari: manuelMiktar - sistemMiktari,
-          },
-        ]);
-        showSnackbar(`${secilenUrun.stokAdi} - ${secilenLokasyon.code} eklendi`, 'success');
+        setKalemler([...kalemler, {
+          stokId: secilenUrun.id,
+          locationId: secilenLokasyon.id,
+          stok: secilenUrun,
+          location: secilenLokasyon,
+          sistemMiktari,
+          sayilanMiktar: manuelMiktar,
+          farkMiktari: manuelMiktar - sistemMiktari
+        }]);
       }
-
-      // Dialog'u kapat ve resetle
       setManuelDialog(false);
       setSecilenUrun(null);
       setSecilenLokasyon(null);
       setManuelMiktar(1);
-    } catch (error: any) {
-      showSnackbar(error.response?.data?.message || 'Ürün eklenirken hata', 'error');
+      showSnackbar(`${secilenUrun.stokAdi} eklendi`, 'success');
+    } catch (error) {
+      showSnackbar('Hata oluştu', 'error');
     }
-  };
-
-  const handleMiktarChange = (index: number, miktar: number) => {
-    const newKalemler = [...kalemler];
-    newKalemler[index].sayilanMiktar = miktar;
-    newKalemler[index].farkMiktari = miktar - newKalemler[index].sistemMiktari;
-    setKalemler(newKalemler);
-  };
-
-  const handleRemoveKalem = (index: number) => {
-    setKalemler(kalemler.filter((_, i) => i !== index));
   };
 
   const handleSave = async () => {
-    if (!sayimNo) {
-      showSnackbar('Sayım numarası gerekli', 'error');
-      return;
-    }
-
-    if (kalemler.length === 0) {
-      showSnackbar('En az bir ürün saymalısınız', 'error');
-      return;
-    }
-
+    if (!sayimNo || kalemler.length === 0) return;
     try {
       setLoading(true);
       await axios.post('/inventory-count', {
         sayimNo,
         sayimTipi: 'RAF_BAZLI',
         aciklama,
-        kalemler: kalemler.map(k => ({
-          stokId: k.stokId,
-          locationId: k.locationId,
-          sayilanMiktar: k.sayilanMiktar,
-        })),
+        kalemler: kalemler.map(k => ({ stokId: k.stokId, locationId: k.locationId, sayilanMiktar: k.sayilanMiktar })),
       });
-
-      showSnackbar('Raf bazlı sayım başarıyla kaydedildi', 'success');
+      showSnackbar('Raf bazlı sayım kaydedildi', 'success');
       setTimeout(() => router.push('/inventory-count/liste'), 1500);
     } catch (error: any) {
-      showSnackbar(error.response?.data?.message || 'Kaydetme hatası', 'error');
-    } finally {
-      setLoading(false);
-    }
+      showSnackbar('Kaydetme hatası', 'error');
+    } finally { setLoading(false); }
   };
 
   const showSnackbar = (message: string, severity: 'success' | 'error') => {
     setSnackbar({ open: true, message, severity });
   };
 
-  const toplamFark = kalemler.reduce((sum, k) => sum + Math.abs(k.farkMiktari), 0);
-  const fazlalar = kalemler.filter(k => k.farkMiktari > 0).length;
-  const eksikler = kalemler.filter(k => k.farkMiktari < 0).length;
-
   return (
-    <MainLayout>
-      <Box sx={{ p: 3 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
-          <IconButton onClick={() => router.back()}>
-            <ArrowBack />
-          </IconButton>
-          <Box sx={{ ml: 2, flex: 1 }}>
-            <Typography variant="h5" fontWeight="bold" sx={{
-              background: 'linear-gradient(135deg, #0891b2 0%, #06b6d4 100%)',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-            }}>
-              Raf Bazlı Sayım
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              Her rafta ne kadar ürün var detaylı sayım yapın
-            </Typography>
-          </Box>
-          <Box sx={{ display: 'flex', gap: 1 }}>
-            <Button
-              variant={barcodeMode ? 'contained' : 'outlined'}
-              startIcon={<QrCodeScanner />}
-              onClick={() => {
-                setBarcodeMode(!barcodeMode);
-                setCurrentLocation(null);
-              }}
-              color={barcodeMode ? 'success' : 'primary'}
-            >
-              {barcodeMode ? 'Barkod Modu Aktif' : 'Barkod Modu'}
-            </Button>
-            <Button
-              variant="outlined"
-              startIcon={<Add />}
-              onClick={() => setManuelDialog(true)}
-              color="primary"
-            >
-              Manuel Ekle
-            </Button>
-          </Box>
-        </Box>
-
-        <Paper sx={{ p: 3, mb: 2 }}>
-          <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+    <StandardPage
+      title="Raf Bazlı (Adresli) Sayım"
+      breadcrumbs={[{ label: 'Stok', href: '/stock' }, { label: 'Sayım', href: '/inventory-count' }, { label: 'Yeni Raf Bazlı' }]}
+      headerActions={
+        <Stack direction="row" spacing={1.5}>
+          <Button
+            variant={barcodeMode ? 'contained' : 'outlined'}
+            startIcon={<ScanIcon />}
+            onClick={() => { setBarcodeMode(!barcodeMode); setCurrentLocation(null); }}
+            color={barcodeMode ? 'success' : 'primary'}
+            sx={{ fontWeight: 800, borderRadius: 3, px: 3 }}
+          >
+            {barcodeMode ? 'Okuma Modu Aktif' : 'Barkod Modunu Aç'}
+          </Button>
+          <Button
+            variant="outlined"
+            startIcon={<AddIcon />}
+            onClick={() => setManuelDialog(true)}
+            sx={{ fontWeight: 800, borderRadius: 3, px: 3 }}
+          >
+            Manuel Ekle
+          </Button>
+        </Stack>
+      }
+    >
+      <Stack spacing={3}>
+        <Paper variant="outlined" sx={{ p: 3, borderRadius: 4, bgcolor: alpha(theme.palette.primary.main, 0.01) }}>
+          <Stack direction={{ xs: 'column', md: 'row' }} spacing={3}>
             <TextField
-              sx={{ flex: '1 1 250px' }}
-              label="Sayım No"
+              label="Sayım Ref No"
+              size="small"
               value={sayimNo}
               onChange={(e) => setSayimNo(e.target.value)}
               required
+              sx={{ flexShrink: 0, width: { md: 250 }, '& .MuiOutlinedInput-root': { borderRadius: 2.5, fontWeight: 800, bgcolor: 'background.paper' } }}
             />
             <TextField
-              sx={{ flex: '1 1 400px' }}
+              fullWidth
               label="Açıklama"
+              size="small"
               value={aciklama}
               onChange={(e) => setAciklama(e.target.value)}
-              placeholder="Örn: Ocak 2025 Raf Bazlı Sayım"
+              placeholder="Raf ve lokasyon bazlı sayım notları..."
+              sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2.5, bgcolor: 'background.paper' } }}
             />
-          </Box>
+          </Stack>
         </Paper>
 
-        {/* Barkod Okuma Alanı */}
         {barcodeMode && (
-          <Paper sx={{ p: 3, mb: 2, bgcolor: '#f0fdf4', border: '2px dashed', borderColor: 'success.main' }}>
+          <Paper
+            variant="outlined"
+            sx={{
+              p: 3,
+              borderRadius: 4,
+              bgcolor: alpha(theme.palette.success.main, 0.02),
+              borderStyle: 'dashed',
+              borderWidth: 2,
+              borderColor: 'success.main'
+            }}
+          >
             {!currentLocation ? (
-              <Box>
-                <Typography variant="h6" gutterBottom>1. Adım: Raf Barkodunu Okutun</Typography>
-                <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
-                  <QrCodeScanner sx={{ color: 'success.main', fontSize: 40 }} />
+              <Stack direction="row" spacing={2} alignItems="center">
+                <Box sx={{ p: 1.5, borderRadius: 2.5, bgcolor: 'warning.main', color: 'white', display: 'flex' }}>
+                  <LocationIcon />
+                </Box>
+                <Box sx={{ flex: 1 }}>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>ADIM 1: RAF BARKODUNU OKUTUN</Typography>
                   <TextField
                     fullWidth
+                    size="small"
                     inputRef={rafBarcodeRef}
-                    placeholder="Raf barkodunu okutun..."
+                    placeholder="Raf kodunu girin veya barkodu okutun..."
                     value={rafBarcodeInput}
                     onChange={(e) => setRafBarcodeInput(e.target.value)}
-                    onKeyPress={(e) => {
-                      if (e.key === 'Enter') {
-                        handleRafBarcodeSubmit();
-                      }
-                    }}
+                    onKeyDown={(e) => e.key === 'Enter' && handleRafBarcodeSubmit()}
                     autoFocus
+                    sx={{ mt: 1, '& .MuiOutlinedInput-root': { borderRadius: 2.5, bgcolor: 'background.paper' } }}
                   />
-                  <Button variant="contained" onClick={handleRafBarcodeSubmit} color="success">
-                    Devam
-                  </Button>
                 </Box>
-              </Box>
+                <Button variant="contained" color="warning" onClick={handleRafBarcodeSubmit} sx={{ height: 40, mt: 3, borderRadius: 2.5 }}>Rafı Seç</Button>
+              </Stack>
             ) : (
-              <Box>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                  <Box>
-                    <Typography variant="h6">2. Adım: Ürün Barkodlarını Okutun</Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      Seçili Raf: <Chip label={currentLocation.code} size="small" color="primary" />
-                      {currentLocation.warehouse.name}
-                    </Typography>
-                  </Box>
-                  <Button size="small" onClick={() => setCurrentLocation(null)}>
-                    Başka Raf Seç
-                  </Button>
+              <Stack direction="row" spacing={2} alignItems="center">
+                <Box sx={{ p: 1.5, borderRadius: 2.5, bgcolor: 'success.main', color: 'white', display: 'flex' }}>
+                  <ScanIcon />
                 </Box>
-                <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
-                  <QrCodeScanner sx={{ color: 'success.main', fontSize: 40 }} />
+                <Box sx={{ flex: 1 }}>
+                  <Stack direction="row" spacing={1} alignItems="center">
+                    <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>ADIM 2: ÜRÜN BARKODLARINI OKUTUN</Typography>
+                    <Chip
+                      icon={<WarehouseIcon sx={{ fontSize: '14px !important' }} />}
+                      label={currentLocation.code}
+                      size="small"
+                      color="primary"
+                      onDelete={() => setCurrentLocation(null)}
+                      sx={{ fontWeight: 900, borderRadius: 1.5 }}
+                    />
+                  </Stack>
                   <TextField
                     fullWidth
+                    size="small"
                     inputRef={urunBarcodeRef}
-                    placeholder="Ürün barkodunu okutun..."
+                    placeholder="Seçili raftaki ürünlerin barkodunu okutun..."
                     value={urunBarcodeInput}
                     onChange={(e) => setUrunBarcodeInput(e.target.value)}
-                    onKeyPress={(e) => {
-                      if (e.key === 'Enter') {
-                        handleUrunBarcodeSubmit();
-                      }
-                    }}
+                    onKeyDown={(e) => e.key === 'Enter' && handleUrunBarcodeSubmit()}
                     autoFocus
+                    sx={{ mt: 1, '& .MuiOutlinedInput-root': { borderRadius: 2.5, bgcolor: 'background.paper' } }}
                   />
-                  <Button variant="contained" onClick={handleUrunBarcodeSubmit} color="success">
-                    Ekle
-                  </Button>
                 </Box>
-              </Box>
+                <Button variant="contained" color="success" onClick={handleUrunBarcodeSubmit} sx={{ height: 40, mt: 3, borderRadius: 2.5 }}>Ürünü Ekle</Button>
+              </Stack>
             )}
           </Paper>
         )}
 
-        {/* Sayım Tablosu */}
-        <TableContainer component={Paper}>
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableCell>Raf</TableCell>
-                <TableCell>Stok Kodu</TableCell>
-                <TableCell>Ürün Adı</TableCell>
-                <TableCell align="right">Sistem</TableCell>
-                <TableCell align="right">Sayılan</TableCell>
-                <TableCell align="right">Fark</TableCell>
-                <TableCell align="center">İşlem</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {kalemler.length === 0 ? (
+        <Paper variant="outlined" sx={{ borderRadius: 4, overflow: 'hidden' }}>
+          <TableContainer>
+            <Table size="small">
+              <TableHead sx={{ bgcolor: alpha(theme.palette.primary.main, 0.04) }}>
                 <TableRow>
-                  <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
-                    <Typography color="text.secondary">
-                      {barcodeMode ? 'Raf barkodunu okutarak başlayın' : 'Henüz ürün eklenmedi'}
-                    </Typography>
-                  </TableCell>
+                  <TableCell sx={{ fontWeight: 800 }}>Raf / Lokasyon</TableCell>
+                  <TableCell sx={{ fontWeight: 800 }}>Ürün Bilgisi</TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 800 }}>Sistem Stok</TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 800 }}>Sayılan</TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 800 }}>Fark</TableCell>
+                  <TableCell align="right" sx={{ fontWeight: 800 }}>İşlem</TableCell>
                 </TableRow>
-              ) : (
-                kalemler.map((kalem, index) => (
-                  <TableRow key={index}>
-                    <TableCell>
-                      <Chip label={kalem.location?.code} size="small" color="info" />
-                    </TableCell>
-                    <TableCell>{kalem.stok?.stokKodu}</TableCell>
-                    <TableCell>{kalem.stok?.stokAdi}</TableCell>
-                    <TableCell align="right">{kalem.sistemMiktari}</TableCell>
-                    <TableCell align="right">
-                      <TextField
-                        type="number"
-                        size="small"
-                        value={kalem.sayilanMiktar}
-                        onChange={(e) => handleMiktarChange(index, Number(e.target.value))}
-                        inputProps={{ min: 0 }}
-                        sx={{ width: 100 }}
-                      />
-                    </TableCell>
-                    <TableCell align="right">
-                      <Chip
-                        label={kalem.farkMiktari > 0 ? `+${kalem.farkMiktari}` : kalem.farkMiktari}
-                        color={kalem.farkMiktari > 0 ? 'success' : kalem.farkMiktari < 0 ? 'error' : 'default'}
-                        size="small"
-                      />
-                    </TableCell>
-                    <TableCell align="center">
-                      <IconButton size="small" color="error" onClick={() => handleRemoveKalem(index)}>
-                        <Delete />
-                      </IconButton>
+              </TableHead>
+              <TableBody>
+                {kalemler.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={6} align="center" sx={{ py: 12 }}>
+                      <Stack spacing={2} alignItems="center" sx={{ opacity: 0.4 }}>
+                        <LocationIcon sx={{ fontSize: 64 }} />
+                        <Typography variant="h6">Raf bazlı sayım kayıtları burada listelenecek</Typography>
+                        <Typography variant="body2">İşleme başlamak için barkod okuma modunu aktif edin.</Typography>
+                      </Stack>
                     </TableCell>
                   </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </TableContainer>
+                ) : (
+                  kalemler.map((kalem, idx) => (
+                    <TableRow key={idx} hover>
+                      <TableCell>
+                        <Chip
+                          label={kalem.location?.code}
+                          size="small"
+                          variant="outlined"
+                          color="info"
+                          sx={{ fontWeight: 800, borderRadius: 1.5 }}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="body2" sx={{ fontWeight: 800 }}>{kalem.stok?.stokAdi}</Typography>
+                        <Typography variant="caption" sx={{ color: 'text.secondary', fontFamily: 'monospace' }}>{kalem.stok?.stokKodu}</Typography>
+                      </TableCell>
+                      <TableCell align="right"><Typography variant="body2" sx={{ fontWeight: 600 }}>{kalem.sistemMiktari}</Typography></TableCell>
+                      <TableCell align="right">
+                        <TextField
+                          type="number"
+                          size="small"
+                          value={kalem.sayilanMiktar}
+                          onChange={(e) => {
+                            const newKalemler = [...kalemler];
+                            newKalemler[idx].sayilanMiktar = Number(e.target.value);
+                            newKalemler[idx].farkMiktari = newKalemler[idx].sayilanMiktar - newKalemler[idx].sistemMiktari;
+                            setKalemler(newKalemler);
+                          }}
+                          sx={{ width: 100, '& .MuiOutlinedInput-root': { borderRadius: 2, fontWeight: 900 } }}
+                        />
+                      </TableCell>
+                      <TableCell align="right">
+                        <Chip
+                          label={kalem.farkMiktari > 0 ? `+${kalem.farkMiktari}` : kalem.farkMiktari}
+                          color={kalem.farkMiktari > 0 ? 'success' : kalem.farkMiktari < 0 ? 'error' : 'default'}
+                          size="small"
+                          sx={{ fontWeight: 900, borderRadius: 1.5, minWidth: 60 }}
+                        />
+                      </TableCell>
+                      <TableCell align="right">
+                        <IconButton size="small" color="error" onClick={() => setKalemler(kalemler.filter((_, i) => i !== idx))}>
+                          <DeleteIcon fontSize="small" />
+                        </IconButton>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </Paper>
 
-        {/* Özet */}
         {kalemler.length > 0 && (
-          <Paper sx={{ p: 3, mt: 2, bgcolor: '#f9fafb' }}>
-            <Typography variant="h6" gutterBottom>Sayım Özeti</Typography>
-            <Box sx={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-              <Box>
-                <Typography variant="caption" color="text.secondary">Toplam Kayıt</Typography>
-                <Typography variant="h5">{kalemler.length}</Typography>
-              </Box>
-              <Box>
-                <Typography variant="caption" color="text.secondary">Farklı Raf</Typography>
-                <Typography variant="h5">{new Set(kalemler.map(k => k.locationId)).size}</Typography>
-              </Box>
-              <Box>
-                <Typography variant="caption" color="text.secondary">Fazla Olan</Typography>
-                <Typography variant="h5" color="success.main">{fazlalar}</Typography>
-              </Box>
-              <Box>
-                <Typography variant="caption" color="text.secondary">Eksik Olan</Typography>
-                <Typography variant="h5" color="error.main">{eksikler}</Typography>
-              </Box>
-              <Box>
-                <Typography variant="caption" color="text.secondary">Toplam Fark</Typography>
-                <Typography variant="h5">{toplamFark}</Typography>
-              </Box>
-            </Box>
+          <Paper variant="outlined" sx={{ p: 4, borderRadius: 4, bgcolor: 'background.paper', borderBottom: '4px solid', borderColor: 'primary.main' }}>
+            <Grid container spacing={4} alignItems="center">
+              <Grid size={{ xs: 12, md: 8 }}>
+                <Stack direction="row" spacing={4} divider={<Divider orientation="vertical" flexItem />}>
+                  <Box>
+                    <Typography variant="caption" sx={{ fontWeight: 800, color: 'text.secondary' }}>TOPLAM RAF</Typography>
+                    <Typography variant="h5" sx={{ fontWeight: 900 }}>{new Set(kalemler.map(k => k.locationId)).size}</Typography>
+                  </Box>
+                  <Box>
+                    <Typography variant="caption" sx={{ fontWeight: 800, color: 'text.secondary' }}>TOPLAM ÜRÜN</Typography>
+                    <Typography variant="h5" sx={{ fontWeight: 900 }}>{kalemler.length}</Typography>
+                  </Box>
+                  <Box>
+                    <Typography variant="caption" sx={{ fontWeight: 800, color: 'success.main' }}>FAZLA TOPLAMI</Typography>
+                    <Typography variant="h5" sx={{ fontWeight: 900, color: 'success.main' }}>+{kalemler.filter(k => k.farkMiktari > 0).length}</Typography>
+                  </Box>
+                </Stack>
+              </Grid>
+              <Grid size={{ xs: 12, md: 4 }}>
+                <Stack direction="row" spacing={2} justifyContent="flex-end">
+                  <Button variant="outlined" onClick={() => router.back()} sx={{ borderRadius: 2.5, fontWeight: 700 }}>Vazgeç</Button>
+                  <Button variant="contained" startIcon={<CheckIcon />} onClick={handleSave} disabled={loading} sx={{ borderRadius: 2.5, fontWeight: 900, px: 4 }}>Sayımı Kaydet</Button>
+                </Stack>
+              </Grid>
+            </Grid>
           </Paper>
         )}
 
-        <Box sx={{ mt: 3, display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
-          <Button variant="outlined" onClick={() => router.back()}>İptal</Button>
-          <Button
-            variant="contained"
-            startIcon={<Save />}
-            onClick={handleSave}
-            disabled={loading || kalemler.length === 0}
-            sx={{ background: 'linear-gradient(135deg, #0891b2 0%, #06b6d4 100%)' }}
-          >
-            Sayımı Kaydet
-          </Button>
-        </Box>
-
-        {/* Manuel Ürün Ekleme Dialog */}
-        <Dialog open={manuelDialog} onClose={() => setManuelDialog(false)} maxWidth="sm" fullWidth>
-          <DialogTitle component="div">Manuel Ürün Ekle</DialogTitle>
-          <DialogContent>
-            <Box sx={{ pt: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
+        {/* Manuel Add Dialog */}
+        <Dialog open={manuelDialog} onClose={() => setManuelDialog(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: 4 } }}>
+          <DialogTitle sx={{ fontWeight: 900 }}>Manuel Adresli Sayım Ekle</DialogTitle>
+          <DialogContent dividers>
+            <Stack spacing={3} sx={{ mt: 1 }}>
               <Autocomplete
                 options={lokasyonlar}
-                getOptionLabel={(option) => `${option.code} - ${option.warehouse.name}`}
+                getOptionLabel={(opt) => `${opt.code} - ${opt.warehouse.name}`}
                 value={secilenLokasyon}
-                onChange={(_, newValue) => setSecilenLokasyon(newValue)}
-                renderInput={(params) => (
-                  <TextField
-                    {...params}
-                    label="Lokasyon Seçin *"
-                    placeholder="Raf ara..."
-                  />
-                )}
-                renderOption={(props, option) => {
-                  const { key, ...otherProps } = props;
-                  return (
-                    <Box component="li" key={key} {...otherProps}>
-                      <Box>
-                        <Typography variant="body2" fontWeight="bold">
-                          {option.code}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          {option.warehouse.name} {option.name && `- ${option.name}`}
-                        </Typography>
-                      </Box>
-                    </Box>
-                  );
-                }}
+                onChange={(_, v) => setSecilenLokasyon(v)}
+                renderInput={(params) => <TextField {...params} label="Raf / Lokasyon Seç" autoFocus />}
+                sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2.5 } }}
               />
-
               <Autocomplete
                 options={urunler}
-                getOptionLabel={(option) => `${option.stokKodu} - ${option.stokAdi}`}
+                getOptionLabel={(opt) => `${opt.stokKodu} - ${opt.stokAdi}`}
                 value={secilenUrun}
-                onChange={(_, newValue) => setSecilenUrun(newValue)}
-                renderInput={(params) => (
-                  <TextField
-                    {...params}
-                    label="Ürün Seçin *"
-                    placeholder="Ürün ara..."
-                  />
-                )}
-                renderOption={(props, option) => {
-                  const { key, ...otherProps } = props;
-                  return (
-                    <Box component="li" key={key} {...otherProps}>
-                      <Box>
-                        <Typography variant="body2" fontWeight="bold">
-                          {option.stokKodu}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          {option.stokAdi}
-                        </Typography>
-                      </Box>
-                    </Box>
-                  );
-                }}
+                onChange={(_, v) => setSecilenUrun(v)}
+                renderInput={(params) => <TextField {...params} label="Ürün Ara / Seç" />}
+                sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2.5 } }}
               />
-
               <TextField
+                fullWidth
                 type="number"
-                label="Sayılan Miktar *"
+                label="Sayılan Miktar"
                 value={manuelMiktar}
                 onChange={(e) => setManuelMiktar(Number(e.target.value))}
                 inputProps={{ min: 1 }}
-                helperText="Saydığınız ürün miktarını girin"
+                sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2.5 } }}
               />
-            </Box>
+            </Stack>
           </DialogContent>
-          <DialogActions>
-            <Button onClick={() => {
-              setManuelDialog(false);
-              setSecilenUrun(null);
-              setSecilenLokasyon(null);
-              setManuelMiktar(1);
-            }}>
-              İptal
-            </Button>
-            <Button
-              variant="contained"
-              onClick={handleManuelEkle}
-              disabled={!secilenUrun || !secilenLokasyon || manuelMiktar <= 0}
-            >
-              Ekle
-            </Button>
+          <DialogActions sx={{ p: 3 }}>
+            <Button onClick={() => setManuelDialog(false)} sx={{ fontWeight: 700 }}>İptal</Button>
+            <Button variant="contained" onClick={handleManuelEkle} disabled={!secilenUrun || !secilenLokasyon} sx={{ fontWeight: 800, borderRadius: 2.5, px: 4 }}>Listeye Ekle</Button>
           </DialogActions>
         </Dialog>
 
-        <Snackbar
-          open={snackbar.open}
-          autoHideDuration={3000}
-          onClose={() => setSnackbar({ ...snackbar, open: false })}
-        >
-          <Alert severity={snackbar.severity} onClose={() => setSnackbar({ ...snackbar, open: false })}>
-            {snackbar.message}
-          </Alert>
+        <Snackbar open={snackbar.open} autoHideDuration={3000} onClose={() => setSnackbar({ ...snackbar, open: false })} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
+          <Alert severity={snackbar.severity} sx={{ borderRadius: 2, fontWeight: 700 }}>{snackbar.message}</Alert>
         </Snackbar>
-      </Box>
-    </MainLayout>
+      </Stack>
+    </StandardPage>
   );
 }
-

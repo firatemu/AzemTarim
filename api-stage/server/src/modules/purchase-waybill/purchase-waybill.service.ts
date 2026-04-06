@@ -1,4 +1,7 @@
+// CHANGED: createDeliveryNote, updateDeliveryNote, cancelDeliveryNote
+// REASON: purchase workflow status automation v2
 import {
+
   Injectable,
   NotFoundException,
   BadRequestException,
@@ -13,12 +16,17 @@ import { FilterPurchaseWaybillDto } from './dto/filter-purchase-waybill.dto';
 import { DeliveryNoteSourceType, DeliveryNoteStatus, Prisma, LogAction } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
 
+import { StatusCalculatorService } from '../shared/status-calculator/status-calculator.service';
+import { PurchaseStatusCalculatorService } from '../shared/purchase-status-calculator/purchase-status-calculator.service';
+
 @Injectable()
 export class PurchaseWaybillService {
   constructor(
     private prisma: PrismaService,
     private tenantResolver: TenantResolverService,
     private codeTemplateService: CodeTemplateService,
+    private statusCalculator: StatusCalculatorService,
+    private purchaseStatusCalculator: PurchaseStatusCalculatorService,
   ) { }
 
   private async createLog(
@@ -129,8 +137,24 @@ export class PurchaseWaybillService {
       this.prisma.purchaseDeliveryNote.count({ where }),
     ]);
 
+    const mappedData = data.map(item => ({
+      ...item,
+      irsaliyeNo: item.deliveryNoteNo,
+      irsaliyeTarihi: item.date,
+      durum: item.status,
+      genelToplam: item.grandTotal ? Number(item.grandTotal) : 0,
+      subtotal: item.subtotal ? Number(item.subtotal) : 0,
+      grandTotal: item.grandTotal ? Number(item.grandTotal) : 0,
+      discount: item.discount ? Number(item.discount) : 0,
+      vatAmount: item.vatAmount ? Number(item.vatAmount) : 0,
+      account: item.account ? {
+        ...item.account,
+        accountCode: item.account.code,
+      } : null,
+    }));
+
     return {
-      data,
+      data: mappedData,
       meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
     };
   }
@@ -185,7 +209,50 @@ export class PurchaseWaybillService {
       throw new NotFoundException(`Waybill not found: ${id}`);
     }
 
-    return deliveryNote;
+    return {
+      ...(deliveryNote as any),
+      irsaliyeNo: (deliveryNote as any).deliveryNoteNo,
+      irsaliyeTarihi: (deliveryNote as any).date,
+      durum: (deliveryNote as any).status,
+      genelToplam: (deliveryNote as any).grandTotal ? Number((deliveryNote as any).grandTotal) : 0,
+      subtotal: (deliveryNote as any).subtotal ? Number((deliveryNote as any).subtotal) : 0,
+      grandTotal: (deliveryNote as any).grandTotal ? Number((deliveryNote as any).grandTotal) : 0,
+      discount: (deliveryNote as any).discount ? Number((deliveryNote as any).discount) : 0,
+      vatAmount: (deliveryNote as any).vatAmount ? Number((deliveryNote as any).vatAmount) : 0,
+      account: (deliveryNote as any).account ? {
+        ...(deliveryNote as any).account,
+        accountCode: (deliveryNote as any).account.code,
+      } : null,
+    };
+  }
+
+  async getPendingByAccount(accountId: string) {
+    const tenantId = await this.tenantResolver.resolveForQuery();
+
+    const pendingNotes = await this.prisma.purchaseDeliveryNote.findMany({
+      where: {
+        accountId,
+        status: 'NOT_INVOICED',
+        deletedAt: null,
+        ...buildTenantWhereClause(tenantId ?? undefined),
+      },
+      include: {
+        account: {
+          select: { id: true, code: true, title: true },
+        },
+        items: {
+          include: {
+            product: { select: { id: true, name: true, code: true } },
+          },
+        },
+        sourceOrder: {
+          select: { id: true, orderNo: true },
+        },
+      },
+      orderBy: { date: 'desc' },
+    });
+
+    return pendingNotes;
   }
 
   async create(
@@ -331,6 +398,25 @@ export class PurchaseWaybillService {
       );
 
       return deliveryNote;
+    }).then(async (result) => {
+      // After transaction: recalculate status
+      const tenantId = await this.tenantResolver.resolveForQuery();
+      if (result.id && tenantId) {
+        await this.purchaseStatusCalculator.recalculateCascade(result.id, String(tenantId))
+          .catch(err => console.error('[PurchaseWaybill] recalculateCascade after create failed:', err?.message));
+
+        // Also update the source order orderNo on the waybill if applicable
+        if (result.sourceType === DeliveryNoteSourceType.ORDER && result.sourceId) {
+          const order = await this.prisma.procurementOrder.findUnique({ where: { id: result.sourceId } });
+          if (order && (order as any).orderNo) {
+            await (this.prisma.purchaseDeliveryNote as any).update({
+              where: { id: result.id },
+              data: { orderNo: (order as any).orderNo }
+            });
+          }
+        }
+      }
+      return result;
     });
   }
 
@@ -405,6 +491,11 @@ export class PurchaseWaybillService {
         subtotal -= discount;
         const grandTotal = subtotal + vatAmount;
 
+        // EKSIK: Eski ProductMovement kayıtlarını sil (not içerenleri baz alarak)
+        await prisma.productMovement.deleteMany({
+          where: { notes: { contains: existingWaybill.deliveryNoteNo } }
+        });
+
         await prisma.purchaseDeliveryNoteItem.createMany({
           data: itemsWithCalculations.map(k => ({
             productId: k.productId,
@@ -415,6 +506,20 @@ export class PurchaseWaybillService {
             vatAmount: new Decimal(k.vatAmount),
             vatRate: k.vatRate,
           })),
+        });
+
+        // YENI: Güncellenmiş kalemlere göre yeni ProductMovement kayıtları oluştur
+        const tenantIdForMovement = await this.tenantResolver.resolveForQuery();
+        await prisma.productMovement.createMany({
+          data: itemsWithCalculations.map(k => ({
+            ...(tenantIdForMovement && { tenantId: tenantIdForMovement }),
+            productId: k.productId,
+            movementType: 'ENTRY',
+            quantity: k.quantity,
+            unitPrice: new Decimal(k.unitPrice),
+            warehouseId: (deliveryNoteData as any).warehouseId || existingWaybill.warehouseId || null,
+            notes: `Purchase delivery note: ${existingWaybill.deliveryNoteNo}`,
+          }))
         });
 
         // Update waybill amounts
@@ -472,6 +577,14 @@ export class PurchaseWaybillService {
       );
 
       return updatedWaybill;
+    }).then(async (result) => {
+      // After transaction: recalculate status
+      const tenantId = await this.tenantResolver.resolveForQuery();
+      if (id && tenantId) {
+        await this.purchaseStatusCalculator.recalculateCascade(id, String(tenantId))
+          .catch(err => console.error('[PurchaseWaybill] recalculateCascade after update failed:', err?.message));
+      }
+      return result;
     });
   }
 
@@ -512,6 +625,15 @@ export class PurchaseWaybillService {
         },
       });
 
+      // EKSIK: İrsaliyeye bağlı ProductMovement kayıtlarını (not'a göre bularak) null/iptal yap
+      await prisma.productMovement.updateMany({
+        where: { notes: { contains: deliveryNote.deliveryNoteNo } },
+        data: {
+          deletedAt: new Date(),
+          deletedBy: userId,
+        }
+      });
+
       // Sipariş'ten deliveryNoteId'yi kaldır
       if (deliveryNote.sourceType === DeliveryNoteSourceType.ORDER && deliveryNote.sourceId) {
         await prisma.procurementOrder.update({
@@ -532,6 +654,69 @@ export class PurchaseWaybillService {
         userAgent,
         prisma,
       );
+    }).then(async () => {
+      // After transaction: recalculate status for the order
+      const tenantId = await this.tenantResolver.resolveForQuery();
+      if (deliveryNote.sourceId && tenantId) {
+        await this.purchaseStatusCalculator.recalculateOrderStatus(deliveryNote.sourceId, String(tenantId))
+          .catch(err => console.error('[PurchaseWaybill] recalculateOrderStatus after remove failed:', err?.message));
+      }
     });
+  }
+
+  async getStats() {
+    const tenantId = await this.tenantResolver.resolveForQuery();
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    const baseWhere: Prisma.PurchaseDeliveryNoteWhereInput = {
+      deletedAt: null,
+      ...buildTenantWhereClause(tenantId ?? undefined),
+    };
+
+    // Monthly total (all approved/not deleted)
+    const monthlyStats = await this.prisma.purchaseDeliveryNote.aggregate({
+      where: {
+        ...baseWhere,
+        date: { gte: startOfMonth },
+      },
+      _sum: { grandTotal: true },
+      _count: true,
+    });
+
+    // Pending Invoicing (NOT_INVOICED)
+    const pendingStats = await this.prisma.purchaseDeliveryNote.aggregate({
+      where: {
+        ...baseWhere,
+        status: DeliveryNoteStatus.NOT_INVOICED,
+      },
+      _sum: { grandTotal: true },
+      _count: true,
+    });
+
+    // Invoiced (INVOICED)
+    const invoicedStats = await this.prisma.purchaseDeliveryNote.aggregate({
+      where: {
+        ...baseWhere,
+        status: DeliveryNoteStatus.INVOICED,
+      },
+      _sum: { grandTotal: true },
+      _count: true,
+    });
+
+    return {
+      monthlyNotes: {
+        totalAmount: monthlyStats._sum.grandTotal ? monthlyStats._sum.grandTotal.toNumber() : 0,
+        count: monthlyStats._count || 0,
+      },
+      pendingInvoicing: {
+        totalAmount: pendingStats._sum.grandTotal ? pendingStats._sum.grandTotal.toNumber() : 0,
+        count: pendingStats._count || 0,
+      },
+      invoicedNotes: {
+        totalAmount: invoicedStats._sum.grandTotal ? invoicedStats._sum.grandTotal.toNumber() : 0,
+        count: invoicedStats._count || 0,
+      },
+    };
   }
 }

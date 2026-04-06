@@ -14,6 +14,7 @@ import { WarehouseModule } from '../warehouse/warehouse.module';
 import { DeletionProtectionModule } from '../../common/services/deletion-protection.module';
 import { AccountBalanceModule } from '../account-balance/account-balance.module';
 import { UnitSetModule } from '../unit-set/unit-set.module';
+import { SharedModule } from '../shared/shared.module';
 
 import { BullModule } from '@nestjs/bullmq';
 import { StockEffectService } from './services/stock-effect.service';
@@ -36,6 +37,7 @@ import { InvoiceOrchestratorController } from './controllers/invoice-orchestrato
     DeletionProtectionModule,
     AccountBalanceModule,
     UnitSetModule,
+    SharedModule,
     BullModule.registerQueue({
       name: 'invoice-effects',
     }),

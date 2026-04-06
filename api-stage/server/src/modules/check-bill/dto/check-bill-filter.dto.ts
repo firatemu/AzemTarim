@@ -1,5 +1,5 @@
-import { IsOptional, IsEnum, IsUUID, IsDateString, IsBoolean } from 'class-validator';
-import { Transform } from 'class-transformer';
+import { IsOptional, IsEnum, IsUUID, IsDateString, IsInt, Min, Max, IsString } from 'class-validator';
+import { Type } from 'class-transformer';
 import { CheckBillType, PortfolioType, CheckBillStatus } from '@prisma/client';
 
 export class CheckBillFilterDto {
@@ -28,7 +28,27 @@ export class CheckBillFilterDto {
     dueDateTo?: string;
 
     @IsOptional()
-    @Transform(({ value }) => value === 'true')
-    @IsBoolean()
-    isProtested?: boolean;
+    @Type(() => Number)
+    @IsInt()
+    @Min(0)
+    skip?: number;
+
+    @IsOptional()
+    @Type(() => Number)
+    @IsInt()
+    @Min(1)
+    @Max(50000)
+    take?: number;
+
+    @IsOptional()
+    @IsString()
+    search?: string;
+
+    @IsOptional()
+    @IsEnum(['dueDate', 'amount', 'createdAt'])
+    sortBy?: 'dueDate' | 'amount' | 'createdAt';
+
+    @IsOptional()
+    @IsEnum(['asc', 'desc'])
+    sortOrder?: 'asc' | 'desc';
 }

@@ -41,8 +41,33 @@ const CaprazOdemeDialog: React.FC<CaprazOdemeDialogProps> = ({
     submitting,
     carilerError,
 }) => {
+    const [errors, setErrors] = React.useState<Record<string, string>>({});
+
     const handleChange = (field: keyof CaprazOdemeFormData, value: any) => {
+        if (errors[field]) setErrors((prev) => ({ ...prev, [field]: '' }));
         setFormData({ ...formData, [field]: value });
+    };
+
+    const handleSubmit = () => {
+        const newErrors: Record<string, string> = {};
+        const tutarNum = typeof formData.tutar === 'string' ? parseFloat(formData.tutar) : formData.tutar;
+
+        if (!formData.tahsilatCariId) newErrors.tahsilatCariId = 'Borçlu cari seçimi zorunludur';
+        if (!formData.odemeCariId) newErrors.odemeCariId = 'Alacaklı cari seçimi zorunludur';
+        if (Number.isNaN(tutarNum) || tutarNum <= 0) newErrors.tutar = 'Tutar 0\'dan büyük olmalıdır';
+
+        if (Object.keys(newErrors).length > 0) {
+            setErrors(newErrors);
+            return;
+        }
+
+        onSubmit();
+    };
+
+    const numberInputSx = {
+        '& input[type=number]': { MozAppearance: 'textfield' },
+        '& input[type=number]::-webkit-outer-spin-button': { WebkitAppearance: 'none', margin: 0 },
+        '& input[type=number]::-webkit-inner-spin-button': { WebkitAppearance: 'none', margin: 0 },
     };
 
     return (
@@ -186,11 +211,13 @@ const CaprazOdemeDialog: React.FC<CaprazOdemeDialogProps> = ({
                             type="number"
                             required
                             value={formData.tutar}
-                            onChange={(e) => handleChange('tutar', e.target.value)}
+                            onChange={(e) => handleChange('tutar', e.target.value === '' ? '' : parseFloat(e.target.value) || 0)}
+                            error={!!errors.tutar}
+                            helperText={errors.tutar || 'Tutar 0\'dan büyük olmalıdır'}
                             InputProps={{
                                 startAdornment: <InputAdornment position="start"><CurrencyLira /></InputAdornment>,
                             }}
-                            sx={{ '& input[type=number]': { MozAppearance: 'textfield' } }}
+                            sx={numberInputSx}
                         />
                     </Grid>
 
@@ -241,14 +268,9 @@ const CaprazOdemeDialog: React.FC<CaprazOdemeDialogProps> = ({
                     İptal
                 </Button>
                 <Button
-                    onClick={() => {
-                        const tutarNum = typeof formData.tutar === 'string' ? parseFloat(formData.tutar) : formData.tutar;
-                        if (!isNaN(tutarNum) && tutarNum > 0) {
-                            onSubmit();
-                        }
-                    }}
+                    onClick={handleSubmit}
                     variant="contained"
-                    disabled={submitting || !formData.tahsilatCariId || !formData.odemeCariId || !formData.tutar}
+                    disabled={submitting}
                     startIcon={<SwapHoriz />}
                     sx={{
                         bgcolor: '#8b5cf6',

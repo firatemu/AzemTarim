@@ -21,10 +21,37 @@ export class B2bAdminSalespersonService {
   }
 
   async list(tenantId: string) {
-    return this.prisma.b2BSalesperson.findMany({
-      where: { tenantId },
-      orderBy: { name: 'asc' },
+    // Kendi ERP'miz kullanılırken satış elemanlarını Employee tablosundan çek
+    const employees = await this.prisma.employee.findMany({
+      where: {
+        tenantId,
+        isActive: true,
+      },
+      select: {
+        id: true,
+        employeeCode: true,
+        firstName: true,
+        lastName: true,
+        email: true,
+        phone: true,
+      },
+      orderBy: { firstName: 'asc' },
     });
+
+    // Employee verilerini B2BSalesperson formatına dönüştür
+    return employees.map((emp) => ({
+      id: emp.id,
+      name: `${emp.firstName} ${emp.lastName}`.trim(),
+      email: emp.email,
+      employeeCode: emp.employeeCode,
+      phone: emp.phone,
+      isActive: true,
+      canViewAllCustomers: false,
+      canViewAllReports: false,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      tenantId,
+    }));
   }
 
   async create(tenantId: string, dto: CreateB2bSalespersonDto) {

@@ -68,10 +68,12 @@ const TahsilatFormDialog = memo(({
   const [firmaKrediKartlari, setFirmaKrediKartlari] = useState<FirmaKrediKarti[]>([]);
   const [firmaKrediKartlariLoading, setFirmaKrediKartlariLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [touched, setTouched] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     setLocalFormData(initialFormData);
     setErrors({});
+    setTouched({});
   }, [initialFormData, open]);
 
   const posBankaHesaplariFiltered = useMemo(() => {
@@ -119,7 +121,7 @@ const TahsilatFormDialog = memo(({
     const newErrors: Record<string, string> = {};
     if (!localFormData.cariId) newErrors.cariId = 'Cari seçimi zorunludur';
     const tutarNum = typeof localFormData.tutar === 'string' ? parseFloat(localFormData.tutar) : localFormData.tutar;
-    if (tutarNum === undefined || Number.isNaN(tutarNum) || tutarNum <= 0) newErrors.tutar = 'Geçerli bir tutar giriniz';
+    if (tutarNum === undefined || Number.isNaN(tutarNum) || tutarNum <= 0) newErrors.tutar = 'Tutar 0\'dan büyük olmalıdır';
     if (!localFormData.tarih) newErrors.tarih = 'Tarih seçimi zorunludur';
 
     if (localFormData.odemeTipi === 'NAKIT' && !localFormData.kasaId) newErrors.kasaId = 'Kasa seçimi zorunludur';
@@ -141,11 +143,13 @@ const TahsilatFormDialog = memo(({
     }
 
     setErrors(newErrors);
+    setTouched({ cariId: true, tutar: true, tarih: true, kasaId: true, bankaHesapId: true, firmaKrediKartiId: true, installmentCount: true });
     return Object.keys(newErrors).length === 0;
   };
 
   const handleLocalChange = (field: keyof TahsilatFormData, value: any) => {
     if (errors[field]) setErrors((prev) => ({ ...prev, [field]: '' }));
+    setTouched((prev) => ({ ...prev, [field]: true }));
 
     if (field === 'firmaKrediKartiId' && value) {
       const selectedKart = firmaKrediKartlari.find((kart) => kart.id === value);
@@ -253,11 +257,27 @@ const TahsilatFormDialog = memo(({
                       type="number"
                       label="Tutar"
                       value={localFormData.tutar}
-                      onChange={(e) => handleLocalChange('tutar', e.target.value)}
-                      error={!!errors.tutar}
-                      helperText={errors.tutar}
+                      onChange={(e) => handleLocalChange('tutar', e.target.value === '' ? '' : parseFloat(e.target.value) || 0)}
+                      error={!!errors.tutar && touched.tutar}
+                      helperText={touched.tutar ? (errors.tutar || 'Tutar 0\'dan büyük olmalıdır') : 'Tutar 0\'dan büyük olmalıdır'}
                       className="form-control-textfield"
-                      InputProps={{ startAdornment: <InputAdornment position="start">₺</InputAdornment> }}
+                      InputProps={{
+                        startAdornment: <InputAdornment position="start">₺</InputAdornment>,
+                        inputProps: { min: 0, step: 0.01 }
+                      }}
+                      sx={{
+                        '& input[type=number]': {
+                          MozAppearance: 'textfield',
+                        },
+                        '& input[type=number]::-webkit-outer-spin-button': {
+                          WebkitAppearance: 'none',
+                          margin: 0,
+                        },
+                        '& input[type=number]::-webkit-inner-spin-button': {
+                          WebkitAppearance: 'none',
+                          margin: 0,
+                        },
+                      }}
                     />
                   </Grid>
                   <Grid size={{ xs: 12, sm: 6 }}>
@@ -267,8 +287,8 @@ const TahsilatFormDialog = memo(({
                       label="İşlem Tarihi"
                       value={localFormData.tarih}
                       onChange={(e) => handleLocalChange('tarih', e.target.value)}
-                      error={!!errors.tarih}
-                      helperText={errors.tarih}
+                      error={!!errors.tarih && touched.tarih}
+                      helperText={touched.tarih ? errors.tarih : ''}
                       className="form-control-textfield"
                       slotProps={{ inputLabel: { shrink: true } }}
                     />
@@ -290,8 +310,8 @@ const TahsilatFormDialog = memo(({
                         <TextField
                           {...params}
                           label="Cari"
-                          error={!!errors.cariId}
-                          helperText={errors.cariId}
+                          error={!!errors.cariId && touched.cariId}
+                          helperText={touched.cariId ? errors.cariId : ''}
                           className="form-control-textfield"
                           InputProps={{
                             ...params.InputProps,
@@ -313,7 +333,7 @@ const TahsilatFormDialog = memo(({
                 <Grid container spacing={2}>
                   {localFormData.odemeTipi === 'KREDI_KARTI' && isTahsilat ? (
                     <Grid size={12}>
-                      <FormControl fullWidth error={!!errors.bankaHesapId}>
+                      <FormControl fullWidth error={!!errors.bankaHesapId && touched.bankaHesapId}>
                         <InputLabel>POS Banka Hesabı</InputLabel>
                         <Select
                           value={localFormData.bankaHesapId || ''}
@@ -329,12 +349,12 @@ const TahsilatFormDialog = memo(({
                             </MenuItem>
                           ))}
                         </Select>
-                        {errors.bankaHesapId && <Typography variant="caption" color="error">{errors.bankaHesapId}</Typography>}
+                        {touched.bankaHesapId && errors.bankaHesapId && <Typography variant="caption" color="error">{errors.bankaHesapId}</Typography>}
                       </FormControl>
                     </Grid>
                   ) : (
                     <Grid size={12}>
-                      <FormControl fullWidth error={!!errors.kasaId}>
+                      <FormControl fullWidth error={!!errors.kasaId && touched.kasaId}>
                         <InputLabel>{localFormData.odemeTipi === 'NAKIT' ? 'Nakit Kasa' : 'Kredi Kartı Kasası'}</InputLabel>
                         <Select
                           value={localFormData.kasaId}
@@ -353,14 +373,14 @@ const TahsilatFormDialog = memo(({
                             </MenuItem>
                           ))}
                         </Select>
-                        {errors.kasaId && <Typography variant="caption" color="error">{errors.kasaId}</Typography>}
+                        {touched.kasaId && errors.kasaId && <Typography variant="caption" color="error">{errors.kasaId}</Typography>}
                       </FormControl>
                     </Grid>
                   )}
 
                   {!isTahsilat && localFormData.odemeTipi === 'KREDI_KARTI' && localFormData.kasaId && (
                     <Grid size={12}>
-                      <FormControl fullWidth error={!!errors.firmaKrediKartiId}>
+                      <FormControl fullWidth error={!!errors.firmaKrediKartiId && touched.firmaKrediKartiId}>
                         <InputLabel>Firma Kredi Kartı</InputLabel>
                         <Select
                           value={localFormData.firmaKrediKartiId || ''}
@@ -375,7 +395,7 @@ const TahsilatFormDialog = memo(({
                             </MenuItem>
                           ))}
                         </Select>
-                        {errors.firmaKrediKartiId && <Typography variant="caption" color="error">{errors.firmaKrediKartiId}</Typography>}
+                        {touched.firmaKrediKartiId && errors.firmaKrediKartiId && <Typography variant="caption" color="error">{errors.firmaKrediKartiId}</Typography>}
                       </FormControl>
                     </Grid>
                   )}
@@ -416,10 +436,23 @@ const TahsilatFormDialog = memo(({
                         type="number"
                         label="Taksit Sayısı"
                         value={localFormData.installmentCount ?? 1}
-                        onChange={(e) => handleLocalChange('installmentCount', e.target.value)}
-                        error={!!errors.installmentCount}
-                        helperText={errors.installmentCount}
+                        onChange={(e) => handleLocalChange('installmentCount', parseInt(e.target.value) || 1)}
+                        error={!!errors.installmentCount && touched.installmentCount}
+                        helperText={touched.installmentCount ? (errors.installmentCount || 'En az 1') : 'En az 1'}
                         inputProps={{ min: 1, step: 1 }}
+                        sx={{
+                          '& input[type=number]': {
+                            MozAppearance: 'textfield',
+                          },
+                          '& input[type=number]::-webkit-outer-spin-button': {
+                            WebkitAppearance: 'none',
+                            margin: 0,
+                          },
+                          '& input[type=number]::-webkit-inner-spin-button': {
+                            WebkitAppearance: 'none',
+                            margin: 0,
+                          },
+                        }}
                       />
                     </Grid>
                   </Grid>

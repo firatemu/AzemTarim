@@ -28,15 +28,15 @@ export class CreateProductDto {
   @IsString()
   unitId?: string;
 
-  @IsNotEmpty()
+  @IsOptional()
   @IsNumber()
   @Min(0)
-  purchasePrice: number;
+  purchasePrice?: number;
 
-  @IsNotEmpty()
+  @IsOptional()
   @IsNumber()
   @Min(0)
-  salePrice: number;
+  salePrice?: number;
 
   @IsOptional()
   @IsNumber()

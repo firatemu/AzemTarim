@@ -52,6 +52,37 @@ export class OrderController {
     return this.orderService.findOrdersForInvoice(
       query.accountId,
       query.search,
+      query.orderType,
+    );
+  }
+
+  @Get('stats')
+  async getStats(
+    @Query('siparisTipi') siparisTipi: string,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+    @Query('durum') durum?: string,
+    @Query('accountId') accountId?: string,
+  ) {
+    const orderType = siparisTipi === 'SATIS' ? 'SALE' : 'PURCHASE';
+    const parsedStartDate = startDate ? new Date(startDate) : undefined;
+    const parsedEndDate = endDate ? new Date(endDate) : undefined;
+
+    return this.orderService.getStats(
+      orderType as any,
+      parsedStartDate,
+      parsedEndDate,
+      durum,
+      accountId,
+    );
+  }
+
+  @Get('delivery-note-orders')
+  getOrdersForDeliveryNote(@Query() query: any) {
+    return this.orderService.findOrdersForDeliveryNote(
+      query.accountId,
+      query.search,
+      query.orderType,
     );
   }
 
@@ -193,6 +224,9 @@ export class OrderController {
       user?.userId,
       req.ip,
       req.headers['user-agent'],
+      dto.warehouseId,
+      dto.notes,
+      dto.deliveryNoteNo,
     );
   }
 }

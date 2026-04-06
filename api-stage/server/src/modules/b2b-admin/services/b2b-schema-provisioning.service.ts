@@ -17,7 +17,7 @@ export class B2BSchemaProvisioningService {
   private readonly SCHEMA_NAME_REGEX = /^[a-z][a-z0-9_]*$/;
   private readonly MAX_SCHEMA_NAME_LENGTH = 63;
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) { }
 
   /**
    * Provisions a new schema for a B2B tenant.
@@ -277,7 +277,7 @@ export class B2BSchemaProvisioningService {
 
       for (const method of deliveryMethods) {
         await tenantPrisma.b2BDeliveryMethod.create({
-          data: method,
+          data: method as any,
         });
       }
 

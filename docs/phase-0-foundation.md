@@ -841,7 +841,7 @@ const NAV_GROUPS = [
   {
     label: 'Sistem',
     items: [
-      { href: '/settings/check-bill', label: 'Ayarlar', icon: Settings },
+      { href: '/settings/parameters#cek-senet', label: 'Çek/Senet Ayarları', icon: Settings },
     ],
   },
 ]

@@ -1,6 +1,6 @@
 import React from 'react';
 import CheckDetailClient from './CheckDetailClient';
-import { Box, Typography } from '@mui/material';
+import StandardPage from '@/components/common/StandardPage';
 
 export const metadata = {
     title: 'Evrak Detayı',
@@ -11,11 +11,14 @@ export default async function CheckDetailPage({ params }: { params: Promise<{ id
     const { id } = await params;
 
     return (
-        <Box sx={{ p: 3, maxWidth: 1400, mx: 'auto' }}>
-            <Typography variant="h4" fontWeight="600" mb={3}>
-                Evrak Detayı
-            </Typography>
+        <StandardPage
+            title="Evrak Detayı"
+            breadcrumbs={[
+                { label: 'Çek/Senet Listesi', href: '/checks' },
+                { label: 'Evrak Detayı' }
+            ]}
+        >
             <CheckDetailClient checkId={id} />
-        </Box>
+        </StandardPage>
     );
 }

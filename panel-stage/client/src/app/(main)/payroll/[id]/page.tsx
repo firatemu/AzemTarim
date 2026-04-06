@@ -1,6 +1,6 @@
 import React from 'react';
 import PayrollDetailClient from './PayrollDetailClient';
-import { Box, Typography } from '@mui/material';
+import StandardPage from '@/components/common/StandardPage';
 
 export const metadata = {
     title: 'Bordro Detayı',
@@ -12,11 +12,14 @@ export default async function PayrollDetailPage({ params }: { params: Promise<{ 
     const { id } = await params;
 
     return (
-        <Box sx={{ p: 3, maxWidth: 1400, mx: 'auto' }}>
-            <Typography variant="h4" fontWeight="600" mb={3}>
-                Bordro Detayı
-            </Typography>
+        <StandardPage
+            title="Bordro Detayı"
+            breadcrumbs={[
+                { label: 'Bordro Yönetimi', href: '/payroll' },
+                { label: 'Bordro Detayı' }
+            ]}
+        >
             <PayrollDetailClient journalId={id} />
-        </Box>
+        </StandardPage>
     );
 }

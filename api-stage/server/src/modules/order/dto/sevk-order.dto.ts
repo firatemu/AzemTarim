@@ -3,11 +3,12 @@ import {
   IsNumber,
   IsString,
   IsNotEmpty,
+  IsOptional,
   Min,
   ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class ShipOrderItemDto {
   @IsString()
@@ -27,4 +28,19 @@ export class ShipOrderDto {
   @Type(() => ShipOrderItemDto)
   @ApiProperty({ type: [ShipOrderItemDto] })
   items: ShipOrderItemDto[];
+
+  @IsOptional()
+  @IsString()
+  @ApiPropertyOptional()
+  warehouseId?: string;
+
+  @IsOptional()
+  @IsString()
+  @ApiPropertyOptional()
+  notes?: string;
+
+  @IsOptional()
+  @IsString()
+  @ApiPropertyOptional()
+  deliveryNoteNo?: string;
 }

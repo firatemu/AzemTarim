@@ -35,6 +35,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
     // Extract message from exception
     const exceptionResponse = exception.getResponse();
     let message = 'An error occurred';
+    let details: any = undefined;
 
     if (typeof exceptionResponse === 'string') {
       message = exceptionResponse;
@@ -46,6 +47,17 @@ export class HttpExceptionFilter implements ExceptionFilter {
       if (responseObj.errors && Array.isArray(responseObj.errors)) {
         message = responseObj.message || 'Validation failed';
       }
+
+      // Preserve additional details (e.g., risk limit excess amount)
+      if (responseObj.details) {
+        details = responseObj.details;
+      }
+
+      // Preserve error code for frontend handling
+      if (responseObj.error && typeof responseObj.error === 'string' && responseObj.error !== 'BAD_REQUEST') {
+        details = details || {};
+        details.errorCode = responseObj.error;
+      }
     }
 
     // Extract tenant ID from request for logging
@@ -53,7 +65,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
     const userId = (request as any).userId || 'unknown';
 
     // Build error response
-    const errorResponse: ErrorResponseDto = {
+    const errorResponse: any = {
       success: false,
       statusCode: status,
       error: this.getHttpStatusName(status),
@@ -62,6 +74,11 @@ export class HttpExceptionFilter implements ExceptionFilter {
       path: request.url,
       requestId,
     };
+
+    // Include details if available (e.g., risk limit excess amount)
+    if (details) {
+      errorResponse.details = details;
+    }
 
     // Log based on status code
     if (status >= 500) {

@@ -1,7 +1,8 @@
-import { IsEnum, IsNotEmpty, IsNumber, IsOptional, IsString, IsDateString, Min } from 'class-validator';
+import { IsEnum, IsNotEmpty, IsNumber, IsOptional, IsString, IsDateString, Min, IsUUID } from 'class-validator';
 import { CheckBillType, PortfolioType } from '@prisma/client';
 
-export class CreateCheckBillDto {
+/** Bordro sihirbazı kalem satırı — cari `journal.accountId` üzerinden bağlanır */
+export class CreateCheckBillLineDto {
     @IsEnum(CheckBillType)
     type: CheckBillType;
 
@@ -10,15 +11,15 @@ export class CreateCheckBillDto {
     checkNo: string;
 
     @IsDateString()
+    @IsOptional()
+    issueDate?: string;
+
+    @IsDateString()
     dueDate: string;
 
     @IsString()
     @IsOptional()
     serialNo?: string;
-
-    @IsEnum(PortfolioType)
-    portfolioType: PortfolioType;
-
 
     @IsNumber()
     @Min(0)
@@ -45,10 +46,23 @@ export class CreateCheckBillDto {
     notes?: string;
 }
 
+/** Doğrudan API ile evrak oluşturma (POST /checks-promissory-notes) */
+export class CreateCheckBillDto extends CreateCheckBillLineDto {
+    @IsUUID()
+    accountId: string;
+
+    @IsEnum(PortfolioType)
+    portfolioType: PortfolioType;
+}
+
 export class UpdateCheckBillDto {
     @IsString()
     @IsOptional()
     checkNo?: string;
+
+    @IsDateString()
+    @IsOptional()
+    issueDate?: string;
 
     @IsDateString()
     @IsOptional()

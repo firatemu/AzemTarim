@@ -3,7 +3,7 @@ import { CheckBillStatus, CheckBillType, JournalType, PortfolioType } from '../t
 export const STATUS_LABEL: Record<CheckBillStatus, string> = {
     IN_PORTFOLIO: 'Portföyde',
     UNPAID: 'Ödenmedi',
-    GIVEN_TO_BANK: 'Bankaya Verildi',
+    SENT_TO_BANK: 'Bankaya Verildi',
     COLLECTED: 'Tahsil Edildi',
     PAID: 'Ödendi',
     ENDORSED: 'Ciro Edildi',
@@ -13,13 +13,19 @@ export const STATUS_LABEL: Record<CheckBillStatus, string> = {
     IN_BANK_GUARANTEE: 'Bankada Teminatta',
     PARTIAL_PAID: 'Kısmi Ödendi',
     PROTESTED: 'Protesto Edildi',
+    DISCOUNTED: 'İskonto Edildi',
+    LEGAL_FOLLOWUP: 'Hukuki Takipte',
+    WRITTEN_OFF: 'Değersiz Silindi',
+    CANCELLED: 'İptal',
+    RECOURSE: 'Rücu',
+    GIVEN_TO_CUSTOMER: 'Müşteride',
 };
 
 // MUI Chip colors mapping (default, primary, secondary, error, info, success, warning)
 export const STATUS_MUI_COLOR: Record<CheckBillStatus, 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning'> = {
     IN_PORTFOLIO: 'info',
     UNPAID: 'error',
-    GIVEN_TO_BANK: 'secondary',
+    SENT_TO_BANK: 'secondary',
     COLLECTED: 'success',
     PAID: 'success',
     ENDORSED: 'warning',
@@ -29,6 +35,12 @@ export const STATUS_MUI_COLOR: Record<CheckBillStatus, 'default' | 'primary' | '
     IN_BANK_GUARANTEE: 'primary',
     PARTIAL_PAID: 'warning',
     PROTESTED: 'error',
+    DISCOUNTED: 'warning',
+    LEGAL_FOLLOWUP: 'error',
+    WRITTEN_OFF: 'default',
+    CANCELLED: 'default',
+    RECOURSE: 'warning',
+    GIVEN_TO_CUSTOMER: 'info',
 };
 
 export const TYPE_LABEL: Record<CheckBillType, string> = {
@@ -53,6 +65,13 @@ export const JOURNAL_TYPE_LABEL: Record<JournalType, string> = {
     ACCOUNT_DOCUMENT_ENDORSEMENT: 'Cariye Evrak Cirosu',
     DEBIT_DOCUMENT_EXIT: 'Borç Evrak Çıkışı',
     RETURN_PAYROLL: 'İade Bordrosu',
+    BANK_DISCOUNT_SUBMISSION: 'Banka İskonto Tevdi',
+    PARTIAL_COLLECTION: 'Kısmi Tahsilat Bordrosu',
+    PROTEST_ENTRY: 'Protesto Kayıt Bordrosu',
+    LEGAL_TRANSFER: 'Hukuki Takip Transferi',
+    WRITE_OFF: 'Değersiz Silme Bordrosu',
+    REVERSAL: 'Ters Kayıt / İptal Bordrosu',
+    RETURN_FROM_BANK: 'Bankadan İade Bordrosu',
 };
 
 export const JOURNAL_TYPE_DESCRIPTION: Record<JournalType, string> = {
@@ -67,4 +86,11 @@ export const JOURNAL_TYPE_DESCRIPTION: Record<JournalType, string> = {
     ACCOUNT_DOCUMENT_ENDORSEMENT: 'Cariye ciro edildi',
     DEBIT_DOCUMENT_EXIT: 'Borç evrak çıkışı işlemi',
     RETURN_PAYROLL: 'İade bordrosu işlemi',
+    BANK_DISCOUNT_SUBMISSION: 'İskonto için bankaya tevdi',
+    PARTIAL_COLLECTION: 'Kısmi tahsilat kaydı',
+    PROTEST_ENTRY: 'Protesto tescili',
+    LEGAL_TRANSFER: 'Hukuki takip sürecine aktarım',
+    WRITE_OFF: 'Değersiz alacak silme',
+    REVERSAL: 'Önceki bordronun ters kaydı',
+    RETURN_FROM_BANK: 'Bankadan iade edilen evrak',
 };

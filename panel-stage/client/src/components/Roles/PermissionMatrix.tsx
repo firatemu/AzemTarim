@@ -11,6 +11,8 @@ import {
     TableRow,
     Paper,
     FormControlLabel,
+    alpha,
+    useTheme,
 } from '@mui/material';
 import { Permission } from '@/types/role';
 
@@ -35,16 +37,16 @@ const COMMON_ACTIONS = [
 ];
 
 const ACTION_LABELS: Record<string, string> = {
-    view: 'Görüntüleme',
-    list: 'Listeleme',
-    create: 'Yeni Kayıt',
-    update: 'Düzenleme',
-    delete: 'Silme',
-    export: 'Dışa Aktar',
+    view: 'Gör',
+    list: 'Listele',
+    create: 'Ekle',
+    update: 'Düzenle',
+    delete: 'Sil',
+    export: 'Excel',
     import: 'İçe Aktar',
-    approve: 'Onaylama',
-    cancel: 'İptal Etme',
-    print: 'Yazdırma',
+    approve: 'Onay',
+    cancel: 'İptal',
+    print: 'Yazdır',
 };
 
 const MODULE_LABELS: Record<string, string> = {
@@ -72,6 +74,8 @@ export default function PermissionMatrix({
     onChange,
     readOnly = false,
 }: PermissionMatrixProps) {
+    const theme = useTheme();
+
     // Group permissions by module
     const groupedPermissions = useMemo(() => {
         const groups: Record<string, Record<string, Permission>> = {};
@@ -99,14 +103,12 @@ export default function PermissionMatrix({
         if (readOnly) return;
         const modulePerms = Object.values(groupedPermissions[module]);
         const modulePermIds = modulePerms.map((p) => p.id);
-        const allSelected = modulePermIds.every((id) => selectedPermissions.includes(id));
+        const allSelected = modulePermIds.length > 0 && modulePermIds.every((id) => selectedPermissions.includes(id));
 
         let newSelected = [...selectedPermissions];
         if (allSelected) {
-            // Deselect all
             newSelected = newSelected.filter((id) => !modulePermIds.includes(id));
         } else {
-            // Select all (add missing)
             modulePermIds.forEach((id) => {
                 if (!newSelected.includes(id)) {
                     newSelected.push(id);
@@ -117,13 +119,13 @@ export default function PermissionMatrix({
     };
 
     return (
-        <TableContainer component={Paper} variant="outlined" sx={{ maxHeight: 600 }}>
-            <Table stickyHeader size="small">
+        <TableContainer component={Box} sx={{ maxHeight: 600, overflow: 'auto' }}>
+            <Table stickyHeader size="small" sx={{ minWidth: 800 }}>
                 <TableHead>
                     <TableRow>
-                        <TableCell sx={{ fontWeight: 'bold', bgcolor: 'background.default' }}>Modül</TableCell>
+                        <TableCell sx={{ fontWeight: 800, bgcolor: alpha(theme.palette.background.paper, 0.9), color: 'text.secondary', fontSize: '0.75rem', textTransform: 'uppercase', py: 2 }}>Modül Adı</TableCell>
                         {COMMON_ACTIONS.map((action) => (
-                            <TableCell key={action} align="center" sx={{ fontWeight: 'bold', bgcolor: 'background.default', minWidth: 80 }}>
+                            <TableCell key={action} align="center" sx={{ fontWeight: 800, bgcolor: alpha(theme.palette.background.paper, 0.9), color: 'text.secondary', fontSize: '0.75rem', textTransform: 'uppercase', py: 2 }}>
                                 {ACTION_LABELS[action] || action}
                             </TableCell>
                         ))}
@@ -137,8 +139,8 @@ export default function PermissionMatrix({
                         const someSelected = modulePermIds.some((id) => selectedPermissions.includes(id));
 
                         return (
-                            <TableRow key={module} hover>
-                                <TableCell component="th" scope="row">
+                            <TableRow key={module} hover sx={{ '&:hover': { bgcolor: alpha(theme.palette.primary.main, 0.02) } }}>
+                                <TableCell component="th" scope="row" sx={{ py: 1 }}>
                                     <FormControlLabel
                                         control={
                                             <Checkbox
@@ -147,23 +149,37 @@ export default function PermissionMatrix({
                                                 onChange={() => handleModuleToggle(module)}
                                                 disabled={readOnly}
                                                 size="small"
+                                                sx={{ color: allSelected || someSelected ? 'primary.main' : 'text.disabled' }}
                                             />
                                         }
-                                        label={<Typography variant="subtitle2">{MODULE_LABELS[module] || module.toUpperCase()}</Typography>}
+                                        label={
+                                            <Typography variant="body2" sx={{ fontWeight: 800, color: allSelected || someSelected ? 'primary.main' : 'text.primary' }}>
+                                                {MODULE_LABELS[module] || module.charAt(0).toUpperCase() + module.slice(1)}
+                                            </Typography>
+                                        }
                                     />
                                 </TableCell>
                                 {COMMON_ACTIONS.map((action) => {
                                     const perm = modulePerms[action];
                                     if (!perm) {
-                                        return <TableCell key={action} align="center" sx={{ bgcolor: 'action.hover' }} />;
+                                        return <TableCell key={action} align="center" sx={{ bgcolor: alpha(theme.palette.action.disabledBackground, 0.1) }} />;
                                     }
+                                    const isSelected = selectedPermissions.includes(perm.id);
                                     return (
-                                        <TableCell key={action} align="center">
+                                        <TableCell key={action} align="center" sx={{ py: 1 }}>
                                             <Checkbox
-                                                checked={selectedPermissions.includes(perm.id)}
+                                                checked={isSelected}
                                                 onChange={() => handleToggle(perm.id)}
                                                 disabled={readOnly}
                                                 size="small"
+                                                color={action === 'delete' ? 'error' : 'primary'}
+                                                sx={{
+                                                    transition: 'all 0.2s',
+                                                    transform: isSelected ? 'scale(1.1)' : 'scale(1)',
+                                                    '&.Mui-checked': {
+                                                        color: action === 'delete' ? theme.palette.error.main : theme.palette.primary.main,
+                                                    }
+                                                }}
                                             />
                                         </TableCell>
                                     );

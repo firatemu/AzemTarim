@@ -7,7 +7,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import axios from '@/lib/axios';
-import { toast } from 'react-hot-toast';
+import { useSnackbar } from 'notistack';
 
 import {
     Grid,
@@ -44,6 +44,7 @@ const customerSchema = z.object({
 type CustomerFormValues = z.infer<typeof customerSchema>;
 
 export default function NewB2bCustomerPage() {
+    const { enqueueSnackbar } = useSnackbar();
     const router = useRouter();
 
     // Veritabanından dropdown verilerini çek
@@ -109,11 +110,11 @@ export default function NewB2bCustomerPage() {
             return res.data;
         },
         onSuccess: () => {
-            toast.success('Müşteri başarıyla eklendi');
+            enqueueSnackbar('Müşteri başarıyla eklendi', { variant: 'success' });
             router.push('/b2b-admin/customers');
         },
         onError: (err: any) => {
-            toast.error(err?.response?.data?.message || 'Müşteri eklenirken hata oluştu');
+            enqueueSnackbar(err?.response?.data?.message || 'Müşteri eklenirken hata oluştu', { variant: 'error' });
         },
     });
 

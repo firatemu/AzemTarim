@@ -8,6 +8,7 @@ import { CodeTemplateModule } from '../code-template/code-template.module';
 import { TenantContextModule } from '../../common/services/tenant-context.module';
 import { PrismaModule } from '../../common/prisma.module';
 import { UnitSetModule } from '../unit-set/unit-set.module';
+import { SharedModule } from '../shared/shared.module';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { UnitSetModule } from '../unit-set/unit-set.module';
     forwardRef(() => PurchaseWaybillModule),
     CodeTemplateModule,
     UnitSetModule,
+    SharedModule,
   ],
   controllers: [PurchaseOrdersController],
   providers: [PurchaseOrdersService],

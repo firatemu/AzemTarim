@@ -17,11 +17,16 @@ import { UpdateSalesWaybillDto } from './dto/update-sales-waybill.dto';
 import { FilterSalesWaybillDto } from './dto/filter-sales-waybill.dto';
 
 @UseGuards(JwtAuthGuard)
-@Controller('sales-waybills')
+@Controller(['sales-waybills', 'delivery-notes', 'satis-irsaliyesi'])
 export class SalesWaybillController {
   constructor(
     private readonly salesWaybillService: SalesWaybillService,
   ) { }
+
+  @Get('stats')
+  async getStats() {
+    return this.salesWaybillService.getStats();
+  }
 
   @Get()
   async findAll(@Query() filterDto: FilterSalesWaybillDto) {

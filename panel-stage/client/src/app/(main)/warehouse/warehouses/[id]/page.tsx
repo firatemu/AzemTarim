@@ -142,7 +142,7 @@ export default function DepoDetayPage() {
     const hierarchy: any = {};
     const freeRacks: Location[] = [];
 
-    locations.forEach((loc) => {
+    locations.forEach((loc: Location) => {
       if (loc.layer === 0 || !loc.corridor || loc.corridor === 'FREE') {
         // Serbest raf
         freeRacks.push(loc);
@@ -194,7 +194,7 @@ export default function DepoDetayPage() {
     try {
       if (dialogState.type === 'layer') {
         // Kat seçimini state'e ekle
-        setSelectedLayers(prev => new Set(prev).add(formData.layer));
+        setSelectedLayers(prev => new Set(Array.from(prev)).add(formData.layer));
         setSnackbar({
           open: true,
           message: `Kat ${formData.layer} eklendi. Şimdi koridor ekleyin.`,
@@ -205,7 +205,7 @@ export default function DepoDetayPage() {
         // Koridor seçimini state'e ekle
         const layer = dialogState.parentData?.layer || formData.layer;
         setSelectedCorridors(prev => {
-          const newMap = new Map(prev);
+          const newMap = new Map<number, Set<string>>(prev);
           if (!newMap.has(layer)) {
             newMap.set(layer, new Set());
           }
@@ -303,7 +303,7 @@ export default function DepoDetayPage() {
       <Box sx={{ p: 3 }}>
         {/* Başlık */}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
-          <IconButton onClick={() => router.push('/depo/depolar')}>
+          <IconButton onClick={() => router.push('/warehouse/warehouses')}>
             <ArrowBackIcon />
           </IconButton>
           <Box sx={{ flex: 1 }}>
@@ -370,7 +370,7 @@ export default function DepoDetayPage() {
               const allCorridors = Array.from(new Set([...realCorridors, ...Array.from(selectedLayerCorridors)])).sort();
 
               return (
-                <Accordion key={layer} defaultExpanded>
+                <Accordion key={layer as any} defaultExpanded>
                   <AccordionSummary expandIcon={<ExpandMoreIcon />}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                       <LayersIcon color="primary" />
@@ -390,9 +390,9 @@ export default function DepoDetayPage() {
                         Yeni Koridor Ekle
                       </Button>
 
-                      {allCorridors.map((corridor) => {
-                        const sides = hierarchy[layer]?.[corridor]
-                          ? Object.keys(hierarchy[layer][corridor]).map(Number).sort()
+                      {allCorridors.map((corridor: any) => {
+                        const sides = (hierarchy as any)[layer]?.[corridor]
+                          ? Object.keys((hierarchy as any)[layer][corridor]).map(Number).sort()
                           : [];
 
                         return (
@@ -425,8 +425,8 @@ export default function DepoDetayPage() {
                                   {hierarchy[layer]?.[corridor]?.[1] ? (
                                     <Box>
                                       <Chip
-                                        label={`✓ ${Object.keys(hierarchy[layer][corridor][1]).length} bölüm × ${Math.max(
-                                          ...Object.values(hierarchy[layer][corridor][1] as any).map(
+                                        label={`✓ ${Object.keys((hierarchy as any)[layer][corridor][1]).length} bölüm × ${Math.max(
+                                          ...Object.values((hierarchy as any)[layer][corridor][1] as any).map(
                                             (arr: any) => arr.length
                                           )
                                         )} raf`}
@@ -465,8 +465,8 @@ export default function DepoDetayPage() {
                                   {hierarchy[layer]?.[corridor]?.[2] ? (
                                     <Box>
                                       <Chip
-                                        label={`✓ ${Object.keys(hierarchy[layer][corridor][2]).length} bölüm × ${Math.max(
-                                          ...Object.values(hierarchy[layer][corridor][2] as any).map(
+                                        label={`✓ ${Object.keys((hierarchy as any)[layer][corridor][2]).length} bölüm × ${Math.max(
+                                          ...Object.values((hierarchy as any)[layer][corridor][2] as any).map(
                                             (arr: any) => arr.length
                                           )
                                         )} raf`}
@@ -545,7 +545,7 @@ export default function DepoDetayPage() {
                 <Select
                   value={formData.layer}
                   label="Kat"
-                  onChange={(e) => setFormData({ ...formData, layer: Number(e.target.value) })}
+                  onChange={(e: any) => setFormData({ ...formData, layer: Number(e.target.value) })}
                 >
                   <MenuItem value={1}>Kat 1</MenuItem>
                   <MenuItem value={2}>Kat 2</MenuItem>
@@ -572,7 +572,7 @@ export default function DepoDetayPage() {
                 <Select
                   value={formData.corridor}
                   label="Koridor"
-                  onChange={(e) => setFormData({ ...formData, corridor: e.target.value })}
+                  onChange={(e: any) => setFormData({ ...formData, corridor: e.target.value as string })}
                 >
                   {['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T'].map((letter) => (
                     <MenuItem key={letter} value={letter}>
@@ -690,7 +690,7 @@ export default function DepoDetayPage() {
                 fullWidth
                 label="Raf Kodu *"
                 value={formData.freeRackCode}
-                onChange={(e) => setFormData({ ...formData, freeRackCode: e.target.value.toUpperCase() })}
+                onChange={(e: any) => setFormData({ ...formData, freeRackCode: e.target.value.toUpperCase() })}
                 placeholder="örn: K1-RAF001, K2-A15, R-200"
                 helperText="Benzersiz bir kod girin"
                 required
@@ -700,7 +700,7 @@ export default function DepoDetayPage() {
                 fullWidth
                 label="Raf Açıklaması"
                 value={formData.freeRackName}
-                onChange={(e) => setFormData({ ...formData, freeRackName: e.target.value })}
+                onChange={(e: any) => setFormData({ ...formData, freeRackName: e.target.value })}
                 placeholder="örn: Giriş Katı - A Bölümü - 15 No'lu Raf"
                 multiline
                 rows={2}

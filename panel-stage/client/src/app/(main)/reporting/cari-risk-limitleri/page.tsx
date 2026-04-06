@@ -27,27 +27,26 @@ import {
     Pagination,
     Stack,
     InputAdornment,
+    alpha,
+    useTheme,
+    Divider,
 } from '@mui/material';
 import {
-    Search,
-    FilterList,
-    GetApp,
-    Description,
-    TableChart,
-    ArrowUpward,
-    ArrowDownward,
-    AccountBalanceWallet,
-    Refresh,
-    TrendingUp,
-    TrendingDown,
-    Warning,
-    CheckCircle
+    Search as SearchIcon,
+    FilterList as FilterIcon,
+    Description as DescriptionIcon,
+    TableChart as ExcelIcon,
+    AccountBalanceWallet as WalletIcon,
+    Refresh as RefreshIcon,
+    TrendingUp as UpIcon,
+    Warning as WarningIcon,
+    CheckCircle as CheckIcon,
+    Clear as ClearIcon,
 } from '@mui/icons-material';
-import MainLayout from '@/components/Layout/MainLayout';
+import StandardPage from '@/components/common/StandardPage';
 import axios from '@/lib/axios';
 import { useDebounce } from '@/hooks/useDebounce';
 import TableSkeleton from '@/components/Loading/TableSkeleton';
-import { useTabStore } from '@/stores/tabStore';
 
 interface RiskLimitReportItem {
     id: string;
@@ -80,7 +79,7 @@ interface ReportResponse {
 }
 
 export default function CariRiskLimitleriPage() {
-    const { addTab, setActiveTab } = useTabStore();
+    const theme = useTheme();
 
     // States
     const [loading, setLoading] = useState(false);
@@ -96,16 +95,6 @@ export default function CariRiskLimitleriPage() {
     });
     const [satisElemanlari, setSatisElemanlari] = useState<any[]>([]);
 
-    // Tab management
-    useEffect(() => {
-        addTab({
-            id: 'raporlama-cari-risk',
-            label: 'Cari Risk Limitleri',
-            path: '/raporlama/cari-risk-limitleri',
-        });
-        setActiveTab('raporlama-cari-risk');
-    }, []);
-
     // Fetch Data
     const fetchData = useCallback(async () => {
         try {
@@ -117,7 +106,6 @@ export default function CariRiskLimitleriPage() {
                 ...filters,
             };
 
-            // Clean empty filters
             Object.keys(params).forEach(key => {
                 if (params[key] === '' || params[key] === null) {
                     delete params[key];
@@ -152,24 +140,13 @@ export default function CariRiskLimitleriPage() {
 
     const handleFilterChange = (field: string, value: any) => {
         setFilters(prev => ({ ...prev, [field]: value }));
-        setPage(1); // Reset page on filter change
+        setPage(1);
     };
 
     const handleExport = async (type: 'pdf' | 'excel') => {
         try {
             setExportLoading(type);
-            const params: any = {
-                search: debouncedSearch,
-                ...filters,
-            };
-
-            // Clean empty filters
-            Object.keys(params).forEach(key => {
-                if (params[key] === '' || params[key] === null) {
-                    delete params[key];
-                }
-            });
-
+            const params: any = { search: debouncedSearch, ...filters };
             const response = await axios.get(`/account/report/credit-limits/export/${type}`, {
                 params,
                 responseType: 'blob'
@@ -190,7 +167,6 @@ export default function CariRiskLimitleriPage() {
         }
     };
 
-    // Helper for formatting currency
     const formatCurrency = (amount: number) => {
         return new Intl.NumberFormat('tr-TR', {
             style: 'currency',
@@ -199,288 +175,204 @@ export default function CariRiskLimitleriPage() {
         }).format(amount);
     };
 
+    const stats = [
+        { label: 'TOPLAM RİSK LİMİTİ', value: data?.summary.totalRiskLimit || 0, color: 'primary', icon: <WalletIcon /> },
+        { label: 'GÜNCEL TOPLAM BORÇ', value: data?.summary.totalDebt || 0, color: 'error', icon: <UpIcon /> },
+        { label: 'TOPLAM KALAN LİMİT', value: data?.summary.totalRemainingLimit || 0, color: 'success', icon: <CheckIcon /> },
+        { label: 'LİSTELENEN CARİ', value: data?.summary.count || 0, color: 'info', icon: <FilterIcon />, isCurrency: false },
+    ];
+
     return (
-        <MainLayout>
+        <StandardPage
+            title="Cari Risk Limitleri Raporu"
+            breadcrumbs={[{ label: 'Raporlama', href: '/reporting' }, { label: 'Risk Limitleri' }]}
+            headerActions={
+                <Stack direction="row" spacing={1}>
+                    <Button
+                        variant="outlined"
+                        size="small"
+                        startIcon={exportLoading === 'excel' ? <CircularProgress size={16} color="inherit" /> : <ExcelIcon />}
+                        onClick={() => handleExport('excel')}
+                        disabled={!!exportLoading}
+                        sx={{ fontWeight: 700, borderRadius: 3 }}
+                    >
+                        Excel
+                    </Button>
+                    <Button
+                        variant="outlined"
+                        size="small"
+                        startIcon={exportLoading === 'pdf' ? <CircularProgress size={16} color="inherit" /> : <DescriptionIcon />}
+                        onClick={() => handleExport('pdf')}
+                        disabled={!!exportLoading}
+                        sx={{ fontWeight: 700, borderRadius: 3 }}
+                    >
+                        PDF
+                    </Button>
+                    <IconButton size="small" onClick={fetchData} sx={{ bgcolor: alpha(theme.palette.primary.main, 0.05), color: 'primary.main' }}>
+                        <RefreshIcon fontSize="small" />
+                    </IconButton>
+                </Stack>
+            }
+        >
             <Box sx={{ mb: 4 }}>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 3 }}>
-                    <Box>
-                        <Typography
-                            variant="h4"
-                            sx={{
-                                fontWeight: 700,
-                                fontSize: '1.75rem',
-                                color: 'var(--foreground)',
-                                letterSpacing: '-0.02em',
-                                mb: 0.5,
+                <Typography variant="body2" sx={{ color: 'text.secondary', maxWidth: 800 }}>
+                    Müşterilerinizin tanımlı risk limitlerini ve kalan limit durumlarını güncel bakiyeleri üzerinden anlık olarak takip edin.
+                </Typography>
+            </Box>
+
+            {/* Summary Cards */}
+            <Grid container spacing={2} sx={{ mb: 4 }}>
+                {stats.map((stat, idx) => (
+                    <Grid size={{ xs: 12, sm: 6, md: 3 }} key={idx}>
+                        <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 4, display: 'flex', alignItems: 'center', gap: 2, bgcolor: alpha(theme.palette[stat.color as any].main, 0.02) }}>
+                            <Box sx={{ p: 1.5, borderRadius: 2.5, bgcolor: alpha(theme.palette[stat.color as any].main, 0.1), color: `${stat.color}.main`, display: 'flex' }}>
+                                {stat.icon}
+                            </Box>
+                            <Box>
+                                <Typography variant="h5" sx={{ fontWeight: 900, lineHeight: 1.2 }}>
+                                    {stat.isCurrency === false ? stat.value : formatCurrency(stat.value as number)}
+                                </Typography>
+                                <Typography variant="caption" sx={{ fontWeight: 800, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                                    {stat.label}
+                                </Typography>
+                            </Box>
+                        </Paper>
+                    </Grid>
+                ))}
+            </Grid>
+
+            {/* Filters */}
+            <Paper variant="outlined" sx={{ p: 2.5, mb: 3, borderRadius: 4, bgcolor: alpha(theme.palette.primary.main, 0.01) }}>
+                <Grid container spacing={2} alignItems="center">
+                    <Grid size={{ xs: 12, md: 4 }}>
+                        <TextField
+                            fullWidth
+                            size="small"
+                            placeholder="Cari kodu, ünvan veya vergi no ile ara..."
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                            InputProps={{
+                                startAdornment: <SearchIcon sx={{ color: 'text.disabled', mr: 1, fontSize: 20 }} />,
+                                sx: { borderRadius: 2.5, bgcolor: 'background.paper' }
                             }}
+                        />
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+                        <TextField
+                            select
+                            fullWidth
+                            size="small"
+                            label="Satış Elemanı"
+                            value={filters.satisElemaniId}
+                            onChange={(e) => handleFilterChange('satisElemaniId', e.target.value)}
+                            sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2.5, bgcolor: 'background.paper' } }}
                         >
-                            Cari Risk Limitleri Raporu
-                        </Typography>
-                        <Typography variant="body2" sx={{ color: 'var(--muted-foreground)' }}>
-                            Müşterilerinizin tanımlı risk limitlerini ve kalan limit durumlarını güncel borçları üzerinden inceleyin.
-                        </Typography>
-                    </Box>
-                    <Box sx={{ display: 'flex', gap: 1 }}>
+                            <MenuItem value="">Tümü</MenuItem>
+                            {satisElemanlari.map((se) => <MenuItem key={se.id} value={se.id}>{se.fullName}</MenuItem>)}
+                        </TextField>
+                    </Grid>
+                    <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+                        <TextField
+                            select
+                            fullWidth
+                            size="small"
+                            label="Limit Durumu"
+                            value={filters.durum}
+                            onChange={(e) => handleFilterChange('durum', e.target.value)}
+                            sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2.5, bgcolor: 'background.paper' } }}
+                        >
+                            <MenuItem value="">Tümü</MenuItem>
+                            <MenuItem value="LIMIT_ASILDI">Limiti Aşanlar</MenuItem>
+                            <MenuItem value="NORMAL">Limit Altındakiler</MenuItem>
+                        </TextField>
+                    </Grid>
+                    <Grid size={{ xs: 12, md: 2 }}>
                         <Button
-                            variant="outlined"
-                            startIcon={exportLoading === 'excel' ? <CircularProgress size={16} color="inherit" /> : <TableChart />}
-                            onClick={() => handleExport('excel')}
-                            disabled={!!exportLoading}
-                            sx={{
-                                borderColor: 'var(--border)',
-                                color: 'var(--foreground)',
-                                '&:hover': { bgcolor: 'var(--muted)' }
-                            }}
+                            fullWidth
+                            startIcon={<ClearIcon />}
+                            onClick={() => { setSearch(''); setFilters({ satisElemaniId: '', durum: '' }); }}
+                            sx={{ fontWeight: 700 }}
                         >
-                            Excel
+                            Sıfırla
                         </Button>
-                        <Button
-                            variant="outlined"
-                            startIcon={exportLoading === 'pdf' ? <CircularProgress size={16} color="inherit" /> : <Description />}
-                            onClick={() => handleExport('pdf')}
-                            disabled={!!exportLoading}
-                            sx={{
-                                borderColor: 'var(--border)',
-                                color: 'var(--foreground)',
-                                '&:hover': { bgcolor: 'var(--muted)' }
-                            }}
-                        >
-                            PDF
-                        </Button>
-                        <IconButton onClick={fetchData} sx={{ border: '1px solid var(--border)', borderRadius: 1 }}>
-                            <Refresh fontSize="small" />
-                        </IconButton>
-                    </Box>
-                </Box>
-
-                {/* Summary Cards */}
-                <Grid container spacing={2} sx={{ mb: 3 }}>
-                    <Grid size={{ xs: 12, md: 3 }}>
-                        <Card sx={{
-                            boxShadow: 'var(--shadow-sm)',
-                            border: '1px solid var(--border)',
-                            height: '100%',
-                            bgcolor: 'var(--card)'
-                        }}>
-                            <CardContent sx={{ p: 2.5, '&:last-child': { pb: 2.5 } }}>
-                                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
-                                    <Typography variant="subtitle2" sx={{ fontWeight: 600, color: 'var(--muted-foreground)', textTransform: 'uppercase', fontSize: '0.75rem' }}>
-                                        TOPLAM RİSK LİMİTİ
-                                    </Typography>
-                                    <Box sx={{ p: 0.5, borderRadius: 1, bgcolor: 'color-mix(in srgb, #0284c7 15%, transparent)', color: '#0284c7' }}>
-                                        <AccountBalanceWallet fontSize="small" />
-                                    </Box>
-                                </Box>
-                                <Typography variant="h5" sx={{ fontWeight: 700, color: '#0284c7' }}>
-                                    {formatCurrency(data?.summary.totalRiskLimit || 0)}
-                                </Typography>
-                            </CardContent>
-                        </Card>
-                    </Grid>
-
-                    <Grid size={{ xs: 12, md: 3 }}>
-                        <Card sx={{
-                            boxShadow: 'var(--shadow-sm)',
-                            border: '1px solid var(--border)',
-                            height: '100%',
-                            bgcolor: 'var(--card)'
-                        }}>
-                            <CardContent sx={{ p: 2.5, '&:last-child': { pb: 2.5 } }}>
-                                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
-                                    <Typography variant="subtitle2" sx={{ fontWeight: 600, color: 'var(--muted-foreground)', textTransform: 'uppercase', fontSize: '0.75rem' }}>
-                                        SİSTEMDEKİ TOPLAM BORÇ
-                                    </Typography>
-                                    <Box sx={{ p: 0.5, borderRadius: 1, bgcolor: 'color-mix(in srgb, var(--destructive) 15%, transparent)', color: 'var(--destructive)' }}>
-                                        <TrendingUp fontSize="small" />
-                                    </Box>
-                                </Box>
-                                <Typography variant="h5" sx={{ fontWeight: 700, color: 'var(--destructive)' }}>
-                                    {formatCurrency(data?.summary.totalDebt || 0)}
-                                </Typography>
-                            </CardContent>
-                        </Card>
-                    </Grid>
-
-                    <Grid size={{ xs: 12, md: 3 }}>
-                        <Card sx={{
-                            boxShadow: 'var(--shadow-sm)',
-                            border: '1px solid var(--border)',
-                            height: '100%',
-                            bgcolor: 'var(--card)'
-                        }}>
-                            <CardContent sx={{ p: 2.5, '&:last-child': { pb: 2.5 } }}>
-                                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
-                                    <Typography variant="subtitle2" sx={{ fontWeight: 600, color: 'var(--muted-foreground)', textTransform: 'uppercase', fontSize: '0.75rem' }}>
-                                        TOPLAM KALAN LİMİT
-                                    </Typography>
-                                    <Box sx={{ p: 0.5, borderRadius: 1, bgcolor: 'var(--muted)', color: 'var(--foreground)' }}>
-                                        <AccountBalanceWallet fontSize="small" />
-                                    </Box>
-                                </Box>
-                                <Typography variant="h5" sx={{ fontWeight: 700, color: 'var(--foreground)' }}>
-                                    {formatCurrency(data?.summary.totalRemainingLimit || 0)}
-                                </Typography>
-                            </CardContent>
-                        </Card>
-                    </Grid>
-
-                    <Grid size={{ xs: 12, md: 3 }}>
-                        <Card sx={{
-                            boxShadow: 'var(--shadow-sm)',
-                            border: '1px solid var(--border)',
-                            height: '100%',
-                            bgcolor: 'var(--card)'
-                        }}>
-                            <CardContent sx={{ p: 2.5, '&:last-child': { pb: 2.5 } }}>
-                                <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
-                                    <Typography variant="subtitle2" sx={{ fontWeight: 600, color: 'var(--muted-foreground)', textTransform: 'uppercase', fontSize: '0.75rem' }}>
-                                        LİSTELENEN CARİ SAYISI
-                                    </Typography>
-                                    <Box sx={{ p: 0.5, borderRadius: 1, bgcolor: 'var(--muted)', color: 'var(--muted-foreground)' }}>
-                                        <FilterList fontSize="small" />
-                                    </Box>
-                                </Box>
-                                <Typography variant="h5" sx={{ fontWeight: 700, color: 'var(--foreground)' }}>
-                                    {data?.summary.count || 0}
-                                </Typography>
-                            </CardContent>
-                        </Card>
                     </Grid>
                 </Grid>
+            </Paper>
 
-                {/* Filters & Search */}
-                <Paper sx={{ p: 1.5, mb: 3, borderRadius: 'var(--radius)', border: '1px solid var(--border)', boxShadow: 'var(--shadow-sm)' }}>
-                    <Grid container spacing={1.5} alignItems="center">
-                        <Grid size={{ xs: 12, md: 4 }}>
-                            <TextField
-                                fullWidth
-                                size="small"
-                                placeholder="Cari kodu, ünvan veya vergi no ile ara..."
-                                value={search}
-                                onChange={(e) => setSearch(e.target.value)}
-                                InputProps={{
-                                    startAdornment: <Search sx={{ mr: 1, color: 'var(--muted-foreground)' }} />
-                                }}
-                            />
-                        </Grid>
-                        <Grid size={{ xs: 12, md: 3 }}>
-                            <FormControl fullWidth size="small">
-                                <InputLabel>Satış Elemanı</InputLabel>
-                                <Select
-                                    value={filters.satisElemaniId}
-                                    label="Satış Elemanı"
-                                    onChange={(e) => handleFilterChange('satisElemaniId', e.target.value)}
-                                >
-                                    <MenuItem value="">Tümü</MenuItem>
-                                    {satisElemanlari.map((se) => (
-                                        <MenuItem key={se.id} value={se.id}>{se.adSoyad}</MenuItem>
-                                    ))}
-                                </Select>
-                            </FormControl>
-                        </Grid>
-                        <Grid size={{ xs: 12, md: 3 }}>
-                            <FormControl fullWidth size="small">
-                                <InputLabel>Risk Durumu</InputLabel>
-                                <Select
-                                    value={filters.durum}
-                                    label="Risk Durumu"
-                                    onChange={(e) => handleFilterChange('durum', e.target.value)}
-                                >
-                                    <MenuItem value="">Tümü</MenuItem>
-                                    <MenuItem value="LIMIT_ASILDI">Limiti Aşanlar</MenuItem>
-                                    <MenuItem value="NORMAL">Normal</MenuItem>
-                                </Select>
-                            </FormControl>
-                        </Grid>
-                        <Grid size={{ xs: 12, md: 2 }} sx={{ display: 'flex', justifyContent: 'flex-end', ml: 'auto' }}>
-                            <Button
-                                fullWidth
-                                variant="outlined"
-                                color="inherit"
-                                size="small"
-                                onClick={() => {
-                                    setSearch('');
-                                    setFilters({ satisElemaniId: '', durum: '' });
-                                }}
-                                sx={{ textTransform: 'none', height: '40px' }}
-                            >
-                                Filtreleri Temizle
-                            </Button>
-                        </Grid>
-                    </Grid>
-                </Paper>
-
-                {/* Data Table */}
-                <TableContainer component={Paper} sx={{ borderRadius: 'var(--radius)', border: '1px solid var(--border)', boxShadow: 'var(--shadow-sm)' }}>
-                    <Table>
-                        <TableHead>
-                            <TableRow sx={{ bgcolor: 'var(--muted)' }}>
-                                <TableCell sx={{ fontWeight: 700, color: 'var(--foreground)' }}>Cari Kodu</TableCell>
-                                <TableCell sx={{ fontWeight: 700, color: 'var(--foreground)' }}>Ünvan</TableCell>
-                                <TableCell sx={{ fontWeight: 700, color: 'var(--foreground)' }}>Satış Elemanı</TableCell>
-                                <TableCell align="right" sx={{ fontWeight: 700, color: '#0284c7' }}>Tanımlı Risk (TL)</TableCell>
-                                <TableCell align="right" sx={{ fontWeight: 700, color: '#dc2626' }}>Güncel Borç (TL)</TableCell>
-                                <TableCell align="right" sx={{ fontWeight: 700, color: 'var(--foreground)' }}>Kalan Limit (TL)</TableCell>
+            {/* Table */}
+            <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 4, overflow: 'hidden' }}>
+                <Table sx={{ minWidth: 800 }}>
+                    <TableHead sx={{ bgcolor: alpha(theme.palette.primary.main, 0.04) }}>
+                        <TableRow>
+                            <TableCell sx={{ fontWeight: 800 }}>Cari Kodu / Ünvan</TableCell>
+                            <TableCell sx={{ fontWeight: 800 }}>Satış Elemanı</TableCell>
+                            <TableCell align="right" sx={{ fontWeight: 800 }}>Tanımlı Limit</TableCell>
+                            <TableCell align="right" sx={{ fontWeight: 800 }}>Güncel Borç</TableCell>
+                            <TableCell align="right" sx={{ fontWeight: 800 }}>Kalan Limit</TableCell>
+                        </TableRow>
+                    </TableHead>
+                    <TableBody>
+                        {loading ? (
+                            <TableSkeleton rows={8} columns={5} />
+                        ) : data?.items.length === 0 ? (
+                            <TableRow>
+                                <TableCell colSpan={5} align="center" sx={{ py: 8 }}>
+                                    <Typography variant="body2" sx={{ color: 'text.secondary' }}>Herhangi bir sonuç bulunamadı.</Typography>
+                                </TableCell>
                             </TableRow>
-                        </TableHead>
-                        <TableBody>
-                            {loading ? (
-                                <TableSkeleton rows={5} columns={6} />
-                            ) : data?.items.length === 0 ? (
-                                <TableRow>
-                                    <TableCell colSpan={6} align="center" sx={{ py: 4 }}>
-                                        <Typography variant="body1" color="text.secondary">Kayıt bulunamadı</Typography>
-                                    </TableCell>
-                                </TableRow>
-                            ) : (
-                                data?.items.map((item) => {
-                                    const isOverLimit = item.remainingLimit < 0;
+                        ) : (
+                            data?.items.map((item) => {
+                                const isOverLimit = item.remainingLimit < 0;
+                                return (
+                                    <TableRow key={item.id} hover sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
+                                        <TableCell>
+                                            <Typography variant="body2" sx={{ fontWeight: 800 }}>{item.unvan}</Typography>
+                                            <Typography variant="caption" sx={{ color: 'text.secondary', fontFamily: 'monospace' }}>{item.cariKodu}</Typography>
+                                        </TableCell>
+                                        <TableCell>
+                                            <Typography variant="body2">{item.satisElemani || '-'}</Typography>
+                                        </TableCell>
+                                        <TableCell align="right">
+                                            <Typography variant="body2" sx={{ fontWeight: 700, color: 'primary.main' }}>{formatCurrency(item.riskLimit)}</Typography>
+                                        </TableCell>
+                                        <TableCell align="right">
+                                            <Typography variant="body2" sx={{ fontWeight: 700, color: 'error.main' }}>{formatCurrency(item.debt)}</Typography>
+                                        </TableCell>
+                                        <TableCell align="right">
+                                            <Chip
+                                                icon={isOverLimit ? <WarningIcon sx={{ fontSize: '14px !important' }} /> : <CheckIcon sx={{ fontSize: '14px !important' }} />}
+                                                label={formatCurrency(item.remainingLimit)}
+                                                size="small"
+                                                color={isOverLimit ? 'error' : 'success'}
+                                                sx={{
+                                                    fontWeight: 900,
+                                                    borderRadius: 1.5,
+                                                    fontFamily: 'monospace',
+                                                    width: 140,
+                                                    justifyContent: 'flex-start'
+                                                }}
+                                            />
+                                        </TableCell>
+                                    </TableRow>
+                                );
+                            })
+                        )}
+                    </TableBody>
+                </Table>
 
-                                    return (
-                                        <TableRow key={item.id} hover sx={{ '&:hover': { bgcolor: 'var(--muted) !important' } }}>
-                                            <TableCell sx={{ fontFamily: 'var(--font-mono)', fontSize: '0.875rem' }}>{item.cariKodu}</TableCell>
-                                            <TableCell sx={{ fontWeight: 500 }}>{item.unvan}</TableCell>
-                                            <TableCell sx={{ color: 'var(--muted-foreground)', fontSize: '0.875rem' }}>{item.satisElemani || '-'}</TableCell>
-
-                                            <TableCell align="right" sx={{ color: '#0284c7', fontFamily: 'var(--font-mono)' }}>
-                                                {item.riskLimit > 0 ? formatCurrency(item.riskLimit) : '-'}
-                                            </TableCell>
-
-                                            <TableCell align="right" sx={{ color: '#dc2626', fontFamily: 'var(--font-mono)' }}>
-                                                {item.debt > 0 ? formatCurrency(item.debt) : '-'}
-                                            </TableCell>
-
-                                            <TableCell align="right" sx={{
-                                                fontWeight: 800,
-                                                fontFamily: 'var(--font-mono)',
-                                                bgcolor: isOverLimit ? 'color-mix(in srgb, var(--destructive) 10%, transparent)' : 'transparent',
-                                                color: isOverLimit ? 'var(--destructive)' : '#059669'
-                                            }}>
-                                                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 1 }}>
-                                                    {isOverLimit ? <Warning fontSize="small" color="error" /> : <CheckCircle fontSize="small" color="success" />}
-                                                    {formatCurrency(item.remainingLimit)}
-                                                </Box>
-                                            </TableCell>
-                                        </TableRow>
-                                    )
-                                })
-                            )}
-                        </TableBody>
-                    </Table>
-
-                    {/* Pagination */}
-                    <Box sx={{ p: 2, display: 'flex', justifyContent: 'flex-end', borderTop: '1px solid var(--border)' }}>
+                {data && data.meta.pageCount > 1 && (
+                    <Box sx={{ p: 2.5, display: 'flex', justifyContent: 'center', borderTop: '1px solid', borderColor: 'divider', bgcolor: alpha(theme.palette.primary.main, 0.01) }}>
                         <Pagination
-                            count={data?.meta.pageCount || 1}
+                            count={data.meta.pageCount}
                             page={page}
                             onChange={(_, p) => setPage(p)}
                             color="primary"
-                            showFirstButton
-                            showLastButton
+                            shape="rounded"
+                            size="medium"
                         />
                     </Box>
-                </TableContainer>
-            </Box>
-        </MainLayout >
+                )}
+            </TableContainer>
+        </StandardPage>
     );
 }

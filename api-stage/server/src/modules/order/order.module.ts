@@ -6,6 +6,7 @@ import { TenantContextModule } from '../../common/services/tenant-context.module
 import { SalesWaybillModule } from '../sales-waybill/sales-waybill.module';
 import { CodeTemplateModule } from '../code-template/code-template.module';
 import { UnitSetModule } from '../unit-set/unit-set.module';
+import { SharedModule } from '../shared/shared.module';
 
 @Module({
   imports: [
@@ -14,6 +15,7 @@ import { UnitSetModule } from '../unit-set/unit-set.module';
     forwardRef(() => SalesWaybillModule),
     CodeTemplateModule,
     UnitSetModule,
+    SharedModule,
   ],
   controllers: [OrderController],
   providers: [OrderService],

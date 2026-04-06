@@ -107,6 +107,7 @@ export default function NewCariDialog({ open, onClose, onSuccess, showSnackbar }
             address: data.adres || undefined,
             creditLimit: Number(data.riskLimiti) || 0,
             creditStatus: riskMap[data.riskDurumu || 'NORMAL'] || 'NORMAL',
+            blockOnRisk: Boolean(data.riskDurdurma),
             collateralAmount: Number(data.teminatTutar) || 0,
             dueDays: Number(data.vadeGun) || 0,
             currency: data.paraBirimi || 'TRY',

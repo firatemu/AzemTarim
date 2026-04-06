@@ -16,6 +16,7 @@ import { UpdatePurchaseOrderDto } from './dto/update-purchase-order.dto';
 import { QueryPurchaseOrderDto } from './dto/query-purchase-order.dto';
 import { ShippedPurchaseOrderDto } from './dto/shipped-purchase-order.dto';
 import { InvoicedPurchaseOrderDto } from './dto/invoiced-purchase-order.dto';
+import { ReceivePurchaseOrderDto } from './dto/receive-purchase-order.dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { PurchaseOrderLocalStatus } from '@prisma/client';
@@ -24,6 +25,40 @@ import { PurchaseOrderLocalStatus } from '@prisma/client';
 @UseGuards(JwtAuthGuard)
 export class PurchaseOrdersController {
   constructor(private readonly service: PurchaseOrdersService) { }
+
+  @Get('stats')
+  async getStats(
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+    @Query('status') status?: string,
+    @Query('accountId') accountId?: string,
+  ) {
+    const parsedStartDate = startDate ? new Date(startDate) : undefined;
+    const parsedEndDate = endDate ? new Date(endDate) : undefined;
+
+    return this.service.getStats(
+      parsedStartDate,
+      parsedEndDate,
+      status,
+      accountId,
+    );
+  }
+
+  @Get('for-invoice')
+  async getOrdersForInvoice(@Query() query: any) {
+    return this.service.findOrdersForInvoice(
+      query.accountId,
+      query.search,
+    );
+  }
+
+  @Get('receiving-orders')
+  async getOrdersForReceiving(@Query() query: any) {
+    return this.service.findOrdersForReceiving(
+      query.accountId,
+      query.search,
+    );
+  }
 
   @Get()
   async findAll(@Query() query: QueryPurchaseOrderDto) {
@@ -141,6 +176,25 @@ export class PurchaseOrdersController {
       user?.userId,
       req.ip,
       req.headers['user-agent'],
+    );
+  }
+
+  @Post(':id/receive')
+  async receive(
+    @Param('id') id: string,
+    @Body() dto: ReceivePurchaseOrderDto,
+    @CurrentUser() user: any,
+    @Req() req: any,
+  ) {
+    return this.service.receive(
+      id,
+      dto.items,
+      user?.userId,
+      req.ip,
+      req.headers['user-agent'],
+      dto.warehouseId,
+      dto.notes,
+      dto.deliveryNoteNo,
     );
   }
 

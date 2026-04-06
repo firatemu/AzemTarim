@@ -51,25 +51,8 @@ import {
     useTheme,
     useMediaQuery,
 } from '@mui/material';
-import { DataGrid, GridColDef } from '@mui/x-data-grid';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import {
-    PieChart,
-    Pie,
-    Cell,
-    ResponsiveContainer,
-    Tooltip as RechartsTooltip,
-    Legend,
-    BarChart,
-    Bar,
-    XAxis,
-    YAxis,
-    CartesianGrid,
-} from 'recharts';
-import * as XLSX from 'xlsx';
-import jsPDF from 'jspdf';
-import { memo, useCallback, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useSnackbar } from 'notistack';
 
 interface Personel {
     id: string;
@@ -637,7 +620,27 @@ const VehicleGridCard = memo(({ vehicle, onEdit, onDelete, onView }: any) => {
 VehicleGridCard.displayName = 'VehicleGridCard';
 
 
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { DataGrid } from '@mui/x-data-grid';
+import {
+    PieChart,
+    Pie,
+    Cell,
+    ResponsiveContainer,
+    Tooltip as RechartsTooltip,
+    Legend,
+    BarChart,
+    Bar,
+    XAxis,
+    YAxis,
+    CartesianGrid,
+} from 'recharts';
+import * as XLSX from 'xlsx';
+import jsPDF from 'jspdf';
+import { memo, useCallback, useMemo, useState } from 'react';
+
 export default function SirketAraclariPage() {
+    const { enqueueSnackbar } = useSnackbar();
     const router = useRouter();
     const queryClient = useQueryClient();
     const [actionLoading, setActionLoading] = useState(false);
@@ -646,18 +649,12 @@ export default function SirketAraclariPage() {
     const [editMode, setEditMode] = useState(false);
     const [selectedVehicle, setSelectedVehicle] = useState<CompanyVehicle | null>(null);
     const [searchTerm, setSearchTerm] = useState('');
-    const [snackbar, setSnackbar] = useState({
-        open: false,
-        message: '',
-        severity: 'success' as 'success' | 'error' | 'info'
-    });
-    const [viewMode, setViewMode] = useState<'table' | 'grid'>('grid');
-
+    const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
     const showSnackbar = useCallback(
         (message: string, severity: 'success' | 'error' | 'info') => {
-            setSnackbar({ open: true, message, severity });
+            enqueueSnackbar(message, { variant: severity });
         },
-        [],
+        [enqueueSnackbar],
     );
 
     const [formData, setFormData] = useState<Partial<CompanyVehicle>>({
@@ -1470,16 +1467,6 @@ export default function SirketAraclariPage() {
                     </DialogActions>
                 </Dialog>
 
-                <Snackbar
-                    open={snackbar.open}
-                    autoHideDuration={4000}
-                    onClose={() => setSnackbar({ ...snackbar, open: false })}
-                    anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-                >
-                    <Alert severity={snackbar.severity} sx={{ borderRadius: '12px', boxShadow: '0 8px 32px rgba(0,0,0,0.1)' }}>
-                        {snackbar.message}
-                    </Alert>
-                </Snackbar>
             </Box>
         </MainLayout>
     );

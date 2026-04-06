@@ -10,7 +10,7 @@ import type { B2bFifoPreviewPayload } from '../types/b2b-fifo-preview.payload';
 
 @Injectable()
 export class B2bAdminReportService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) { }
 
   private dateWhere(range?: DateRangeQueryDto): Prisma.DateTimeFilter | undefined {
     if (!range?.from && !range?.to) return undefined;
@@ -281,7 +281,7 @@ export class B2bAdminReportService {
       { text: 'Gecikme', style: 'th' },
     ];
 
-    const body: unknown[][] = [headerRow];
+    const body: any[][] = [headerRow];
     for (const m of payload.movements) {
       body.push([
         m.date.slice(0, 10),

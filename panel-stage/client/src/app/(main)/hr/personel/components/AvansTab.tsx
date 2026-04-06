@@ -19,7 +19,9 @@ import {
 import {
     Add,
     History,
+    ReceiptLong,
 } from '@mui/icons-material';
+import { alpha, useTheme } from '@mui/material/styles';
 import axios from '@/lib/axios';
 
 interface Avans {
@@ -55,49 +57,59 @@ export default function AvansTab({ personelId }: { personelId: string }) {
         }
     };
 
-    if (loading) return <CircularProgress />;
+    if (loading) return (
+        <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+            <CircularProgress size={32} />
+        </Box>
+    );
 
     return (
-        <Box sx={{ mt: 2 }}>
+        <Box>
             <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
-                <Typography variant="h6">Avans Hareketleri</Typography>
+                <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>Avans Hareketleri</Typography>
             </Stack>
 
-            <TableContainer component={Paper} variant="outlined">
+            <TableContainer sx={{ borderRadius: 1.5, border: '1px solid', borderColor: 'divider' }}>
                 <Table size="small">
                     <TableHead>
-                        <TableRow sx={{ bgcolor: 'var(--muted)' }}>
-                            <TableCell sx={{ fontWeight: 600 }}>Tarih</TableCell>
-                            <TableCell align="right" sx={{ fontWeight: 600 }}>Tutar</TableCell>
-                            <TableCell align="right" sx={{ fontWeight: 600 }}>Mahsup</TableCell>
-                            <TableCell align="right" sx={{ fontWeight: 600 }}>Kalan</TableCell>
-                            <TableCell sx={{ fontWeight: 600 }}>Durum</TableCell>
-                            <TableCell sx={{ fontWeight: 600 }}>Açıklama</TableCell>
+                        <TableRow sx={{ bgcolor: 'background.neutral' }}>
+                            <TableCell sx={{ fontWeight: 800 }}>Tarih</TableCell>
+                            <TableCell align="right" sx={{ fontWeight: 800 }}>Tutar</TableCell>
+                            <TableCell align="right" sx={{ fontWeight: 800 }}>Mahsup</TableCell>
+                            <TableCell align="right" sx={{ fontWeight: 800 }}>Kalan</TableCell>
+                            <TableCell sx={{ fontWeight: 800 }}>Durum</TableCell>
+                            <TableCell sx={{ fontWeight: 800 }}>Açıklama</TableCell>
                         </TableRow>
                     </TableHead>
                     <TableBody>
-                        {avanslar.map((avans) => (
-                            <TableRow key={avans.id} hover>
-                                <TableCell>{new Date(avans.tarih).toLocaleDateString()}</TableCell>
-                                <TableCell align="right">₺{Number(avans.tutar).toLocaleString()}</TableCell>
-                                <TableCell align="right" sx={{ color: 'success.main' }}>₺{Number(avans.mahsupEdilen).toLocaleString()}</TableCell>
-                                <TableCell align="right" sx={{ color: 'error.main', fontWeight: 600 }}>₺{Number(avans.kalan).toLocaleString()}</TableCell>
-                                <TableCell>
-                                    <Chip
-                                        label={avans.durum}
-                                        color={avans.durum === 'ACIK' ? 'error' : avans.durum === 'KISMI' ? 'warning' : 'success'}
-                                        size="small"
-                                    />
-                                </TableCell>
-                                <TableCell>{avans.aciklama}</TableCell>
-                            </TableRow>
-                        ))}
-                        {avanslar.length === 0 && (
+                        {avanslar.length === 0 ? (
                             <TableRow>
-                                <TableCell colSpan={6} align="center" sx={{ py: 3 }}>
-                                    Kayıtlı avans bulunamadı.
+                                <TableCell colSpan={6} align="center" sx={{ py: 6 }}>
+                                    <Typography variant="body2" color="text.secondary">
+                                        Kayıtlı avans hareketi bulunamadı.
+                                    </Typography>
                                 </TableCell>
                             </TableRow>
+                        ) : (
+                            avanslar.map((avans: Avans) => (
+                                <TableRow key={avans.id} hover sx={{ '&:hover': { bgcolor: 'action.hover' } }}>
+                                    <TableCell sx={{ fontWeight: 600 }}>{new Date(avans.tarih).toLocaleDateString('tr-TR')}</TableCell>
+                                    <TableCell align="right" sx={{ fontWeight: 700 }}>₺{Number(avans.tutar).toLocaleString('tr-TR', { minimumFractionDigits: 2 })}</TableCell>
+                                    <TableCell align="right" sx={{ color: 'success.main', fontWeight: 600 }}>₺{Number(avans.mahsupEdilen).toLocaleString('tr-TR', { minimumFractionDigits: 2 })}</TableCell>
+                                    <TableCell align="right" sx={{ color: 'error.main', fontWeight: 800 }}>₺{Number(avans.kalan).toLocaleString('tr-TR', { minimumFractionDigits: 2 })}</TableCell>
+                                    <TableCell>
+                                        <Chip
+                                            label={avans.durum}
+                                            color={avans.durum === 'ACIK' ? 'error' : avans.durum === 'KISMI' ? 'warning' : 'success'}
+                                            size="small"
+                                            sx={{ fontWeight: 800, borderRadius: 1, fontSize: '0.625rem' }}
+                                        />
+                                    </TableCell>
+                                    <TableCell>
+                                        <Typography variant="caption" sx={{ fontWeight: 500 }}>{avans.aciklama}</Typography>
+                                    </TableCell>
+                                </TableRow>
+                            ))
                         )}
                     </TableBody>
                 </Table>

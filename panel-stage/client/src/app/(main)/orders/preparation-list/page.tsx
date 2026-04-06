@@ -112,9 +112,9 @@ export default function SiparisHazirlamaListesiPage() {
   const handleHazirlama = (siparis: Siparis) => {
     // Sipariş tipine göre doğru route'a yönlendir
     if (siparis.siparisTipi === 'SATIS') {
-      router.push(`/orders/satis/hazirlama/${siparis.id}`);
+      router.push(`/orders/sales/hazirlama/${siparis.id}`);
     } else {
-      router.push(`/orders/satin-alma/hazirlama/${siparis.id}`);
+      router.push(`/orders/purchase/hazirlama/${siparis.id}`);
     }
   };
 

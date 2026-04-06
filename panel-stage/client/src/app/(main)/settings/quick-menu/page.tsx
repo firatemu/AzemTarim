@@ -11,42 +11,45 @@ import {
   Snackbar,
   Stack,
   Chip,
+  Grid,
+  alpha,
+  useTheme,
 } from '@mui/material';
 import {
-  Add,
-  ArrowBack,
-  Save,
-  Restore,
-  FlashOn,
+  Add as AddIcon,
+  Restore as RestoreIcon,
+  FlashOn as FlashOnIcon,
+  Info as InfoIcon,
+  DragIndicator as DragIcon,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
-import MainLayout from '@/components/Layout/MainLayout';
+import StandardPage from '@/components/common/StandardPage';
 import { useQuickMenuStore, QuickMenuItem } from '@/stores/quickMenuStore';
 import QuickMenuEditor from '@/components/QuickMenu/QuickMenuEditor';
 import QuickMenuItemCard from '@/components/QuickMenu/QuickMenuItemCard';
 
-// Menu yapısından tüm sayfaları al
 const menuItems = [
   { id: 'dashboard', label: 'Dashboard', path: '/dashboard' },
   { id: 'stok-malzeme-listesi', label: 'Malzeme Listesi', path: '/stock/material-list' },
-  { id: 'stok-malzeme-hareketleri', label: 'Malzeme Hareketleri', path: '/products/malzeme-hareketleri' },
-  { id: 'cari-liste', label: 'Cari Listesi', path: '/account' },
-  { id: 'fatura-satis', label: 'Satış Faturaları', path: '/invoices/sales' },
-  { id: 'fatura-alis', label: 'Satın Alma Faturaları', path: '/invoices/alis' },
-  { id: 'teklif-satis', label: 'Satış Teklifleri', path: '/teklif/satis' },
-  { id: 'siparis-satis', label: 'Satış Siparişleri', path: '/orders/satis' },
-  { id: 'satis-irsaliyesi', label: 'Satış İrsaliyeleri', path: '/satis-irsaliyesi' },
-  { id: 'satin-alma-irsaliyesi', label: 'Satın Alma İrsaliyeleri', path: '/satin-alma-irsaliyesi' },
-  { id: 'tahsilat', label: 'Tahsilat & Ödeme', path: '/collections' },
-  { id: 'kasa', label: 'Kasa', path: '/cashbox' },
+  { id: 'stok-malzeme-hareketleri', label: 'Malzeme Hareketleri', path: '/stock/material-movements' },
+  { id: 'cari-liste', label: 'Cari Listesi', path: '/accounts' },
+  { id: 'fatura-satis', label: 'Satış Faturaları', path: '/invoice/sales' },
+  { id: 'fatura-alis', label: 'Satın Alma Faturaları', path: '/invoice/purchase' },
+  { id: 'teklif-satis', label: 'Satış Teklifleri', path: '/quotes/sales' },
+  { id: 'siparis-satis', label: 'Satış Siparişleri', path: '/orders/sales' },
+  { id: 'satis-irsaliyesi', label: 'Satış İrsaliyeleri', path: '/sales-delivery-note' },
+  { id: 'satin-alma-irsaliyesi', label: 'Satın Alma İrsaliyeleri', path: '/purchase-delivery-note' },
+  { id: 'tahsilat', label: 'Tahsilat & Ödeme', path: '/collection' },
+  { id: 'kasa', label: 'Kasa', path: '/cash' },
   { id: 'bankalar', label: 'Bankalar', path: '/bank' },
   { id: 'ik-personel', label: 'Personel Listesi', path: '/hr/personel' },
-  { id: 'depo-depolar', label: 'Depo Yönetimi', path: '/depo/depolar' },
+  { id: 'depo-depolar', label: 'Depo Yönetimi', path: '/warehouse/warehouses' },
   { id: 'masraf', label: 'Masraf', path: '/expense' },
-  { id: 'raporlama-genel', label: 'Genel Raporlama', path: '/raporlama' },
+  { id: 'raporlama-genel', label: 'Genel Raporlama', path: '/reporting' },
 ];
 
 export default function HizliMenuPage() {
+  const theme = useTheme();
   const router = useRouter();
   const {
     items,
@@ -95,6 +98,7 @@ export default function HizliMenuPage() {
   };
 
   const handleDelete = (id: string) => {
+    if (!confirm('Bu kısa yolu silmek istediğinizden emin misiniz?')) return;
     deleteQuickMenuItem(id);
     showSnackbar('Hızlı menü öğesi silindi', 'success');
   };
@@ -102,15 +106,15 @@ export default function HizliMenuPage() {
   const handleToggleEnabled = (id: string, enabled: boolean) => {
     updateQuickMenuItem(id, { enabled });
     showSnackbar(
-      enabled ? 'Hızlı menü öğesi aktifleştirildi' : 'Hızlı menü öğesi pasifleştirildi',
+      enabled ? 'Kısa yol aktifleştirildi' : 'Kısa yol pasifleştirildi',
       'success'
     );
   };
 
   const handleReset = () => {
-    if (window.confirm('Tüm hızlı menü öğelerini varsayılanlara sıfırlamak istediğinizden emin misiniz?')) {
+    if (confirm('Tüm hızlı menü ayarlarını varsayılanlara sıfırlamak istediğinizden emin misiniz?')) {
       resetToDefaults();
-      showSnackbar('Hızlı menü varsayılanlara sıfırlandı', 'success');
+      showSnackbar('Ayarlar varsayılana getirildi', 'success');
     }
   };
 
@@ -141,172 +145,151 @@ export default function HizliMenuPage() {
   };
 
   return (
-    <MainLayout>
-      <Box sx={{ maxWidth: 1200, mx: 'auto' }}>
-        {/* Header */}
-        <Box sx={{ mb: 4 }}>
+    <StandardPage
+      title="Hızlı İşlem Menüsü"
+      breadcrumbs={[{ label: 'Ayarlar', href: '/settings' }, { label: 'Hızlı Menü' }]}
+      headerActions={
+        <Stack direction="row" spacing={1.5}>
+          <Button
+            variant="outlined"
+            size="small"
+            startIcon={<RestoreIcon />}
+            onClick={handleReset}
+            sx={{ fontWeight: 700, borderRadius: 3 }}
+          >
+            Varsayılana Dön
+          </Button>
+          <Button
+            variant="contained"
+            size="small"
+            startIcon={<AddIcon />}
+            onClick={handleAddNew}
+            sx={{ fontWeight: 800, borderRadius: 3, px: 3 }}
+          >
+            Yeni Kısa Yol
+          </Button>
+        </Stack>
+      }
+    >
+      <Box sx={{ mb: 4 }}>
+        <Typography variant="body2" sx={{ color: 'text.secondary', maxWidth: 800 }}>
+          Sık kullandığınız sayfalara hızlıca erişmek için yan menü (Sidebar) ve ana ekrandaki "Hızlı İşlemler" bölümünü özelleştirin.
+          Öğeleri sürükleyerek sıralayabilirsiniz.
+        </Typography>
+      </Box>
 
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+      <Alert
+        severity="info"
+        variant="outlined"
+        icon={<InfoIcon />}
+        sx={{ mb: 4, borderRadius: 3, border: '1px solid', borderColor: 'info.light', bgcolor: alpha(theme.palette.info.main, 0.02) }}
+      >
+        <Typography variant="body2" sx={{ fontWeight: 700 }}>Kişiselleştirilmiş Navigasyon</Typography>
+        <Typography variant="caption">Bu ayarlar kullanıcı bazlıdır ve sadece sizin ekranınızdaki hızlı erişim menülerini etkiler.</Typography>
+      </Alert>
+
+      <Grid container spacing={4}>
+        {/* Active Section */}
+        <Grid size={{ xs: 12, lg: 6 }}>
+          <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mb: 2 }}>
+            <Box sx={{ width: 8, height: 24, bgcolor: 'success.main', borderRadius: 1 }} />
+            <Typography variant="h6" sx={{ fontWeight: 900, fontSize: '1rem', color: 'text.primary' }}>AKTİF KISA YOLLAR</Typography>
+            <Chip label={enabledItems.length} size="small" color="success" sx={{ fontWeight: 800, borderRadius: 1.5 }} />
+          </Stack>
+
+          <Paper variant="outlined" sx={{ p: 2, borderRadius: 4, bgcolor: alpha(theme.palette.background.paper, 0.4), minHeight: 200 }}>
+            {enabledItems.map((item) => (
               <Box
+                key={item.id}
+                draggable
+                onDragStart={() => handleDragStart(item)}
+                onDragOver={(e) => handleDragOver(e, item)}
+                onDragEnd={handleDragEnd}
                 sx={{
-                  width: 56,
-                  height: 56,
-                  borderRadius: 3,
-                  bgcolor: 'primary.main',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
+                  cursor: 'grab',
+                  mb: 1.5,
+                  '&:last-child': { mb: 0 },
+                  transition: 'transform 0.2s',
+                  '&:active': { cursor: 'grabbing', transform: 'scale(0.98)' }
                 }}
               >
-                <FlashOn sx={{ fontSize: 32, color: 'white' }} />
+                <QuickMenuItemCard
+                  item={item}
+                  onEdit={handleEdit}
+                  onDelete={handleDelete}
+                  onToggleEnabled={handleToggleEnabled}
+                  dragIcon={<DragIcon sx={{ color: 'text.disabled', mr: 1 }} />}
+                />
               </Box>
-              <Box>
-                <Typography variant="h4" fontWeight={800}>
-                  Hızlı Menü Ayarları
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  Sidebar ve Dashboard'da görünen hızlı işlem menülerini özelleştirin
-                </Typography>
+            ))}
+            {enabledItems.length === 0 && (
+              <Box sx={{ p: 4, textAlign: 'center', opacity: 0.5 }}>
+                <Typography variant="body2">Henüz aktif bir kısa yol yok.</Typography>
               </Box>
-            </Box>
-
-            <Stack direction="row" spacing={2}>
-              <Button
-                variant="outlined"
-                startIcon={<Restore />}
-                onClick={handleReset}
-                sx={{ textTransform: 'none' }}
-              >
-                Varsayılanlara Dön
-              </Button>
-              <Button
-                variant="contained"
-                startIcon={<Add />}
-                onClick={handleAddNew}
-                sx={{ textTransform: 'none' }}
-              >
-                Yeni Hızlı Menü
-              </Button>
-            </Stack>
-          </Box>
-        </Box>
-
-        {/* Info Alert */}
-        <Alert severity="info" sx={{ mb: 3 }}>
-          <Typography variant="body2">
-            Hızlı menü öğelerini sürükleyerek sıralayabilirsiniz. Sadece aktif olan öğeler sidebar'da görünür.
-          </Typography>
-        </Alert>
-
-        {/* Enabled Items */}
-        {enabledItems.length > 0 && (
-          <Box sx={{ mb: 4 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
-              <Typography variant="h6" fontWeight={700}>
-                Aktif Hızlı Menüler
-              </Typography>
-              <Chip label={`${enabledItems.length} öğe`} size="small" color="success" />
-            </Box>
-
-            <Paper sx={{ p: 2 }}>
-              {enabledItems.map((item) => (
-                <div
-                  key={item.id}
-                  draggable
-                  onDragStart={() => handleDragStart(item)}
-                  onDragOver={(e) => handleDragOver(e, item)}
-                  onDragEnd={handleDragEnd}
-                >
-                  <QuickMenuItemCard
-                    item={item}
-                    onEdit={handleEdit}
-                    onDelete={handleDelete}
-                    onToggleEnabled={handleToggleEnabled}
-                  />
-                </div>
-              ))}
-            </Paper>
-          </Box>
-        )}
-
-        {/* Disabled Items */}
-        {disabledItems.length > 0 && (
-          <Box sx={{ mb: 4 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
-              <Typography variant="h6" fontWeight={700}>
-                Pasif Hızlı Menüler
-              </Typography>
-              <Chip label={`${disabledItems.length} öğe`} size="small" color="default" />
-            </Box>
-
-            <Paper sx={{ p: 2 }}>
-              {disabledItems.map((item) => (
-                <div
-                  key={item.id}
-                  draggable
-                  onDragStart={() => handleDragStart(item)}
-                  onDragOver={(e) => handleDragOver(e, item)}
-                  onDragEnd={handleDragEnd}
-                >
-                  <QuickMenuItemCard
-                    item={item}
-                    onEdit={handleEdit}
-                    onDelete={handleDelete}
-                    onToggleEnabled={handleToggleEnabled}
-                  />
-                </div>
-              ))}
-            </Paper>
-          </Box>
-        )}
-
-        {/* Empty State */}
-        {items.length === 0 && (
-          <Paper sx={{ p: 8, textAlign: 'center' }}>
-            <FlashOn sx={{ fontSize: 64, color: 'text.disabled', mb: 2 }} />
-            <Typography variant="h6" color="text.secondary" gutterBottom>
-              Henüz hızlı menü öğesi yok
-            </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-              Hızlı erişim istediğiniz sayfaları eklemek için butona tıklayın
-            </Typography>
-            <Button
-              variant="contained"
-              startIcon={<Add />}
-              onClick={handleAddNew}
-              sx={{ textTransform: 'none' }}
-            >
-              İlk Hızlı Menüyü Ekle
-            </Button>
+            )}
           </Paper>
-        )}
+        </Grid>
 
-        {/* Editor Dialog */}
-        <QuickMenuEditor
-          open={editorOpen}
-          onClose={() => setEditorOpen(false)}
-          onSave={handleSave}
-          editItem={editItem}
-          availablePaths={menuItems}
-        />
+        {/* Disabled Section */}
+        <Grid size={{ xs: 12, lg: 6 }}>
+          <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mb: 2 }}>
+            <Box sx={{ width: 8, height: 24, bgcolor: 'text.disabled', borderRadius: 1 }} />
+            <Typography variant="h6" sx={{ fontWeight: 900, fontSize: '1rem', color: 'text.secondary' }}>DEVRE DIŞI ÖĞELER</Typography>
+            <Chip label={disabledItems.length} size="small" sx={{ fontWeight: 800, borderRadius: 1.5 }} />
+          </Stack>
 
-        {/* Snackbar */}
-        <Snackbar
-          open={snackbar.open}
-          autoHideDuration={4000}
-          onClose={() => setSnackbar({ ...snackbar, open: false })}
-          anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-        >
-          <Alert
-            onClose={() => setSnackbar({ ...snackbar, open: false })}
-            severity={snackbar.severity}
-            sx={{ width: '100%' }}
+          <Paper variant="outlined" sx={{ p: 2, borderRadius: 4, bgcolor: alpha(theme.palette.action.disabledBackground, 0.05), minHeight: 200 }}>
+            {disabledItems.map((item) => (
+              <Box key={item.id} sx={{ mb: 1.5, '&:last-child': { mb: 0 }, opacity: 0.7 }}>
+                <QuickMenuItemCard
+                  item={item}
+                  onEdit={handleEdit}
+                  onDelete={handleDelete}
+                  onToggleEnabled={handleToggleEnabled}
+                />
+              </Box>
+            ))}
+            {disabledItems.length === 0 && (
+              <Box sx={{ p: 4, textAlign: 'center', opacity: 0.5 }}>
+                <Typography variant="body2">Tüm öğeler aktif veya liste boş.</Typography>
+              </Box>
+            )}
+          </Paper>
+        </Grid>
+      </Grid>
+
+      {items.length === 0 && (
+        <Paper variant="outlined" sx={{ p: 8, textAlign: 'center', borderRadius: 6, borderStyle: 'dashed', mt: 4 }}>
+          <FlashOnIcon sx={{ fontSize: 64, color: 'text.disabled', mb: 2 }} />
+          <Typography variant="h6" sx={{ fontWeight: 800, mb: 1 }}>Sistemde Kayıt Yok</Typography>
+          <Typography variant="body2" sx={{ color: 'text.secondary', mb: 4 }}>Henüz hiç hızlı menü öğesi tanımlamadınız.</Typography>
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={handleAddNew}
+            sx={{ fontWeight: 800, borderRadius: 3, px: 6, py: 1.5 }}
           >
-            {snackbar.message}
-          </Alert>
-        </Snackbar>
-      </Box>
-    </MainLayout>
+            İlk Kısa Yolu Oluştur
+          </Button>
+        </Paper>
+      )}
+
+      <QuickMenuEditor
+        open={editorOpen}
+        onClose={() => setEditorOpen(false)}
+        onSave={handleSave}
+        editItem={editItem}
+        availablePaths={menuItems}
+      />
+
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={4000}
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert severity={snackbar.severity} sx={{ borderRadius: 2, fontWeight: 700 }}>{snackbar.message}</Alert>
+      </Snackbar>
+    </StandardPage>
   );
 }

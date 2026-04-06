@@ -28,6 +28,7 @@ import {
     Divider,
 } from '@mui/material';
 import { DataGrid, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
+import { useSnackbar } from 'notistack';
 import {
     Search,
     Download,
@@ -79,6 +80,7 @@ interface BulkUpdateResult {
 type FilterType = 'ALL' | 'CRITICAL' | 'WARNING' | 'NORMAL';
 
 export default function KritikStokYonetimiPage() {
+    const { enqueueSnackbar } = useSnackbar();
     const [reportData, setReportData] = useState<CriticalStockRow[]>([]);
     const [warehouses, setWarehouses] = useState<WarehouseInfo[]>([]);
     const [loading, setLoading] = useState(true);
@@ -138,7 +140,7 @@ export default function KritikStokYonetimiPage() {
         try {
             const newValue = parseInt(editValue, 10);
             if (isNaN(newValue) || newValue < 0) {
-                alert('Geçerli bir sayı giriniz');
+                enqueueSnackbar('Geçerli bir sayı giriniz', { variant: 'warning' });
                 return;
             }
 
@@ -152,7 +154,7 @@ export default function KritikStokYonetimiPage() {
             setEditingCell(null);
         } catch (error) {
             console.error('Kritik stok güncellenemedi:', error);
-            alert('Güncelleme başarısız oldu');
+            enqueueSnackbar('Güncelleme başarısız oldu', { variant: 'error' });
         }
     };
 
@@ -361,7 +363,7 @@ export default function KritikStokYonetimiPage() {
                 })).filter(item => item.stokKodu && item.ambarKodu && !isNaN(item.criticalQty));
 
                 if (bulkData.length === 0) {
-                    alert('Geçerli veri bulunamadı.');
+                    enqueueSnackbar('Geçerli veri bulunamadı.', { variant: 'warning' });
                     return;
                 }
 
@@ -372,7 +374,7 @@ export default function KritikStokYonetimiPage() {
                 await fetchReport();
             } catch (error) {
                 console.error('Dosya işleme hatası:', error);
-                alert('Dosya işlenirken bir hata oluştu.');
+                enqueueSnackbar('Dosya işlenirken bir hata oluştu.', { variant: 'error' });
             } finally {
                 setLoading(false);
                 if (fileInputRef.current) fileInputRef.current.value = '';

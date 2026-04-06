@@ -49,7 +49,7 @@ const axiosInstance = axios.create({
 });
 
 // Staging ortamı için default tenant ID (seed ile oluşturulan tenant)
-const STAGING_DEFAULT_TENANT_ID = 'cmmxtj8x00007vmzfujppq1po';
+const STAGING_DEFAULT_TENANT_ID = 'tenant-2f7n87stvjj';
 // Backend'in beklediği header formatı (küçük harf)
 const TENANT_HEADER_NAME = 'x-tenant-id';
 

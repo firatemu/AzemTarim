@@ -1,11 +1,9 @@
 'use client';
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { Box, Typography, alpha, useTheme, Skeleton, TextField, IconButton } from '@mui/material';
 import type { SelectedPerson } from '../types/pos.types';
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Props
-// ─────────────────────────────────────────────────────────────────────────────
 interface SelectorBoxProps {
     label: string;
     placeholder: string;
@@ -17,12 +15,9 @@ interface SelectorBoxProps {
     icon: 'person' | 'salesperson';
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// SVG İkonları
-// ─────────────────────────────────────────────────────────────────────────────
 function PersonIcon() {
     return (
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
             <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
             <circle cx="12" cy="7" r="4" />
         </svg>
@@ -31,50 +26,13 @@ function PersonIcon() {
 
 function SalespersonIcon() {
     return (
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
             <circle cx="12" cy="8" r="4" />
             <path d="M6 20v-2a6 6 0 0 1 12 0v2" />
         </svg>
     );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Skeleton satır
-// ─────────────────────────────────────────────────────────────────────────────
-function SkeletonRow() {
-    return (
-        <div
-            style={{
-                padding: '8px 10px',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 4,
-                animation: 'pos-pulse 1.2s ease-in-out infinite',
-            }}
-        >
-            <div
-                style={{
-                    height: 10,
-                    width: '60%',
-                    background: 'var(--surface3)',
-                    borderRadius: 3,
-                }}
-            />
-            <div
-                style={{
-                    height: 8,
-                    width: '30%',
-                    background: 'var(--surface3)',
-                    borderRadius: 3,
-                }}
-            />
-        </div>
-    );
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// SelectorBox
-// ─────────────────────────────────────────────────────────────────────────────
 export function SelectorBox({
     label,
     placeholder,
@@ -85,6 +43,7 @@ export function SelectorBox({
     accentColor = 'accent',
     icon,
 }: SelectorBoxProps) {
+    const theme = useTheme();
     const [open, setOpen] = useState(false);
     const [query, setQuery] = useState('');
     const [options, setOptions] = useState<SelectedPerson[]>([]);
@@ -93,7 +52,6 @@ export function SelectorBox({
     const searchRef = useRef<HTMLInputElement>(null);
     const debounceRef = useRef<NodeJS.Timeout | null>(null);
 
-    // Dışarı tıklayınca kapat
     useEffect(() => {
         function handleClick(e: MouseEvent) {
             if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
@@ -104,14 +62,13 @@ export function SelectorBox({
         return () => document.removeEventListener('mousedown', handleClick);
     }, []);
 
-    // Açılınca boş arama yap ve input'a odaklan
     useEffect(() => {
         if (open) {
             setQuery('');
             doFetch('');
             setTimeout(() => searchRef.current?.focus(), 50);
         }
-    }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [open]);
 
     const doFetch = useCallback(
         async (q: string) => {
@@ -128,8 +85,7 @@ export function SelectorBox({
         [fetchOptions]
     );
 
-    function handleSearchChange(e: React.ChangeEvent<HTMLInputElement>) {
-        const q = e.target.value;
+    function handleSearchChange(q: string) {
         setQuery(q);
         if (debounceRef.current) clearTimeout(debounceRef.current);
         debounceRef.current = setTimeout(() => doFetch(q), 300);
@@ -140,202 +96,154 @@ export function SelectorBox({
         setOpen(false);
     }
 
-    function handleClear(e: React.MouseEvent) {
-        e.stopPropagation();
-        onClear();
-    }
-
     const hasValue = value !== null;
-    const accentBorder = accentColor === 'pink' ? 'var(--pink)' : 'var(--accent)';
-    const accentBg = accentColor === 'pink' ? 'var(--pink-d)' : 'var(--accent-g)';
+    const accentMain = accentColor === 'pink' ? theme.palette.secondary.main : theme.palette.primary.main;
+    const accentLight = accentColor === 'pink' ? alpha(theme.palette.secondary.main, 0.08) : alpha(theme.palette.primary.main, 0.08);
 
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-            {/* Üst etiket */}
-            <div
-                style={{
-                    fontSize: 10,
-                    fontWeight: 600,
-                    letterSpacing: '0.08em',
-                    color: 'var(--muted)',
-                    textTransform: 'uppercase',
-                }}
-            >
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+            <Typography variant="overline" sx={{ fontSize: 10, fontWeight: 800, color: 'text.secondary', lineHeight: 1 }}>
                 {label}
-            </div>
+            </Typography>
 
-            {/* Ana kutu */}
-            <div ref={containerRef} style={{ position: 'relative' }}>
-                <div
+            <Box ref={containerRef} sx={{ position: 'relative' }}>
+                <Box
                     onClick={() => setOpen((o) => !o)}
-                    style={{
+                    sx={{
                         display: 'flex',
                         alignItems: 'center',
-                        gap: 7,
-                        padding: '7px 10px',
-                        background: hasValue ? accentBg : 'var(--surface2)',
-                        border: `1px solid ${hasValue ? accentBorder : 'var(--border)'}`,
-                        borderRadius: 'var(--rs)',
+                        gap: 1.25,
+                        px: 1.5,
+                        py: 1,
+                        bgcolor: hasValue ? accentLight : alpha(theme.palette.background.default, 0.6),
+                        border: '1px solid',
+                        borderColor: hasValue ? accentMain : 'divider',
+                        borderRadius: 2,
                         cursor: 'pointer',
-                        transition: 'border-color .15s',
-                    }}
-                    onMouseEnter={(e) => {
-                        if (!hasValue)
-                            (e.currentTarget as HTMLDivElement).style.borderColor = 'var(--border-h)';
-                    }}
-                    onMouseLeave={(e) => {
-                        if (!hasValue)
-                            (e.currentTarget as HTMLDivElement).style.borderColor = 'var(--border)';
+                        transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                        '&:hover': {
+                            borderColor: accentMain,
+                            bgcolor: hasValue ? accentLight : alpha(theme.palette.background.default, 0.8),
+                        }
                     }}
                 >
-                    <span style={{ color: 'var(--muted)', flexShrink: 0, display: 'flex' }}>
+                    <Box sx={{ color: hasValue ? accentMain : 'text.disabled', display: 'flex' }}>
                         {icon === 'person' ? <PersonIcon /> : <SalespersonIcon />}
-                    </span>
+                    </Box>
 
-                    <span
-                        style={{
+                    <Typography
+                        sx={{
                             flex: 1,
-                            fontSize: 12.5,
-                            color: hasValue ? 'var(--text)' : 'var(--muted)',
-                            fontWeight: hasValue ? 500 : 400,
-                            userSelect: 'none',
+                            fontSize: '0.8125rem',
+                            fontWeight: hasValue ? 700 : 500,
+                            color: hasValue ? 'text.primary' : 'text.disabled',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap'
                         }}
                     >
                         {hasValue ? value.title : placeholder}
-                    </span>
+                    </Typography>
 
                     {hasValue && (
-                        <button
-                            onClick={handleClear}
-                            style={{
-                                width: 17,
-                                height: 17,
-                                borderRadius: '50%',
-                                background: 'var(--surface3)',
-                                border: 'none',
-                                cursor: 'pointer',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                color: 'var(--muted)',
-                                fontSize: 11,
-                                flexShrink: 0,
-                                transition: 'all .15s',
-                            }}
-                            onMouseEnter={(e) => {
-                                (e.currentTarget as HTMLButtonElement).style.background = 'var(--red-d)';
-                                (e.currentTarget as HTMLButtonElement).style.color = 'var(--red)';
-                            }}
-                            onMouseLeave={(e) => {
-                                (e.currentTarget as HTMLButtonElement).style.background = 'var(--surface3)';
-                                (e.currentTarget as HTMLButtonElement).style.color = 'var(--muted)';
+                        <IconButton
+                            size="small"
+                            onClick={(e) => { e.stopPropagation(); onClear(); }}
+                            sx={{
+                                width: 20,
+                                height: 20,
+                                p: 0,
+                                color: 'text.disabled',
+                                '&:hover': { color: 'error.main', bgcolor: 'error.lighter' }
                             }}
                         >
                             ✕
-                        </button>
+                        </IconButton>
                     )}
-                </div>
+                </Box>
 
-                {/* Dropdown */}
                 {open && (
-                    <div
-                        style={{
+                    <Box
+                        sx={{
                             position: 'absolute',
-                            top: 'calc(100% + 4px)',
+                            top: 'calc(100% + 6px)',
                             left: 0,
                             right: 0,
-                            background: 'var(--surface2)',
-                            border: '1px solid var(--border)',
-                            borderRadius: 'var(--rs)',
-                            zIndex: 100,
-                            maxHeight: 180,
-                            overflowY: 'auto',
-                            boxShadow: 'var(--shadow-lg)',
+                            bgcolor: 'background.paper',
+                            border: '1px solid',
+                            borderColor: 'divider',
+                            borderRadius: 2,
+                            zIndex: theme.zIndex.modal,
+                            maxHeight: 240,
+                            overflow: 'hidden',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            boxShadow: theme.shadows[8],
+                            animation: 'dropdownFade 0.2s ease-out'
                         }}
                     >
-                        {/* Arama inputu */}
-                        <input
-                            ref={searchRef}
-                            value={query}
-                            onChange={handleSearchChange}
-                            onClick={(e) => e.stopPropagation()}
-                            placeholder="Ara..."
-                            style={{
-                                width: '100%',
-                                padding: '7px 9px',
-                                background: 'var(--surface3)',
-                                border: 'none',
-                                borderBottom: '1px solid var(--border)',
-                                color: 'var(--text)',
-                                fontSize: 12,
-                                fontFamily: "'DM Sans', sans-serif",
-                                outline: 'none',
-                            }}
-                        />
-
-                        {/* Seçenekler */}
-                        {loading ? (
-                            <>
-                                <SkeletonRow />
-                                <SkeletonRow />
-                                <SkeletonRow />
-                            </>
-                        ) : options.length === 0 ? (
-                            <div
-                                style={{
-                                    padding: '10px',
-                                    fontSize: 12,
-                                    color: 'var(--muted)',
-                                    textAlign: 'center',
+                        <Box sx={{ p: 1, borderBottom: '1px solid', borderColor: 'divider' }}>
+                            <TextField
+                                inputRef={searchRef}
+                                fullWidth
+                                size="small"
+                                autoComplete="off"
+                                placeholder="Ara..."
+                                value={query}
+                                onChange={(e) => handleSearchChange(e.target.value)}
+                                onClick={(e) => e.stopPropagation()}
+                                sx={{
+                                    '& .MuiOutlinedInput-root': {
+                                        bgcolor: alpha(theme.palette.background.default, 0.4),
+                                        fontSize: '0.75rem',
+                                        borderRadius: 1.5,
+                                    }
                                 }}
-                            >
-                                Sonuç bulunamadı
-                            </div>
-                        ) : (
-                            options.map((opt) => (
-                                <div
-                                    key={opt.id}
-                                    onClick={() => handleSelect(opt)}
-                                    style={{
-                                        padding: '7px 10px',
-                                        fontSize: 12,
-                                        cursor: 'pointer',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'space-between',
-                                        transition: 'background .1s',
-                                    }}
-                                    onMouseEnter={(e) => {
-                                        (e.currentTarget as HTMLDivElement).style.background = 'var(--surface3)';
-                                    }}
-                                    onMouseLeave={(e) => {
-                                        (e.currentTarget as HTMLDivElement).style.background = 'transparent';
-                                    }}
-                                >
-                                    <span style={{ fontWeight: 500, color: 'var(--text)' }}>{opt.title}</span>
-                                    <span
-                                        style={{
-                                            fontSize: 10.5,
-                                            color: 'var(--muted)',
-                                            fontFamily: "'DM Mono', monospace",
+                            />
+                        </Box>
+
+                        <Box sx={{ overflowY: 'auto', flex: 1, scrollbarWidth: 'thin' }}>
+                            {loading ? (
+                                <Box sx={{ p: 1 }}>
+                                    {[1, 2, 3].map((i) => <Skeleton key={i} height={40} sx={{ mb: 0.5, borderRadius: 1 }} />)}
+                                </Box>
+                            ) : options.length === 0 ? (
+                                <Box sx={{ p: 3, textAlign: 'center' }}>
+                                    <Typography variant="caption" sx={{ color: 'text.disabled', fontWeight: 600 }}>Sonuç bulunamadı</Typography>
+                                </Box>
+                            ) : (
+                                options.map((opt) => (
+                                    <Box
+                                        key={opt.id}
+                                        onClick={() => handleSelect(opt)}
+                                        sx={{
+                                            px: 2,
+                                            py: 1.25,
+                                            cursor: 'pointer',
+                                            transition: 'all 0.1s',
+                                            '&:hover': { bgcolor: alpha(theme.palette.primary.main, 0.04) },
+                                            display: 'flex',
+                                            flexDirection: 'column'
                                         }}
                                     >
-                                        {opt.code}
-                                    </span>
-                                </div>
-                            ))
-                        )}
-                    </div>
+                                        <Typography sx={{ fontSize: '0.8125rem', fontWeight: 700, color: 'text.primary' }}>{opt.title}</Typography>
+                                        {opt.code && (
+                                            <Typography variant="caption" sx={{ color: 'text.disabled', fontFamily: 'monospace' }}>{opt.code}</Typography>
+                                        )}
+                                    </Box>
+                                ))
+                            )}
+                        </Box>
+                    </Box>
                 )}
-            </div>
+            </Box>
 
-            {/* Pulse animasyonu */}
             <style>{`
-        @keyframes pos-pulse {
-          0%, 100% { opacity: 0.4; }
-          50% { opacity: 1; }
+        @keyframes dropdownFade {
+          from { opacity: 0; transform: translateY(-8px); }
+          to { opacity: 1; transform: translateY(0); }
         }
       `}</style>
-        </div>
+        </Box>
     );
 }

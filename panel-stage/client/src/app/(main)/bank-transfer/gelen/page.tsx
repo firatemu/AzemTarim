@@ -6,19 +6,11 @@ import {
   Box,
   Button,
   Paper,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
   TextField,
   Typography,
   Chip,
   IconButton,
   CircularProgress,
-  Snackbar,
-  Alert,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -33,6 +25,8 @@ import {
   Card,
   CardContent,
   Autocomplete,
+  alpha,
+  useTheme,
 } from '@mui/material';
 import {
   Add,
@@ -43,10 +37,12 @@ import {
   FilterList,
   Refresh,
   AccountBalance,
+  Info as InfoIcon,
 } from '@mui/icons-material';
-import MainLayout from '@/components/Layout/MainLayout';
+import { DataGrid, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
+import StandardPage from '@/components/common/StandardPage';
 import axios from '@/lib/axios';
-import { getBankLogo } from '@/constants/bankalar';
+import { useSnackbar } from 'notistack';
 
 interface BankaHesabi {
   id: string;
@@ -140,48 +136,70 @@ const HavaleDialog = memo(({
   onClose: () => void;
   onSubmit: (data: any) => void;
 }) => {
-  // 1. LOCAL STATE - Parent'ı etkilemez!
+  const theme = useTheme();
   const [localFormData, setLocalFormData] = useState(initialFormData);
 
-  // 2. initialFormData değiştiğinde local state'i güncelle
   useEffect(() => {
     setLocalFormData(initialFormData);
   }, [initialFormData]);
 
-  // 3. Local değişiklik fonksiyonu
   const handleLocalChange = (field: string, value: any) => {
     setLocalFormData((prev: any) => ({ ...prev, [field]: value }));
   };
 
-  // 4. Local submit
   const handleLocalSubmit = () => {
     onSubmit(localFormData);
   };
 
-  // 5. Hook'lar bittikten SONRA conditional return
   if (!open) return null;
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
-      <DialogTitle component="div">
-        {editMode ? 'Gelen Havale Düzenle' : 'Yeni Gelen Havale'}
+    <Dialog
+      open={open}
+      onClose={onClose}
+      maxWidth="md"
+      fullWidth
+      PaperProps={{
+        sx: {
+          borderRadius: 4,
+          boxShadow: '0 24px 48px rgba(0,0,0,0.15)',
+        }
+      }}
+    >
+      <DialogTitle component="div" sx={{ p: 3, pb: 1 }}>
+        <Stack direction="row" spacing={1.5} alignItems="center">
+          <Box sx={{
+            width: 40,
+            height: 40,
+            borderRadius: 2,
+            bgcolor: alpha(theme.palette.success.main, 0.1),
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: 'success.main',
+          }}>
+            {editMode ? <Edit /> : <Add />}
+          </Box>
+          <Typography variant="h6" sx={{ fontWeight: 800 }}>
+            {editMode ? 'Gelen Havale Düzenle' : 'Yeni Gelen Havale'}
+          </Typography>
+        </Stack>
       </DialogTitle>
-      <DialogContent>
-        <Grid container spacing={2} sx={{ mt: 1 }}>
-          {/* Tarih - En başta */}
+      <DialogContent sx={{ p: 3 }}>
+        <Grid container spacing={2.5} sx={{ mt: 0.5 }}>
           <Grid size={{ xs: 12, md: 6 }}>
             <TextField
               fullWidth
               required
               type="date"
-              label="Tarih *"
+              label="Tarih"
               value={localFormData.tarih}
               onChange={(e) => handleLocalChange('tarih', e.target.value)}
               InputLabelProps={{ shrink: true }}
+              slotProps={{ input: { sx: { borderRadius: 2.5, fontWeight: 700 } } }}
             />
           </Grid>
 
-          {/* Banka Hesabı - Banka adı ve Hesap No / IBAN göster */}
           <Grid size={{ xs: 12, md: 6 }}>
             <Autocomplete
               fullWidth
@@ -190,8 +208,6 @@ const HavaleDialog = memo(({
                 const bankaAdi = option.bankaAdi || '';
                 const hesapAdi = option.kasaAdi || '';
                 const hesapInfo = option.hesapNo || option.iban || '';
-
-                // Banka Adı - Hesap Adı (Hesap No/IBAN)
                 return `${bankaAdi} - ${hesapAdi}${hesapInfo ? ` (${hesapInfo})` : ''}`;
               }}
               value={bankaHesaplari.find(b => b.id === localFormData.bankaHesabiId) || null}
@@ -202,6 +218,7 @@ const HavaleDialog = memo(({
                   label="Banka Hesabı *"
                   placeholder="Banka hesabı ara..."
                   autoComplete="off"
+                  slotProps={{ input: { sx: { borderRadius: 2.5, fontWeight: 700 } } }}
                 />
               )}
               renderOption={(props, option) => {
@@ -210,11 +227,11 @@ const HavaleDialog = memo(({
                 return (
                   <li key={option.id} {...otherProps}>
                     <Box>
-                      <Typography variant="body2" fontWeight={500}>
+                      <Typography variant="body2" fontWeight={700}>
                         {option.bankaAdi} - {option.kasaAdi}
                       </Typography>
                       {hesapInfo && (
-                        <Typography variant="caption" color="text.secondary">
+                        <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600 }}>
                           {option.hesapNo ? `Hesap No: ${option.hesapNo}` : `IBAN: ${option.iban}`}
                         </Typography>
                       )}
@@ -227,7 +244,6 @@ const HavaleDialog = memo(({
             />
           </Grid>
 
-          {/* Cari */}
           <Grid size={{ xs: 12, md: 6 }}>
             <Autocomplete
               fullWidth
@@ -241,6 +257,7 @@ const HavaleDialog = memo(({
                   label="Cari *"
                   placeholder="Cari ara..."
                   autoComplete="off"
+                  slotProps={{ input: { sx: { borderRadius: 2.5, fontWeight: 700 } } }}
                 />
               )}
               renderOption={(props, option) => {
@@ -248,10 +265,10 @@ const HavaleDialog = memo(({
                 return (
                   <li key={option.id} {...otherProps}>
                     <Box>
-                      <Typography variant="body2" fontWeight={500}>
+                      <Typography variant="body2" fontWeight={700}>
                         {option.unvan}
                       </Typography>
-                      <Typography variant="caption" color="text.secondary">
+                      <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600 }}>
                         {option.cariKodu}
                       </Typography>
                     </Box>
@@ -263,44 +280,34 @@ const HavaleDialog = memo(({
             />
           </Grid>
 
-          {/* Tutar */}
           <Grid size={{ xs: 12, md: 6 }}>
             <TextField
               fullWidth
               required
               type="number"
-              label="Tutar *"
+              label="Tutar"
               value={localFormData.tutar}
               onChange={(e) => handleLocalChange('tutar', e.target.value)}
-              inputProps={{ min: 0.01, step: 0.01 }}
-              sx={{
-                '& input[type=number]': {
-                  MozAppearance: 'textfield',
-                },
-                '& input[type=number]::-webkit-outer-spin-button': {
-                  WebkitAppearance: 'none',
-                  margin: 0,
-                },
-                '& input[type=number]::-webkit-inner-spin-button': {
-                  WebkitAppearance: 'none',
-                  margin: 0,
-                },
+              slotProps={{
+                input: {
+                  sx: { borderRadius: 2.5, fontWeight: 800, color: 'success.main' },
+                  startAdornment: <Typography sx={{ mr: 1, fontWeight: 800, color: 'text.disabled' }}>₺</Typography>,
+                }
               }}
             />
           </Grid>
 
-          {/* Referans No */}
-          <Grid size={{ xs: 12, md: 6 }}>
+          <Grid size={{ xs: 12, md: 12 }}>
             <TextField
               fullWidth
               label="Referans No"
               value={localFormData.referansNo}
               onChange={(e) => handleLocalChange('referansNo', e.target.value)}
               placeholder="Havale referans numarası"
+              slotProps={{ input: { sx: { borderRadius: 2.5, fontWeight: 600 } } }}
             />
           </Grid>
 
-          {/* Açıklama */}
           <Grid size={{ xs: 12 }}>
             <TextField
               fullWidth
@@ -310,23 +317,26 @@ const HavaleDialog = memo(({
               value={localFormData.aciklama}
               onChange={(e) => handleLocalChange('aciklama', e.target.value)}
               placeholder="Havale açıklaması"
+              slotProps={{ input: { sx: { borderRadius: 2.5, fontWeight: 500 } } }}
             />
           </Grid>
         </Grid>
       </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose}>İptal</Button>
+      <DialogActions sx={{ p: 3, pt: 0 }}>
+        <Button onClick={onClose} sx={{ fontWeight: 800 }}>Vazgeç</Button>
         <Button
           variant="contained"
           onClick={handleLocalSubmit}
           disabled={loading}
           sx={{
-            bgcolor: 'var(--chart-2)',
+            bgcolor: 'success.main',
             color: 'white',
             textTransform: 'none',
-            fontWeight: 600,
+            fontWeight: 900,
+            borderRadius: 2.5,
+            px: 4,
             '&:hover': {
-              bgcolor: 'color-mix(in srgb, var(--chart-2) 90%, black)',
+              bgcolor: 'success.dark',
             },
           }}
         >
@@ -340,7 +350,9 @@ const HavaleDialog = memo(({
 HavaleDialog.displayName = 'HavaleDialog';
 
 export default function GelenHavalePage() {
+  const theme = useTheme();
   const router = useRouter();
+  const { enqueueSnackbar } = useSnackbar();
   const [havaleler, setHavaleler] = useState<BankaHavale[]>([]);
   const [bankaHesaplari, setBankaHesaplari] = useState<BankaHesabi[]>([]);
   const [cariler, setCariler] = useState<Cari[]>([]);
@@ -351,20 +363,13 @@ export default function GelenHavalePage() {
   const [openDetail, setOpenDetail] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [selectedHavale, setSelectedHavale] = useState<BankaHavale | null>(null);
-  const [snackbar, setSnackbar] = useState({
-    open: false,
-    message: '',
-    severity: 'success' as 'success' | 'error' | 'info'
-  });
 
-  // Filter state
   const [filterBankaId, setFilterBankaId] = useState('');
   const [filterCariId, setFilterCariId] = useState('');
   const [filterBaslangic, setFilterBaslangic] = useState('');
   const [filterBitis, setFilterBitis] = useState('');
   const [deleteReason, setDeleteReason] = useState('');
 
-  // ✅ ÇÖZÜM: initialFormData - Parent'ta sadece initial değerleri tut
   const [initialFormData, setInitialFormData] = useState({
     hareketTipi: 'GELEN' as 'GELEN' | 'GIDEN',
     bankaHesabiId: '',
@@ -387,18 +392,16 @@ export default function GelenHavalePage() {
   const fetchHavaleler = async () => {
     try {
       setLoading(true);
-      const params: any = {
-        hareketTipi: 'GELEN',
-      };
+      const params: any = { hareketTipi: 'GELEN' };
       if (filterBankaId) params.bankaHesabiId = filterBankaId;
       if (filterCariId) params.cariId = filterCariId;
       if (filterBaslangic) params.baslangicTarihi = filterBaslangic;
       if (filterBitis) params.bitisTarihi = filterBitis;
 
       const response = await axios.get('/bank-transfer', { params });
-      setHavaleler(response.data);
+      setHavaleler(response.data || []);
     } catch (error: any) {
-      showSnackbar(error.response?.data?.message || 'Kayıtlar yüklenirken hata oluştu', 'error');
+      enqueueSnackbar(error.response?.data?.message || 'Kayıtlar yüklenirken hata oluştu', { variant: 'error' });
     } finally {
       setLoading(false);
     }
@@ -406,12 +409,8 @@ export default function GelenHavalePage() {
 
   const fetchBankaHesaplari = async () => {
     try {
-      // ✅ ÇÖZÜM: Yeni Banka API'sini kullan (/api/banka)
-      // Bu endpoint bankaları ve altındaki hesapları getirir.
-      // Biz sadece VADESIZ hesapları düz bir liste olarak alacağız.
       const response = await axios.get('/banks');
       const bankalar = response.data || [];
-
       const vadesizHesaplar: BankaHesabi[] = [];
 
       bankalar.forEach((banka: any) => {
@@ -420,35 +419,27 @@ export default function GelenHavalePage() {
             if (hesap.hesapTipi === 'VADESIZ') {
               vadesizHesaplar.push({
                 id: hesap.id,
-                kasaKodu: 'BANKA', // Varsayılan değer
-                kasaAdi: hesap.hesapAdi || banka.ad, // Hesap adı yoksa banka adını kullan
+                kasaKodu: 'BANKA',
+                kasaAdi: hesap.hesapAdi || banka.ad,
                 bankaAdi: banka.ad,
                 subeAdi: banka.sube,
                 hesapNo: hesap.hesapNo,
                 iban: hesap.iban,
-                // Eski yapıya uyumluluk için kasa objesi (gerekirse)
-                kasa: {
-                  id: hesap.id,
-                  kasaKodu: 'BANKA',
-                  kasaAdi: hesap.hesapAdi || banka.ad,
-                }
+                kasa: { id: hesap.id, kasaKodu: 'BANKA', kasaAdi: hesap.hesapAdi || banka.ad }
               });
             }
           });
         }
       });
-
       setBankaHesaplari(vadesizHesaplar);
     } catch (error) {
-      console.error('Banka hesapları yüklenirken hata:', error);
-      showSnackbar('Banka hesapları yüklenirken hata oluştu', 'error');
+      enqueueSnackbar('Banka hesapları yüklenirken hata oluştu', { variant: 'error' });
     }
   };
 
   const fetchCariler = async () => {
     try {
       const response = await axios.get('/account', { params: { limit: 1000 } });
-      // Cari API pagination ile döner: { data: [...], meta: {...} }
       setCariler(response.data.data || []);
     } catch (error) {
       console.error('Cariler yüklenirken hata:', error);
@@ -457,9 +448,7 @@ export default function GelenHavalePage() {
 
   const fetchStats = async () => {
     try {
-      const params: any = {
-        hareketTipi: 'GELEN',
-      };
+      const params: any = { hareketTipi: 'GELEN' };
       if (filterBankaId) params.bankaHesabiId = filterBankaId;
       if (filterBaslangic) params.baslangicTarihi = filterBaslangic;
       if (filterBitis) params.bitisTarihi = filterBitis;
@@ -475,8 +464,7 @@ export default function GelenHavalePage() {
     if (havale) {
       setEditMode(true);
       setSelectedHavale(havale);
-      // Kasa.id'yi BankaHesabi.id'ye çevir (edit mode için)
-      const bankaHesabiId = bankaHesaplari.find(b => b.kasa?.id === havale.bankaHesabiId)?.id || '';
+      const bankaHesabiId = bankaHesaplari.find(b => b.kasa?.id === havale.bankaHesabiId)?.id || havale.bankaHesapId || '';
       setInitialFormData({
         hareketTipi: 'GELEN',
         bankaHesabiId: bankaHesabiId,
@@ -512,27 +500,21 @@ export default function GelenHavalePage() {
     setSelectedHavale(null);
   }, []);
 
-  // ❌ KALDIRILDI - handleFormChange artık gerekli değil (local state kullanılıyor)
-
-  // ✅ ÇÖZÜM: handleSubmit - Dialog'dan gelen veriyi al ve kaydet
   const handleSubmit = useCallback(async (submitFormData: any) => {
     try {
       const tutarNumber = typeof submitFormData.tutar === 'string' ? parseFloat(submitFormData.tutar) : submitFormData.tutar;
-
       if (!submitFormData.bankaHesabiId || !submitFormData.cariId || !tutarNumber || tutarNumber <= 0) {
-        showSnackbar('Lütfen tüm zorunlu alanları doldurun ve geçerli bir tutar girin', 'error');
+        enqueueSnackbar('Lütfen tüm zorunlu alanları doldurun ve geçerli bir tutar girin', { variant: 'warning' });
         return;
       }
 
-      // BankaHesabi.id'yi Kasa.id'ye çevir
       const selectedBankaHesabi = bankaHesaplari.find(b => b.id === submitFormData.bankaHesabiId);
-      if (!selectedBankaHesabi || !selectedBankaHesabi.kasa?.id) {
-        showSnackbar('Banka hesabı bulunamadı', 'error');
+      if (!selectedBankaHesabi || !selectedBankaHesabi.id) {
+        enqueueSnackbar('Banka hesabı bulunamadı', { variant: 'error' });
         return;
       }
 
       setLoading(true);
-
       const submitData: any = {
         hareketTipi: submitFormData.hareketTipi,
         cariId: submitFormData.cariId,
@@ -540,697 +522,280 @@ export default function GelenHavalePage() {
         tarih: submitFormData.tarih,
         aciklama: submitFormData.aciklama || '',
         referansNo: submitFormData.referansNo || '',
+        bankaHesapId: selectedBankaHesabi.id,
       };
-
-      // ID Yapılandırması: 
-      // Biz her zaman yeni BankaHesabi.id'yi bankaHesapId olarak göndereceğiz.
-      // Eğer geriye dönük bir kasa eşleşmesi varsa (mock objemizdeki gibi), 
-      // backend her ikisini de kontrol ediyor zaten.
-      submitData.bankaHesapId = selectedBankaHesabi.id;
-
 
       if (editMode && selectedHavale) {
         await axios.put(`/bank-transfer/${selectedHavale.id}`, submitData);
-        showSnackbar('Gelen havale kaydı güncellendi', 'success');
+        enqueueSnackbar('Gelen havale kaydı güncellendi', { variant: 'success' });
       } else {
         await axios.post('/bank-transfer', submitData);
-        showSnackbar('Gelen havale kaydı oluşturuldu', 'success');
+        enqueueSnackbar('Gelen havale kaydı oluşturuldu', { variant: 'success' });
       }
 
       handleCloseDialog();
       fetchHavaleler();
       fetchStats();
     } catch (error: any) {
-      showSnackbar(error.response?.data?.message || 'İşlem sırasında hata oluştu', 'error');
+      enqueueSnackbar(error.response?.data?.message || 'İşlem sırasında hata oluştu', { variant: 'error' });
     } finally {
       setLoading(false);
     }
-  }, [editMode, selectedHavale, bankaHesaplari]);
+  }, [editMode, selectedHavale, bankaHesaplari, enqueueSnackbar]);
 
   const handleDelete = async () => {
     if (!selectedHavale) return;
-
     try {
       setLoading(true);
       const params = deleteReason ? { reason: deleteReason } : {};
       await axios.delete(`/bank-transfer/${selectedHavale.id}`, { params });
-      showSnackbar('Gelen havale kaydı silindi', 'success');
+      enqueueSnackbar('Gelen havale kaydı silindi', { variant: 'success' });
       setOpenDelete(false);
       setSelectedHavale(null);
       setDeleteReason('');
       fetchHavaleler();
       fetchStats();
     } catch (error: any) {
-      showSnackbar(error.response?.data?.message || 'Silme işlemi sırasında hata oluştu', 'error');
+      enqueueSnackbar(error.response?.data?.message || 'Silme işlemi sırasında hata oluştu', { variant: 'error' });
     } finally {
       setLoading(false);
     }
   };
 
+  const formatCurrency = useCallback((value: number) => {
+    return new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY' }).format(value);
+  }, []);
+
+  const formatDate = useCallback((dateString: string) => {
+    return new Date(dateString).toLocaleDateString('tr-TR', {
+      year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit',
+    });
+  }, []);
+
   const handleViewDetail = useCallback((havale: BankaHavale) => {
     router.push(`/bank-transfer/gelen/${havale.id}`);
   }, [router]);
 
-
-  const showSnackbar = (message: string, severity: 'success' | 'error' | 'info') => {
-    setSnackbar({ open: true, message, severity });
-  };
-
-  const formatCurrency = useCallback((value: number) => {
-    return new Intl.NumberFormat('tr-TR', {
-      style: 'currency',
-      currency: 'TRY',
-    }).format(value);
-  }, []);
-
-
-  const formatDate = useCallback((dateString: string) => {
-    return new Date(dateString).toLocaleDateString('tr-TR', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  }, []);
+  const columns: GridColDef[] = [
+    {
+      field: 'bankaHesabi',
+      headerName: 'Banka Hesabı',
+      flex: 1.5,
+      renderCell: (p: GridRenderCellParams) => (
+        <Stack direction="row" spacing={1.5} alignItems="center" sx={{ height: '100%' }}>
+          <Box sx={{
+            width: 32,
+            height: 32,
+            borderRadius: 1,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            overflow: 'hidden',
+            bgcolor: alpha(theme.palette.primary.main, 0.1),
+          }}>
+            {p.row.bankaHesap?.banka?.logo ? (
+              <img src={p.row.bankaHesap.banka.logo} alt="banka" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+            ) : (
+              <AccountBalance sx={{ fontSize: 18, color: 'primary.main' }} />
+            )}
+          </Box>
+          <Box>
+            <Typography variant="body2" sx={{ fontWeight: 700 }}>{p.row.bankaHesap?.hesapAdi || p.row.bankaHesabi?.kasaAdi}</Typography>
+            <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600 }}>{p.row.bankaHesap?.banka?.ad || p.row.bankaHesabi?.bankaAdi}</Typography>
+          </Box>
+        </Stack>
+      )
+    },
+    {
+      field: 'cari',
+      headerName: 'Cari Hesap',
+      flex: 1.5,
+      renderCell: (p: GridRenderCellParams) => (
+        <Box sx={{ py: 1 }}>
+          <Typography variant="body2" sx={{ fontWeight: 700 }}>{p.value?.unvan}</Typography>
+          <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600 }}>{p.value?.cariKodu}</Typography>
+        </Box>
+      )
+    },
+    {
+      field: 'tutar',
+      headerName: 'Tutar',
+      width: 150,
+      renderCell: (p: GridRenderCellParams) => (
+        <Typography variant="body2" sx={{ fontWeight: 900, color: 'success.main', height: '100%', display: 'flex', alignItems: 'center' }}>
+          {formatCurrency(p.value)}
+        </Typography>
+      )
+    },
+    {
+      field: 'tarih',
+      headerName: 'İşlem Tarihi',
+      width: 160,
+      renderCell: (p: GridRenderCellParams) => (
+        <Typography variant="caption" sx={{ fontWeight: 600, color: 'text.secondary', height: '100%', display: 'flex', alignItems: 'center' }}>
+          {formatDate(p.value)}
+        </Typography>
+      )
+    },
+    {
+      field: 'referansNo',
+      headerName: 'Referans',
+      width: 130,
+      renderCell: (p: GridRenderCellParams) => (
+        <Typography variant="caption" sx={{ fontWeight: 700, px: 1, py: 0.5, bgcolor: alpha(theme.palette.action.active, 0.05), borderRadius: 1 }}>
+          {p.value || '—'}
+        </Typography>
+      )
+    },
+    {
+      field: 'actions',
+      headerName: '',
+      width: 150,
+      sortable: false,
+      align: 'right',
+      renderCell: (p: GridRenderCellParams) => (
+        <Stack direction="row" spacing={0.5} justifyContent="flex-end" sx={{ height: '100%', alignItems: 'center' }}>
+          <Tooltip title="Detay">
+            <IconButton size="small" onClick={() => handleViewDetail(p.row)} sx={{ color: 'info.main', bgcolor: alpha(theme.palette.info.main, 0.05) }}>
+              <Visibility fontSize="small" />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title="Düzenle">
+            <IconButton size="small" onClick={() => handleOpenDialog(p.row)} sx={{ color: 'primary.main', bgcolor: alpha(theme.palette.primary.main, 0.05) }}>
+              <Edit fontSize="small" />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title="Sil">
+            <IconButton size="small" onClick={() => { setSelectedHavale(p.row); setOpenDelete(true); }} sx={{ color: 'error.main', bgcolor: alpha(theme.palette.error.main, 0.05) }}>
+              <Delete fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        </Stack>
+      )
+    }
+  ];
 
 
   return (
-    <MainLayout>
-      <Box sx={{ p: 3 }}>
-        {/* Header */}
-        <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Box>
-            <Typography
-              variant="h4"
-              sx={{
-                fontWeight: 700,
-                fontSize: '1.875rem',
-                color: 'var(--foreground)',
-                letterSpacing: '-0.02em',
-                mb: 0.5,
-                display: 'flex',
-                alignItems: 'center',
-                gap: 1.5,
-              }}
-            >
-              <TrendingUp sx={{ fontSize: 40, color: 'var(--chart-2)' }} />
-              Gelen Havale İşlemleri
-            </Typography>
-            <Typography
-              variant="body2"
-              sx={{
-                color: 'var(--muted-foreground)',
-                fontSize: '0.875rem',
-              }}
-            >
-              Gelen havale kayıtlarını görüntüleyin ve yönetin
-            </Typography>
-          </Box>
-          <Box sx={{ display: 'flex', gap: 2 }}>
-            <Button
-              variant="outlined"
-              startIcon={<Refresh />}
-              onClick={fetchHavaleler}
-              sx={{
-                textTransform: 'none',
-                fontWeight: 600,
-                borderColor: 'var(--border)',
-                color: 'var(--foreground)',
-                '&:hover': {
-                  borderColor: 'var(--primary)',
-                  bgcolor: 'color-mix(in srgb, var(--primary) 10%, transparent)',
-                },
-              }}
-            >
-              Yenile
-            </Button>
-            <Button
-              variant="contained"
-              startIcon={<Add />}
-              onClick={() => handleOpenDialog()}
-              sx={{
-                bgcolor: 'var(--chart-2)',
-                color: 'white',
-                textTransform: 'none',
-                fontWeight: 600,
-                '&:hover': {
-                  bgcolor: 'color-mix(in srgb, var(--chart-2) 90%, black)',
-                },
-              }}
-            >
-              Yeni Gelen Havale
-            </Button>
-          </Box>
-        </Box>
-
-        {/* İstatistikler */}
-        {stats && (
-          <Grid container spacing={2} sx={{ mb: 3 }}>
-            <Grid size={{ xs: 12, md: 4 }}>
-              <Card sx={{
-                bgcolor: 'color-mix(in srgb, var(--chart-2) 15%, transparent)',
-                borderLeft: '4px solid var(--chart-2)',
-                borderRadius: 'var(--radius)',
-                boxShadow: 'var(--shadow-sm)',
-              }}>
-                <CardContent>
-                  <Typography
-                    variant="body2"
-                    sx={{
-                      color: 'var(--muted-foreground)',
-                      fontSize: '0.875rem',
-                      mb: 1,
-                    }}
-                  >
-                    Toplam Kayıt
-                  </Typography>
-                  <Typography
-                    variant="h4"
-                    sx={{
-                      color: 'var(--chart-2)',
-                      fontWeight: 700,
-                      fontSize: '1.875rem',
-                    }}
-                  >
-                    {stats.toplamKayit}
-                  </Typography>
-                </CardContent>
-              </Card>
-            </Grid>
-            <Grid size={{ xs: 12, md: 4 }}>
-              <Card sx={{
-                bgcolor: 'color-mix(in srgb, var(--chart-2) 15%, transparent)',
-                borderLeft: '4px solid var(--chart-2)',
-                borderRadius: 'var(--radius)',
-                boxShadow: 'var(--shadow-sm)',
-              }}>
-                <CardContent>
-                  <Typography
-                    variant="body2"
-                    sx={{
-                      color: 'var(--muted-foreground)',
-                      fontSize: '0.875rem',
-                      mb: 1,
-                    }}
-                  >
-                    Gelen Havale Sayısı
-                  </Typography>
-                  <Typography
-                    variant="h5"
-                    sx={{
-                      color: 'var(--chart-2)',
-                      fontWeight: 700,
-                      fontSize: '1.5rem',
-                    }}
-                  >
-                    {stats.gelenHavale.adet}
-                  </Typography>
-                </CardContent>
-              </Card>
-            </Grid>
-            <Grid size={{ xs: 12, md: 4 }}>
-              <Card sx={{
-                bgcolor: 'color-mix(in srgb, var(--chart-2) 15%, transparent)',
-                borderLeft: '4px solid var(--chart-2)',
-                borderRadius: 'var(--radius)',
-                boxShadow: 'var(--shadow-sm)',
-              }}>
-                <CardContent>
-                  <Typography
-                    variant="body2"
-                    sx={{
-                      color: 'var(--muted-foreground)',
-                      fontSize: '0.875rem',
-                      mb: 1,
-                    }}
-                  >
-                    Toplam Gelen
-                  </Typography>
-                  <Typography
-                    variant="h5"
-                    sx={{
-                      color: 'var(--chart-2)',
-                      fontWeight: 700,
-                      fontSize: '1.5rem',
-                    }}
-                  >
-                    {formatCurrency(stats.gelenHavale.toplam)}
-                  </Typography>
-                </CardContent>
-              </Card>
-            </Grid>
+    <StandardPage
+      title="Gelen Havale İşlemleri"
+      breadcrumbs={[{ label: 'Banka Transfer', href: '/bank-transfer' }, { label: 'Gelen Havale' }]}
+      headerActions={
+        <Stack direction="row" spacing={1.5}>
+          <Button startIcon={<Refresh />} onClick={() => { fetchHavaleler(); fetchStats(); }} sx={{ fontWeight: 800 }}>Yenile</Button>
+          <Button variant="contained" startIcon={<Add />} onClick={() => handleOpenDialog()} sx={{ fontWeight: 900, borderRadius: 3, px: 3, bgcolor: 'success.main', '&:hover': { bgcolor: 'success.dark' } }}>Yeni Gelen Havale</Button>
+        </Stack>
+      }
+    >
+      <Grid container spacing={2} sx={{ mb: 3 }}>
+        {[
+          { label: 'Toplam Kayıt', value: stats?.toplamKayit || 0, color: 'primary.main', icon: <InfoIcon /> },
+          { label: 'Gelen Havale Adeti', value: stats?.gelenHavale.adet || 0, color: 'success.main', icon: <TrendingUp /> },
+          { label: 'Toplam Tutar', value: formatCurrency(stats?.gelenHavale.toplam || 0), color: 'success.main', icon: <AccountBalance /> },
+        ].map((s, i) => (
+          <Grid size={{ xs: 12, md: 4 }} key={i}>
+            <Card sx={{ borderRadius: 4, border: '1px solid', borderColor: 'divider', boxShadow: 'none' }}>
+              <CardContent sx={{ p: 2.5, '&:last-child': { pb: 2.5 } }}>
+                <Stack direction="row" spacing={2} alignItems="center">
+                  <Box sx={{ width: 48, height: 48, borderRadius: 3, bgcolor: alpha(s.color, 0.1), display: 'flex', alignItems: 'center', justifyContent: 'center', color: s.color }}>
+                    {s.icon}
+                  </Box>
+                  <Box>
+                    <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 800, display: 'block', mb: 0.5, textTransform: 'uppercase', letterSpacing: 0.5 }}>{s.label}</Typography>
+                    <Typography variant="h5" sx={{ fontWeight: 900, color: 'text.primary' }}>{s.value}</Typography>
+                  </Box>
+                </Stack>
+              </CardContent>
+            </Card>
           </Grid>
-        )}
+        ))}
+      </Grid>
 
-        {/* Filtreler */}
-        <Paper sx={{
-          p: 2,
-          mb: 3,
-          borderRadius: 'var(--radius)',
-          boxShadow: 'var(--shadow-sm)',
-          bgcolor: 'var(--card)',
-        }}>
-          <Typography
-            variant="h6"
-            sx={{
-              mb: 2,
-              display: 'flex',
-              alignItems: 'center',
-              gap: 1,
-              fontWeight: 700,
-              color: 'var(--foreground)',
-            }}
-          >
-            <FilterList sx={{ color: 'var(--primary)' }} />
-            Filtreler
-          </Typography>
-          <Grid container spacing={2}>
+      <Paper sx={{ p: 2.5, mb: 3, borderRadius: 4, border: '1px solid', borderColor: 'divider', boxShadow: 'none' }}>
+        <Stack direction="row" spacing={2} alignItems="center">
+          <FilterList sx={{ color: 'text.secondary' }} />
+          <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>Hızlı Filtreleme</Typography>
+          <Grid container spacing={2} sx={{ flex: 1 }}>
             <Grid size={{ xs: 12, md: 3 }}>
-              <FormControl fullWidth size="small">
-                <InputLabel>Banka Hesabı</InputLabel>
-                <Select
-                  value={filterBankaId}
-                  onChange={(e) => setFilterBankaId(e.target.value)}
-                  label="Banka Hesabı"
-                >
-                  <MenuItem value="">Tümü</MenuItem>
-                  {bankaHesaplari.map((banka) => (
-                    <MenuItem key={banka.id} value={banka.id}>
-                      {banka.kasaAdi} - {banka.bankaAdi}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Grid>
-            <Grid size={{ xs: 12, md: 3 }}>
-              <FormControl fullWidth size="small">
-                <InputLabel>Cari</InputLabel>
-                <Select
-                  value={filterCariId}
-                  onChange={(e) => setFilterCariId(e.target.value)}
-                  label="Cari"
-                >
-                  <MenuItem value="">Tümü</MenuItem>
-                  {cariler.map((cari) => (
-                    <MenuItem key={cari.id} value={cari.id}>
-                      {cari.unvan}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Grid>
-            <Grid size={{ xs: 12, md: 3 }}>
-              <TextField
-                fullWidth
+              <Autocomplete
                 size="small"
-                type="date"
-                label="Başlangıç Tarihi"
-                value={filterBaslangic}
-                onChange={(e) => setFilterBaslangic(e.target.value)}
-                InputLabelProps={{ shrink: true }}
+                options={bankaHesaplari}
+                getOptionLabel={(o: BankaHesabi) => o.bankaAdi + ' - ' + o.kasaAdi}
+                value={bankaHesaplari.find((b: BankaHesabi) => b.id === filterBankaId) || null}
+                onChange={(_: any, v: BankaHesabi | null) => setFilterBankaId(v?.id || '')}
+                renderInput={(p: any) => <TextField {...p} label="Banka Hesabı" variant="outlined" sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2.5 } }} />}
               />
             </Grid>
             <Grid size={{ xs: 12, md: 3 }}>
-              <TextField
-                fullWidth
+              <Autocomplete
                 size="small"
-                type="date"
-                label="Bitiş Tarihi"
-                value={filterBitis}
-                onChange={(e) => setFilterBitis(e.target.value)}
-                InputLabelProps={{ shrink: true }}
+                options={cariler}
+                getOptionLabel={(o: Cari) => o.unvan}
+                value={cariler.find((c: Cari) => c.id === filterCariId) || null}
+                onChange={(_: any, v: Cari | null) => setFilterCariId(v?.id || '')}
+                renderInput={(p: any) => <TextField {...p} label="Cari Hesap" variant="outlined" sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2.5 } }} />}
               />
             </Grid>
+            <Grid size={{ xs: 12, md: 3 }}>
+              <TextField fullWidth size="small" type="date" label="Başlangıç" value={filterBaslangic} onChange={(e) => setFilterBaslangic(e.target.value)} InputLabelProps={{ shrink: true }} sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2.5 } }} />
+            </Grid>
+            <Grid size={{ xs: 12, md: 3 }}>
+              <TextField fullWidth size="small" type="date" label="Bitiş" value={filterBitis} onChange={(e) => setFilterBitis(e.target.value)} InputLabelProps={{ shrink: true }} sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2.5 } }} />
+            </Grid>
           </Grid>
-        </Paper>
+        </Stack>
+      </Paper>
 
-        {/* Tablo */}
-        <TableContainer
-          component={Paper}
-          sx={{
-            borderRadius: 'var(--radius)',
-            boxShadow: 'var(--shadow-sm)',
-            bgcolor: 'var(--card)',
-          }}
-        >
-          <Table>
-            <TableHead>
-              <TableRow sx={{ bgcolor: 'var(--muted)' }}>
-                <TableCell sx={{ fontWeight: 700, color: 'var(--foreground)' }}>Tarih</TableCell>
-                <TableCell sx={{ fontWeight: 700, color: 'var(--foreground)' }}>Banka Hesabı</TableCell>
-                <TableCell sx={{ fontWeight: 700, color: 'var(--foreground)' }}>Cari</TableCell>
-                <TableCell sx={{ fontWeight: 700, color: 'var(--foreground)' }}>Tutar</TableCell>
-                <TableCell sx={{ fontWeight: 700, color: 'var(--foreground)' }}>Referans No</TableCell>
-                <TableCell sx={{ fontWeight: 700, color: 'var(--foreground)' }}>Açıklama</TableCell>
-                <TableCell sx={{ fontWeight: 700, color: 'var(--foreground)' }}>Kayıt Tarihi</TableCell>
-                <TableCell sx={{ fontWeight: 700, color: 'var(--foreground)' }} align="right">İşlemler</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {loading ? (
-                <TableRow>
-                  <TableCell colSpan={8} align="center" sx={{ py: 5 }}>
-                    <CircularProgress />
-                  </TableCell>
-                </TableRow>
-              ) : havaleler.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={8} align="center" sx={{ py: 5 }}>
-                    <Typography color="textSecondary">Kayıt bulunamadı</Typography>
-                  </TableCell>
-                </TableRow>
-              ) : (
-                havaleler.map((havale) => (
-                  <TableRow key={havale.id} hover>
-                    <TableCell>{formatDate(havale.tarih)}</TableCell>
-                    <TableCell>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                        <Box sx={{
-                          width: 32,
-                          height: 32,
-                          borderRadius: 1,
-                          bgcolor: 'white',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          color: 'var(--primary)',
-                          overflow: 'hidden',
-                          border: '1px solid var(--border)',
-                          p: 0.5
-                        }}>
-                          {getBankLogo(havale.bankaHesabi?.bankaAdi || havale.bankaHesap?.banka?.ad || '', havale.bankaHesap?.banka?.logo) ? (
-                            <Box component="img" src={getBankLogo(havale.bankaHesabi?.bankaAdi || havale.bankaHesap?.banka?.ad || '', havale.bankaHesap?.banka?.logo)!} sx={{ width: '100%', height: '100%', objectFit: 'contain' }} />
-                          ) : (
-                            <AccountBalance sx={{ fontSize: 16 }} />
-                          )}
-                        </Box>
-                        <Box>
-                          <Typography variant="body2" fontWeight={500}>
-                            {havale.bankaHesabi?.kasaAdi || havale.bankaHesap?.hesapAdi || 'Bilinmiyor'}
-                          </Typography>
-                          <Typography variant="caption" color="textSecondary">
-                            {havale.bankaHesabi?.bankaAdi || havale.bankaHesap?.banka?.ad || ''}
-                          </Typography>
-                        </Box>
-                      </Box>
-                    </TableCell>
-                    <TableCell>
-                      <Box>
-                        <Typography variant="body2" fontWeight={500}>
-                          {havale.cari.unvan}
-                        </Typography>
-                        <Typography variant="caption" color="textSecondary">
-                          {havale.cari.cariKodu}
-                        </Typography>
-                      </Box>
-                    </TableCell>
-                    <TableCell>
-                      <Chip
-                        label={formatCurrency(havale.tutar)}
-                        size="small"
-                        sx={{
-                          bgcolor: 'color-mix(in srgb, var(--chart-2) 15%, transparent)',
-                          color: 'var(--chart-2)',
-                          fontWeight: 700,
-                          border: '1px solid color-mix(in srgb, var(--chart-2) 30%, transparent)',
-                        }}
-                      />
-                    </TableCell>
-                    <TableCell>{havale.referansNo || '-'}</TableCell>
-                    <TableCell>
-                      <Typography variant="body2" noWrap sx={{ maxWidth: 200 }}>
-                        {havale.aciklama || '-'}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Box>
-                        <Typography variant="body2" fontWeight={500}>
-                          {formatDate(havale.createdAt)}
-                        </Typography>
-                        {havale.updatedAt !== havale.createdAt && (
-                          <Typography variant="caption" color="warning.main">
-                            Güncellendi: {formatDate(havale.updatedAt)}
-                          </Typography>
-                        )}
-                      </Box>
-                    </TableCell>
-                    <TableCell align="right">
-                      <Tooltip title="Detay">
-                        <IconButton
-                          size="small"
-                          onClick={() => handleViewDetail(havale)}
-                          sx={{
-                            color: 'var(--primary)',
-                            '&:hover': {
-                              bgcolor: 'color-mix(in srgb, var(--primary) 10%, transparent)',
-                            },
-                          }}
-                        >
-                          <Visibility fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                      <Tooltip title="Düzenle">
-                        <IconButton
-                          size="small"
-                          onClick={() => handleOpenDialog(havale)}
-                          sx={{
-                            color: 'var(--chart-1)',
-                            '&:hover': {
-                              bgcolor: 'color-mix(in srgb, var(--chart-1) 10%, transparent)',
-                            },
-                          }}
-                        >
-                          <Edit fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                      <Tooltip title="Sil">
-                        <IconButton
-                          size="small"
-                          onClick={() => {
-                            setSelectedHavale(havale);
-                            setOpenDelete(true);
-                          }}
-                          sx={{
-                            color: 'var(--destructive)',
-                            '&:hover': {
-                              bgcolor: 'color-mix(in srgb, var(--destructive) 10%, transparent)',
-                            },
-                          }}
-                        >
-                          <Delete fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </TableContainer>
-
-        {/* Yeni/Düzenle Dialog */}
-        {/* ✅ ÇÖZÜM: initialFormData ve onSubmit kullanılıyor, onFormChange kaldırıldı */}
-        <HavaleDialog
-          open={openDialog}
-          editMode={editMode}
-          initialFormData={initialFormData}
-          bankaHesaplari={bankaHesaplari}
-          cariler={cariler}
+      <Paper variant="outlined" sx={{ borderRadius: 4, overflow: 'hidden', border: '1px solid', borderColor: 'divider' }}>
+        <DataGrid
+          rows={havaleler}
+          columns={columns}
           loading={loading}
-          onClose={handleCloseDialog}
-          onSubmit={handleSubmit}
-        />
-
-        {/* Silme Onay Dialog */}
-        <Dialog open={openDelete} onClose={() => {
-          setOpenDelete(false);
-          setDeleteReason('');
-        }}>
-          <DialogTitle component="div">Silme Onayı</DialogTitle>
-          <DialogContent>
-            <Typography sx={{ mb: 2 }}>
-              Bu gelen havale kaydını silmek istediğinizden emin misiniz?
-              <br />
-              <strong>Cari: </strong>{selectedHavale?.cari.unvan}
-              <br />
-              <strong>Tutar: </strong>{selectedHavale && formatCurrency(selectedHavale.tutar)}
-              <br />
-              <br />
-              Bu işlem geri alınamaz ve kayıt silinen kayıtlar arşivine taşınacaktır.
-            </Typography>
-            <TextField
-              fullWidth
-              multiline
-              rows={3}
-              label="Silme Nedeni (Opsiyonel)"
-              value={deleteReason}
-              onChange={(e) => setDeleteReason(e.target.value)}
-              placeholder="Bu kaydı neden siliyorsunuz?"
-              sx={{ mt: 2 }}
-            />
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => {
-              setOpenDelete(false);
-              setDeleteReason('');
-            }}>İptal</Button>
-            <Button
-              variant="contained"
-              color="error"
-              onClick={handleDelete}
-              disabled={loading}
-            >
-              Sil
-            </Button>
-          </DialogActions>
-        </Dialog>
-
-        {/* Detay Dialog */}
-        <Dialog open={openDetail} onClose={() => setOpenDetail(false)} maxWidth="sm" fullWidth>
-          <DialogTitle component="div">Gelen Havale Detayı</DialogTitle>
-          <DialogContent>
-            {selectedHavale && (
-              <Box sx={{ mt: 2 }}>
-                <Grid container spacing={2}>
-                  <Grid size={{ xs: 6 }}>
-                    <Typography variant="caption" color="textSecondary">Banka Hesabı</Typography>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mt: 0.5 }}>
-                      <Box sx={{
-                        width: 40,
-                        height: 40,
-                        borderRadius: 1.5,
-                        bgcolor: 'white',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        color: 'var(--primary)',
-                        overflow: 'hidden',
-                        border: '1px solid var(--border)',
-                        p: 0.5
-                      }}>
-                        {getBankLogo(selectedHavale.bankaHesabi.bankaAdi || selectedHavale.bankaHesap?.banka?.ad || '', selectedHavale.bankaHesap?.banka?.logo) ? (
-                          <Box component="img" src={getBankLogo(selectedHavale.bankaHesabi.bankaAdi || selectedHavale.bankaHesap?.banka?.ad || '', selectedHavale.bankaHesap?.banka?.logo)!} sx={{ width: '100%', height: '100%', objectFit: 'contain' }} />
-                        ) : (
-                          <AccountBalance sx={{ fontSize: 20 }} />
-                        )}
-                      </Box>
-                      <Box>
-                        <Typography variant="body1" fontWeight={500} sx={{ lineHeight: 1.2 }}>
-                          {selectedHavale.bankaHesabi.kasaAdi}
-                        </Typography>
-                        <Typography variant="caption" color="textSecondary">
-                          {selectedHavale.bankaHesabi.bankaAdi}
-                        </Typography>
-                      </Box>
-                    </Box>
-                  </Grid>
-                  <Grid size={{ xs: 6 }}>
-                    <Typography variant="caption" color="textSecondary">Cari</Typography>
-                    <Typography variant="body1" fontWeight={500}>
-                      {selectedHavale.cari.unvan}
-                    </Typography>
-                    <Typography variant="caption" color="textSecondary">
-                      {selectedHavale.cari.cariKodu}
-                    </Typography>
-                  </Grid>
-                  <Grid size={{ xs: 6 }}>
-                    <Typography variant="caption" color="textSecondary">Tutar</Typography>
-                    <Typography variant="h5" sx={{ color: 'var(--chart-2)', fontWeight: 700 }}>
-                      {formatCurrency(selectedHavale.tutar)}
-                    </Typography>
-                  </Grid>
-                  <Grid size={{ xs: 6 }}>
-                    <Typography variant="caption" color="textSecondary">Tarih</Typography>
-                    <Typography variant="body1" fontWeight={500}>
-                      {formatDate(selectedHavale.tarih)}
-                    </Typography>
-                  </Grid>
-                  <Grid size={{ xs: 6 }}>
-                    <Typography variant="caption" color="textSecondary">Referans No</Typography>
-                    <Typography variant="body1">{selectedHavale.referansNo || '-'}</Typography>
-                  </Grid>
-                  <Grid size={{ xs: 12 }}>
-                    <Typography variant="caption" color="textSecondary">Açıklama</Typography>
-                    <Typography variant="body1">{selectedHavale.aciklama || '-'}</Typography>
-                  </Grid>
-                  <Grid size={{ xs: 12 }}>
-                    <Box sx={{ bgcolor: '#f9fafb', p: 2, borderRadius: 1, mt: 2 }}>
-                      <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 1 }}>
-                        Kayıt Bilgileri
-                      </Typography>
-                      <Grid container spacing={2}>
-                        <Grid size={{ xs: 6 }}>
-                          <Typography variant="caption" color="textSecondary">Oluşturma Tarihi</Typography>
-                          <Typography variant="body2" fontWeight={500}>
-                            {formatDate(selectedHavale.createdAt)}
-                          </Typography>
-                        </Grid>
-                        <Grid size={{ xs: 6 }}>
-                          <Typography variant="caption" color="textSecondary">Güncelleme Tarihi</Typography>
-                          <Typography variant="body2" fontWeight={500}>
-                            {formatDate(selectedHavale.updatedAt)}
-                          </Typography>
-                          {selectedHavale.updatedAt !== selectedHavale.createdAt && (
-                            <Chip
-                              label="Güncellendi"
-                              size="small"
-                              color="warning"
-                              sx={{ mt: 0.5, height: 20, fontSize: '0.7rem' }}
-                            />
-                          )}
-                        </Grid>
-                        {selectedHavale.createdByUser && (
-                          <Grid size={{ xs: 6 }}>
-                            <Typography variant="caption" color="textSecondary">Oluşturan Kullanıcı</Typography>
-                            <Typography variant="body2">
-                              {selectedHavale.createdByUser.fullName}
-                            </Typography>
-                            <Typography variant="caption" color="textSecondary">
-                              @{selectedHavale.createdByUser.username}
-                            </Typography>
-                          </Grid>
-                        )}
-                        {selectedHavale.updatedByUser && (
-                          <Grid size={{ xs: 6 }}>
-                            <Typography variant="caption" color="textSecondary">Güncelleyen Kullanıcı</Typography>
-                            <Typography variant="body2">
-                              {selectedHavale.updatedByUser.fullName}
-                            </Typography>
-                            <Typography variant="caption" color="textSecondary">
-                              @{selectedHavale.updatedByUser.username}
-                            </Typography>
-                          </Grid>
-                        )}
-                      </Grid>
-                    </Box>
-                  </Grid>
-                </Grid>
+          autoHeight
+          disableRowSelectionOnClick
+          pageSizeOptions={[10, 25, 50]}
+          initialState={{ pagination: { paginationModel: { pageSize: 10 } } }}
+          sx={{
+            border: 'none',
+            '& .MuiDataGrid-columnHeaders': { bgcolor: alpha(theme.palette.primary.main, 0.04), borderBottom: '1px solid', borderColor: 'divider' },
+            '& .MuiDataGrid-columnHeaderTitle': { fontWeight: 900, fontSize: '0.75rem', color: 'text.secondary', textTransform: 'uppercase' },
+            '& .MuiDataGrid-cell': { borderColor: 'divider' },
+          }}
+          slots={{
+            loadingOverlay: () => (
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+                <CircularProgress size={24} />
               </Box>
-            )}
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setOpenDetail(false)}>Kapat</Button>
-          </DialogActions>
-        </Dialog>
+            ),
+          }}
+        />
+      </Paper>
 
-        {/* Snackbar */}
-        <Snackbar
-          open={snackbar.open}
-          autoHideDuration={6000}
-          onClose={() => setSnackbar({ ...snackbar, open: false })}
-          anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-        >
-          <Alert
-            onClose={() => setSnackbar({ ...snackbar, open: false })}
-            severity={snackbar.severity}
-            variant="filled"
-          >
-            {snackbar.message}
-          </Alert>
-        </Snackbar>
-      </Box>
-    </MainLayout>
+      {/* Diyaloglar */}
+      <HavaleDialog
+        open={openDialog}
+        editMode={editMode}
+        initialFormData={initialFormData}
+        bankaHesaplari={bankaHesaplari}
+        cariler={cariler}
+        loading={loading}
+        onClose={handleCloseDialog}
+        onSubmit={handleSubmit}
+      />
+
+      {/* Silme Onay Diyaloğu */}
+      <Dialog open={openDelete} onClose={() => setOpenDelete(false)} PaperProps={{ sx: { borderRadius: 3 } }}>
+        <DialogTitle sx={{ fontWeight: 800 }}>Kaydı Sil</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" sx={{ color: 'text.secondary', mb: 2 }}>Bu havale kaydını silmek istediğinize emin misiniz? Bu işlem geri alınamaz.</Typography>
+          <TextField fullWidth label="Silme Nedeni (Opsiyonel)" value={deleteReason} onChange={(e) => setDeleteReason(e.target.value)} sx={{ mt: 1, '& .MuiOutlinedInput-root': { borderRadius: 2 } }} />
+        </DialogContent>
+        <DialogActions sx={{ p: 2, pt: 0 }}>
+          <Button onClick={() => setOpenDelete(false)}>Vazgeç</Button>
+          <Button variant="contained" color="error" onClick={handleDelete} disabled={loading} sx={{ borderRadius: 2, fontWeight: 800 }}>Sil</Button>
+        </DialogActions>
+      </Dialog>
+    </StandardPage>
   );
 }
 

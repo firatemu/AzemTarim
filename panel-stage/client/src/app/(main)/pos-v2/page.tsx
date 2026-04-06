@@ -21,11 +21,7 @@ import { useReactToPrint } from 'react-to-print';
 const fmt = (n: number) =>
     new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY' }).format(n);
 
-interface ToastState {
-    open: boolean;
-    message: string;
-    type: 'success' | 'error' | 'info' | 'warning';
-}
+import { useSnackbar } from 'notistack';
 
 interface ProductResult {
     id: string;
@@ -44,7 +40,7 @@ interface ProductResult {
 // ─────────────────────────────────────────────────────────────────────────────
 export default function PosV2Page() {
     const store = usePosStore();
-    const [toast, setToast] = useState<ToastState>({ open: false, message: '', type: 'info' });
+    const { enqueueSnackbar } = useSnackbar();
     const [clock, setClock] = useState('--:--');
 
     // Arama durumu
@@ -123,8 +119,7 @@ export default function PosV2Page() {
 
     // ── Toast ────────────────────────────────────────────────────────────────
     function showToast(message: string, type: ToastState['type'] = 'info') {
-        setToast({ open: true, message, type });
-        setTimeout(() => setToast(s => ({ ...s, open: false })), 2800);
+        enqueueSnackbar(message, { variant: type });
     }
 
     // ── Ürün arama (API) ─────────────────────────────────────────────────────
@@ -743,21 +738,6 @@ export default function PosV2Page() {
                         </div>
                     </div>
                 </div>
-
-                {/* ── TOAST ── */}
-                {toast.open && (
-                    <div style={{
-                        position: 'fixed', top: 16, left: '50%', transform: 'translateX(-50%)',
-                        zIndex: 999, padding: '10px 20px', borderRadius: 12, fontSize: 13.5, fontWeight: 600,
-                        display: 'flex', alignItems: 'center', gap: 8, boxShadow: '0 8px 24px rgba(2,6,23,0.18)',
-                        whiteSpace: 'nowrap', fontFamily: "'DM Sans', sans-serif",
-                        background: toast.type === 'success' ? '#10b981' : toast.type === 'error' ? '#ef4444' : toast.type === 'warning' ? '#f59e0b' : '#6366f1',
-                        color: toast.type === 'warning' ? '#1a0f00' : '#fff',
-                        animation: 'posv2-fadeIn 0.2s ease',
-                    }}>
-                        {toast.message}
-                    </div>
-                )}
 
                 {/* ── MODALLER ── */}
                 <ItemDiscountModal

@@ -13,16 +13,29 @@ import {
   Divider,
   Card,
   CardContent,
+  Stack,
+  alpha,
+  useTheme,
 } from '@mui/material';
-import { Settings, Info } from '@mui/icons-material';
-import MainLayout from '@/components/Layout/MainLayout';
+import {
+  Settings as SettingsIcon,
+  Info as InfoIcon,
+  ToggleOn as ToggleOnIcon,
+  Rule as RuleIcon,
+  Assessment as AssessmentIcon,
+  Description as DescriptionIcon,
+  Inventory as InventoryIcon,
+  AccountBalance as BankIcon,
+  Payments as CashIcon,
+  ContactPage as ContactIcon,
+} from '@mui/icons-material';
+import StandardPage from '@/components/common/StandardPage';
 import {
   getAllParameters,
-  updateParameter,
   SystemParameter,
   setParameterAsBoolean,
-  getParameterAsBoolean,
 } from '@/services/systemParameterService';
+import CheckBillSettingsSection from '@/components/settings/CheckBillSettingsSection';
 
 interface ParameterDefinition {
   key: string;
@@ -30,60 +43,62 @@ interface ParameterDefinition {
   description: string;
   category: string;
   defaultValue: boolean;
+  icon?: React.ReactNode;
 }
 
 const PARAMETER_DEFINITIONS: ParameterDefinition[] = [
   {
     key: 'AUTO_COSTING_ON_PURCHASE_INVOICE',
-    label: 'Satın Alma Faturalarında Otomatik Maliyetlendirme',
-    description:
-      'Satın alma faturaları kaydedildiğinde, düzenlendiğinde, silindiğinde veya durumu değiştiğinde otomatik olarak maliyetlendirme servisi çalışır.',
+    label: 'Otomatik Maliyetlendirme',
+    description: 'Satın alma faturaları kaydedildiğinde veya silindiğinde otomatik olarak maliyetlendirme servisi çalışır.',
     category: 'FATURA',
     defaultValue: true,
+    icon: <AssessmentIcon />
   },
   {
     key: 'AUTO_APPROVE_INVOICE',
     label: 'Faturaları Otomatik Onayla',
-    description:
-      'Yeni oluşturulan faturaların durumunu otomatik olarak \'Onaylandı\' yapar ve stok/cari hareketlerini işletir. Kapalı olduğunda faturalar \'Taslak\' olarak kaydedilir.',
+    description: 'Yeni oluşturulan faturaların durumunu otomatik olarak \'Onaylandı\' yapar. Kapalı olduğunda \'Taslak\' olarak kaydedilir.',
     category: 'FATURA',
     defaultValue: false,
+    icon: <DescriptionIcon />
   },
   {
     key: 'NEGATIVE_STOCK_CONTROL',
     label: 'Negatif Stok Kontrolü',
-    description:
-      'Satış faturası kaydedilirken stok miktarı kontrolü yapılır. Açık olduğunda, mevcut stoktan fazla satış yapılamaz ve stok negatife düşecek ürünler gösterilir. Kapalı olduğunda stok negatife düşebilir.',
+    description: 'Satış faturası kaydedilirken stok kontrolü yapılır. Açık olduğunda, mevcut stoktan fazla satış yapılamaz.',
     category: 'STOK',
     defaultValue: false,
+    icon: <InventoryIcon />
   },
   {
     key: 'NEGATIVE_BANK_BALANCE_CONTROL',
     label: 'Negatif Banka Bakiyesi Kontrolü',
-    description:
-      'Banka havale işlemi yapılırken bakiye kontrolü yapılır. Açık olduğunda, mevcut bakiyeden fazla çıkış yapılamaz. Kapalı olduğunda bakiye eksiye düşebilir.',
+    description: 'Banka işlemlerinde bakiye kontrolü yapılır. Açık olduğunda, mevcut bakiyeden fazla çıkış yapılamaz.',
     category: 'BANKA',
     defaultValue: true,
+    icon: <BankIcon />
   },
   {
     key: 'ALLOW_NEGATIVE_CASH_BALANCE',
     label: 'Negatif Kasa Bakiyesi İzni',
-    description:
-      'Kasa işlemlerinde bakiye kontrolü yapılır. Açık olduğunda, kasa bakiyesi eksiye düşebilir. Kapalı olduğunda, mevcut bakiyeden fazla çıkış yapılamaz.',
+    description: 'Kasa işlemlerinde bakiye kontrolü yapılır. Açık olduğunda, kasa bakiyesi eksiye düşebilir.',
     category: 'KASA',
     defaultValue: false,
+    icon: <CashIcon />
   },
   {
     key: 'CARI_RISK_CONTROL',
-    label: 'Cari Hesap Risk Limiti Kontrolü',
-    description:
-      'Aktif olduğunda, cari hesap kartında risk limiti tanımlanmış olan cariler için bu limiti aşacak satış faturası veya ödeme işlemi oluşturulamaz. Örneğin 10.000 TL risk limiti olan ve 6.000 TL borcu olan bir cari için maksimum 4.000 TL\'lik yeni işlem yapılabilir.',
+    label: 'Cari Risk Limiti Kontrolü',
+    description: 'Aktif olduğunda, tanımlanan risk limitini aşacak satış veya ödeme işlemi oluşturulamaz.',
     category: 'CARİ',
     defaultValue: false,
+    icon: <ContactIcon />
   },
 ];
 
 export default function ParametrelerPage() {
+  const theme = useTheme();
   const [parameters, setParameters] = useState<SystemParameter[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<Record<string, boolean>>({});
@@ -99,10 +114,7 @@ export default function ParametrelerPage() {
       const data = await getAllParameters();
       setParameters(data);
     } catch (error: any) {
-      showSnackbar(
-        error.response?.data?.message || 'Parametreler yüklenirken hata oluştu',
-        'error',
-      );
+      showSnackbar(error.response?.data?.message || 'Parametreler yüklenirken hata oluştu', 'error');
     } finally {
       setLoading(false);
     }
@@ -117,13 +129,10 @@ export default function ParametrelerPage() {
       setSaving((prev) => ({ ...prev, [key]: true }));
 
       const definition = PARAMETER_DEFINITIONS.find((d) => d.key === key);
-      if (!definition) {
-        throw new Error('Parametre tanımı bulunamadı');
-      }
+      if (!definition) throw new Error('Parametre tanımı bulunamadı');
 
       await setParameterAsBoolean(key, value, definition.description, definition.category);
 
-      // Local state'i güncelle
       setParameters((prev) => {
         const existing = prev.find((p) => p.key === key);
         if (existing) {
@@ -146,10 +155,7 @@ export default function ParametrelerPage() {
 
       showSnackbar('Parametre başarıyla güncellendi', 'success');
     } catch (error: any) {
-      showSnackbar(
-        error.response?.data?.message || 'Parametre güncellenirken hata oluştu',
-        'error',
-      );
+      showSnackbar(error.response?.data?.message || 'Parametre güncellenirken hata oluştu', 'error');
     } finally {
       setSaving((prev) => ({ ...prev, [key]: false }));
     }
@@ -157,9 +163,7 @@ export default function ParametrelerPage() {
 
   const getParameterValue = (key: string, defaultValue: boolean): boolean => {
     const param = parameters.find((p) => p.key === key);
-    if (!param) {
-      return defaultValue;
-    }
+    if (!param) return defaultValue;
     return param.value === true || param.value === 'true' || param.value === 1;
   };
 
@@ -173,54 +177,74 @@ export default function ParametrelerPage() {
 
   if (loading) {
     return (
-      <MainLayout>
+      <StandardPage title="Yükleniyor...">
         <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
-          <CircularProgress />
+          <CircularProgress size={40} thickness={4} />
         </Box>
-      </MainLayout>
+      </StandardPage>
     );
   }
 
   return (
-    <MainLayout>
-      <Box>
-        <Box sx={{ mb: 3, display: 'flex', alignItems: 'center', gap: 2 }}>
-          <Settings sx={{ fontSize: 32, color: 'var(--primary)' }} />
-          <Typography variant="h4" fontWeight="bold">
-            Parametreler
-          </Typography>
-        </Box>
-
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 4 }}>
-          Sistem ayarlarını buradan yönetebilirsiniz. Parametreler tenant bazlı çalışır ve her
-          tenant için ayrı ayarlanabilir.
+    <StandardPage
+      title="Sistem Parametreleri"
+      breadcrumbs={[{ label: 'Ayarlar', href: '/settings' }, { label: 'Parametreler' }]}
+    >
+      <Box sx={{ mb: 4 }}>
+        <Typography variant="body2" sx={{ color: 'text.secondary', maxWidth: 800 }}>
+          Uygulama genelindeki işleyiş kurallarını, otomatik kontrolleri ve limitleri buradan yönetebilirsiniz.
+          Değişiklikler anında tüm sisteme yansıtılacaktır.
         </Typography>
+      </Box>
 
-        {Object.entries(groupedParameters).map(([category, defs]) => (
-          <Box key={category} sx={{ mb: 4 }}>
-            <Typography variant="h6" fontWeight="600" sx={{ mb: 2, color: 'var(--primary)' }}>
-              {category}
+      {Object.entries(groupedParameters).map(([category, defs]) => (
+        <Box key={category} sx={{ mb: 6 }}>
+          <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mb: 2 }}>
+            <Box sx={{ width: 8, height: 24, bgcolor: 'primary.main', borderRadius: 1 }} />
+            <Typography variant="h6" sx={{ fontWeight: 900, textTransform: 'uppercase', letterSpacing: 0.5, color: 'text.primary', fontSize: '1rem' }}>
+              {category} AYARLARI
             </Typography>
-            <Divider sx={{ mb: 2 }} />
+          </Stack>
+          <Divider sx={{ mb: 3 }} />
 
+          <Stack spacing={2}>
             {defs.map((def) => {
               const currentValue = getParameterValue(def.key, def.defaultValue);
               const isSaving = saving[def.key] || false;
 
               return (
-                <Card key={def.key} sx={{ mb: 2 }}>
-                  <CardContent>
-                    <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
+                <Card
+                  key={def.key}
+                  variant="outlined"
+                  sx={{
+                    borderRadius: 4,
+                    transition: 'all 0.2s',
+                    '&:hover': { borderColor: 'primary.main', bgcolor: alpha(theme.palette.primary.main, 0.01) }
+                  }}
+                >
+                  <CardContent sx={{ p: '24px !important' }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+                      <Box sx={{
+                        p: 1.5,
+                        borderRadius: 2,
+                        bgcolor: alpha(theme.palette.primary.main, 0.1),
+                        color: 'primary.main',
+                        display: 'flex'
+                      }}>
+                        {def.icon || <RuleIcon />}
+                      </Box>
                       <Box sx={{ flex: 1 }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                          <Typography variant="h6" fontWeight="600">
+                        <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 0.5 }}>
+                          <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
                             {def.label}
                           </Typography>
                           {isSaving && <CircularProgress size={16} />}
-                        </Box>
-                        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                        </Stack>
+                        <Typography variant="body2" sx={{ color: 'text.secondary', maxWidth: 700 }}>
                           {def.description}
                         </Typography>
+                      </Box>
+                      <Box sx={{ pl: 2, borderLeft: '1px solid', borderColor: 'divider' }}>
                         <FormControlLabel
                           control={
                             <Switch
@@ -230,7 +254,12 @@ export default function ParametrelerPage() {
                               color="primary"
                             />
                           }
-                          label={currentValue ? 'Aktif' : 'Pasif'}
+                          label={
+                            <Typography variant="caption" sx={{ fontWeight: 800, color: currentValue ? 'primary.main' : 'text.disabled' }}>
+                              {currentValue ? 'AKTİF' : 'PASİF'}
+                            </Typography>
+                          }
+                          labelPlacement="bottom"
                         />
                       </Box>
                     </Box>
@@ -238,32 +267,31 @@ export default function ParametrelerPage() {
                 </Card>
               );
             })}
-          </Box>
-        ))}
+          </Stack>
+        </Box>
+      ))}
 
-        {PARAMETER_DEFINITIONS.length === 0 && (
-          <Paper sx={{ p: 4, textAlign: 'center' }}>
-            <Typography variant="body1" color="text.secondary">
-              Henüz tanımlı parametre bulunmamaktadır.
-            </Typography>
-          </Paper>
-        )}
+      <Box id="cek-senet" sx={{ scrollMarginTop: 96 }}>
+        <CheckBillSettingsSection embedInParametersPage showIntro={false} />
       </Box>
+
+      {PARAMETER_DEFINITIONS.length === 0 && (
+        <Paper variant="outlined" sx={{ p: 6, textAlign: 'center', borderRadius: 4, borderStyle: 'dashed' }}>
+          <SettingsIcon sx={{ fontSize: 48, color: 'text.disabled', mb: 2 }} />
+          <Typography variant="body1" sx={{ color: 'text.secondary', fontWeight: 600 }}>
+            Henüz tanımlı bir parametre bulunmamaktadır.
+          </Typography>
+        </Paper>
+      )}
 
       <Snackbar
         open={snackbar.open}
-        autoHideDuration={6000}
+        autoHideDuration={4000}
         onClose={() => setSnackbar({ ...snackbar, open: false })}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
       >
-        <Alert
-          onClose={() => setSnackbar({ ...snackbar, open: false })}
-          severity={snackbar.severity}
-          sx={{ width: '100%' }}
-        >
-          {snackbar.message}
-        </Alert>
+        <Alert severity={snackbar.severity} sx={{ borderRadius: 2, fontWeight: 700 }}>{snackbar.message}</Alert>
       </Snackbar>
-    </MainLayout>
+    </StandardPage>
   );
 }

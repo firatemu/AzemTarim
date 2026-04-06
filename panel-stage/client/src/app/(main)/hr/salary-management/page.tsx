@@ -36,9 +36,11 @@ import {
     FileDownload,
     Receipt,
 } from '@mui/icons-material';
+import { useSnackbar } from 'notistack';
 
 // ...
 const PlanDetailDialog = React.memo(({ open, onClose, plan }: { open: boolean, onClose: () => void, plan: MaasPlan | null }) => {
+    const { enqueueSnackbar } = useSnackbar();
     const [history, setHistory] = useState<any[]>([]);
 
     useEffect(() => {
@@ -117,7 +119,7 @@ const PlanDetailDialog = React.memo(({ open, onClose, plan }: { open: boolean, o
             link.click();
             link.remove();
         } catch (error) {
-            alert('Makbuz indirilemedi');
+            enqueueSnackbar('Makbuz indirilemedi', { variant: 'error' });
         }
     };
 
@@ -266,6 +268,7 @@ interface MaasOdemeDialogProps {
 }
 
 const MaasOdemeDialog = React.memo(({ open, onClose, plan, kasalar, bankaHesaplari, onSave }: MaasOdemeDialogProps) => {
+    const { enqueueSnackbar } = useSnackbar();
     const [tutar, setTutar] = useState<number>(0);
     const [aciklama, setAciklama] = useState('');
     const [odemeDetaylari, setOdemeDetaylari] = useState<any[]>([]);
@@ -297,9 +300,9 @@ const MaasOdemeDialog = React.memo(({ open, onClose, plan, kasalar, bankaHesapla
     }, [open, plan]);
 
     const handleAddDetay = () => {
-        if (yeniDetay.tutar <= 0) return alert('Tutar 0 dan büyük olmalı');
-        if (yeniDetay.odemeTipi === 'NAKIT' && !yeniDetay.kasaId) return alert('Kasa seçiniz');
-        if (yeniDetay.odemeTipi === 'BANKA_HAVALESI' && !yeniDetay.bankaHesapId) return alert('Banka hesabı seçiniz');
+        if (yeniDetay.tutar <= 0) return enqueueSnackbar('Tutar 0 dan büyük olmalı', { variant: 'warning' });
+        if (yeniDetay.odemeTipi === 'NAKIT' && !yeniDetay.kasaId) return enqueueSnackbar('Kasa seçiniz', { variant: 'warning' });
+        if (yeniDetay.odemeTipi === 'BANKA_HAVALESI' && !yeniDetay.bankaHesapId) return enqueueSnackbar('Banka hesabı seçiniz', { variant: 'warning' });
 
         setOdemeDetaylari([...odemeDetaylari, { ...yeniDetay }]);
 
@@ -322,7 +325,7 @@ const MaasOdemeDialog = React.memo(({ open, onClose, plan, kasalar, bankaHesapla
 
     const handleSubmit = () => {
         if (odemeDetaylari.length === 0) {
-            return alert('Lütfen en az bir ödeme ekleyiniz');
+            return enqueueSnackbar('Lütfen en az bir ödeme ekleyiniz', { variant: 'warning' });
         }
 
         const toplamDetay = odemeDetaylari.reduce((a: number, b: any) => a + Number(b.tutar), 0);
@@ -568,6 +571,7 @@ const CreatePlanDialog = React.memo(({ open, onClose, personelList, onSave }: Cr
 });
 
 export default function MaasYonetimiPage() {
+    const { enqueueSnackbar } = useSnackbar();
     const [plans, setPlans] = useState<MaasPlan[]>([]);
     const [loading, setLoading] = useState(true);
     const [yil, setYil] = useState(new Date().getFullYear());
@@ -624,7 +628,7 @@ export default function MaasYonetimiPage() {
             link.click();
             link.remove();
         } catch (error) {
-            alert('Excel raporu oluşturulamadı');
+            enqueueSnackbar('Excel raporu oluşturulamadı', { variant: 'error' });
         }
     };
 
@@ -633,9 +637,9 @@ export default function MaasYonetimiPage() {
             await axios.post('/maas-odeme/create', data);
             setOpenOdemeDialog(false);
             fetchPlans();
-            alert('Ödeme başarıyla gerçekleşti');
+            enqueueSnackbar('Ödeme başarıyla gerçekleşti', { variant: 'success' });
         } catch (error: any) {
-            alert(error.response?.data?.message || 'Ödeme yapılırken hata oluştu');
+            enqueueSnackbar(error.response?.data?.message || 'Ödeme yapılırken hata oluştu', { variant: 'error' });
         }
     };
 
@@ -670,7 +674,7 @@ export default function MaasYonetimiPage() {
             fetchPlans();
             setOpenCreateDialog(false);
         } catch (error: any) {
-            alert(error.response?.data?.message || 'Plan oluşturulurken hata oluştu');
+            enqueueSnackbar(error.response?.data?.message || 'Plan oluşturulurken hata oluştu', { variant: 'error' });
         }
     };
 

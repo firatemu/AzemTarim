@@ -24,12 +24,13 @@ export interface ErpStockItem {
 }
 
 export interface ErpAccount {
-  erpNum?: number;
+  erpNum?: string;
   erpAccountId: string;
   name: string;
   email?: string;
   phone?: string;
   addresses: ErpAddress[];
+  salespersonId?: string; // ERP'deki satış elemanı ID'si
 }
 
 export interface ErpAddress {
@@ -37,6 +38,14 @@ export interface ErpAddress {
   label: string;
   fullAddress: string;
   isDefault: boolean;
+}
+
+export interface ErpSalesperson {
+  erpSalespersonId: string;
+  name: string;
+  email?: string;
+  phone?: string;
+  isActive: boolean;
 }
 
 export interface ErpWarehouse {

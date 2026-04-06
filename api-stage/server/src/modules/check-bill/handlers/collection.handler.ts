@@ -111,18 +111,6 @@ export class CollectionHandler implements IJournalHandler {
                     notes: `Tahsilat: ${transactionAmount} TL`,
                 },
             });
-
-            await tx.accountTransaction.create({
-                data: {
-                    tenantId,
-                    accountId: checkBill.accountId,
-                    sourceType: 'CHECK_BILL_JOURNAL',
-                    sourceId: journalId,
-                    direction: AccountTransactionDirection.DEBIT,
-                    amount: transactionAmount,
-                    description: checkBill.portfolioType === 'DEBIT' ? 'Own document paid' : 'Document collected',
-                },
-            });
         }
     }
 }

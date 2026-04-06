@@ -12,11 +12,14 @@ import {
     List,
     ListItemButton,
     ListItemText,
-    Divider
+    Divider,
+    alpha,
+    useTheme
 } from '@mui/material';
 import { usePosStore } from '@/stores/posStore';
 
 export default function VariantDialog() {
+    const theme = useTheme();
     const {
         variantDialogOpen,
         setVariantDialogOpen,
@@ -54,27 +57,28 @@ export default function VariantDialog() {
             maxWidth="xs"
             PaperProps={{
                 sx: {
-                    borderRadius: 'var(--radius-lg)',
-                    boxShadow: 'var(--shadow-2xl)',
-                    overflow: 'hidden'
+                    borderRadius: 4,
+                    overflow: 'hidden',
+                    bgcolor: 'background.paper',
+                    boxShadow: theme.shadows[24]
                 }
             }}
         >
             <DialogTitle sx={{
-                bgcolor: 'var(--accent)',
-                color: 'white',
+                bgcolor: 'primary.main',
+                color: 'primary.contrastText',
                 fontWeight: 900,
                 textAlign: 'center',
                 py: 3
             }}>
                 Varyant Seçimi
-                <Typography variant="body2" sx={{ opacity: 0.8, mt: 0.5, fontWeight: 600 }}>
+                <Typography variant="body2" sx={{ opacity: 0.9, mt: 0.5, fontWeight: 700 }}>
                     {(selectedProductForVariant as any).name}
                 </Typography>
             </DialogTitle>
 
             <DialogContent sx={{ p: 0 }}>
-                <List sx={{ pt: 1, pb: 2 }}>
+                <List sx={{ py: 1 }}>
                     {((selectedProductForVariant as any).productVariants || []).map((variant: any, index: number) => (
                         <React.Fragment key={variant.id}>
                             <ListItemButton
@@ -83,28 +87,29 @@ export default function VariantDialog() {
                                     py: 2,
                                     px: 3,
                                     '&:hover': {
-                                        bgcolor: 'color-mix(in srgb, var(--primary) 5%, transparent)',
-                                        '& .variant-price': { color: 'var(--primary)' }
+                                        bgcolor: alpha(theme.palette.primary.main, 0.05),
+                                        '& .variant-price': { color: 'primary.main' }
                                     }
                                 }}
                             >
                                 <ListItemText
                                     primary={
-                                        <Typography sx={{ fontWeight: 800, color: 'var(--text)' }}>
+                                        <Typography sx={{ fontWeight: 800, color: 'text.primary' }}>
                                             {variant.name || variant.title || `Seçenek ${index + 1}`}
                                         </Typography>
                                     }
                                     secondary={
-                                        variant.sku ? <Typography variant="caption" sx={{ fontWeight: 600 }}>SKU: {variant.sku}</Typography> : null
+                                        variant.sku ? <Typography variant="caption" sx={{ fontWeight: 700, color: 'text.disabled' }}>SKU: {variant.sku}</Typography> : null
                                     }
                                 />
                                 <Typography
                                     className="variant-price"
                                     sx={{
                                         fontWeight: 900,
-                                        color: 'var(--muted-foreground)',
+                                        color: 'text.secondary',
                                         transition: 'all 0.2s',
-                                        fontSize: '1.1rem'
+                                        fontSize: '1.125rem',
+                                        fontFamily: theme.typography.fontFamily
                                     }}
                                 >
                                     {formatCurrency(parseFloat(variant.salePrice || variant.satisFiyati || (selectedProductForVariant as any).salePrice || 0))}
@@ -116,14 +121,17 @@ export default function VariantDialog() {
                 </List>
             </DialogContent>
 
-            <DialogActions sx={{ p: 2, bgcolor: 'var(--background)' }}>
+            <DialogActions sx={{ p: 2.5, bgcolor: alpha(theme.palette.background.default, 0.4) }}>
                 <Button
                     fullWidth
                     onClick={() => setVariantDialogOpen(false)}
                     sx={{
+                        py: 1.25,
+                        borderRadius: 2.5,
                         fontWeight: 800,
-                        color: 'var(--muted-foreground)',
-                        '&:hover': { bgcolor: 'color-mix(in srgb, var(--text) 6%, transparent)' }
+                        color: 'text.secondary',
+                        textTransform: 'none',
+                        '&:hover': { bgcolor: alpha(theme.palette.text.primary, 0.05) }
                     }}
                 >
                     İptal

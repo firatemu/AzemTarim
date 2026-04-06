@@ -25,6 +25,7 @@ import {
   Tabs,
   Tab,
   TextField,
+  Grid,
 } from '@mui/material';
 import { ArrowBack, Add, Edit, Delete, Info, Inventory2, History, Print, Assessment, Payments, QrCodeScanner, PhotoCamera } from '@mui/icons-material';
 import { BarcodeScanner } from '@/components/atolye/BarcodeScanner';
@@ -45,6 +46,8 @@ import SupplyPartRequestDialog from '@/components/servis/SupplyPartRequestDialog
 import WorkOrderPrintView from '@/components/servis/WorkOrderPrintView';
 import WorkOrderTahsilatDialog from '@/components/servis/WorkOrderTahsilatDialog';
 import { useAuthStore } from '@/stores/authStore';
+import { useTabStore } from '@/stores/tabStore';
+import { StandardPage, StandardCard } from '@/components/common';
 import type { WorkOrder, WorkOrderItem, PartRequest, WorkOrderStatus, VehicleWorkflowStatus } from '@/types/servis';
 
 export default function IsEmriDetayPage() {
@@ -52,6 +55,7 @@ export default function IsEmriDetayPage() {
   const isTechnician = user?.role === 'TECHNICIAN';
   const router = useRouter();
   const params = useParams();
+  const { addTab } = useTabStore();
   const id = params.id as string;
 
   const [workOrder, setWorkOrder] = useState<WorkOrder | null>(null);
@@ -343,181 +347,102 @@ export default function IsEmriDetayPage() {
   const partRequests = workOrder.partRequests ?? [];
 
   return (
-    <>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3, flexWrap: 'wrap' }}>
-        <Button
-          startIcon={<ArrowBack />}
-          onClick={() => router.push('/servis/is-emirleri')}
-          sx={{ textTransform: 'none' }}
-        >
-          Geri
-        </Button>
-        <Typography variant="h6" sx={{ fontWeight: 600 }}>
-          İş Emri: {workOrder.workOrderNo}
-        </Typography>
-        <WorkOrderStatusChip status={workOrder.status} size="medium" />
-        <Box sx={{ flex: 1 }} />
-        {!isTechnician && (
-          <Button startIcon={<Print />} onClick={() => handlePrint()} variant="outlined" size="small" sx={{ textTransform: 'none' }}>
-            Yazdır
-          </Button>
-        )}
-        <Button
-          variant="contained"
-          startIcon={<QrCodeScanner />}
-          color="secondary"
-          size="small"
-          onClick={() => setOpenScanner(true)}
-          sx={{ textTransform: 'none' }}
-        >
-          Barkod
-        </Button>
-        <Button
-          variant="contained"
-          startIcon={<PhotoCamera />}
-          color="info"
-          size="small"
-          onClick={() => setOpenPhoto(true)}
-          sx={{ textTransform: 'none' }}
-        >
-          Fotoğraf
-        </Button>
+    <StandardPage>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3, flexWrap: 'wrap', justifyContent: 'space-between' }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          <Button startIcon={<ArrowBack />} onClick={() => router.push('/service/work-orders')} variant="outlined" sx={{ borderRadius: 2 }}>Geri</Button>
+          <Box>
+            <Typography variant="h5" fontWeight="800" sx={{ letterSpacing: '-0.02em' }}>İş Emri: {workOrder.workOrderNo}</Typography>
+            <Stack direction="row" spacing={1} alignItems="center">
+              <WorkOrderStatusChip status={workOrder.status} size="small" />
+              <Typography variant="caption" color="text.secondary">{workOrder.cari?.unvan}</Typography>
+            </Stack>
+          </Box>
+        </Box>
+        <Stack direction="row" spacing={1.5}>
+          {!isTechnician && (
+            <Button startIcon={<Print />} onClick={() => handlePrint()} variant="outlined" size="small" sx={{ borderRadius: 2 }}>Yazdır</Button>
+          )}
+          <Button variant="contained" startIcon={<QrCodeScanner />} color="secondary" size="small" onClick={() => setOpenScanner(true)} sx={{ borderRadius: 2 }}>Barkod</Button>
+          <Button variant="contained" startIcon={<PhotoCamera />} color="info" size="small" onClick={() => setOpenPhoto(true)} sx={{ borderRadius: 2 }}>Fotoğraf</Button>
+        </Stack>
       </Box>
 
       <OnlineStatusBanner tenantId={workOrder.tenantId ?? ''} pendingCount={0} />
-
 
       <Box sx={{ display: 'none' }}>
         <WorkOrderPrintView ref={printRef} workOrder={workOrder} />
       </Box>
 
-      <Paper sx={{ p: 3, mb: 3, borderRadius: 'var(--radius)', border: '1px solid var(--border)' }}>
-        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 3, alignItems: 'flex-start', justifyContent: 'space-between' }}>
-          <Box sx={{ minWidth: 200 }}>
-            <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 0.5 }}>
-              Araç
-            </Typography>
+      <StandardCard sx={{ mb: 3 }}>
+        <Grid container spacing={3}>
+          <Grid item xs={12} md={4}>
+            <Typography variant="subtitle2" color="text.secondary" gutterBottom>Araç Bilgileri</Typography>
             {workOrder.customerVehicle ? (
               (() => {
                 const v = workOrder.customerVehicle;
-                const rows: { label: string; value: string | number }[] = [
-                  { label: 'Plaka', value: v.plaka },
-                  { label: 'Marka / Model', value: `${v.aracMarka} ${v.aracModel}`.trim() },
+                const rows = [
+                  { label: 'Plaka', value: v.plaka, bold: true },
+                  { label: 'Marka / Model', value: `${v.aracMarka} ${v.aracModel}` },
+                  { label: 'Yıl', value: v.yil },
+                  { label: 'Km', value: v.km?.toLocaleString('tr-TR') },
+                  { label: 'Şase', value: v.saseno },
                 ];
-                if (v.saseno) rows.push({ label: 'Şase no', value: v.saseno });
-                if (v.yil != null) rows.push({ label: 'Yıl', value: v.yil });
-                if (v.km != null) rows.push({ label: 'Km', value: v.km.toLocaleString('tr-TR') });
-                if (v.aracMotorHacmi) rows.push({ label: 'Motor hacmi', value: v.aracMotorHacmi });
-                if (v.aracYakitTipi) rows.push({ label: 'Yakıt', value: v.aracYakitTipi });
-                if (v.renk) rows.push({ label: 'Renk', value: v.renk });
-                if (v.motorGucu != null) rows.push({ label: 'Motor gücü', value: `${v.motorGucu} hp` });
-                if (v.sanziman) rows.push({ label: 'Şanzıman', value: v.sanziman });
-                if (v.ruhsatNo) rows.push({ label: 'Ruhsat no', value: v.ruhsatNo });
-                if (v.tescilTarihi) rows.push({ label: 'Tescil tarihi', value: typeof v.tescilTarihi === 'string' ? formatDate(v.tescilTarihi) : String(v.tescilTarihi) });
-                if (v.ruhsatSahibi) rows.push({ label: 'Ruhsat sahibi', value: v.ruhsatSahibi });
-                if (v.aciklama) rows.push({ label: 'Açıklama', value: v.aciklama });
                 return (
-                  <Box sx={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '2px 12px', alignItems: 'baseline', fontSize: '0.875rem' }}>
-                    {rows.map((r) => (
-                      <React.Fragment key={r.label}>
-                        <Typography component="span" variant="body2" color="text.secondary">{r.label}</Typography>
-                        <Typography component="span" variant="body2" fontWeight={r.label === 'Plaka' ? 600 : 400}>{r.value}</Typography>
-                      </React.Fragment>
+                  <Stack spacing={0.5}>
+                    {rows.map(r => r.value && (
+                      <Box key={r.label} sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <Typography variant="body2" color="text.secondary">{r.label}:</Typography>
+                        <Typography variant="body2" fontWeight={r.bold ? 700 : 400}>{r.value}</Typography>
+                      </Box>
                     ))}
-                  </Box>
+                  </Stack>
                 );
               })()
-            ) : (
-              <Typography variant="body1">-</Typography>
-            )}
-            <Typography variant="subtitle2" color="text.secondary" sx={{ mt: 1.5 }}>
-              Müşteri
-            </Typography>
-            <Typography variant="body1">
-              {workOrder.cari?.unvan ?? workOrder.cari?.cariKodu ?? '-'}
-            </Typography>
-          </Box>
-          {workOrder.customerVehicle?.ruhsatPhotoUrl && !ruhsatImgError && (
-            <Box>
-              <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 0.5 }}>
-                Ruhsat
-              </Typography>
-              <Box
-                component="img"
-                src={workOrder.customerVehicle.ruhsatPhotoUrl}
-                alt="Ruhsat"
-                onError={() => setRuhsatImgError(true)}
-                onClick={() => window.open(workOrder.customerVehicle!.ruhsatPhotoUrl!, '_blank')}
-                sx={{
-                  width: 80,
-                  height: 60,
-                  borderRadius: 1,
-                  border: '1px solid var(--border)',
-                  objectFit: 'cover',
-                  cursor: 'pointer',
-                  '&:hover': { opacity: 0.9 },
-                }}
-                title="Ruhsat fotoğrafını büyüt"
+            ) : <Typography variant="body2">-</Typography>}
+          </Grid>
+          <Grid item xs={12} md={4}>
+            <Typography variant="subtitle2" color="text.secondary" gutterBottom>Müşteri & Planlama</Typography>
+            <Stack spacing={1}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                <Typography variant="body2" color="text.secondary">Müşteri:</Typography>
+                <Typography variant="body2" fontWeight="600">{workOrder.cari?.unvan || '-'}</Typography>
+              </Box>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                <Typography variant="body2" color="text.secondary">Teknisyen:</Typography>
+                <Typography variant="body2">{workOrder.technician?.fullName || '-'}</Typography>
+              </Box>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                <Typography variant="body2" color="text.secondary">Tahmini Bitiş:</Typography>
+                <Typography variant="body2">{workOrder.estimatedCompletionDate ? formatDate(workOrder.estimatedCompletionDate) : '-'}</Typography>
+              </Box>
+            </Stack>
+          </Grid>
+          <Grid item xs={12} md={4}>
+            <Box sx={{ bgcolor: 'action.hover', p: 2, borderRadius: 2, height: '100%', display: 'flex', alignItems: 'center' }}>
+              <WorkOrderStatusActions
+                partWorkflowStatus={workOrder.partWorkflowStatus ?? (workOrder.status === 'PART_WAITING' ? 'PARTS_PENDING' : workOrder.status === 'PARTS_SUPPLIED' ? 'ALL_PARTS_SUPPLIED' : 'NOT_STARTED')}
+                vehicleWorkflowStatus={workOrder.vehicleWorkflowStatus ?? (workOrder.status === 'INVOICED_CLOSED' || workOrder.status === 'CLOSED_WITHOUT_INVOICE' ? 'DELIVERED' : workOrder.status === 'VEHICLE_READY' ? 'READY' : workOrder.status === 'APPROVED_IN_PROGRESS' || workOrder.status === 'PART_WAITING' || workOrder.status === 'PARTS_SUPPLIED' ? 'IN_PROGRESS' : 'WAITING')}
+                status={workOrder.status}
+                onVehicleWorkflowChange={handleVehicleWorkflowChange}
+                onCloseWithoutInvoice={() => handleStatusChange('CLOSED_WITHOUT_INVOICE')}
+                onCancel={() => handleStatusChange('CANCELLED')}
+                loading={statusLoading}
+                actualCompletionDate={workOrder.actualCompletionDate}
+                isTechnician={isTechnician}
               />
             </Box>
-          )}
-          {workOrder.customerVehicle?.ruhsatPhotoUrl && ruhsatImgError && (
-            <Box>
-              <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 0.5 }}>
-                Ruhsat
-              </Typography>
-              <Box
-                sx={{
-                  width: 80,
-                  height: 60,
-                  borderRadius: 1,
-                  border: '1px solid var(--border)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  bgcolor: 'action.hover',
-                  color: 'text.secondary',
-                  fontSize: '0.75rem',
-                }}
-              >
-                Görsel yok
-              </Box>
-            </Box>
-          )}
-          <Box>
-            <Typography variant="subtitle2" color="text.secondary">
-              Tahmini Bitiş
-            </Typography>
-            <Typography variant="body1">
-              {workOrder.estimatedCompletionDate
-                ? formatDate(workOrder.estimatedCompletionDate)
-                : '-'}
-            </Typography>
-          </Box>
-          <WorkOrderStatusActions
-            partWorkflowStatus={workOrder.partWorkflowStatus ?? (workOrder.status === 'PART_WAITING' ? 'PARTS_PENDING' : workOrder.status === 'PARTS_SUPPLIED' ? 'ALL_PARTS_SUPPLIED' : 'NOT_STARTED')}
-            vehicleWorkflowStatus={workOrder.vehicleWorkflowStatus ?? (workOrder.status === 'INVOICED_CLOSED' || workOrder.status === 'CLOSED_WITHOUT_INVOICE' ? 'DELIVERED' : workOrder.status === 'VEHICLE_READY' ? 'READY' : workOrder.status === 'APPROVED_IN_PROGRESS' || workOrder.status === 'PART_WAITING' || workOrder.status === 'PARTS_SUPPLIED' ? 'IN_PROGRESS' : 'WAITING')}
-            status={workOrder.status}
-            onVehicleWorkflowChange={handleVehicleWorkflowChange}
-            onCloseWithoutInvoice={() => handleStatusChange('CLOSED_WITHOUT_INVOICE')}
-            onCancel={() => handleStatusChange('CANCELLED')}
-            loading={statusLoading}
-            actualCompletionDate={workOrder.actualCompletionDate}
-            isTechnician={isTechnician}
-          />
-        </Box>
+          </Grid>
+        </Grid>
         {workOrder.description && (
-          <>
-            <Divider sx={{ my: 2 }} />
-            <Typography variant="subtitle2" color="text.secondary">
-              Açıklama
-            </Typography>
-            <Typography variant="body1">{workOrder.description}</Typography>
-          </>
+          <Box sx={{ mt: 2, pt: 2, borderTop: '1px solid', borderColor: 'divider' }}>
+            <Typography variant="subtitle2" color="text.secondary" gutterBottom>Müşteri Şikayeti / Açıklama</Typography>
+            <Typography variant="body2" sx={{ fontStyle: 'italic', bgcolor: 'warning.light', p: 1.5, borderRadius: 1, color: 'warning.contrastText' }}>{workOrder.description}</Typography>
+          </Box>
         )}
-      </Paper>
+      </StandardCard>
 
-      <Paper sx={{ mb: 3, borderRadius: 'var(--radius)', border: '1px solid var(--border)' }}>
+      <StandardCard padding={0} sx={{ mb: 3 }}>
         <Tabs
           value={activeTab}
           onChange={(_, v) => setActiveTab(v)}
@@ -963,7 +888,7 @@ export default function IsEmriDetayPage() {
             )}
           </Box>
         )}
-      </Paper>
+      </StandardCard>
 
       <WorkOrderItemDialog
         open={openItemDialog}
@@ -1049,6 +974,7 @@ export default function IsEmriDetayPage() {
           {snackbar.message}
         </Alert>
       </Snackbar>
+
       <Dialog open={openScanner} onClose={() => setOpenScanner(false)}>
         <DialogTitle>Barkod Oku</DialogTitle>
         <DialogContent>
@@ -1074,8 +1000,7 @@ export default function IsEmriDetayPage() {
           />
         </DialogContent>
       </Dialog>
-
-    </>
+    </StandardPage>
   );
 }
 

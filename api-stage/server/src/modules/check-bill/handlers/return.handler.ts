@@ -1,16 +1,21 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
-import { CheckBillStatus, AccountTransactionDirection, LogAction } from '@prisma/client';
+import { CheckBillStatus, LogAction, DebitCredit, DocumentType, Prisma } from '@prisma/client';
 import { IJournalHandler, JournalHandlerContext } from './journal-handler.interface';
 import { CreateCheckBillJournalDto } from '../dto/create-check-bill-journal.dto';
 import { assertLegalTransition } from '../utils/status-transition.util';
+import { AccountBalanceService } from '../../account-balance/account-balance.service';
 
 @Injectable()
 export class ReturnHandler implements IJournalHandler {
+    constructor(private readonly accountBalanceService: AccountBalanceService) { }
+
     async handle(dto: CreateCheckBillJournalDto, context: JournalHandlerContext): Promise<void> {
         const { tx, journalId, tenantId, performedById } = context;
 
         const ids = dto.selectedDocumentIds ?? [];
         if (ids.length === 0) return;
+
+        let lastAccountId: string | null = null;
 
         for (const checkBillId of ids) {
             const checkBill = await tx.checkBill.findFirst({
@@ -20,6 +25,7 @@ export class ReturnHandler implements IJournalHandler {
             if (!checkBill) throw new BadRequestException(`Evrak bulunamadı: ${checkBillId}`);
 
             assertLegalTransition(checkBill.status, CheckBillStatus.RETURNED);
+            lastAccountId = checkBill.accountId;
 
             await tx.checkBill.update({
                 where: { id: checkBillId },
@@ -47,39 +53,30 @@ export class ReturnHandler implements IJournalHandler {
                 },
             });
 
-            // Account Transaction: Receivable re-opens (CREDIT)
-            await tx.accountTransaction.create({
-                data: {
-                    tenantId,
-                    accountId: checkBill.accountId, // Müşteri veya tedarikçi orijinal hesabı
-                    sourceType: 'CHECK_BILL_JOURNAL',
-                    sourceId: journalId,
-                    direction: AccountTransactionDirection.CREDIT,
-                    amount: checkBill.amount,
-                    description: 'Document returned — receivable re-opens',
-                },
-            });
-
             // Account Movement:
             // Eğer evrak Müşteri Evrakı ise (CREDIT) -> iade edince müşteri bize tekrar borçlanır -> DEBIT
             // Eğer evrak Kendi Evrakımız ise (DEBIT) -> iade gelince tedarikçiye borcumuz tekrar artar -> CREDIT
-            const movementType = checkBill.portfolioType === 'CREDIT' ? 'DEBIT' : 'CREDIT';
+            const movementType = checkBill.portfolioType === 'CREDIT' ? DebitCredit.DEBIT : DebitCredit.CREDIT;
 
-            await tx.$executeRawUnsafe(
-                `INSERT INTO account_movements (id, "tenantId", account_id, type, amount, balance, document_type, document_no, check_bill_id, date, notes, "createdAt", "updatedAt") 
-                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW(), NOW())`,
-                require('crypto').randomUUID(),
-                tenantId,
-                checkBill.accountId,
-                movementType,
-                checkBill.amount,
-                0,
-                'RETURN', // İade
-                checkBill.checkNo || checkBill.serialNo || '—',
-                checkBillId,
-                dto.date ? new Date(dto.date) : new Date(),
-                dto.notes || 'Evrak İade Edildi'
-            );
+            await tx.accountMovement.create({
+                data: {
+                    tenantId,
+                    accountId: checkBill.accountId,
+                    type: movementType,
+                    amount: checkBill.amount,
+                    balance: new Prisma.Decimal(0),
+                    documentType: DocumentType.RETURN,
+                    documentNo: checkBill.checkNo || checkBill.serialNo || '-',
+                    checkBillId,
+                    date: dto.date ? new Date(dto.date) : new Date(),
+                    notes: dto.notes || 'Evrak İade Edildi'
+                }
+            });
+        }
+
+        // Bakiye güncelleme
+        if (lastAccountId) {
+            await this.accountBalanceService.recalculateAccountBalance(lastAccountId, tx);
         }
     }
 }

@@ -33,6 +33,7 @@ import {
 } from '@mui/icons-material';
 import { StandardPage } from '@/components/common';
 import axios from '@/lib/axios';
+import { useSnackbar } from 'notistack';
 
 // Tipler
 interface Avans {
@@ -58,6 +59,7 @@ interface Avans {
 }
 
 const AvansVerDialog = React.memo(({ open, onClose, personelList, kasalar, onSave }: any) => {
+    const { enqueueSnackbar } = useSnackbar();
     const [formData, setFormData] = useState({
         personelId: '',
         tutar: '',
@@ -67,9 +69,9 @@ const AvansVerDialog = React.memo(({ open, onClose, personelList, kasalar, onSav
     });
 
     const handleSubmit = () => {
-        if (!formData.personelId) return alert('Personel seçiniz');
-        if (!formData.tutar || Number(formData.tutar) <= 0) return alert('Geçerli tutar giriniz');
-        if (!formData.kasaId) return alert('Kasa seçiniz');
+        if (!formData.personelId) return enqueueSnackbar('Personel seçiniz', { variant: 'warning' });
+        if (!formData.tutar || Number(formData.tutar) <= 0) return enqueueSnackbar('Geçerli tutar giriniz', { variant: 'warning' });
+        if (!formData.kasaId) return enqueueSnackbar('Kasa seçiniz', { variant: 'warning' });
 
         onSave({
             ...formData,
@@ -141,6 +143,7 @@ const AvansVerDialog = React.memo(({ open, onClose, personelList, kasalar, onSav
 });
 
 const MahsuplastirDialog = React.memo(({ open, onClose, avans, plans, onSave }: any) => {
+    const { enqueueSnackbar } = useSnackbar();
     // Basitçe o personelin o yılki planlarından birini seçtirip düşelim
     const [selectedPlanId, setSelectedPlanId] = useState('');
     const [tutar, setTutar] = useState(0);
@@ -152,8 +155,8 @@ const MahsuplastirDialog = React.memo(({ open, onClose, avans, plans, onSave }: 
     }, [open, avans]);
 
     const handleSubmit = () => {
-        if (!selectedPlanId) return alert('Dönem seçiniz');
-        if (tutar <= 0 || tutar > Number(avans.kalan)) return alert('Geçersiz tutar');
+        if (!selectedPlanId) return enqueueSnackbar('Dönem seçiniz', { variant: 'warning' });
+        if (tutar <= 0 || tutar > Number(avans.kalan)) return enqueueSnackbar('Geçersiz tutar', { variant: 'warning' });
 
         // Backend tek seferde çoklu plan destekliyor ama arayüzde basitlik için tek tek seçtirelim
         onSave({
@@ -212,6 +215,7 @@ const MahsuplastirDialog = React.memo(({ open, onClose, avans, plans, onSave }: 
 });
 
 export default function AvansPage() {
+    const { enqueueSnackbar } = useSnackbar();
     const [avanslar, setAvanslar] = useState<Avans[]>([]);
     const [personelId, setPersonelId] = useState(''); // Filtre için
     const [personelList, setPersonelList] = useState<any[]>([]);
@@ -272,9 +276,9 @@ export default function AvansPage() {
             if (personelId === data.personelId) {
                 fetchAvanslar(personelId);
             }
-            alert('Avans verildi');
+            enqueueSnackbar('Avans verildi', { variant: 'success' });
         } catch (error: any) {
-            alert(error.response?.data?.message || 'Hata oluştu');
+            enqueueSnackbar(error.response?.data?.message || 'Hata oluştu', { variant: 'error' });
         }
     };
 
@@ -283,9 +287,9 @@ export default function AvansPage() {
             await axios.post('/avans/mahsuplastir', data);
             setOpenMahsupDialog(false);
             if (selectedAvans) fetchAvanslar(selectedAvans.personelId);
-            alert('Mahsuplaştırma başarılı');
+            enqueueSnackbar('Mahsuplaştırma başarılı', { variant: 'success' });
         } catch (error: any) {
-            alert('Hata oluştu');
+            enqueueSnackbar('Hata oluştu', { variant: 'error' });
         }
     }
 

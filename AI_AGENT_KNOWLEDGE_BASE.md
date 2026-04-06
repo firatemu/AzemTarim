@@ -702,6 +702,14 @@ function InvoiceList() {
 }
 ```
 
+### 8.6 DataGrid İşlem Menüsü (Action Menu) Standardı
+Next.js ve MUI DataGrid kullanılan tüm sayfalardaki satır işlem menüleri (Action Menus) `panel-stage/client/src/app/(main)/invoice/sales/page.tsx` içerisindeki "Creative Action Menu" mimarisine `%100 uygun` olmalıdır. Bu yapıdaki kurallar:
+1. **Menu PaperProps**: `elevation: 8`, ok efekti veren `transform: 'translateY(-50%) rotate(45deg)'` pseudo elementi (`&:before`) ve minWdith: 280, borderRadius: 3 kullanılmalıdır.
+2. **Başlık Sektörü (Header)**: Menünün en üstünde gri tonlu (`var(--muted)`) bir alanda "İşlem Adı" ve kaydın özel bir değeri (örn. cari kod veya fatura no) vurgulu font ile yer almalıdır.
+3. **Kategorizasyon**: İşlemler `Hızlı İşlemler` ve `Gelişmiş İşlemler` vb. bölümlere ayrılmalı ve üstlerinde uppercase, küçük fontlu başlıklar (`Typography variant="caption"`) kullanılmalıdır.
+4. **İkon ve Yönlendirmeler**: Her işlemde MUI Icon bulunmalı. Silme ve iptal işlemleri `var(--destructive)` ile renklendirilmeli, menü seçeneğine tıklanınca hem menü kapanmalı (`handleClose()`) hem de tetiklenen fonksiyon çalıştırılmalıdır.
+5. **Yuvarlatılmış Seçenekler**: `MenuItem` componentleri px, py paddinglere sahip olmalı ve borderRadius: 2 ile hover yapıldığında köşe yuvarlaklıkları korunmalıdır. Disabled olanlar opacity %50 olmalıdır.
+
 ---
 
 ## 9. POS Sistemi

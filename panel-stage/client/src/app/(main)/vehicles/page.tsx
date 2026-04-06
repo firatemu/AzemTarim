@@ -35,6 +35,7 @@ import { Add, Edit, Delete, Search, DirectionsCar } from '@mui/icons-material';
 import { StandardPage } from '@/components/common';
 import axios from '@/lib/axios';
 import { useDebounce } from '@/hooks/useDebounce';
+import { useSnackbar } from 'notistack';
 
 interface Arac {
   id: string;
@@ -196,6 +197,7 @@ const AracFormDialog = React.memo(({
 AracFormDialog.displayName = 'AracFormDialog';
 
 export default function AracPage() {
+  const { enqueueSnackbar } = useSnackbar();
   const [araclar, setAraclar] = useState<Arac[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -328,16 +330,16 @@ export default function AracPage() {
 
       if (editingArac) {
         await axios.patch(`/vehicle-brand/${editingArac.id}`, backendData);
-        alert('✅ Araç başarıyla güncellendi');
+        enqueueSnackbar('Araç başarıyla güncellendi', { variant: 'success' });
       } else {
         await axios.post('/vehicle-brand', backendData);
-        alert('✅ Araç başarıyla eklendi');
+        enqueueSnackbar('Araç başarıyla eklendi', { variant: 'success' });
       }
       await fetchAraclar();
       handleCloseDialog();
     } catch (error: any) {
       console.error('Araç kaydedilemedi:', error);
-      alert(`❌ Hata: ${error.response?.data?.message || 'Araç kaydedilirken bir hata oluştu'}`);
+      enqueueSnackbar(error.response?.data?.message || 'Araç kaydedilirken bir hata oluştu', { variant: 'error' });
     }
   }, [editingArac, fetchAraclar, handleCloseDialog]);
 
@@ -350,11 +352,11 @@ export default function AracPage() {
     try {
       setDeleting(id);
       await axios.delete(`/vehicle-brand/${id}`);
-      alert('✅ Araç başarıyla silindi');
+      enqueueSnackbar('Araç başarıyla silindi', { variant: 'success' });
       await fetchAraclar();
     } catch (error: any) {
       console.error('Araç silinemedi:', error);
-      alert(`❌ Hata: ${error.response?.data?.message || 'Araç silinirken bir hata oluştu'}`);
+      enqueueSnackbar(error.response?.data?.message || 'Araç silinirken bir hata oluştu', { variant: 'error' });
     } finally {
       setDeleting(null);
     }
@@ -557,8 +559,8 @@ export default function AracPage() {
                         arac.yakitTipi === 'Benzin'
                           ? 'error'
                           : arac.yakitTipi === 'Dizel'
-                          ? 'warning'
-                          : 'success'
+                            ? 'warning'
+                            : 'success'
                       }
                       variant="filled"
                     />

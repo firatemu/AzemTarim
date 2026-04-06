@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState, useMemo, useCallback } from 'react';
+import * as React from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import {
   Box,
   Typography,
@@ -69,9 +70,11 @@ import {
   AreaChart,
   Area,
 } from 'recharts';
+import { StandardPage, StandardCard } from '@/components/common';
+import { useTheme, alpha } from '@mui/material/styles';
 import { DataGrid, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
+import { trTR } from '@mui/x-data-grid/locales';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { StandardPage } from '@/components/common';
 import axios from '@/lib/axios';
 import CaprazOdemeDialog from './components/CaprazOdemeDialog';
 import TahsilatFormDialog from './components/TahsilatFormDialog';
@@ -234,6 +237,7 @@ const StatBadge = ({
 
 export default function CollectionPage() {
   const queryClient = useQueryClient();
+  const theme = useTheme();
 
   // ─── State ────────────────────────────────────────────────────────────────
   const [openDialog, setOpenDialog] = useState(false);
@@ -406,8 +410,8 @@ export default function CollectionPage() {
   // ─── Filtreleme ───────────────────────────────────────────────────────────
   const filteredData = useMemo<Tahsilat[]>(() => {
     return tahsilatData
-      .filter((t) => (activeTab === 0 ? t.tip === 'COLLECTION' : t.tip === 'PAYMENT'))
-      .filter((t) => {
+      .filter((t: Tahsilat) => (activeTab === 0 ? t.tip === 'COLLECTION' : t.tip === 'PAYMENT'))
+      .filter((t: Tahsilat) => {
         if (!searchQuery.trim()) return true;
         const q = searchQuery.toLowerCase();
         return (
@@ -419,7 +423,7 @@ export default function CollectionPage() {
           t.bankaHesap?.hesapAdi?.toLowerCase().includes(q)
         );
       })
-      .sort((a, b) => {
+      .sort((a: Tahsilat, b: Tahsilat) => {
         const d = new Date(b.tarih).getTime() - new Date(a.tarih).getTime();
         if (d !== 0) return d;
         if (a.createdAt && b.createdAt) return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
@@ -427,16 +431,16 @@ export default function CollectionPage() {
       });
   }, [tahsilatData, activeTab, searchQuery]);
 
-  const collections = useMemo(() => tahsilatData.filter((t) => t.tip === 'COLLECTION'), [tahsilatData]);
-  const payments = useMemo(() => tahsilatData.filter((t) => t.tip === 'PAYMENT'), [tahsilatData]);
-  const collectionTotal = useMemo(() => collections.reduce((s, t) => s + Number(t.tutar || 0), 0), [collections]);
-  const paymentTotal = useMemo(() => payments.reduce((s, t) => s + Number(t.tutar || 0), 0), [payments]);
+  const collections = useMemo(() => tahsilatData.filter((t: Tahsilat) => t.tip === 'COLLECTION'), [tahsilatData]);
+  const payments = useMemo(() => tahsilatData.filter((t: Tahsilat) => t.tip === 'PAYMENT'), [tahsilatData]);
+  const collectionTotal = useMemo(() => collections.reduce((s: number, t: Tahsilat) => s + Number(t.tutar || 0), 0), [collections]);
+  const paymentTotal = useMemo(() => payments.reduce((s: number, t: Tahsilat) => s + Number(t.tutar || 0), 0), [payments]);
   const netBalance = collectionTotal - paymentTotal;
 
   // ─── Grafik Verisi ────────────────────────────────────────────────────────
   const trendData = useMemo(() => {
     const dateMap = new Map<string, { date: string; label: string; tahsilat: number; odeme: number }>();
-    tahsilatData.forEach((item) => {
+    tahsilatData.forEach((item: Tahsilat) => {
       const date = item.tarih.split('T')[0];
       if (!dateMap.has(date)) {
         dateMap.set(date, {
@@ -457,7 +461,7 @@ export default function CollectionPage() {
   // ─── Handlers ─────────────────────────────────────────────────────────────
   const handleOpenDialog = useCallback((tip: 'COLLECTION' | 'PAYMENT') => {
     setInitialFormData({
-      cariId: '', tip, tutar: 0,
+      cariId: '', tip, tutar: '',
       tarih: new Date().toISOString().split('T')[0],
       odemeTipi: 'NAKIT', kasaId: '', bankaHesapId: '',
       aciklama: '', kartSahibi: '', kartSonDort: '', bankaAdi: '', firmaKrediKartiId: '',
@@ -479,13 +483,14 @@ export default function CollectionPage() {
     ]);
   }, [queryClient]);
 
-  const handleSubmit = useCallback(async (submitFormData: any) => {
+  const handleSubmit = useCallback(async (submitFormData: TahsilatFormData) => {
     try {
-      if (!submitFormData.cariId || submitFormData.tutar <= 0) {
+      const tutarNum = typeof submitFormData.tutar === 'string' ? parseFloat(submitFormData.tutar) : submitFormData.tutar;
+      if (!submitFormData.cariId || tutarNum <= 0) {
         showSnackbar('Lütfen tüm zorunlu alanları doldurun', 'warning');
         return;
       }
-      if (submitFormData.odemeTipi === 'CREDIT_CARD' && submitFormData.tip === 'COLLECTION') {
+      if (submitFormData.odemeTipi === 'KREDI_KARTI' && submitFormData.tip === 'COLLECTION') {
         if (!submitFormData.bankaHesapId) {
           showSnackbar('POS tahsilat için banka hesabı seçimi zorunludur', 'warning');
           return;
@@ -498,7 +503,7 @@ export default function CollectionPage() {
       const dataToSend: any = {
         accountId: submitFormData.cariId,
         type: submitFormData.tip,
-        amount: Number(submitFormData.tutar),
+        amount: tutarNum,
         date: submitFormData.tarih,
         paymentMethod: submitFormData.odemeTipi === 'NAKIT' ? 'CASH' :
           submitFormData.odemeTipi === 'KREDI_KARTI' ? 'CREDIT_CARD' :
@@ -508,7 +513,7 @@ export default function CollectionPage() {
       };
       if (submitFormData.firmaKrediKartiId) dataToSend.companyCreditCardId = submitFormData.firmaKrediKartiId;
       if (submitFormData.bankaHesapId) dataToSend.bankAccountId = submitFormData.bankaHesapId;
-      if (submitFormData.odemeTipi === 'CREDIT_CARD' || submitFormData.odemeTipi === 'KREDI_KARTI') {
+      if (submitFormData.odemeTipi === 'KREDI_KARTI') {
         dataToSend.installmentCount = Number(submitFormData.installmentCount || 1);
       }
       await axios.post('/collections', dataToSend);
@@ -583,7 +588,7 @@ export default function CollectionPage() {
   }, [caprazOdemeFormData, invalidateAll, showSnackbar]);
 
   const getOdemeTipiLabel = useCallback((tip: string) => {
-    const map: Record<string, string> = { NAKIT: 'Nakit', KREDI_KARTI: 'Kart', CASH: 'Nakit', CREDIT_CARD: 'Kart' };
+    const map: Record<string, string> = { NAKIT: 'Nakit', KREDI_KARTI: 'Kart', CASH: 'Nakit', CREDIT_CARD: 'Kart', POS: 'POS' };
     return map[tip] || tip;
   }, []);
 
@@ -624,7 +629,7 @@ export default function CollectionPage() {
       headerName: 'Cari Kod',
       minWidth: 130,
       flex: 1,
-      valueGetter: (_value, row) => row.cari?.cariKodu || '—',
+      valueGetter: (_value: any, row: Tahsilat) => row.cari?.cariKodu || '—',
       renderCell: ({ row }: GridRenderCellParams<Tahsilat>) => (
         <Typography variant="body2" color="text.secondary">
           {row.cari?.cariKodu || '—'}
@@ -636,7 +641,7 @@ export default function CollectionPage() {
       headerName: 'Cari Ünvan',
       minWidth: 220,
       flex: 1.8,
-      valueGetter: (_value, row) => row.cari?.unvan || '—',
+      valueGetter: (_value: any, row: Tahsilat) => row.cari?.unvan || '—',
       renderCell: ({ row }: GridRenderCellParams<Tahsilat>) => (
         <Typography variant="body2" fontWeight={600} sx={{ lineHeight: 1.3 }}>
           {row.cari?.unvan || '—'}
@@ -718,7 +723,7 @@ export default function CollectionPage() {
         <IconButton
           size="small"
           sx={{ color: 'var(--muted-foreground)' }}
-          onClick={(event) => handleOpenAuditPopover(event, row)}
+          onClick={(event: React.MouseEvent<HTMLElement>) => handleOpenAuditPopover(event, row)}
         >
           <Visibility fontSize="small" />
         </IconButton>
@@ -755,119 +760,109 @@ export default function CollectionPage() {
 
   // ─── Render ───────────────────────────────────────────────────────────────
   const isLoading = tahsilatLoading || tahsilatFetching;
+  const headerActions = (
+    <Stack direction="row" spacing={1}>
+      <Button
+        variant="contained"
+        size="small"
+        onClick={() => handleOpenDialog('COLLECTION')}
+        disabled={actionLoading}
+        sx={{
+          bgcolor: theme.palette.success.main,
+          color: theme.palette.success.contrastText,
+          textTransform: 'none',
+          fontWeight: 600,
+          borderRadius: 2,
+          boxShadow: 'none',
+          '&:hover': { bgcolor: theme.palette.success.dark, boxShadow: 'none' },
+        }}
+      >
+        + Tahsilat
+      </Button>
+      <Button
+        variant="contained"
+        size="small"
+        onClick={() => handleOpenDialog('PAYMENT')}
+        disabled={actionLoading}
+        sx={{
+          bgcolor: theme.palette.error.main,
+          color: theme.palette.error.contrastText,
+          textTransform: 'none',
+          fontWeight: 600,
+          borderRadius: 2,
+          boxShadow: 'none',
+          '&:hover': { bgcolor: theme.palette.error.dark, boxShadow: 'none' },
+        }}
+      >
+        + Ödeme
+      </Button>
+      <Button
+        variant="outlined"
+        size="small"
+        startIcon={<SwapHoriz sx={{ fontSize: '0.95rem !important' }} />}
+        onClick={() => setOpenCaprazOdemeDialog(true)}
+        disabled={actionLoading}
+        sx={{
+          textTransform: 'none',
+          fontWeight: 600,
+          borderRadius: 2,
+          boxShadow: 'none',
+          color: theme.palette.primary.main,
+          borderColor: alpha(theme.palette.primary.main, 0.4),
+          '&:hover': { borderColor: theme.palette.primary.main, bgcolor: alpha(theme.palette.primary.main, 0.05), boxShadow: 'none' },
+        }}
+      >
+        Çapraz
+      </Button>
+    </Stack>
+  );
 
   return (
-    <StandardPage maxWidth={false}>
-      {/* Header & Aksiyon Butonları */}
-      <Box sx={{ mb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1.5 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Box sx={{ width: 40, height: 40, borderRadius: 2, background: 'linear-gradient(135deg, var(--primary), var(--secondary))', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Receipt sx={{ color: 'var(--primary-foreground)', fontSize: 20 }} />
-          </Box>
-          <Typography variant="h6" fontWeight={700} color="var(--foreground)">
-            Tahsilat & Ödeme
-          </Typography>
-        </Box>
-
-        {/* Aksiyon Butonları */}
-        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
-          <Button
-            variant="contained"
-            size="small"
-            onClick={() => handleOpenDialog('COLLECTION')}
-            disabled={actionLoading}
-            sx={{
-              bgcolor: 'var(--chart-2)',
-              color: 'var(--chart-2-foreground)',
-              textTransform: 'none',
-              fontWeight: 600,
-              boxShadow: 'none',
-              '&:hover': { bgcolor: 'var(--chart-2-hover)', boxShadow: 'none' },
-            }}
-          >
-            + Tahsilat
-          </Button>
-          <Button
-            variant="contained"
-            size="small"
-            onClick={() => handleOpenDialog('PAYMENT')}
-            disabled={actionLoading}
-            sx={{
-              bgcolor: 'var(--destructive)',
-              color: 'var(--destructive-foreground)',
-              textTransform: 'none',
-              fontWeight: 600,
-              boxShadow: 'none',
-              '&:hover': { bgcolor: 'var(--destructive-hover)', boxShadow: 'none' },
-            }}
-          >
-            + Ödeme
-          </Button>
-          <Button
-            variant="outlined"
-            size="small"
-            startIcon={<SwapHoriz sx={{ fontSize: '0.95rem !important' }} />}
-            onClick={() => setOpenCaprazOdemeDialog(true)}
-            disabled={actionLoading}
-            sx={{
-              textTransform: 'none',
-              fontWeight: 600,
-              boxShadow: 'none',
-              color: 'var(--chart-5)',
-              borderColor: 'var(--chart-5)',
-              '&:hover': { borderColor: 'var(--chart-5)', bgcolor: 'color-mix(in srgb, var(--chart-5) 10%, transparent)', boxShadow: 'none' },
-            }}
-          >
-            Çapraz
-          </Button>
-        </Stack>
-      </Box>
-
+    <StandardPage title="Tahsilat & Ödeme" headerActions={headerActions}>
       {/* Loading bar */}
       {isLoading && <LinearProgress sx={{ mb: 2, borderRadius: 1, height: 3 }} />}
 
-      {/* KPI Kartları */}
-      <Paper variant="outlined" sx={{ mb: 2, p: 1.5, display: 'flex', flexWrap: 'wrap', gap: 0 }}>
+      {/* KPI Kartları - MODERNIZE */}
+      <Grid container spacing={2} sx={{ mb: 3 }}>
         {[
-          {
-            label: 'Net Bakiye',
-            value: netBalance,
-            color: netBalance >= 0 ? 'var(--chart-2)' : 'var(--destructive)',
-          },
-          { label: 'Tahsilat', value: collectionTotal, color: 'var(--chart-2)' },
-          { label: 'Ödeme', value: paymentTotal, color: 'var(--destructive)' },
-          { label: 'Toplam Tahsilat', value: stats.totalCollection, color: 'var(--primary)' },
-          { label: 'Toplam Ödeme', value: stats.totalPayment, color: 'var(--muted-foreground)' },
+          { label: 'Net Bakiye', value: netBalance, icon: TrendingDown, color: netBalance >= 0 ? theme.palette.success.main : theme.palette.error.main },
+          { label: 'Tahsilat', value: collectionTotal, icon: ArrowDownward, color: theme.palette.success.main },
+          { label: 'Ödeme', value: paymentTotal, icon: ArrowUpward, color: theme.palette.error.main },
+          { label: 'Toplam Tahsilat', value: stats.totalCollection, icon: AccountBalance, color: theme.palette.info.main },
+          { label: 'Toplam Ödeme', value: stats.totalPayment, icon: Payments, color: theme.palette.warning.main },
         ].map((item, i) => (
-          <Box
-            key={item.label}
-            sx={{
-              flex: '1 1 120px',
-              px: 1.5,
-              borderRight: i < 4 ? '1px solid var(--divider, var(--border))' : 'none',
-            }}
-          >
-            {statsFetching ? (
-              <>
-                <Skeleton width="60%" height={12} sx={{ mb: 0.5 }} />
-                <Skeleton width="80%" height={20} />
-              </>
-            ) : (
-              <>
-                <Typography variant="caption" color="var(--muted-foreground)" fontWeight={500}>
-                  {item.label}
-                </Typography>
-                <Typography variant="h6" fontWeight={700} sx={{ color: item.color }}>
-                  {formatCurrencyFn(Math.abs(item.value))}
-                </Typography>
-              </>
-            )}
-          </Box>
+          <Grid item xs={12} sm={6} md={2.4} key={i}>
+            <StandardCard>
+              <Stack direction="row" spacing={2} alignItems="center">
+                <Box
+                  sx={{
+                    width: 44,
+                    height: 44,
+                    borderRadius: 2,
+                    background: alpha(item.color as string, 0.1),
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <item.icon sx={{ color: item.color }} />
+                </Box>
+                <Box>
+                  <Typography variant="h6" fontWeight="800">
+                    {formatCurrencyFn(Math.abs(item.value))}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    {item.label}
+                  </Typography>
+                </Box>
+              </Stack>
+            </StandardCard>
+          </Grid>
         ))}
-      </Paper>
+      </Grid>
 
       {/* Tablo Kartı */}
-      <Paper sx={{ boxShadow: 'none', overflow: 'hidden', border: '1px solid var(--border)' }}>
+      <StandardCard padding={0}>
 
         {/* ── Toolbar ─────────────────────────────────────────────────── */}
         <Box sx={{
@@ -971,7 +966,7 @@ export default function CollectionPage() {
             size="small"
             placeholder="Cari, tutar veya açıklama ara..."
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchQuery(e.target.value)}
             sx={{ flex: 1, minWidth: 200, maxWidth: 380 }}
             InputProps={{
               startAdornment: <InputAdornment position="start"><Search sx={{ fontSize: 18, color: 'text.disabled' }} /></InputAdornment>,
@@ -1018,7 +1013,7 @@ export default function CollectionPage() {
               size="small"
               label="Başlangıç"
               value={dateRange.start}
-              onChange={(e) => { setDateRange({ ...dateRange, start: e.target.value }); setQuickFilter(''); }}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => { setDateRange({ ...dateRange, start: e.target.value }); setQuickFilter(''); }}
               slotProps={{ inputLabel: { shrink: true } }}
               sx={{ width: 150, '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
             />
@@ -1027,7 +1022,7 @@ export default function CollectionPage() {
               size="small"
               label="Bitiş"
               value={dateRange.end}
-              onChange={(e) => { setDateRange({ ...dateRange, end: e.target.value }); setQuickFilter(''); }}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => { setDateRange({ ...dateRange, end: e.target.value }); setQuickFilter(''); }}
               slotProps={{ inputLabel: { shrink: true } }}
               sx={{ width: 150, '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
             />
@@ -1067,7 +1062,7 @@ export default function CollectionPage() {
               <ToggleButtonGroup
                 value={trendPeriod}
                 exclusive
-                onChange={(_, val) => val && setTrendPeriod(val)}
+                onChange={(_: any, val: any) => val && setTrendPeriod(val)}
                 size="small"
                 sx={{ '& .MuiToggleButton-root': { py: 0.25, px: 1.5, fontSize: '0.75rem', fontWeight: 600 } }}
               >
@@ -1089,7 +1084,7 @@ export default function CollectionPage() {
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
                 <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fill: 'var(--muted-foreground)', fontSize: 11 }} />
-                <YAxis axisLine={false} tickLine={false} tick={{ fill: 'var(--muted-foreground)', fontSize: 11 }} tickFormatter={(v) => `₺${v >= 1000 ? `${(v / 1000).toFixed(0)}k` : v}`} width={50} />
+                <YAxis axisLine={false} tickLine={false} tick={{ fill: 'var(--muted-foreground)', fontSize: 11 }} tickFormatter={(v: number) => `₺${v >= 1000 ? `${(v / 1000).toFixed(0)}k` : v}`} width={50} />
                 <RechartsTooltip
                   formatter={(value: any) => formatCurrencyFn(value)}
                   contentStyle={{ borderRadius: 8, border: 'none', boxShadow: '0 4px 16px rgba(0,0,0,0.12)', fontSize: 13 }}
@@ -1120,7 +1115,7 @@ export default function CollectionPage() {
               Toplam:
             </Typography>
             <Typography variant="caption" fontWeight={700} sx={{ color: activeTab === 0 ? 'var(--chart-2)' : 'var(--destructive)' }}>
-              {formatCurrencyFn(filteredData.reduce((s, t) => s + Number(t.tutar || 0), 0))}
+              {formatCurrencyFn(filteredData.reduce((s: number, t: Tahsilat) => s + Number(t.tutar || 0), 0))}
             </Typography>
             <Divider orientation="vertical" flexItem sx={{ mx: 0.5, height: 16 }} />
             <Tooltip title="Excel İndir">
@@ -1137,7 +1132,7 @@ export default function CollectionPage() {
         </Box>
 
         {/* ── DataGrid ────────────────────────────────────────────────────── */}
-        <Box sx={{ height: 580 }}>
+        <Box sx={{ height: 650, width: '100%' }}>
           <DataGrid<Tahsilat>
             rows={filteredData}
             columns={columns}
@@ -1145,37 +1140,30 @@ export default function CollectionPage() {
             density={denseMode ? 'compact' : 'standard'}
             disableRowSelectionOnClick
             pageSizeOptions={[25, 50, 100]}
+            localeText={trTR.components.MuiDataGrid.defaultProps.localeText}
             initialState={{
               pagination: { paginationModel: { page: 0, pageSize: 25 } },
             }}
             sx={{
               border: 'none',
-              borderRadius: 0,
               '& .MuiDataGrid-columnHeaders': {
-                bgcolor: 'var(--muted)',
-                borderBottom: '1px solid var(--border)',
+                bgcolor: alpha(theme.palette.primary.main, 0.04),
+                borderBottom: `1px solid ${theme.palette.divider}`,
                 '& .MuiDataGrid-columnHeaderTitle': {
                   fontWeight: 700,
-                  fontSize: '0.8rem',
-                  color: 'var(--muted-foreground)',
+                  fontSize: '0.75rem',
+                  color: theme.palette.text.secondary,
                   textTransform: 'uppercase',
-                  letterSpacing: '0.04em',
+                  letterSpacing: 0.05,
                 },
               },
-              '& .MuiDataGrid-row': {
-                '&:hover': { bgcolor: 'color-mix(in srgb, var(--chart-2) 8%, transparent)' },
-                '&:nth-of-type(even)': { bgcolor: 'color-mix(in srgb, var(--muted) 55%, transparent)' },
-              },
               '& .MuiDataGrid-cell': {
-                borderBottom: '1px solid var(--border)',
+                borderBottom: `1px solid ${alpha(theme.palette.divider, 0.5)}`,
                 fontSize: '0.875rem',
               },
-              '& .MuiDataGrid-footerContainer': {
-                borderTop: '1px solid var(--border)',
-                bgcolor: 'var(--muted)',
-              },
-              '& .MuiDataGrid-virtualScroller': {
-                minHeight: 200,
+              '& .MuiDataGrid-row:hover': {
+                bgcolor: alpha(theme.palette.primary.main, 0.02),
+                cursor: 'pointer',
               },
             }}
             slots={{
@@ -1183,7 +1171,7 @@ export default function CollectionPage() {
             }}
           />
         </Box>
-      </Paper>
+      </StandardCard>
 
       {/* Dialog'lar */}
       <Popover

@@ -1,25 +1,24 @@
 'use client';
 
 import React, { Suspense } from 'react';
-import { CircularProgress, Box } from '@mui/material';
-import { AlisFaturaForm } from '../../yeni/page';
+import { useParams } from 'next/navigation';
+import { Box, CircularProgress } from '@mui/material';
+import { SatinAlmaFaturaForm } from '../../yeni/page';
 import MainLayout from '@/components/Layout/MainLayout';
-import { useParams, useRouter } from 'next/navigation';
 
-export default function AlisFaturaDuzenlePage() {
+export default function SatinalmaFaturasiDuzenlePage() {
   const params = useParams();
-  const router = useRouter();
   const id = params.id as string;
 
   return (
-    <Box sx={{ pb: 4 }}>
+    <MainLayout>
       <Suspense fallback={
         <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
           <CircularProgress />
         </Box>
       }>
-        <AlisFaturaForm faturaId={id} onBack={() => router.push('/invoice/purchase')} />
+        <SatinAlmaFaturaForm faturaId={id} onBack={() => window.history.back()} />
       </Suspense>
-    </Box>
+    </MainLayout>
   );
 }

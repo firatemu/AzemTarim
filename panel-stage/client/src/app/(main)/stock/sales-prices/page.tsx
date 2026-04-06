@@ -5,6 +5,7 @@ import {
   Alert,
   Box,
   Button,
+  Chip,
   IconButton,
   Paper,
   Snackbar,
@@ -18,19 +19,23 @@ import {
   Tooltip,
   Typography,
   InputAdornment,
+  Grid,
+  Stack,
+  CircularProgress,
+  alpha,
 } from '@mui/material';
 import {
-  ManageHistory,
   Refresh,
   Save,
-  PriceCheck,
   Search,
   HistoryOutlined,
   MonetizationOnOutlined,
   Inventory2Outlined,
-  FilterList
+  FilterList,
+  AutoAwesome,
 } from '@mui/icons-material';
-import MainLayout from '@/components/Layout/MainLayout';
+import { StandardPage, StandardCard } from '@/components/common';
+import { useTheme } from '@mui/material/styles';
 import axios from '@/lib/axios';
 import { useDebounce } from '@/hooks/useDebounce';
 import TableSkeleton from '@/components/Loading/TableSkeleton';
@@ -55,6 +60,7 @@ const formatDateOnly = (date: Date) => {
 };
 
 export default function SatisFiyatlariPage() {
+  const theme = useTheme();
   const [stoklar, setStoklar] = useState<Stok[]>([]);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState('');
@@ -84,7 +90,6 @@ export default function SatisFiyatlariPage() {
       });
       const items: any[] = response.data?.data ?? [];
 
-      // Map price cards to Stok format
       const mappedItems: Stok[] = items.map((card) => ({
         id: card.id,
         productId: card.productId,
@@ -147,7 +152,7 @@ export default function SatisFiyatlariPage() {
         salePrice: parsed,
         currency: 'TRY',
         effectiveFrom: formatDateOnly(now),
-        notes: `Tablodan güncelleme • ${now.toLocaleString('tr-TR')}`,
+        notes: `Hızlı guncelleme • ${now.toLocaleString('tr-TR')}`,
       });
       setSnackbar({ open: true, severity: 'success', message: `${stok.stokKodu} için satış fiyatı güncellendi.` });
       setStoklar((prev) =>
@@ -167,266 +172,230 @@ export default function SatisFiyatlariPage() {
   const filteredStoklar = useMemo(() => stoklar, [stoklar]);
 
   return (
-    <MainLayout>
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-        {/* 1. Header Area */}
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-            <Box
-              sx={{
-                width: 40,
-                height: 40,
-                borderRadius: 'var(--radius-md)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                background: 'var(--primary)',
-                color: 'var(--primary-foreground)',
-              }}
-            >
-              <MonetizationOnOutlined fontSize="small" />
-            </Box>
-            <Box>
-              <Typography variant="h6" fontWeight={700} sx={{ lineHeight: 1.2, color: 'var(--foreground)' }}>
-                Satış Fiyatları
-              </Typography>
-              <Typography variant="caption" sx={{ color: 'var(--muted-foreground)' }}>
-                Ürün satış fiyatlarını merkezi olarak yönetin
-              </Typography>
-            </Box>
-          </Box>
-          <Box sx={{ display: 'flex', gap: 1 }}>
-            <Button
-              variant="contained"
-              size="small"
-              onClick={fetchStoklar}
-              disabled={loading}
-              startIcon={<Refresh />}
-              sx={{
-                boxShadow: 'var(--shadow-sm)',
-                bgcolor: 'var(--primary)',
-                color: 'var(--primary-foreground)',
-                borderRadius: 'var(--radius-md)',
-                '&:hover': { bgcolor: 'var(--primary-hover)', boxShadow: 'var(--shadow-md)' }
-              }}
-            >
-              Yenile
-            </Button>
-          </Box>
-        </Box>
-
-        {/* 2. Metrics Strip */}
-        <Paper variant="outlined" sx={{ display: 'flex', borderRadius: 'var(--radius-md)', overflow: 'hidden', mb: 1, border: '1px solid var(--border)', background: 'var(--card)' }}>
-          <Box sx={{ flex: '1 1 150px', p: 1.5, borderRight: '1px solid var(--border)' }}>
-            <Typography variant="caption" sx={{ color: 'var(--muted-foreground)', display: "block", fontSize: '0.7rem', textTransform: 'uppercase', mb: 0.5 }}>
-              Toplam Kayıt
-            </Typography>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <Inventory2Outlined sx={{ fontSize: '1rem', color: 'var(--primary)' }} />
-              <Typography variant="body2" fontWeight={700} sx={{ fontSize: '0.9rem', color: 'var(--foreground)' }}>
-                {stoklar.length} Malzeme
-              </Typography>
-            </Box>
-          </Box>
-          <Box sx={{ flex: '1 1 150px', p: 1.5, borderRight: '1px solid var(--border)' }}>
-            <Typography variant="caption" sx={{ color: 'var(--muted-foreground)', display: "block", fontSize: '0.7rem', textTransform: 'uppercase', mb: 0.5 }}>
-              Para Birimi
-            </Typography>
-            <Typography variant="body2" fontWeight={700} sx={{ fontSize: '0.9rem', color: 'var(--foreground)' }}>
-              ₺ Türk Lirası
-            </Typography>
-          </Box>
-          <Box sx={{ flex: '2 1 200px', p: 1.5, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 2 }}>
-            {/* Buraya opsiyonel olarak genel bilgi gelebilir */}
-          </Box>
-        </Paper>
-
-        {/* 3. Integrated Toolbar and DataGrid/Table */}
-        <Paper variant="outlined" sx={{ borderRadius: 'var(--radius-md)', overflow: 'hidden', border: '1px solid var(--border)', background: 'var(--card)' }}>
-          {/* Toolbar area */}
-          <Box sx={{ px: 2, py: 1.5, display: 'flex', alignItems: 'center', gap: 2, borderBottom: '1px solid var(--border)', bgcolor: 'var(--muted)' }}>
+    <StandardPage
+      title="Satış Fiyatları"
+      subtitle="Ürün satış fiyatlarını merkezi olarak yönetin"
+      actions={
+        <Button
+          variant="contained"
+          startIcon={<Refresh />}
+          onClick={fetchStoklar}
+          disabled={loading}
+          sx={{
+            background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
+            boxShadow: '0 8px 24px rgba(99, 102, 241, 0.3)',
+            borderRadius: 2,
+            px: 3,
+            fontWeight: 600,
+            textTransform: 'none',
+            '&:hover': {
+              background: 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)',
+              transform: 'translateY(-2px)',
+            },
+          }}
+        >
+          Yenile
+        </Button>
+      }
+    >
+      {/* 2. Metrics Strip */}
+      <Grid container spacing={2.5} sx={{ mb: 3 }}>
+        <Grid item xs={12} md={4}>
+          <StandardCard>
+            <Stack direction="row" spacing={2} alignItems="center">
+              <Box
+                sx={{
+                  width: 48,
+                  height: 48,
+                  borderRadius: 2,
+                  background: alpha(theme.palette.primary.main, 0.1),
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <Inventory2Outlined color="primary" />
+              </Box>
+              <Box>
+                <Typography variant="h5" fontWeight="800">
+                  {stoklar.length}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Toplam Malzeme
+                </Typography>
+              </Box>
+            </Stack>
+          </StandardCard>
+        </Grid>
+        <Grid item xs={12} md={8}>
+          <StandardCard sx={{ height: '100%', display: 'flex', alignItems: 'center', py: 1 }}>
             <TextField
-              size="small"
+              fullWidth
               placeholder="Stok kodu veya adına göre ara..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              sx={{ width: 320 }}
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">
-                    <Search fontSize="small" sx={{ color: 'text.secondary' }} />
+                    <Search color="action" />
                   </InputAdornment>
                 ),
-                sx: { borderRadius: 2 }
+              }}
+              size="small"
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  borderRadius: 2,
+                },
               }}
             />
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, ml: 'auto' }}>
-              <IconButton size="small" sx={{ color: 'var(--muted-foreground)' }}>
-                <FilterList fontSize="small" />
-              </IconButton>
-              <Typography variant="caption" sx={{ color: 'var(--muted-foreground)', mr: 1 }}>
-                Son güncelleme: {new Date().toLocaleTimeString('tr-TR')}
-              </Typography>
-            </Box>
-          </Box>
+          </StandardCard>
+        </Grid>
+      </Grid>
 
-          <TableContainer sx={{ maxHeight: 'calc(100vh - 320px)' }}>
-            <Table stickyHeader size="small">
-              <TableHead>
+      {/* 3. Integrated Table */}
+      <StandardCard sx={{ p: 0, overflow: 'hidden' }}>
+        <TableContainer sx={{ maxHeight: 'calc(100vh - 350px)' }}>
+          <Table stickyHeader size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell sx={{ fontWeight: 700, bgcolor: alpha(theme.palette.background.paper, 0.8), backdropFilter: 'blur(10px)' }}>
+                  Stok Bilgisi
+                </TableCell>
+                <TableCell sx={{ fontWeight: 700, bgcolor: alpha(theme.palette.background.paper, 0.8), backdropFilter: 'blur(10px)' }}>
+                  Marka
+                </TableCell>
+                <TableCell align="right" sx={{ fontWeight: 700, bgcolor: alpha(theme.palette.background.paper, 0.8), backdropFilter: 'blur(10px)' }}>
+                  Mevcut Fiyat
+                </TableCell>
+                <TableCell align="right" sx={{ fontWeight: 700, bgcolor: alpha(theme.palette.background.paper, 0.8), backdropFilter: 'blur(10px)', width: 160 }}>
+                  Yeni Fiyat Girişi
+                </TableCell>
+                <TableCell align="center" sx={{ fontWeight: 700, bgcolor: alpha(theme.palette.background.paper, 0.8), backdropFilter: 'blur(10px)', width: 120 }}>
+                  İşlemler
+                </TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {loading ? (
+                <TableSkeleton rows={8} columns={5} />
+              ) : filteredStoklar.length === 0 ? (
                 <TableRow>
-                  <TableCell sx={{
-                    bgcolor: 'var(--muted)',
-                    fontWeight: 700,
-                    fontSize: '0.75rem',
-                    color: 'var(--muted-foreground)',
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.04em',
-                    borderBottom: '2px solid var(--border)'
-                  }}>Stok Bilgisi</TableCell>
-                  <TableCell sx={{
-                    bgcolor: 'var(--muted)',
-                    fontWeight: 700,
-                    fontSize: '0.75rem',
-                    color: 'var(--muted-foreground)',
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.04em',
-                    borderBottom: '2px solid var(--border)'
-                  }}>Marka</TableCell>
-                  <TableCell align="right" sx={{
-                    bgcolor: 'var(--muted)',
-                    fontWeight: 700,
-                    fontSize: '0.75rem',
-                    color: 'var(--muted-foreground)',
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.04em',
-                    borderBottom: '2px solid var(--border)'
-                  }}>Mevcut Fiyat</TableCell>
-                  <TableCell align="right" sx={{
-                    bgcolor: 'var(--muted)',
-                    fontWeight: 700,
-                    fontSize: '0.75rem',
-                    color: 'var(--muted-foreground)',
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.04em',
-                    borderBottom: '2px solid var(--border)'
-                  }}>Yeni Fiyat Girişi</TableCell>
-                  <TableCell align="center" sx={{
-                    bgcolor: 'var(--muted)',
-                    fontWeight: 700,
-                    fontSize: '0.75rem',
-                    color: 'var(--muted-foreground)',
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.04em',
-                    borderBottom: '2px solid var(--border)'
-                  }}>İşlemler</TableCell>
+                  <TableCell colSpan={5} align="center" sx={{ py: 10 }}>
+                    <Box sx={{ textAlign: 'center', opacity: 0.5 }}>
+                      <AutoAwesome sx={{ fontSize: 48, mb: 1, color: 'text.disabled' }} />
+                      <Typography color="text.secondary">Kayıt bulunamadı</Typography>
+                    </Box>
+                  </TableCell>
                 </TableRow>
-              </TableHead>
-              <TableBody>
-                {loading ? (
-                  <TableSkeleton rows={8} columns={5} />
-                ) : filteredStoklar.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={5} align="center" sx={{ py: 10 }}>
-                      <Box sx={{ textAlign: 'center', opacity: 0.5 }}>
-                        <Inventory2Outlined sx={{ fontSize: 48, mb: 1 }} />
-                        <Typography variant="body2">Kayıt bulunamadı</Typography>
-                      </Box>
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  filteredStoklar.map((stok, index) => {
-                    const draft = draftPrices[stok.id] ?? stok.satisFiyati?.toString() ?? '';
-                    const hasChanged = Number(draft) !== Number(stok.satisFiyati);
+              ) : (
+                filteredStoklar.map((stok) => {
+                  const draft = draftPrices[stok.id] ?? stok.satisFiyati?.toString() ?? '';
+                  const hasChanged = Number(draft) !== Number(stok.satisFiyati);
 
-                    return (
-                      <TableRow
-                        key={stok.id}
-                        hover
-                        sx={{
-                          '&:hover': { bgcolor: 'var(--accent) !important' },
-                          '&:nth-of-type(even)': { bgcolor: 'color-mix(in srgb, var(--muted) 40%, transparent)' },
-                          '& .MuiTableCell-root': { borderBottom: '1px solid var(--border)' }
-                        }}
-                      >
-                        <TableCell sx={{ py: 1.5 }}>
-                          <Typography variant="body2" fontWeight={700} sx={{ color: 'var(--primary)' }}>
-                            {stok.stokKodu}
-                          </Typography>
-                          <Typography variant="caption" sx={{ color: 'var(--muted-foreground)' }} component="div">
-                            {stok.stokAdi}
-                          </Typography>
-                        </TableCell>
-                        <TableCell>
-                          {stok.marka ? (
-                            <Typography variant="caption" sx={{ px: 1, py: 0.25, borderRadius: 'var(--radius-sm)', bgcolor: 'var(--muted)', color: 'var(--muted-foreground)', fontWeight: 600 }}>
-                              {stok.marka}
-                            </Typography>
-                          ) : '-'}
-                        </TableCell>
-                        <TableCell align="right">
-                          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 0.5 }}>
-                            <Typography variant="body2" fontWeight={700} sx={{ color: 'var(--foreground)' }}>
-                              ₺{Number(stok.satisFiyati ?? 0).toLocaleString('tr-TR', {
-                                minimumFractionDigits: 2,
-                                maximumFractionDigits: 2,
-                              })}
-                            </Typography>
-                          </Box>
-                        </TableCell>
-                        <TableCell align="right">
-                          <TextField
+                  return (
+                    <TableRow
+                      key={stok.id}
+                      hover
+                      sx={{
+                        '&:hover': { bgcolor: alpha(theme.palette.primary.main, 0.02) },
+                      }}
+                    >
+                      <TableCell sx={{ py: 1.5 }}>
+                        <Typography variant="body2" fontWeight={700} color="primary">
+                          {stok.stokKodu}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary" component="div">
+                          {stok.stokAdi}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>
+                        {stok.marka ? (
+                          <Chip
+                            label={stok.marka}
                             size="small"
-                            type="number"
-                            variant="outlined"
-                            inputProps={{ min: 0, step: 0.01, style: { textAlign: 'right', fontSize: '0.85rem', fontWeight: 600 } }}
-                            value={draft}
-                            onChange={(e) => handlePriceChange(stok.id, e.target.value)}
-                            sx={{ width: 120, '& .MuiOutlinedInput-root': { borderRadius: 1.5 } }}
+                            sx={{
+                              fontWeight: 600,
+                              bgcolor: alpha(theme.palette.info.main, 0.1),
+                              color: 'info.main',
+                              borderRadius: 1.5
+                            }}
                           />
-                        </TableCell>
-                        <TableCell align="center">
-                          <Box sx={{ display: 'flex', justifyContent: 'center', gap: 1 }}>
-                            <Tooltip title="Fiyat Kartını Kaydet">
-                              <span>
-                                <IconButton
-                                  size="small"
-                                  color="primary"
-                                  disabled={savingId === stok.id || !hasChanged}
-                                  onClick={() => handleSavePrice(stok)}
-                                  sx={{ bgcolor: hasChanged ? 'color-mix(in srgb, var(--primary) 15%, transparent)' : 'transparent' }}
-                                >
-                                  <Save fontSize="small" />
-                                </IconButton>
-                              </span>
-                            </Tooltip>
-                            <Tooltip title="Fiyat Geçmişini Gör">
+                        ) : '-'}
+                      </TableCell>
+                      <TableCell align="right">
+                        <Typography variant="body2" fontWeight={700}>
+                          {new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY' }).format(stok.satisFiyati ?? 0)}
+                        </Typography>
+                      </TableCell>
+                      <TableCell align="right">
+                        <TextField
+                          size="small"
+                          type="number"
+                          value={draft}
+                          onChange={(e) => handlePriceChange(stok.id, e.target.value)}
+                          inputProps={{
+                            min: 0,
+                            step: 0.01,
+                            style: { textAlign: 'right', fontWeight: 700 }
+                          }}
+                          sx={{
+                            width: 140,
+                            '& .MuiOutlinedInput-root': {
+                              borderRadius: 2,
+                              bgcolor: hasChanged ? alpha(theme.palette.warning.main, 0.05) : 'transparent',
+                              borderColor: hasChanged ? 'warning.main' : 'divider',
+                            }
+                          }}
+                        />
+                      </TableCell>
+                      <TableCell align="center">
+                        <Stack direction="row" spacing={1} justifyContent="center">
+                          <Tooltip title="Fiyatı Kaydet">
+                            <span>
                               <IconButton
                                 size="small"
-                                onClick={() => handleOpenPriceDialog(stok)}
-                                sx={{ color: 'var(--muted-foreground)' }}
+                                color="primary"
+                                disabled={savingId === stok.id || !hasChanged}
+                                onClick={() => handleSavePrice(stok)}
+                                sx={{
+                                  bgcolor: alpha(theme.palette.primary.main, 0.1),
+                                  '&:hover': { bgcolor: alpha(theme.palette.primary.main, 0.2) }
+                                }}
                               >
-                                <HistoryOutlined fontSize="small" />
+                                {savingId === stok.id ? <CircularProgress size={16} /> : <Save fontSize="small" />}
                               </IconButton>
-                            </Tooltip>
-                          </Box>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })
-                )}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        </Paper>
-      </Box>
+                            </span>
+                          </Tooltip>
+                          <Tooltip title="Fiyat Geçmişini Gör">
+                            <IconButton
+                              size="small"
+                              onClick={() => handleOpenPriceDialog(stok)}
+                              sx={{
+                                color: 'text.secondary',
+                                bgcolor: alpha(theme.palette.action.hover, 0.1),
+                                '&:hover': { bgcolor: alpha(theme.palette.action.hover, 0.2) }
+                              }}
+                            >
+                              <HistoryOutlined fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        </Stack>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
+              )}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      </StandardCard>
 
       <Snackbar
         open={snackbar.open}
         autoHideDuration={4000}
         onClose={() => setSnackbar((prev) => ({ ...prev, open: false }))}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
       >
-        <Alert severity={snackbar.severity} onClose={() => setSnackbar((prev) => ({ ...prev, open: false }))} sx={{ width: '100%' }}>
+        <Alert severity={snackbar.severity} sx={{ borderRadius: 2 }}>
           {snackbar.message}
         </Alert>
       </Snackbar>
@@ -443,7 +412,6 @@ export default function SatisFiyatlariPage() {
           );
         }}
       />
-    </MainLayout>
+    </StandardPage>
   );
 }
-

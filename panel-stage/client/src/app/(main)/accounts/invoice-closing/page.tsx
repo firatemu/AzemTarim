@@ -15,17 +15,15 @@ import {
   Autocomplete,
   TextField,
   CircularProgress,
-  Card,
-  CardContent,
   Grid,
-  Divider,
   Stack,
   LinearProgress,
   Tooltip,
 } from '@mui/material';
 import { AccountBalance, TrendingUp, TrendingDown, Receipt, CheckCircle, Warning } from '@mui/icons-material';
-import MainLayout from '@/components/Layout/MainLayout';
 import axios from '@/lib/axios';
+import { StandardPage, StandardCard } from '@/components/common';
+import { alpha, useTheme } from '@mui/material/styles';
 
 interface Account {
   id: string;
@@ -62,6 +60,7 @@ export default function FaturaKapatmaPage() {
   const [selectedCari, setSelectedCari] = useState<Account | null>(null);
   const [faturalar, setFaturalar] = useState<FaturaDetay[]>([]);
   const [loading, setLoading] = useState(false);
+  const theme = useTheme();
 
   useEffect(() => {
     fetchCariler();
@@ -113,7 +112,7 @@ export default function FaturaKapatmaPage() {
     return new Date(date).toLocaleDateString('tr-TR');
   };
 
-  const getDurumColor = (status: string) => {
+  const getDurumColor = (status: string): any => {
     switch (status) {
       case 'CLOSED': return 'success';
       case 'PARTIALLY_PAID': return 'info';
@@ -147,7 +146,6 @@ export default function FaturaKapatmaPage() {
     return types[tip] || tip;
   };
 
-  // Özet hesaplamalar - Decimal tiplerini Number'a çevir
   const ozet = {
     toplamFatura: faturalar.reduce((sum, f) => sum + Number(f.grandTotal || 0), 0),
     toplamOdenen: faturalar.reduce((sum, f) => sum + Number(f.paidAmount || 0), 0),
@@ -157,11 +155,9 @@ export default function FaturaKapatmaPage() {
     kapaliSayisi: faturalar.filter(f => f.status === 'CLOSED').length,
   };
 
-  // Tahsilat analizleri
   const tahsilatAnalizi = useMemo(() => {
-    // Tüm ödemeleri birleştir
     const tumOdemeler = faturalar.flatMap(f => f.invoiceCollections);
-    
+
     if (tumOdemeler.length === 0) {
       return {
         ortalamaTahsilat: 0,
@@ -170,11 +166,9 @@ export default function FaturaKapatmaPage() {
       };
     }
 
-    // Ortalama tahsilat miktarı
     const toplamTahsilat = tumOdemeler.reduce((sum, oc) => sum + Number(oc.amount || 0), 0);
     const ortalamaTahsilat = toplamTahsilat / tumOdemeler.length;
 
-    // Ödeme sıklığı ortalaması (gün)
     const odemeTarihleri = tumOdemeler
       .map(oc => new Date(oc.collection.date).getTime())
       .sort((a, b) => a - b);
@@ -184,7 +178,7 @@ export default function FaturaKapatmaPage() {
       const sonOdeme = odemeTarihleri[odemeTarihleri.length - 1];
       const gunFarki = (sonOdeme - ilkOdeme) / (1000 * 60 * 60 * 24);
       const odemeSikligiGun = gunFarki / (odemeTarihleri.length - 1);
-      
+
       return {
         ortalamaTahsilat,
         odemeSayisi: tumOdemeler.length,
@@ -200,23 +194,9 @@ export default function FaturaKapatmaPage() {
   }, [faturalar]);
 
   return (
-    <MainLayout>
-      <Box sx={{ mb: 3 }}>
-        <Typography variant="h4" fontWeight="bold" sx={{
-          background: 'linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%)',
-          WebkitBackgroundClip: 'text',
-          WebkitTextFillColor: 'transparent',
-          mb: 1,
-        }}>
-          Fatura Kapatma & Ekstre
-        </Typography>
-        <Typography variant="body2" color="text.secondary">
-          Cari bazında fatura durumları ve ödeme takibi
-        </Typography>
-      </Box>
-
+    <StandardPage title="Fatura Kapatma & Ekstre">
       {/* Cari Seçimi */}
-      <Paper sx={{ p: 3, mb: 3, borderRadius: 2 }}>
+      <StandardCard sx={{ mb: 3 }}>
         <Typography variant="h6" fontWeight="bold" sx={{ mb: 2 }}>
           Cari Seçimi
         </Typography>
@@ -229,7 +209,13 @@ export default function FaturaKapatmaPage() {
             <TextField
               {...params}
               label="Cari Seçiniz"
+              variant="outlined"
               placeholder="Cari kodu veya ünvanı ile ara..."
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  borderRadius: '12px',
+                }
+              }}
             />
           )}
           renderOption={(props, option) => {
@@ -249,8 +235,11 @@ export default function FaturaKapatmaPage() {
                     <Chip
                       label={formatCurrency(option.balance)}
                       size="small"
-                      color={option.balance > 0 ? 'error' : option.balance < 0 ? 'success' : 'default'}
-                      sx={{ fontWeight: 600 }}
+                      sx={{
+                        fontWeight: 700,
+                        bgcolor: option.balance > 0 ? alpha(theme.palette.error.main, 0.1) : alpha(theme.palette.success.main, 0.1),
+                        color: option.balance > 0 ? theme.palette.error.main : theme.palette.success.main,
+                      }}
                     />
                   </Box>
                 </Box>
@@ -260,125 +249,37 @@ export default function FaturaKapatmaPage() {
           noOptionsText="Cari bulunamadı"
           isOptionEqualToValue={(option, value) => option.id === value.id}
         />
-      </Paper>
+      </StandardCard>
 
       {selectedCari && (
         <>
           {/* Özet Kartlar */}
           <Grid container spacing={2} sx={{ mb: 3 }}>
-            <Grid size={{ xs: 12, sm: 6, md: 2 }}>
-              <Card sx={{ bgcolor: 'color-mix(in srgb, var(--chart-1) 15%, transparent)', border: '1px solid var(--chart-1)' }}>
-                <CardContent>
-                  <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
-                    <Receipt sx={{ color: '#3b82f6' }} />
-                    <Typography variant="body2" color="text.secondary">
-                      Toplam Fatura
+            {[
+              { label: 'Toplam Fatura', value: ozet.toplamFatura, icon: Receipt, color: theme.palette.primary.main, subText: `${faturalar.length} adet` },
+              { label: 'Ödenen', value: ozet.toplamOdenen, icon: CheckCircle, color: theme.palette.success.main, subText: `${ozet.kapaliSayisi} fatura kapalı` },
+              { label: 'Kalan', value: ozet.toplamKalan, icon: Warning, color: theme.palette.error.main, subText: `${ozet.acikFaturaSayisi + ozet.kismenOdenenSayisi} açık` },
+              { label: 'Cari Bakiye', value: selectedCari.balance, icon: AccountBalance, color: theme.palette.warning.main, subText: selectedCari.tip === 'MUSTERI' ? 'Alacak' : 'Borç' },
+              { label: 'Ort. Tahsilat', value: tahsilatAnalizi.ortalamaTahsilat, icon: TrendingUp, color: theme.palette.secondary.main, subText: `${tahsilatAnalizi.odemeSayisi} ödeme` },
+              { label: 'Ödeme Sıklığı', value: `${tahsilatAnalizi.odemeSikligiGun.toFixed(1)} gün`, icon: TrendingDown, color: '#ec4899', subText: 'Ortalama aralık', isCurrency: false },
+            ].map((item, i) => (
+              <Grid item xs={12} sm={6} md={2} key={i}>
+                <StandardCard>
+                  <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
+                    <item.icon sx={{ color: item.color, fontSize: 20 }} />
+                    <Typography variant="caption" color="text.secondary" fontWeight={600}>
+                      {item.label}
                     </Typography>
                   </Stack>
-                  <Typography variant="h5" fontWeight="bold" color="#3b82f6">
-                    {formatCurrency(ozet.toplamFatura)}
+                  <Typography variant="h6" fontWeight="800" sx={{ color: item.color }}>
+                    {item.isCurrency === false ? item.value : formatCurrency(item.value as number)}
                   </Typography>
                   <Typography variant="caption" color="text.secondary">
-                    {faturalar.length} adet
+                    {item.subText}
                   </Typography>
-                </CardContent>
-              </Card>
-            </Grid>
-
-            <Grid size={{ xs: 12, sm: 6, md: 2 }}>
-              <Card sx={{ bgcolor: 'color-mix(in srgb, var(--chart-3) 15%, transparent)', border: '1px solid var(--chart-3)' }}>
-                <CardContent>
-                  <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
-                    <CheckCircle sx={{ color: '#10b981' }} />
-                    <Typography variant="body2" color="text.secondary">
-                      Ödenen
-                    </Typography>
-                  </Stack>
-                  <Typography variant="h5" fontWeight="bold" color="#10b981">
-                    {formatCurrency(ozet.toplamOdenen)}
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    {ozet.kapaliSayisi} fatura kapalı
-                  </Typography>
-                </CardContent>
-              </Card>
-            </Grid>
-
-            <Grid size={{ xs: 12, sm: 6, md: 2 }}>
-              <Card sx={{ bgcolor: 'color-mix(in srgb, var(--destructive) 15%, transparent)', border: '1px solid var(--destructive)' }}>
-                <CardContent>
-                  <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
-                    <Warning sx={{ color: '#ef4444' }} />
-                    <Typography variant="body2" color="text.secondary">
-                      Kalan
-                    </Typography>
-                  </Stack>
-                  <Typography variant="h5" fontWeight="bold" color="#ef4444">
-                    {formatCurrency(ozet.toplamKalan)}
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    {ozet.acikFaturaSayisi + ozet.kismenOdenenSayisi} açık
-                  </Typography>
-                </CardContent>
-              </Card>
-            </Grid>
-
-            <Grid size={{ xs: 12, sm: 6, md: 2 }}>
-              <Card sx={{ bgcolor: 'color-mix(in srgb, var(--chart-2) 15%, transparent)', border: '1px solid var(--chart-2)' }}>
-                <CardContent>
-                  <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
-                    <AccountBalance sx={{ color: '#f59e0b' }} />
-                    <Typography variant="body2" color="text.secondary">
-                      Cari Bakiye
-                    </Typography>
-                  </Stack>
-                  <Typography variant="h5" fontWeight="bold" color="#f59e0b">
-                    {formatCurrency(selectedCari.balance)}
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    {selectedCari.tip === 'MUSTERI' ? 'Alacak' : 'Borç'}
-                  </Typography>
-                </CardContent>
-              </Card>
-            </Grid>
-
-            <Grid size={{ xs: 12, sm: 6, md: 2 }}>
-              <Card sx={{ bgcolor: 'color-mix(in srgb, var(--chart-4) 15%, transparent)', border: '1px solid var(--chart-4)' }}>
-                <CardContent>
-                  <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
-                    <TrendingUp sx={{ color: '#8b5cf6' }} />
-                    <Typography variant="body2" color="text.secondary">
-                      Ort. Tahsilat
-                    </Typography>
-                  </Stack>
-                  <Typography variant="h5" fontWeight="bold" color="#8b5cf6">
-                    {formatCurrency(tahsilatAnalizi.ortalamaTahsilat)}
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    {tahsilatAnalizi.odemeSayisi} ödeme
-                  </Typography>
-                </CardContent>
-              </Card>
-            </Grid>
-
-            <Grid size={{ xs: 12, sm: 6, md: 2 }}>
-              <Card sx={{ bgcolor: 'color-mix(in srgb, var(--chart-5) 15%, transparent)', border: '1px solid var(--chart-5)' }}>
-                <CardContent>
-                  <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
-                    <TrendingDown sx={{ color: '#ec4899' }} />
-                    <Typography variant="body2" color="text.secondary">
-                      Ödeme Sıklığı
-                    </Typography>
-                  </Stack>
-                  <Typography variant="h5" fontWeight="bold" color="#ec4899">
-                    {tahsilatAnalizi.odemeSikligiGun.toFixed(1)} gün
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    Ortalama aralık
-                  </Typography>
-                </CardContent>
-              </Card>
-            </Grid>
+                </StandardCard>
+              </Grid>
+            ))}
           </Grid>
 
           {/* Fatura Listesi */}
@@ -387,9 +288,9 @@ export default function FaturaKapatmaPage() {
               <CircularProgress />
             </Box>
           ) : (
-            <TableContainer component={Paper} sx={{ borderRadius: 2 }}>
+            <TableContainer component={Paper} sx={{ borderRadius: 2, overflow: 'hidden' }}>
               <Table>
-                <TableHead sx={{ bgcolor: 'var(--muted)' }}>
+                <TableHead sx={{ bgcolor: alpha(theme.palette.primary.main, 0.05) }}>
                   <TableRow>
                     <TableCell sx={{ fontWeight: 600 }}>Fatura No</TableCell>
                     <TableCell sx={{ fontWeight: 600 }}>Tip</TableCell>
@@ -426,7 +327,7 @@ export default function FaturaKapatmaPage() {
                           key={fatura.id}
                           hover
                           sx={{
-                            bgcolor: fatura.status === 'CLOSED' ? '#f0fdf4' : 'inherit',
+                            bgcolor: fatura.status === 'CLOSED' ? alpha(theme.palette.success.main, 0.02) : 'inherit',
                           }}
                         >
                           <TableCell>
@@ -438,7 +339,15 @@ export default function FaturaKapatmaPage() {
                             <Chip
                               label={fatura.invoiceType === 'SALE' || fatura.invoiceType === 'SALE_RETURN' ? 'Satış' : 'Alış'}
                               size="small"
-                              color={fatura.invoiceType === 'SALE' || fatura.invoiceType === 'SALE_RETURN' ? 'primary' : 'secondary'}
+                              sx={{
+                                fontWeight: 600,
+                                bgcolor: (fatura.invoiceType === 'SALE' || fatura.invoiceType === 'SALE_RETURN')
+                                  ? alpha(theme.palette.primary.main, 0.1)
+                                  : alpha(theme.palette.secondary.main, 0.1),
+                                color: (fatura.invoiceType === 'SALE' || fatura.invoiceType === 'SALE_RETURN')
+                                  ? theme.palette.primary.main
+                                  : theme.palette.secondary.main,
+                              }}
                             />
                           </TableCell>
                           <TableCell>{formatDate(fatura.date)}</TableCell>
@@ -447,7 +356,7 @@ export default function FaturaKapatmaPage() {
                               <Box>
                                 <Typography variant="body2">{formatDate(fatura.dueDate)}</Typography>
                                 {new Date(fatura.dueDate) < new Date() && fatura.status !== 'CLOSED' && (
-                                  <Typography variant="caption" color="error">
+                                  <Typography variant="caption" color="error" fontWeight="600">
                                     Vadesi geçmiş!
                                   </Typography>
                                 )}
@@ -455,19 +364,19 @@ export default function FaturaKapatmaPage() {
                             ) : '-'}
                           </TableCell>
                           <TableCell align="right">
-                            <Typography variant="body2" fontWeight="600">
+                            <Typography variant="body2" fontWeight="700">
                               {formatCurrency(grandTotal)}
                             </Typography>
                           </TableCell>
                           <TableCell align="right">
-                            <Typography variant="body2" fontWeight="600" color="success.main">
+                            <Typography variant="body2" fontWeight="700" color="success.main">
                               {formatCurrency(paidAmount)}
                             </Typography>
                           </TableCell>
                           <TableCell align="right">
                             <Typography
                               variant="body2"
-                              fontWeight="600"
+                              fontWeight="700"
                               color={payableAmount > 0 ? 'error.main' : 'text.secondary'}
                             >
                               {formatCurrency(payableAmount)}
@@ -481,10 +390,10 @@ export default function FaturaKapatmaPage() {
                                   value={Math.min(paymentRate, 100)}
                                   sx={{
                                     height: 8,
-                                    borderRadius: 1,
-                                    bgcolor: 'var(--border)',
+                                    borderRadius: 4,
+                                    bgcolor: alpha(theme.palette.primary.main, 0.1),
                                     '& .MuiLinearProgress-bar': {
-                                      bgcolor: paymentRate >= 100 ? '#10b981' : paymentRate > 0 ? '#3b82f6' : '#9ca3af',
+                                      bgcolor: paymentRate >= 100 ? theme.palette.success.main : paymentRate > 0 ? theme.palette.primary.main : theme.palette.grey[400],
                                     }
                                   }}
                                 />
@@ -499,6 +408,8 @@ export default function FaturaKapatmaPage() {
                               label={getDurumText(fatura.status)}
                               color={getDurumColor(fatura.status)}
                               size="small"
+                              variant="outlined"
+                              sx={{ fontWeight: 600 }}
                               icon={fatura.status === 'CLOSED' ? <CheckCircle fontSize="small" /> : undefined}
                             />
                           </TableCell>
@@ -506,7 +417,7 @@ export default function FaturaKapatmaPage() {
                             {fatura.invoiceCollections.length > 0 ? (
                               <Tooltip
                                 title={
-                                  <Box>
+                                  <Box sx={{ p: 0.5 }}>
                                     <Typography variant="caption" fontWeight="bold" display="block" sx={{ mb: 1 }}>
                                       Tahsilat Geçmişi:
                                     </Typography>
@@ -522,8 +433,13 @@ export default function FaturaKapatmaPage() {
                                 <Chip
                                   label={`${fatura.invoiceCollections.length} ödeme`}
                                   size="small"
-                                  color="info"
-                                  sx={{ cursor: 'pointer' }}
+                                  sx={{
+                                    cursor: 'pointer',
+                                    bgcolor: alpha(theme.palette.info.main, 0.1),
+                                    color: theme.palette.info.main,
+                                    fontWeight: 600,
+                                    '&:hover': { bgcolor: alpha(theme.palette.info.main, 0.2) }
+                                  }}
                                 />
                               </Tooltip>
                             ) : (
@@ -543,48 +459,48 @@ export default function FaturaKapatmaPage() {
 
           {/* Özet Çubuk */}
           {faturalar.length > 0 && (
-            <Paper sx={{ p: 3, mt: 3, borderRadius: 2, bgcolor: 'var(--muted)' }}>
+            <StandardCard sx={{ mt: 3, bgcolor: alpha(theme.palette.primary.main, 0.02) }}>
               <Grid container spacing={3}>
-                <Grid size={{ xs: 12, md: 4 }}>
+                <Grid item xs={12} md={4}>
                   <Box>
-                    <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 1, fontWeight: 600 }}>
                       Fatura Durumu
                     </Typography>
-                    <Stack direction="row" spacing={2}>
-                      <Chip label={`${ozet.acikFaturaSayisi} Açık`} color="warning" size="small" />
-                      <Chip label={`${ozet.kismenOdenenSayisi} Kısmen`} color="info" size="small" />
-                      <Chip label={`${ozet.kapaliSayisi} Kapalı`} color="success" size="small" />
+                    <Stack direction="row" spacing={1}>
+                      <Chip label={`${ozet.acikFaturaSayisi} Açık`} color="warning" size="small" variant="soft" />
+                      <Chip label={`${ozet.kismenOdenenSayisi} Kısmen`} color="info" size="small" variant="soft" />
+                      <Chip label={`${ozet.kapaliSayisi} Kapalı`} color="success" size="small" variant="soft" />
                     </Stack>
                   </Box>
                 </Grid>
-                <Grid size={{ xs: 12, md: 8 }}>
+                <Grid item xs={12} md={8}>
                   <Box>
-                    <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 1, fontWeight: 600 }}>
                       Ödeme Durumu
                     </Typography>
-                    <Box sx={{ position: 'relative', height: 30 }}>
+                    <Box sx={{ position: 'relative', height: 32 }}>
                       <LinearProgress
                         variant="determinate"
                         value={ozet.toplamFatura > 0 ? (ozet.toplamOdenen / ozet.toplamFatura) * 100 : 0}
                         sx={{
-                          height: 30,
-                          borderRadius: 2,
-                          bgcolor: 'var(--border)',
+                          height: 32,
+                          borderRadius: '12px',
+                          bgcolor: alpha(theme.palette.primary.main, 0.1),
                           '& .MuiLinearProgress-bar': {
-                            bgcolor: 'var(--chart-3)',
-                            borderRadius: 2,
+                            bgcolor: theme.palette.primary.main,
+                            borderRadius: '12px',
                           }
                         }}
                       />
                       <Typography
                         variant="body2"
-                        fontWeight="bold"
+                        fontWeight="800"
                         sx={{
                           position: 'absolute',
                           top: '50%',
                           left: '50%',
                           transform: 'translate(-50%, -50%)',
-                          color: 'white',
+                          color: theme.palette.common.white,
                           textShadow: '0 1px 2px rgba(0,0,0,0.5)',
                         }}
                       >
@@ -595,23 +511,23 @@ export default function FaturaKapatmaPage() {
                   </Box>
                 </Grid>
               </Grid>
-            </Paper>
+            </StandardCard>
           )}
         </>
       )}
 
       {/* Cari Seçilmediğinde */}
       {!selectedCari && (
-        <Paper sx={{ p: 8, textAlign: 'center', borderRadius: 2 }}>
-          <AccountBalance sx={{ fontSize: 80, color: '#d1d5db', mb: 2 }} />
-          <Typography variant="h6" color="text.secondary" sx={{ mb: 1 }}>
+        <StandardCard sx={{ p: 8, textAlign: 'center' }}>
+          <AccountBalance sx={{ fontSize: 80, color: theme.palette.divider, mb: 2, opacity: 0.2 }} />
+          <Typography variant="h6" color="text.secondary" sx={{ mb: 1, fontWeight: 700 }}>
             Cari Seçiniz
           </Typography>
           <Typography variant="body2" color="text.secondary">
             Fatura kapatma ve ekstre görüntülemek için yukarıdan bir cari seçin
           </Typography>
-        </Paper>
+        </StandardCard>
       )}
-    </MainLayout>
+    </StandardPage>
   );
 }

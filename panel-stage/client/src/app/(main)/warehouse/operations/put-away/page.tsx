@@ -4,28 +4,31 @@ import React, { Suspense, useState, useEffect } from 'react';
 import {
   Box,
   Button,
-  Paper,
   TextField,
   Typography,
   CircularProgress,
   Snackbar,
   Alert,
   Autocomplete,
-  Card,
-  CardContent,
   Divider,
   Stack,
   Chip,
   IconButton,
+  InputAdornment,
 } from '@mui/material';
 import {
   ArrowBack,
   Save,
   Inventory2,
+  LocationOn,
+  Warehouse as WarehouseIcon,
+  Description as DescriptionIcon,
+  CheckCircle,
 } from '@mui/icons-material';
-import MainLayout from '@/components/Layout/MainLayout';
+import { StandardPage, StandardCard } from '@/components/common';
 import axios from '@/lib/axios';
 import { useRouter, useSearchParams } from 'next/navigation';
+import Grid from '@mui/material/Grid';
 
 interface Product {
   id: string;
@@ -65,9 +68,7 @@ function PutAwayPageContent() {
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
   const [locations, setLocations] = useState<Location[]>([]);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' | 'info' | 'warning' });
-  
 
-  // Tek işlem için state'ler
   const [formData, setFormData] = useState({
     productId: '',
     toWarehouseId: '',
@@ -154,7 +155,7 @@ function PutAwayPageContent() {
       toWarehouseId: warehouse?.id || '',
       toLocationId: '',
     });
-    
+
     if (warehouse) {
       fetchLocations(warehouse.id);
     } else {
@@ -171,7 +172,6 @@ function PutAwayPageContent() {
   };
 
   const handleSubmit = async () => {
-    // Validasyon
     if (!formData.productId || !formData.toWarehouseId || !formData.toLocationId) {
       setSnackbar({ open: true, message: 'Lütfen ürün, depo ve raf seçin', severity: 'error' });
       return;
@@ -179,7 +179,7 @@ function PutAwayPageContent() {
 
     try {
       setLoading(true);
-      
+
       const payload: any = {
         productId: formData.productId,
         toWarehouseId: formData.toWarehouseId,
@@ -188,12 +188,9 @@ function PutAwayPageContent() {
       };
 
       await axios.post('/stock-movements/assign-location', payload);
-      
-      const message = 'Raf adresi başarıyla tanımlandı';
-      
-      setSnackbar({ open: true, message, severity: 'success' });
-      
-      // Form temizle
+
+      setSnackbar({ open: true, message: 'Raf adresi başarıyla tanımlandı', severity: 'success' });
+
       setTimeout(() => {
         if (preselectedLocationId) {
           setSelectedProduct(null);
@@ -227,40 +224,37 @@ function PutAwayPageContent() {
   };
 
   return (
-    <MainLayout>
+    <StandardPage>
       <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Stack direction="row" spacing={2} alignItems="center">
-          <IconButton onClick={() => router.back()}>
-            <ArrowBack />
-          </IconButton>
-          <Typography variant="h4" fontWeight="bold">
-            📥 Put-Away İşlemi
-          </Typography>
+          <Button
+            startIcon={<ArrowBack />}
+            onClick={() => router.back()}
+            variant="outlined"
+            size="small"
+            sx={{ borderRadius: 2 }}
+          >
+            Geri
+          </Button>
+          <Box>
+            <Typography variant="h5" fontWeight="800" sx={{ letterSpacing: '-0.02em', display: 'flex', alignItems: 'center', gap: 1.5 }}>
+              <Inventory2 sx={{ fontSize: 32, color: 'primary.main' }} />
+              Put-Away İşlemi
+            </Typography>
+            <Typography variant="body2" color="text.secondary">Ürünün hangi rafta bulunduğunu kaydedin (raf adresi tanımlama).</Typography>
+          </Box>
         </Stack>
       </Box>
 
-      <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
-        Ürünün hangi rafta bulunduğunu kaydedin (raf adresi tanımlama).
-      </Typography>
+      <Grid container spacing={3}>
+        <Grid size={{ xs: 12, md: 8 }}>
+          <StandardCard>
+            <Typography variant="subtitle2" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}>
+              <DescriptionIcon sx={{ fontSize: 18 }} /> İşlem Bilgileri
+            </Typography>
 
-      {/* Tek İşlem Formu */}
-      {(
-        <Box sx={{ display: 'flex', gap: 3, flexWrap: 'wrap' }}>
-          {/* Form */}
-          <Box sx={{ flex: '1 1 600px' }}>
-            <Paper sx={{ p: 3 }}>
-              <Typography variant="h6" gutterBottom>
-                İşlem Bilgileri
-              </Typography>
-              <Divider sx={{ mb: 3 }} />
-
-              <Typography variant="caption" color="text.secondary" sx={{ mb: 2, display: 'block' }}>
-                📍 Ürünün hangi rafta olduğunu kaydeder (stok hareketi oluşturmaz)
-              </Typography>
-
-              {/* Ürün Seçimi */}
+            <Stack spacing={3}>
               <Autocomplete
-                fullWidth
                 options={products}
                 getOptionLabel={(option) => `${option.stokKodu} - ${option.stokAdi}`}
                 value={selectedProduct}
@@ -274,6 +268,7 @@ function PutAwayPageContent() {
                     label="Ürün *"
                     placeholder="Ürün ara..."
                     helperText="Ürün koduna veya adına göre arama yapın"
+                    sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
                   />
                 )}
                 renderOption={(props, option) => {
@@ -291,64 +286,63 @@ function PutAwayPageContent() {
                     </Box>
                   );
                 }}
-                sx={{ mb: 3 }}
               />
 
-              {/* Hedef Depo Seçimi */}
-              <Autocomplete
-                fullWidth
-                options={warehouses}
-                getOptionLabel={(option) => `${option.code} - ${option.name}`}
-                value={selectedWarehouse}
-                onChange={(_, newValue) => handleWarehouseChange(newValue)}
-                disabled={!!preselectedLocationId}
-                renderInput={(params) => (
-                  <TextField
-                    {...params}
-                    label="Hedef Depo *"
-                    placeholder="Depo seç..."
+              <Grid container spacing={2}>
+                <Grid size={{ xs: 12, sm: 6 }}>
+                  <Autocomplete
+                    options={warehouses}
+                    getOptionLabel={(option) => `${option.code} - ${option.name}`}
+                    value={selectedWarehouse}
+                    onChange={(_, newValue) => handleWarehouseChange(newValue)}
+                    disabled={!!preselectedLocationId}
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        label="Hedef Depo *"
+                        placeholder="Depo seç..."
+                        sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+                      />
+                    )}
                   />
-                )}
-                sx={{ mb: 3 }}
-              />
-
-              {/* Hedef Raf Seçimi */}
-              <Autocomplete
-                fullWidth
-                options={locations}
-                getOptionLabel={(option) => `${option.code} ${option.name ? `- ${option.name}` : ''}`}
-                value={selectedLocation}
-                onChange={(_, newValue) => handleLocationChange(newValue)}
-                disabled={!formData.toWarehouseId || !!preselectedLocationId}
-                renderInput={(params) => (
-                  <TextField
-                    {...params}
-                    label="Hedef Raf *"
-                    placeholder="Raf seç..."
-                    helperText={!formData.toWarehouseId ? 'Önce depo seçin' : ''}
+                </Grid>
+                <Grid size={{ xs: 12, sm: 6 }}>
+                  <Autocomplete
+                    options={locations}
+                    getOptionLabel={(option) => `${option.code} ${option.name ? `- ${option.name}` : ''}`}
+                    value={selectedLocation}
+                    onChange={(_, newValue) => handleLocationChange(newValue)}
+                    disabled={!formData.toWarehouseId || !!preselectedLocationId}
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        label="Hedef Raf *"
+                        placeholder="Raf seç..."
+                        helperText={!formData.toWarehouseId ? 'Önce depo seçin' : ''}
+                        sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+                      />
+                    )}
+                    renderOption={(props, option) => {
+                      const { key, ...otherProps } = props;
+                      return (
+                        <Box component="li" key={key} {...otherProps}>
+                          <Box>
+                            <Typography variant="body2" fontWeight="bold">
+                              {option.code}
+                            </Typography>
+                            {option.name && (
+                              <Typography variant="caption" color="text.secondary">
+                                {option.name}
+                              </Typography>
+                            )}
+                          </Box>
+                        </Box>
+                      );
+                    }}
                   />
-                )}
-                renderOption={(props, option) => {
-                  const { key, ...otherProps } = props;
-                  return (
-                    <Box component="li" key={key} {...otherProps}>
-                      <Box>
-                        <Typography variant="body2" fontWeight="bold">
-                          {option.code}
-                        </Typography>
-                        {option.name && (
-                          <Typography variant="caption" color="text.secondary">
-                            {option.name}
-                          </Typography>
-                        )}
-                      </Box>
-                    </Box>
-                  );
-                }}
-                sx={{ mb: 3 }}
-              />
+                </Grid>
+              </Grid>
 
-              {/* Not */}
               <TextField
                 fullWidth
                 label="Not (opsiyonel)"
@@ -357,115 +351,115 @@ function PutAwayPageContent() {
                 multiline
                 rows={3}
                 placeholder="Ek açıklama veya not ekleyin..."
-                sx={{ mb: 3 }}
+                sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
               />
 
-              {/* Kaydet Butonu */}
               <Button
                 fullWidth
                 variant="contained"
                 size="large"
-                startIcon={loading ? <CircularProgress size={20} /> : <Save />}
+                startIcon={loading ? <CircularProgress size={20} color="inherit" /> : <Save />}
                 onClick={handleSubmit}
                 disabled={
-                  loading || 
-                  !formData.productId || 
-                  !formData.toWarehouseId || 
+                  loading ||
+                  !formData.productId ||
+                  !formData.toWarehouseId ||
                   !formData.toLocationId
                 }
+                sx={{ borderRadius: 2, height: 50, fontWeight: 700 }}
               >
                 {loading ? 'Kaydediliyor...' : 'Raf Adresini Kaydet'}
               </Button>
-            </Paper>
-          </Box>
+            </Stack>
+          </StandardCard>
+        </Grid>
 
-          {/* Özet Card */}
-          <Box sx={{ flex: '0 1 350px' }}>
-            <Card sx={{ bgcolor: 'var(--muted)' }}>
-              <CardContent>
-                <Typography variant="h6" gutterBottom>
-                  📋 İşlem Özeti
-                </Typography>
-                <Divider sx={{ mb: 2 }} />
-
-                {selectedProduct && (
-                  <Box sx={{ mb: 2 }}>
-                    <Typography variant="caption" color="text.secondary">
-                      Ürün
-                    </Typography>
-                    <Typography variant="body1" fontWeight="bold">
-                      {selectedProduct.stokKodu}
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      {selectedProduct.stokAdi}
-                    </Typography>
-                  </Box>
-                )}
-
-                {selectedWarehouse && (
-                  <Box sx={{ mb: 2 }}>
-                    <Typography variant="caption" color="text.secondary">
-                      Hedef Depo
-                    </Typography>
-                    <Typography variant="body1" fontWeight="bold">
-                      {selectedWarehouse.code} - {selectedWarehouse.name}
-                    </Typography>
-                  </Box>
-                )}
-
-                {selectedLocation && (
-                  <Box sx={{ mb: 2 }}>
-                    <Typography variant="caption" color="text.secondary">
-                      Hedef Raf
-                    </Typography>
-                    <Chip
-                      label={selectedLocation.code}
-                      color="primary"
-                      sx={{ fontFamily: 'monospace', fontWeight: 'bold' }}
-                    />
-                    {selectedLocation.name && (
-                      <Typography variant="caption" display="block" sx={{ mt: 0.5 }}>
-                        {selectedLocation.name}
-                      </Typography>
-                    )}
-                  </Box>
-                )}
-
-                {!selectedProduct && !selectedWarehouse && !selectedLocation && (
-                  <Box sx={{ textAlign: 'center', py: 3 }}>
-                    <Inventory2 sx={{ fontSize: 60, color: 'text.disabled', mb: 1 }} />
-                    <Typography variant="body2" color="text.secondary">
-                      Form dolduruldukça özet burada görünecek
-                    </Typography>
-                  </Box>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Bilgilendirme */}
-            <Alert severity="info" sx={{ mt: 2 }}>
-              <Typography variant="body2" fontWeight="bold">
-                Raf Adresi Tanımlama
+        <Grid size={{ xs: 12, md: 4 }}>
+          <Stack spacing={3}>
+            <StandardCard sx={{ bgcolor: alpha('#6366f1', 0.05), borderColor: alpha('#6366f1', 0.1) }}>
+              <Typography variant="subtitle2" color="primary.main" sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2.5, fontWeight: 800 }}>
+                <Inventory2 sx={{ fontSize: 18 }} /> İşlem Özeti
               </Typography>
-              <Typography variant="caption">
-                Ürünün hangi rafta bulunduğunu kaydeder. Stok hareketi oluşturmaz, sadece konum bilgisi tanımlar.
+
+              <Stack spacing={2}>
+                <Box>
+                  <Typography variant="caption" color="text.secondary" display="block">Seçili Ürün</Typography>
+                  {selectedProduct ? (
+                    <Box sx={{ mt: 0.5 }}>
+                      <Typography variant="body2" fontWeight="700">{selectedProduct.stokKodu}</Typography>
+                      <Typography variant="caption" display="block" color="text.secondary">{selectedProduct.stokAdi}</Typography>
+                    </Box>
+                  ) : (
+                    <Typography variant="body2" color="text.disabled" sx={{ fontStyle: 'italic', mt: 0.5 }}>Ürün seçilmedi</Typography>
+                  )}
+                </Box>
+
+                <Box>
+                  <Typography variant="caption" color="text.secondary" display="block">Hedef Lokasyon</Typography>
+                  {selectedWarehouse ? (
+                    <Stack sx={{ mt: 0.5 }} spacing={1}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <WarehouseIcon sx={{ fontSize: 14, color: 'text.secondary' }} />
+                        <Typography variant="body2" fontWeight="600">{selectedWarehouse.name}</Typography>
+                      </Box>
+                      {selectedLocation ? (
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <LocationOn sx={{ fontSize: 14, color: 'primary.main' }} />
+                          <Chip
+                            label={selectedLocation.code}
+                            size="small"
+                            color="primary"
+                            sx={{ height: 20, fontSize: '0.65rem', fontWeight: 800, borderRadius: 1 }}
+                          />
+                        </Box>
+                      ) : (
+                        <Typography variant="caption" color="text.disabled" sx={{ fontStyle: 'italic' }}>Raf seçilmedi</Typography>
+                      )}
+                    </Stack>
+                  ) : (
+                    <Typography variant="body2" color="text.disabled" sx={{ fontStyle: 'italic', mt: 0.5 }}>Depo seçilmedi</Typography>
+                  )}
+                </Box>
+              </Stack>
+
+              {!selectedProduct && !selectedWarehouse && (
+                <Box sx={{ textAlign: 'center', py: 4, opacity: 0.5 }}>
+                  <Inventory2 sx={{ fontSize: 48, color: 'text.disabled', mb: 1.5 }} />
+                  <Typography variant="caption" display="block" color="text.secondary">
+                    Formu doldurdukça özet veriler burada görünecektir.
+                  </Typography>
+                </Box>
+              )}
+            </StandardCard>
+
+            <Alert severity="info" sx={{ borderRadius: 2, '& .MuiAlert-message': { width: '100%' } }}>
+              <Typography variant="subtitle2" fontWeight="800" gutterBottom>Nedir bu Put-Away?</Typography>
+              <Typography variant="caption" display="block">
+                Bu işlem, malzemenin depo içerisindeki fiziksel raf adresini sisteme tanımlar.
               </Typography>
+              <Box sx={{ mt: 1.5, display: 'flex', alignItems: 'center', gap: 1 }}>
+                <CheckCircle sx={{ fontSize: 14, color: 'info.main' }} />
+                <Typography variant="caption" fontWeight={700}>Stok miktarını değiştirmez.</Typography>
+              </Box>
+              <Box sx={{ mt: 0.5, display: 'flex', alignItems: 'center', gap: 1 }}>
+                <CheckCircle sx={{ fontSize: 14, color: 'info.main' }} />
+                <Typography variant="caption" fontWeight={700}>Sadece konum bilgisi günceller.</Typography>
+              </Box>
             </Alert>
-          </Box>
-        </Box>
-      )}
+          </Stack>
+        </Grid>
+      </Grid>
 
-      {/* Snackbar */}
       <Snackbar
         open={snackbar.open}
         autoHideDuration={4000}
         onClose={() => setSnackbar({ ...snackbar, open: false })}
       >
-        <Alert severity={snackbar.severity} onClose={() => setSnackbar({ ...snackbar, open: false })}>
+        <Alert severity={snackbar.severity} sx={{ borderRadius: 2, boxShadow: 3 }} onClose={() => setSnackbar({ ...snackbar, open: false })}>
           {snackbar.message}
         </Alert>
       </Snackbar>
-    </MainLayout>
+    </StandardPage>
   );
 }
 
@@ -473,11 +467,11 @@ export default function PutAwayPage() {
   return (
     <Suspense
       fallback={(
-        <MainLayout>
+        <StandardPage>
           <Box sx={{ p: 4, display: 'flex', justifyContent: 'center' }}>
             <CircularProgress />
           </Box>
-        </MainLayout>
+        </StandardPage>
       )}
     >
       <PutAwayPageContent />

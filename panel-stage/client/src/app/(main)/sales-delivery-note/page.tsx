@@ -1,5 +1,6 @@
 'use client';
 
+import React from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState, useMemo } from 'react';
@@ -57,6 +58,12 @@ import {
   Typography,
   Stack,
   LinearProgress,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
 } from '@mui/material';
 import { GridColDef, GridPaginationModel, GridSortModel, GridFilterModel } from '@mui/x-data-grid';
 import KPIHeader from '@/components/Fatura/KPIHeader';
@@ -99,10 +106,13 @@ interface SatisIrsaliyesi {
   totalAmount: number;
   vatAmount: number;
   grandTotal: number;
-  status: 'BEKLEMEDE' | 'TESLIM_EDILDI' | 'FATURAYA_BAGLANDI' | 'IPTAL';
+  subtotal?: number;
+  status: 'NOT_INVOICED' | 'PARTIALLY_INVOICED' | 'INVOICED' | 'CANCELLED';
+  orderNo?: string | null;
+  invoiceNos?: string[] | null;
   description?: string;
   items?: IrsaliyeKalemi[];
-  sourceType: 'SIPARIS' | 'DOGRUDAN' | 'FATURA_OTOMATIK';
+  sourceType: 'ORDER' | 'DIRECT' | 'INVOICE_AUTO';
   sourceOrder?: {
     id: string;
     orderNo: string;
@@ -166,9 +176,6 @@ export default function SatisIrsaliyeleriPage() {
   // Snackbar
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' | 'info' });
 
-  // Açılır menü state
-  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
-  const [menuIrsaliyeId, setMenuIrsaliyeId] = useState<string | null>(null);
 
   // Summary Cards stats
   const [stats, setStats] = useState<DeliveryNoteStats | null>(null);
@@ -186,6 +193,9 @@ export default function SatisIrsaliyeleriPage() {
       label: 'Satış İrsaliyeleri',
       path: '/sales-delivery-note',
     });
+  }, [addTab]);
+
+  useEffect(() => {
     fetchIrsaliyeler();
     fetchCariler();
     fetchStoklar();
@@ -209,7 +219,7 @@ export default function SatisIrsaliyeleriPage() {
       if (filterDurum.length > 0) params.status = filterDurum.join(',');
       if (filterCariId) params.accountId = filterCariId;
 
-      const response = await axios.get('/delivery-notes', { params });
+      const response = await axios.get('/sales-waybills', { params });
 
       const irsaliyeData = response.data?.data || [];
       const totalCount = response.data?.meta?.total || response.data?.total || irsaliyeData.length;
@@ -247,16 +257,6 @@ export default function SatisIrsaliyeleriPage() {
 
   const showSnackbar = (message: string, severity: 'success' | 'error' | 'info') => {
     setSnackbar({ open: true, message, severity });
-  };
-
-  const handleMenuOpen = (event: React.MouseEvent<HTMLElement>, irsaliyeId: string) => {
-    setAnchorEl(event.currentTarget);
-    setMenuIrsaliyeId(irsaliyeId);
-  };
-
-  const handleMenuClose = () => {
-    setAnchorEl(null);
-    setMenuIrsaliyeId(null);
   };
 
   // Excel Export
@@ -506,10 +506,10 @@ export default function SatisIrsaliyeleriPage() {
     () =>
       stats
         ? {
-            aylikSatis: { tutar: stats.monthlyNotes?.totalAmount || 0, adet: stats.monthlyNotes?.count || 0 },
-            tahsilatBekleyen: { tutar: stats.pendingNotes?.totalAmount || 0, adet: stats.pendingNotes?.count || 0 },
-            vadesiGecmis: { tutar: stats.deliveredNotes?.totalAmount || 0, adet: stats.deliveredNotes?.count || 0 },
-          }
+          aylikSatis: { tutar: stats.monthlyNotes?.totalAmount || 0, adet: stats.monthlyNotes?.count || 0 },
+          tahsilatBekleyen: { tutar: stats.pendingNotes?.totalAmount || 0, adet: stats.pendingNotes?.count || 0 },
+          vadesiGecmis: { tutar: stats.deliveredNotes?.totalAmount || 0, adet: stats.deliveredNotes?.count || 0 },
+        }
         : null,
     [stats]
   );
@@ -538,6 +538,15 @@ export default function SatisIrsaliyeleriPage() {
 
   const getStatusLabel = (status: string) => {
     switch (status) {
+      case 'NOT_INVOICED':
+        return 'Faturalanmadı';
+      case 'PARTIALLY_INVOICED':
+        return 'Kısmi Faturalandı';
+      case 'INVOICED':
+        return 'Faturalandı';
+      case 'CANCELLED':
+        return 'İptal Edildi';
+      // Backward compat
       case 'TESLIM_EDILDI':
         return 'Teslim Edildi';
       case 'BEKLEMEDE':
@@ -551,19 +560,16 @@ export default function SatisIrsaliyeleriPage() {
     }
   };
 
-  const handleEdit = (row: SatisIrsaliyesi) => {
-    const tabId = `sales-delivery-note-edit-${row.id}`;
-    addTab({
-      id: tabId,
-      label: `Düzenle: ${row.deliveryNoteNo}`,
-      path: `/sales-delivery-note/duzenle/${row.id}`,
-    });
-    setActiveTab(tabId);
-    router.push(`/sales-delivery-note/duzenle/${row.id}`);
-  };
 
   const handleView = (row: SatisIrsaliyesi) => {
-    openViewDialog(row);
+    const tabId = `sales-delivery-note-view-${row.id}`;
+    addTab({
+      id: tabId,
+      label: `İrsaliye: ${row.deliveryNoteNo}`,
+      path: `/sales-delivery-note/detay/${row.id}`,
+    });
+    setActiveTab(tabId);
+    router.push(`/sales-delivery-note/detay/${row.id}`);
   };
 
   const columns: GridColDef[] = useMemo(() => [
@@ -595,7 +601,7 @@ export default function SatisIrsaliyeleriPage() {
       headerName: 'Cari Ünvan',
       flex: 1.5,
       minWidth: 200,
-      valueGetter: (account: any) => account?.title || '',
+      valueGetter: (value, row) => row.account?.title || '',
       renderCell: (params) => (
         <Typography variant="body2" fontWeight="medium">{params.value}</Typography>
       )
@@ -607,6 +613,10 @@ export default function SatisIrsaliyeleriPage() {
       type: 'number',
       align: 'right',
       headerAlign: 'right',
+      valueGetter: (value, row) => {
+        const amount = value !== undefined && value !== null ? value : (row.genelToplam || 0);
+        return Number(amount) || 0;
+      },
       valueFormatter: (value) => new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY' }).format(value),
       renderCell: (params) => (
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, justifyContent: 'flex-end' }}>
@@ -623,42 +633,190 @@ export default function SatisIrsaliyeleriPage() {
       width: 140,
       renderCell: (params) => {
         const statusMap: Record<string, { color: any; label: string }> = {
-          'TESLIM_EDILDI': { color: 'success' as const, label: 'Teslim Edildi' },
-          'BEKLEMEDE': { color: 'warning' as const, label: 'Beklemede' },
-          'FATURAYA_BAGLANDI': { color: 'info' as const, label: 'Faturaya Bağlandı' },
-          'IPTAL': { color: 'error' as const, label: 'İptal' },
+          'NOT_INVOICED': { color: 'warning' as const, label: 'Faturalanmadı' },
+          'PARTIALLY_INVOICED': { color: 'info' as const, label: 'Kısmi Faturalandı' },
+          'INVOICED': { color: 'success' as const, label: 'Faturalandı' },
+          'CANCELLED': { color: 'error' as const, label: 'İptal' },
         };
         const statusInfo = statusMap[params.value] || { color: 'default' as const, label: params.value };
-        return <StatusBadge status={params.value} />;
+        return <Chip label={statusInfo.label} color={statusInfo.color} size="small" sx={{ fontWeight: 600, fontSize: '0.75rem', borderRadius: '6px' }} />;
       }
     },
     {
       field: 'actions',
       type: 'actions',
       headerName: 'İşlemler',
-      width: 160,
-      getActions: (params) => [
-        <Tooltip key="edit" title="Düzenle">
-          <IconButton size="small" onClick={(e) => { e.stopPropagation(); handleEdit(params.row); }}>
-            <Edit fontSize="small" />
-          </IconButton>
-        </Tooltip>,
-        <Tooltip key="print" title="Yazdır">
-          <IconButton size="small" onClick={(e) => { e.stopPropagation(); window.open(`/sales-delivery-note/print/${params.row.id}`, '_blank'); }}>
-            <Print fontSize="small" />
-          </IconButton>
-        </Tooltip>,
-        <Tooltip key="view" title="Detay">
-          <IconButton size="small" onClick={(e) => { e.stopPropagation(); handleView(params.row); }}>
-            <Visibility fontSize="small" />
-          </IconButton>
-        </Tooltip>,
-        <Tooltip key="more" title="Diğer İşlemler">
-          <IconButton size="small" onClick={(e) => { e.stopPropagation(); handleMenuOpen(e, params.row.id); }}>
-            <MoreVert fontSize="small" />
-          </IconButton>
-        </Tooltip>,
-      ],
+      width: 80,
+      sortable: false,
+      renderCell: (params) => {
+        const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
+        const open = Boolean(anchorEl);
+        const row = params.row as SatisIrsaliyesi;
+
+        const handleToggle = (event: React.MouseEvent<HTMLElement>) => {
+          event.stopPropagation();
+          setAnchorEl(event.currentTarget);
+        };
+
+        const handleClose = () => {
+          setAnchorEl(null);
+        };
+
+        const canEdit = row.status === 'NOT_INVOICED';
+        const canInvoice = row.status === 'NOT_INVOICED' || row.status === 'PARTIALLY_INVOICED';
+
+        const menuActions = [
+          {
+            id: 'view',
+            label: 'Detayları Görüntüle',
+            icon: <Visibility fontSize="small" />,
+            color: 'var(--foreground)',
+            onClick: () => { handleClose(); handleView(row); },
+            disabled: false,
+          },
+          {
+            id: 'invoice',
+            label: 'Faturaya Çevir',
+            icon: <Receipt fontSize="small" sx={{ color: 'var(--primary)' }} />,
+            color: 'var(--foreground)',
+            onClick: () => { handleClose(); router.push(`/invoice/sales/yeni?irsaliyeId=${row.id}`); },
+            disabled: !canInvoice,
+          },
+          {
+            id: 'print',
+            label: 'Yazdır',
+            icon: <Print fontSize="small" />,
+            color: 'var(--foreground)',
+            onClick: () => { handleClose(); window.open(`/sales-delivery-note/print/${row.id}`, '_blank'); },
+            disabled: false,
+          },
+          {
+            id: 'copy',
+            label: 'Kopyasını Oluştur',
+            icon: <ContentCopy fontSize="small" />,
+            color: 'var(--foreground)',
+            onClick: () => {
+              handleClose();
+              const path = `/sales-delivery-note/yeni?kopyala=${row.id}`;
+              const tabId = `irsaliye-kopyala-${row.id}`;
+              addTab({ id: tabId, label: `Kopya: ${row.deliveryNoteNo}`, path });
+              setActiveTab(tabId);
+              router.push(path);
+            },
+            disabled: false,
+          },
+          {
+            id: 'delete',
+            label: 'Sil',
+            icon: <Delete fontSize="small" sx={{ color: 'var(--destructive)' }} />,
+            color: 'var(--destructive)',
+            onClick: () => { handleClose(); openDeleteDialog(row); },
+            disabled: !canEdit,
+          },
+        ];
+
+        return (
+          <>
+            <IconButton
+              size="small"
+              onClick={handleToggle}
+              sx={{
+                bgcolor: open ? 'var(--secondary)' : 'transparent',
+                color: open ? 'var(--secondary-foreground)' : 'text.secondary',
+                '&:hover': {
+                  bgcolor: 'var(--secondary)',
+                  color: 'var(--secondary-foreground)',
+                },
+                transition: 'all 0.2s ease',
+              }}
+            >
+              <MoreVert fontSize="small" />
+            </IconButton>
+
+            <Menu
+              anchorEl={anchorEl}
+              open={open}
+              onClose={handleClose}
+              onClick={(e) => e.stopPropagation()}
+              PaperProps={{
+                elevation: 8,
+                sx: {
+                  minWidth: 280,
+                  mt: 1,
+                  borderRadius: 3,
+                  border: '1px solid var(--border)',
+                  boxShadow: '0 8px 32px rgba(0, 0, 0, 0.12)',
+                  overflow: 'visible',
+                  '&:before': {
+                    content: '""',
+                    display: 'block',
+                    position: 'absolute',
+                    top: 0,
+                    right: 14,
+                    width: 10,
+                    height: 10,
+                    bgcolor: 'background.paper',
+                    transform: 'translateY(-50%) rotate(45deg)',
+                    zIndex: 0,
+                    borderTop: '1px solid var(--border)',
+                    borderLeft: '1px solid var(--border)',
+                  },
+                }
+              }}
+              transformOrigin={{ horizontal: 'right', vertical: 'top' }}
+              anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
+            >
+              <Box
+                sx={{
+                  px: 2,
+                  py: 1.5,
+                  bgcolor: 'var(--muted)',
+                  borderBottom: '1px solid var(--border)',
+                }}
+              >
+                <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                  İrsaliye İşlemleri
+                </Typography>
+                <Typography variant="body2" fontWeight="bold" sx={{ mt: 0.5 }}>
+                  {row.deliveryNoteNo}
+                </Typography>
+              </Box>
+
+              <Box sx={{ px: 1.5, py: 1 }}>
+                {menuActions.map((action) => (
+                  <MenuItem
+                    key={action.id}
+                    onClick={action.onClick}
+                    disabled={action.disabled}
+                    sx={{
+                      px: 1.5,
+                      py: 1,
+                      borderRadius: 2,
+                      my: 0.25,
+                      color: action.color,
+                      '&:hover': {
+                        bgcolor: action.id === 'delete'
+                          ? 'var(--destructive)'
+                          : 'var(--secondary)',
+                      },
+                      '&.Mui-disabled': {
+                        opacity: 0.5,
+                      },
+                    }}
+                  >
+                    <ListItemIcon sx={{ minWidth: 36, color: 'inherit' }}>
+                      {action.icon}
+                    </ListItemIcon>
+                    <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                      {action.label}
+                    </Typography>
+                  </MenuItem>
+                ))}
+              </Box>
+            </Menu>
+          </>
+        );
+      }
     },
   ], []);
 
@@ -708,13 +866,14 @@ export default function SatisIrsaliyeleriPage() {
       {loading && <LinearProgress sx={{ mb: 2, borderRadius: 1, height: 3 }} color="primary" />}
 
       {/* KPI Kartları */}
-      <KPIHeader loading={loading} data={kpiData} type="SATIS_IRSALIYE" />
+      <KPIHeader loading={loading} data={kpiData} type="SATIS" />
 
       {/* Entegre Toolbar ve DataGrid */}
       <StandardCard padding={0} sx={{ boxShadow: 'none', overflow: 'hidden' }}>
         {/* Toolbar */}
         <Box sx={{ p: 2, display: 'flex', flexWrap: 'wrap', gap: 1.5, alignItems: 'center', borderBottom: '1px solid', borderColor: 'divider', bgcolor: 'var(--card)' }}>
           <TextField
+            id="satis-irsaliye-search"
             size="small"
             placeholder="İrsaliye Ara (No, Cari vb.)"
             value={searchTerm}
@@ -803,6 +962,7 @@ export default function SatisIrsaliyeleriPage() {
             <Grid container spacing={2}>
               <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                 <TextField
+                  id="satis-irsaliye-filter-start-date"
                   fullWidth type="date" size="small" label="Başlangıç Tarihi"
                   value={filterStartDate} onChange={(e) => setFilterStartDate(e.target.value)}
                   InputLabelProps={{ shrink: true }}
@@ -810,6 +970,7 @@ export default function SatisIrsaliyeleriPage() {
               </Grid>
               <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                 <TextField
+                  id="satis-irsaliye-filter-end-date"
                   fullWidth type="date" size="small" label="Bitiş Tarihi"
                   value={filterEndDate} onChange={(e) => setFilterEndDate(e.target.value)}
                   InputLabelProps={{ shrink: true }}
@@ -834,6 +995,7 @@ export default function SatisIrsaliyeleriPage() {
               </Grid>
               <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                 <Autocomplete
+                  id="sales-waybills-filter-cari-autocomplete"
                   size="small"
                   options={cariler}
                   getOptionLabel={(option: Cari) => `${option.accountCode} - ${option.title}`}
@@ -943,13 +1105,38 @@ export default function SatisIrsaliyeleriPage() {
                     {formatDate(selectedIrsaliye.date)}
                   </Typography>
                 </Box>
+                <Box sx={{ flex: 1 }}>
+                  <Typography variant="body2" color="text.secondary">Cari:</Typography>
+                  <Typography variant="body1" fontWeight="bold">
+                    {selectedIrsaliye.account.title}
+                  </Typography>
+                </Box>
               </Box>
-              <Box sx={{ mb: 2 }}>
-                <Typography variant="body2" color="text.secondary">Cari:</Typography>
-                <Typography variant="body1" fontWeight="bold">
-                  {selectedIrsaliye.account.title}
-                </Typography>
-              </Box>
+
+              {selectedIrsaliye.sourceOrder && (
+                <Box sx={{ mb: 2 }}>
+                  <Typography variant="body2" color="text.secondary">Satış Sipariş No:</Typography>
+                  <MuiLink
+                    component={Link}
+                    href={`/orders/sales?id=${selectedIrsaliye.sourceOrder.id}`}
+                    sx={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 0.5,
+                      textDecoration: 'none',
+                      color: 'var(--ring)',
+                      '&:hover': {
+                        textDecoration: 'underline',
+                      },
+                    }}
+                  >
+                    <Description fontSize="small" />
+                    <Typography variant="body1" fontWeight="bold">
+                      {selectedIrsaliye.sourceOrder.orderNo}
+                    </Typography>
+                  </MuiLink>
+                </Box>
+              )}
 
               {selectedIrsaliye.items && selectedIrsaliye.items.length > 0 && (
                 <Box sx={{ mb: 2 }}>
@@ -1125,71 +1312,6 @@ export default function SatisIrsaliyeleriPage() {
         </DialogActions>
       </Dialog>
 
-      <Menu
-        anchorEl={anchorEl}
-        open={Boolean(anchorEl)}
-        onClose={handleMenuClose}
-        PaperProps={{
-          elevation: 3,
-          sx: { minWidth: 220, mt: 1 }
-        }}
-        transformOrigin={{ horizontal: 'right', vertical: 'top' }}
-        anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
-      >
-        {(() => {
-          const irsaliye = irsaliyeler.find(i => i.id === menuIrsaliyeId);
-          if (!irsaliye) return null;
-
-          return [
-            <MenuItem key="detail" onClick={() => { handleMenuClose(); handleView(irsaliye); }}>
-              <ListItemIcon><Visibility fontSize="small" /></ListItemIcon>
-              <Typography variant="body2">Detayları Görüntüle</Typography>
-            </MenuItem>,
-            <MenuItem key="edit" onClick={() => { handleMenuClose(); handleEdit(irsaliye); }} disabled={irsaliye.status === 'FATURAYA_BAGLANDI' || irsaliye.status === 'IPTAL'}>
-              <ListItemIcon><Edit fontSize="small" /></ListItemIcon>
-              <Typography variant="body2">Düzenle</Typography>
-            </MenuItem>,
-            <MenuItem key="print" onClick={() => { handleMenuClose(); window.open(`/sales-delivery-note/print/${irsaliye.id}`, '_blank'); }}>
-              <ListItemIcon><Print fontSize="small" /></ListItemIcon>
-              <Typography variant="body2">Yazdır</Typography>
-            </MenuItem>,
-            <MenuItem
-              key="invoice"
-              onClick={() => {
-                handleMenuClose();
-                router.push(`/invoice/sales/yeni?irsaliyeId=${irsaliye.id}`);
-              }}
-              disabled={irsaliye.status === 'FATURAYA_BAGLANDI' || irsaliye.status === 'IPTAL'}
-            >
-              <ListItemIcon><Receipt fontSize="small" /></ListItemIcon>
-              <Typography variant="body2">Faturalandır</Typography>
-            </MenuItem>,
-            <MenuItem
-              key="copy"
-              onClick={() => {
-                handleMenuClose();
-                const path = `/sales-delivery-note/yeni?kopyala=${irsaliye.id}`;
-                const tabId = `irsaliye-kopyala-${irsaliye.id}`;
-                addTab({ id: tabId, label: `Kopya: ${irsaliye.deliveryNoteNo}`, path });
-                setActiveTab(tabId);
-                router.push(path);
-              }}
-            >
-              <ListItemIcon><ContentCopy fontSize="small" /></ListItemIcon>
-              <Typography variant="body2">Kopyasını Oluştur</Typography>
-            </MenuItem>,
-            <MenuItem
-              key="delete"
-              onClick={() => { handleMenuClose(); openDeleteDialog(irsaliye); }}
-              disabled={irsaliye.status === 'FATURAYA_BAGLANDI' || irsaliye.status === 'IPTAL'}
-              sx={{ color: 'error.main' }}
-            >
-              <ListItemIcon><Delete fontSize="small" color="error" /></ListItemIcon>
-              <Typography variant="body2">Sil</Typography>
-            </MenuItem>
-          ];
-        })()}
-      </Menu>
 
       <Snackbar
         open={snackbar.open}

@@ -8,10 +8,12 @@ import {
   Patch,
   Post,
   Query,
+  Req,
   UploadedFile,
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 import { ApiBody, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
@@ -28,7 +30,7 @@ export class B2bAdminProductsController {
   constructor(
     private readonly service: B2bAdminProductService,
     private readonly tenantResolver: TenantResolverService,
-  ) {}
+  ) { }
 
   private async tenant() {
     const tenantId = await this.tenantResolver.resolveForQuery();
@@ -48,10 +50,47 @@ export class B2bAdminProductsController {
     return this.service.syncStatus(await this.tenant());
   }
 
+  @Get('sync/loops')
+  @ApiOperation({ summary: 'Senkronizasyon döngüleri (Loops) listesi' })
+  async getSyncLoops() {
+    return this.service.getSyncLoops(await this.tenant());
+  }
+
   @Post('sync')
-  @ApiOperation({ summary: 'Ürün + stok tam senkron (FULL) kuyruğu' })
-  async triggerSync() {
-    return this.service.triggerSync(await this.tenantWrite());
+  @ApiOperation({ summary: 'Ürün/stok/fiyat senkronizasyon kuyruğu' })
+  async triggerSync(
+    @Body() dto: { type?: 'PRODUCTS' | 'PRICES' | 'STOCK' | 'FULL' },
+    @CurrentUser() user: any,
+  ) {
+    const type = dto?.type || 'FULL';
+    const result = await this.service.triggerSync(
+      await this.tenantWrite(),
+      type as 'PRODUCTS' | 'PRICES' | 'STOCK' | 'FULL',
+      user?.id,
+    );
+    return {
+      success: true,
+      message: 'Senkronizasyon kuyruğa alındı',
+      jobId: result.jobId,
+    };
+  }
+
+  @Get('erp/available')
+  @ApiOperation({ summary: 'ERP\'de mevcut ama B2B\'de olmayan ürünler' })
+  async getAvailableErpProducts(@Query() q: { search?: string; limit?: number }) {
+    return this.service.getAvailableErpProducts(await this.tenant(), q);
+  }
+
+  @Post('erp/add')
+  @ApiOperation({ summary: 'ERP\'den manuel olarak ürün B2B\'ye ekle' })
+  async addFromErp(@Body() dto: { erpProductId: string }) {
+    return this.service.addFromErp(await this.tenantWrite(), dto.erpProductId);
+  }
+
+  @Post('erp/add-batch')
+  @ApiOperation({ summary: 'ERP\'den çoklu ürün B2B\'ye ekle' })
+  async addBatchFromErp(@Body() dto: { erpProductIds: string[] }) {
+    return this.service.addBatchFromErp(await this.tenantWrite(), dto.erpProductIds);
   }
 
   @Get()

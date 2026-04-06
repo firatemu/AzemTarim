@@ -7,6 +7,7 @@ export enum InvoiceType {
 
 export enum InvoiceStatus {
     DRAFT = 'DRAFT',
+    PENDING = 'PENDING',
     OPEN = 'OPEN',
     CLOSED = 'CLOSED',
     PARTIALLY_PAID = 'PARTIALLY_PAID',

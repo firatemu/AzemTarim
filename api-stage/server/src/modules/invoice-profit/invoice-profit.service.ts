@@ -350,29 +350,39 @@ export class InvoiceProfitService {
     });
 
     return {
-      invoice: {
+      fatura: {
         id: invoice.id,
-        invoiceNo: invoice.invoiceNo,
-        date: invoice.date,
-        account: invoice.account,
-        totalSalesAmount: totalProfitRecord
+        faturaNo: invoice.invoiceNo,
+        tarih: invoice.date,
+        cari: {
+          id: invoice.account.id,
+          cariKodu: invoice.account.code,
+          unvan: invoice.account.title,
+        },
+        toplamSatisTutari: totalProfitRecord
           ? Number(totalProfitRecord.totalSalesAmount)
           : 0,
-        totalCost: totalProfitRecord ? Number(totalProfitRecord.totalCost) : 0,
-        totalProfit: totalProfitRecord ? Number(totalProfitRecord.profit) : 0,
-        profitRate: totalProfitRecord ? Number(totalProfitRecord.profitRate) : 0,
+        toplamMaliyet: totalProfitRecord ? Number(totalProfitRecord.totalCost) : 0,
+        toplamKar: totalProfitRecord ? Number(totalProfitRecord.profit) : 0,
+        karOrani: totalProfitRecord ? Number(totalProfitRecord.profitRate) : 0,
       },
-      items: itemProfitRecords.map((record) => ({
+      kalemler: itemProfitRecords.map((record) => ({
         id: record.id,
-        invoiceItemId: record.invoiceItemId,
-        product: record.invoiceItem?.product,
-        quantity: record.quantity,
-        unitPrice: Number(record.unitPrice),
-        unitCost: Number(record.unitCost),
-        totalSalesAmount: Number(record.totalSalesAmount),
-        totalCost: Number(record.totalCost),
-        profit: Number(record.profit),
-        profitRate: Number(record.profitRate),
+        faturaKalemiId: record.invoiceItemId,
+        stok: record.invoiceItem?.product
+          ? {
+            id: record.invoiceItem.product.id,
+            stokKodu: record.invoiceItem.product.code,
+            stokAdi: record.invoiceItem.product.name,
+          }
+          : null,
+        miktar: record.quantity,
+        birimFiyat: Number(record.unitPrice),
+        birimMaliyet: Number(record.unitCost),
+        toplamSatisTutari: Number(record.totalSalesAmount),
+        toplamMaliyet: Number(record.totalCost),
+        kar: Number(record.profit),
+        karOrani: Number(record.profitRate),
       })),
     };
   }
@@ -575,11 +585,32 @@ export class InvoiceProfitService {
 
     // Convert Map to array and calculate profit rate
     const result = Array.from(productMap.values()).map((product) => ({
-      ...product,
-      profitRate:
+      stok: {
+        id: product.product.id,
+        stokKodu: product.product.code,
+        stokAdi: product.product.name,
+      },
+      toplamMiktar: product.totalQuantity,
+      toplamSatisTutari: product.totalSalesAmount,
+      toplamMaliyet: product.totalCost,
+      toplamKar: product.totalProfit,
+      karOrani:
         product.totalCost > 0
           ? (product.totalProfit / product.totalCost) * 100
           : 0,
+      faturalar: product.invoices.map(inv => ({
+        faturaId: inv.invoiceId,
+        faturaNo: inv.invoiceNo,
+        tarih: inv.date,
+        cari: {
+          id: inv.account.id,
+          unvan: inv.account.title
+        },
+        miktar: inv.quantity,
+        satisTutari: inv.salesAmount,
+        maliyet: inv.cost,
+        kar: inv.profit
+      }))
     }));
 
     return result;
@@ -695,19 +726,23 @@ export class InvoiceProfitService {
       const totalProfit = profitMap.get(invoice.id);
 
       return {
-        invoice: {
+        fatura: {
           id: invoice.id,
-          invoiceNo: invoice.invoiceNo,
-          date: invoice.date,
-          account: invoice.account,
-          status: invoice.status,
+          faturaNo: invoice.invoiceNo,
+          tarih: invoice.date,
+          cari: {
+            id: invoice.account.id,
+            cariKodu: invoice.account.code,
+            unvan: invoice.account.title,
+          },
+          durum: invoice.status,
         },
-        totalSalesAmount: totalProfit
+        toplamSatisTutari: totalProfit
           ? Number(totalProfit.totalSalesAmount)
           : Number(invoice.grandTotal || 0), // VAT included (fallback)
-        totalCost: totalProfit ? Number(totalProfit.totalCost) : 0,
-        totalProfit: totalProfit ? Number(totalProfit.profit) : 0,
-        profitRate: totalProfit ? Number(totalProfit.profitRate) : 0,
+        toplamMaliyet: totalProfit ? Number(totalProfit.totalCost) : 0,
+        toplamKar: totalProfit ? Number(totalProfit.profit) : 0,
+        karOrani: totalProfit ? Number(totalProfit.profitRate) : 0,
       };
     });
   }
@@ -806,14 +841,20 @@ export class InvoiceProfitService {
       })
       .map((record) => ({
         id: record.id,
-        product: record.invoiceItem?.product || null,
-        quantity: record.quantity,
-        unitPrice: Number(record.unitPrice),
-        unitCost: Number(record.unitCost),
-        totalSalesAmount: Number(record.totalSalesAmount),
-        totalCost: Number(record.totalCost),
-        profit: Number(record.profit),
-        profitRate: Number(record.profitRate),
+        stok: record.invoiceItem?.product
+          ? {
+            id: record.invoiceItem.product.id,
+            stokKodu: record.invoiceItem.product.code,
+            stokAdi: record.invoiceItem.product.name,
+          }
+          : null,
+        miktar: record.quantity,
+        birimFiyat: Number(record.unitPrice),
+        birimMaliyet: Number(record.unitCost),
+        toplamSatisTutari: Number(record.totalSalesAmount),
+        toplamMaliyet: Number(record.totalCost),
+        kar: Number(record.profit),
+        karOrani: Number(record.profitRate),
       }));
   }
 }

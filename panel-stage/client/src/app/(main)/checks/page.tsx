@@ -1,6 +1,6 @@
 import React from 'react';
 import ChecksClient from './ChecksClient';
-import { Box, Typography } from '@mui/material';
+import StandardPage from '@/components/common/StandardPage';
 
 export const metadata = {
     title: 'Çek ve Senet Yönetimi',
@@ -9,11 +9,11 @@ export const metadata = {
 
 export default function ChecksPage() {
     return (
-        <Box sx={{ p: 3, maxWidth: 1400, mx: 'auto' }}>
-            <Typography variant="h4" fontWeight="600" mb={3}>
-                Çek ve Senet Yönetimi
-            </Typography>
+        <StandardPage
+            title="Çek ve Senet Yönetimi"
+            breadcrumbs={[{ label: 'Finans', href: '/finance' }, { label: 'Çek ve Senet' }]}
+        >
             <ChecksClient />
-        </Box>
+        </StandardPage>
     );
 }

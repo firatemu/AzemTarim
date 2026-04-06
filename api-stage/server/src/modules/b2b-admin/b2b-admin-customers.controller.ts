@@ -188,4 +188,10 @@ export class B2bAdminCustomersController {
   async importFromErp() {
     return this.service.importFromErp(await this.tenantWrite());
   }
+
+  @Post('sync-existing-from-erp')
+  @ApiOperation({ summary: "Mevcut B2B müşterilerini ERP'den güncelle" })
+  async syncExistingFromErp() {
+    return this.service.syncExistingFromErp(await this.tenantWrite());
+  }
 }

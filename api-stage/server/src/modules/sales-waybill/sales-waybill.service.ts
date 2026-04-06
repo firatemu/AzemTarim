@@ -14,6 +14,7 @@ import { UpdateSalesWaybillDto } from './dto/update-sales-waybill.dto';
 import { FilterSalesWaybillDto } from './dto/filter-sales-waybill.dto';
 import { Prisma, LogAction } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
+import { StatusCalculatorService } from '../shared/status-calculator/status-calculator.service';
 
 @Injectable()
 export class SalesWaybillService {
@@ -21,6 +22,7 @@ export class SalesWaybillService {
     private prisma: PrismaService,
     private tenantResolver: TenantResolverService,
     private codeTemplateService: CodeTemplateService,
+    private statusCalculator: StatusCalculatorService,
   ) { }
 
   private async createLog(
@@ -136,8 +138,22 @@ export class SalesWaybillService {
       data: data.map((d: any) => ({
         ...d,
         // Backward-compatible aliases
+        irsaliyeNo: d.deliveryNoteNo,
+        irsaliyeTarihi: d.date,
+        durum: d.status,
+        genelToplam: d.grandTotal ? Number(d.grandTotal) : 0,
+        subtotal: d.subtotal ? Number(d.subtotal) : 0,
+        grandTotal: d.grandTotal ? Number(d.grandTotal) : 0,
+        discount: d.discount ? Number(d.discount) : 0,
+        vatAmount: d.vatAmount ? Number(d.vatAmount) : 0,
         account: d.account
-          ? { id: d.account.id, code: d.account.code, title: d.account.title, type: d.account.type }
+          ? {
+            id: d.account.id,
+            code: d.account.code,
+            accountCode: d.account.code,
+            title: d.account.title,
+            type: d.account.type
+          }
           : null,
         warehouse: d.warehouse ? { id: d.warehouse.id, name: d.warehouse.name } : null,
         items: d.items,
@@ -148,10 +164,7 @@ export class SalesWaybillService {
         sourceType: d.sourceType,
         sourceId: d.sourceId,
         status: d.status,
-        totalAmount: d.subtotal,
-        grandTotal: d.grandTotal,
-        discount: d.discount,
-        notes: d.notes,
+        totalAmount: d.subtotal ? Number(d.subtotal) : 0,
         _count: d._count ? { ...d._count, items: d._count.items } : d._count,
       })),
       meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
@@ -209,10 +222,54 @@ export class SalesWaybillService {
     }
 
     return {
-      ...deliveryNote,
+      ...(deliveryNote as any),
       // Backward-compatible aliases
-      account: (deliveryNote as any).account,
-      warehouse: (deliveryNote as any).warehouse,
+      irsaliyeNo: (deliveryNote as any).deliveryNoteNo,
+      irsaliyeTarihi: (deliveryNote as any).date,
+      durum: (deliveryNote as any).status,
+      genelToplam: deliveryNote.grandTotal ? Number(deliveryNote.grandTotal) : 0,
+      toplamTutar: deliveryNote.subtotal ? Number(deliveryNote.subtotal) : 0,
+      vatAmount: deliveryNote.vatAmount ? Number(deliveryNote.vatAmount) : 0,
+      iskonto: deliveryNote.discount ? Number(deliveryNote.discount) : 0,
+      kdvTutar: deliveryNote.vatAmount ? Number(deliveryNote.vatAmount) : 0,
+
+      // Frontend expects 'cari'
+      cari: deliveryNote.account ? {
+        id: deliveryNote.account.id,
+        cariKodu: deliveryNote.account.code,
+        unvan: deliveryNote.account.title,
+        tip: (deliveryNote.account as any).type || 'Müşteri',
+      } : null,
+
+      // Frontend expects 'kalemler' instead of 'items'
+      kalemler: (deliveryNote.items || []).map((item: any) => ({
+        id: item.id,
+        stokId: item.productId,
+        stok: item.product ? {
+          id: item.product.id,
+          stokKodu: item.product.code,
+          stokAdi: item.product.name,
+          birim: item.product.unit || null,   // ← birim alanı eklendi
+        } : null,
+        birim: item.product?.unit || null,    // ← kalem düzeyinde de taşı
+        miktar: Number(item.quantity),
+        birimFiyat: Number(item.unitPrice),
+        kdvOrani: Number(item.vatRate),
+        kdvTutar: Number(item.vatAmount),
+        tutar: Number(item.totalAmount) - Number(item.vatAmount), // Net total
+      })),
+
+      kaynakTip: (deliveryNote as any).sourceType === 'ORDER' ? 'SIPARIS' : 'DOGRUDAN',
+      kaynakSiparis: (deliveryNote as any).sourceOrder ? {
+        id: (deliveryNote as any).sourceOrder.id,
+        siparisNo: (deliveryNote as any).sourceOrder.orderNo,
+      } : null,
+
+      account: deliveryNote.account ? {
+        ...(deliveryNote.account as any),
+        accountCode: deliveryNote.account.code,
+      } : null,
+      warehouse: deliveryNote.warehouse,
       items: (deliveryNote as any).items,
       invoices: (deliveryNote as any).invoices?.map((inv: any) => ({
         ...inv,
@@ -226,9 +283,7 @@ export class SalesWaybillService {
       sourceType: (deliveryNote as any).sourceType,
       sourceId: (deliveryNote as any).sourceId,
       status: (deliveryNote as any).status,
-      totalAmount: (deliveryNote as any).subtotal,
-      grandTotal: (deliveryNote as any).grandTotal,
-      discount: (deliveryNote as any).discount,
+      totalAmount: (deliveryNote as any).subtotal ? Number((deliveryNote as any).subtotal) : 0,
       notes: (deliveryNote as any).notes,
     };
   }
@@ -322,7 +377,7 @@ export class SalesWaybillService {
           grandTotal: new Decimal(grandTotal),
           discount: new Decimal(discount),
           notes: deliveryNoteData.notes,
-          status: deliveryNoteData.status || DeliveryNoteStatus.NOT_INVOICED,
+          status: (deliveryNoteData.status as any) || DeliveryNoteStatus.NOT_INVOICED,
           createdBy: userId,
           items: {
             create: itemsWithCalculations.map(item => ({
@@ -361,14 +416,25 @@ export class SalesWaybillService {
         });
       }
 
-      // Bind deliveryNoteId to order (if sourceType: ORDER)
+      // Bind deliveryNoteId to order (if sourceType: ORDER) and set orderNo
       if (deliveryNoteData.sourceType === DeliveryNoteSourceType.ORDER && deliveryNoteData.sourceId) {
+        const sourceOrder = await prisma.salesOrder.findUnique({
+          where: { id: deliveryNoteData.sourceId },
+          select: { orderNo: true },
+        });
         await prisma.salesOrder.update({
           where: { id: deliveryNoteData.sourceId },
           data: {
             deliveryNoteId: deliveryNote.id,
           },
         });
+        // Denormalize orderNo onto the delivery note for cross-referencing
+        if (sourceOrder?.orderNo) {
+          await prisma.salesDeliveryNote.update({
+            where: { id: deliveryNote.id },
+            data: { orderNo: sourceOrder.orderNo } as any,
+          });
+        }
       }
 
       // Create audit log
@@ -388,6 +454,15 @@ export class SalesWaybillService {
         warehouse: (deliveryNote as any).warehouse,
         items: (deliveryNote as any).items,
       };
+    }).then(async (result) => {
+      // After transaction: recalculate order status
+      if (deliveryNoteData.sourceType === DeliveryNoteSourceType.ORDER && deliveryNoteData.sourceId && tenantId) {
+        await this.statusCalculator.recalculateOrderStatus(
+          deliveryNoteData.sourceId,
+          tenantId as string,
+        ).catch((err: any) => console.error('[SalesWaybill] recalculateOrderStatus failed:', err?.message));
+      }
+      return result;
     });
   }
 
@@ -548,6 +623,14 @@ export class SalesWaybillService {
           items: (updatedWaybill as any).items,
         }
         : updatedWaybill;
+    }).then(async (result) => {
+      // After transaction: recalculate status
+      const tenantId = await this.tenantResolver.resolveForQuery();
+      if (id && tenantId) {
+        await this.statusCalculator.recalculateCascade(id, String(tenantId))
+          .catch(err => console.error('[SalesWaybill] recalculateCascade after update failed:', err?.message));
+      }
+      return result;
     });
   }
 
@@ -608,6 +691,14 @@ export class SalesWaybillService {
         userAgent,
         prisma,
       );
+    }).then(async () => {
+      // After transaction: recalculate status for the order
+      const tenantId = await this.tenantResolver.resolveForQuery();
+      // Since we soft deleted the DN, recalculateOrderStatus for the order it WAS attached to
+      if (deliveryNote.sourceId && tenantId) {
+        await this.statusCalculator.recalculateOrderStatus(deliveryNote.sourceId, String(tenantId))
+          .catch(err => console.error('[SalesWaybill] recalculateOrderStatus after remove failed:', err?.message));
+      }
     });
   }
 
@@ -636,5 +727,61 @@ export class SalesWaybillService {
       },
       orderBy: { date: 'desc' },
     });
+  }
+
+  async getStats() {
+    const tenantId = await this.tenantResolver.resolveForQuery();
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    const baseWhere: Prisma.SalesDeliveryNoteWhereInput = {
+      deletedAt: null,
+      ...buildTenantWhereClause(tenantId ?? undefined),
+    };
+
+    // Monthly total
+    const monthlyStats = await this.prisma.salesDeliveryNote.aggregate({
+      where: {
+        ...baseWhere,
+        date: { gte: startOfMonth },
+      },
+      _sum: { grandTotal: true },
+      _count: true,
+    });
+
+    // Pending Notes (NOT_INVOICED)
+    const pendingStats = await this.prisma.salesDeliveryNote.aggregate({
+      where: {
+        ...baseWhere,
+        status: DeliveryNoteStatus.NOT_INVOICED as any,
+      },
+      _sum: { grandTotal: true },
+      _count: true,
+    });
+
+    // Delivered Notes (INVOICED) -> Mapping to Delivered as per frontend usage
+    const deliveredStats = await this.prisma.salesDeliveryNote.aggregate({
+      where: {
+        ...baseWhere,
+        status: DeliveryNoteStatus.INVOICED as any,
+      },
+      _sum: { grandTotal: true },
+      _count: true,
+    });
+
+    return {
+      monthlyNotes: {
+        totalAmount: monthlyStats._sum.grandTotal ? monthlyStats._sum.grandTotal.toNumber() : 0,
+        count: monthlyStats._count || 0,
+      },
+      pendingNotes: {
+        totalAmount: pendingStats._sum.grandTotal ? pendingStats._sum.grandTotal.toNumber() : 0,
+        count: pendingStats._count || 0,
+      },
+      deliveredNotes: {
+        totalAmount: deliveredStats._sum.grandTotal ? deliveredStats._sum.grandTotal.toNumber() : 0,
+        count: deliveredStats._count || 0,
+      },
+    };
   }
 }

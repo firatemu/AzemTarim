@@ -111,6 +111,7 @@ export const usePosStore = create<PosState>()(
       receiptDialogOpen: false,
       paymentDialogOpen: false,
       selectedProductForVariant: null,
+      receiptData: null,
       cashboxId: null,
       warehouseId: null,
 
@@ -343,6 +344,7 @@ export const usePosStore = create<PosState>()(
         });
 
         // Başarılı
+        set({ receiptData: completeRes.data });
         state.clearCart();
         state.setReceiptDialogOpen(true);
         return {

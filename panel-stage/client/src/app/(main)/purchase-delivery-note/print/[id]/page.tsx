@@ -22,6 +22,7 @@ import {
 import { useParams, useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { useReactToPrint } from 'react-to-print';
+import { useSnackbar } from 'notistack';
 
 interface Irsaliye {
     id: string;
@@ -61,6 +62,7 @@ interface Irsaliye {
 }
 
 export default function IrsaliyePrintPage() {
+    const { enqueueSnackbar } = useSnackbar();
     const params = useParams();
     const router = useRouter();
     const id = params.id as string;
@@ -122,7 +124,7 @@ export default function IrsaliyePrintPage() {
             pdf.save(`İrsaliye-${irsaliye?.irsaliyeNo}.pdf`);
         } catch (error) {
             console.error('PDF oluşturulamadı:', error);
-            alert('PDF oluşturulurken bir hata oluştu');
+            enqueueSnackbar('PDF oluşturulurken bir hata oluştu', { variant: 'error' });
         }
     };
 

@@ -6,6 +6,7 @@ import type {
   ErpAccountMovement,
   ErpAccountRisk,
   ErpProduct,
+  ErpSalesperson,
   ErpStockItem,
   ErpWarehouse,
 } from '../dto/erp-types.dto';
@@ -56,7 +57,13 @@ export class MikroErpAdapter implements IErpAdapter {
   getAccounts(lastSyncedAt: Date | null): Promise<ErpAccount[]> {
     throw new NotImplementedException('Mikro ERP adapter is not implemented yet');
   }
-  getAccountMovements(): Promise<ErpAccountMovement[]> {
+  getPrices(_lastSyncedAt: Date | null): Promise<{ erpProductId: string; listPrice: number }[]> {
+    throw new NotImplementedException('Mikro ERP adapter is not implemented yet');
+  }
+  getSalespersons(): Promise<ErpSalesperson[]> {
+    throw new NotImplementedException('Mikro ERP adapter is not implemented yet');
+  }
+  getAccountMovements(_erpAccountId: string, _lastSyncedAt: Date | null): Promise<ErpAccountMovement[]> {
     throw new NotImplementedException('Mikro ERP adapter is not implemented yet');
   }
   getWarehouses(): Promise<ErpWarehouse[]> {
@@ -65,7 +72,7 @@ export class MikroErpAdapter implements IErpAdapter {
   pushOrder(_order: B2BOrderExportDto): Promise<{ erpOrderId: string }> {
     throw new NotImplementedException('Mikro ERP adapter is not implemented yet');
   }
-  getAccountRisk(): Promise<ErpAccountRisk> {
+  getAccountRisk(_erpAccountId: string): Promise<ErpAccountRisk> {
     throw new NotImplementedException('Mikro ERP adapter is not implemented yet');
   }
 }

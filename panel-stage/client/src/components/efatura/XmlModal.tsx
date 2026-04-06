@@ -15,6 +15,7 @@ import {
   Paper,
 } from '@mui/material';
 import { Close, ContentCopy, Download } from '@mui/icons-material';
+import { useSnackbar } from 'notistack';
 
 interface XmlModalProps {
   open: boolean;
@@ -29,6 +30,7 @@ interface XmlModalProps {
 
 export default function XmlModal({ open, onClose, xml, document: docInfo }: XmlModalProps) {
   const [formattedXml, setFormattedXml] = React.useState('');
+  const { enqueueSnackbar } = useSnackbar();
 
   // XML'i formatla
   React.useEffect(() => {
@@ -71,7 +73,7 @@ export default function XmlModal({ open, onClose, xml, document: docInfo }: XmlM
 
   const handleCopy = () => {
     navigator.clipboard.writeText(xml);
-    alert('XML kopyalandı!');
+    enqueueSnackbar('XML kopyalandı!', { variant: 'info' });
   };
 
   const handleDownload = () => {

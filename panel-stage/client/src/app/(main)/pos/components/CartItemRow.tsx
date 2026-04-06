@@ -1,6 +1,7 @@
 'use client';
 
 import React, { memo } from 'react';
+import { Box, Typography, alpha, useTheme, IconButton, Button } from '@mui/material';
 import type { CartItem } from '../types/pos.types';
 
 interface CartItemRowProps {
@@ -15,7 +16,7 @@ const fmt = (n: number) =>
 
 function TrashIcon() {
     return (
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
             <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
         </svg>
     );
@@ -27,6 +28,8 @@ export const CartItemRow = memo(function CartItemRow({
     onRemove,
     onDiscountClick,
 }: CartItemRowProps) {
+    const theme = useTheme();
+
     const lineRaw = item.quantity * item.unitPrice;
     const lineNet = lineRaw - item.discountAmount;
     const hasDiscount = item.discountValue > 0;
@@ -38,219 +41,171 @@ export const CartItemRow = memo(function CartItemRow({
         : '+ İndirim';
 
     return (
-        <div
-            style={{
+        <Box
+            sx={{
                 display: 'flex',
                 alignItems: 'center',
-                gap: 12,
-                padding: '12px 16px',
-                borderBottom: '1px solid var(--border)',
-                transition: 'background .1s',
-            }}
-            onMouseEnter={(e) => {
-                (e.currentTarget as HTMLDivElement).style.background = 'var(--surface2)';
-            }}
-            onMouseLeave={(e) => {
-                (e.currentTarget as HTMLDivElement).style.background = 'transparent';
+                gap: 1.5,
+                px: 2,
+                py: 1.5,
+                borderBottom: '1px solid',
+                borderColor: 'divider',
+                transition: 'all 0.15s ease',
+                '&:hover': {
+                    bgcolor: alpha(theme.palette.primary.main, 0.04),
+                }
             }}
         >
-            {/* Sol: isim + meta */}
-            <div style={{ flex: 1, minWidth: 0 }}>
-                <div
-                    style={{
-                        fontSize: 15,
-                        fontWeight: 600,
-                        color: 'var(--text)',
-                        whiteSpace: 'nowrap',
+            {/* Sol: İsim + Varyant */}
+            <Box sx={{ flex: 1, minWidth: 0 }}>
+                <Typography
+                    sx={{
+                        fontSize: '0.9375rem',
+                        fontWeight: 700,
+                        color: 'text.primary',
                         overflow: 'hidden',
                         textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap'
                     }}
                 >
                     {item.name}
                     {item.variantName && (
-                        <span style={{ color: 'var(--muted)', fontWeight: 400 }}>
-                            {' '}· {item.variantName}
-                        </span>
+                        <Typography component="span" sx={{ color: 'text.secondary', fontWeight: 500, fontSize: '0.8125rem', ml: 1 }}>
+                            • {item.variantName}
+                        </Typography>
                     )}
-                </div>
-            </div>
+                </Typography>
+            </Box>
 
-            {/* Ortada: Birim Fiyat ve İndirim */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0, paddingRight: 12 }}>
-                <span
-                    style={{
-                        fontSize: 14,
-                        color: 'var(--muted)',
-                        fontFamily: "'DM Mono', monospace",
+            {/* Orta: Fiyat ve İndirim */}
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, flexShrink: 0 }}>
+                <Typography
+                    sx={{
+                        fontSize: '0.875rem',
+                        color: 'text.secondary',
+                        fontFamily: theme.typography.fontFamily,
+                        fontWeight: 600
                     }}
                 >
                     {fmt(item.unitPrice)}
-                </span>
-                <span
+                </Typography>
+
+                <Button
+                    size="small"
                     onClick={() => onDiscountClick(item.productId)}
-                    title="İndirim uygula"
-                    style={{
-                        fontSize: 11,
-                        padding: '2px 8px',
-                        borderRadius: 4,
-                        cursor: 'pointer',
-                        border: hasDiscount
-                            ? '1px solid rgba(245,158,11,0.2)'
-                            : '1px solid transparent',
-                        background: hasDiscount ? 'var(--amber-d)' : 'transparent',
-                        color: hasDiscount ? 'var(--amber)' : 'var(--muted)',
-                        opacity: hasDiscount ? 1 : 0.4,
-                        fontWeight: hasDiscount ? 600 : 400,
-                        transition: 'all .15s',
-                        userSelect: 'none',
-                    }}
-                    onMouseEnter={(e) => {
-                        (e.currentTarget as HTMLSpanElement).style.background = 'var(--amber)';
-                        (e.currentTarget as HTMLSpanElement).style.color = '#0a0c10';
-                        (e.currentTarget as HTMLSpanElement).style.opacity = '1';
-                    }}
-                    onMouseLeave={(e) => {
-                        (e.currentTarget as HTMLSpanElement).style.background = hasDiscount
-                            ? 'var(--amber-d)'
-                            : 'transparent';
-                        (e.currentTarget as HTMLSpanElement).style.color = hasDiscount
-                            ? 'var(--amber)'
-                            : 'var(--muted)';
-                        (e.currentTarget as HTMLSpanElement).style.opacity = hasDiscount ? '1' : '0.4';
+                    sx={{
+                        fontSize: '0.6875rem',
+                        py: 0.25,
+                        px: 1,
+                        minWidth: 'auto',
+                        borderRadius: 1,
+                        textTransform: 'none',
+                        fontWeight: 700,
+                        bgcolor: hasDiscount ? alpha(theme.palette.warning.main, 0.1) : 'transparent',
+                        color: hasDiscount ? 'warning.main' : 'text.disabled',
+                        border: '1px solid',
+                        borderColor: hasDiscount ? alpha(theme.palette.warning.main, 0.3) : 'divider',
+                        '&:hover': {
+                            bgcolor: 'warning.main',
+                            color: 'warning.contrastText',
+                            borderColor: 'warning.main',
+                        }
                     }}
                 >
                     {discLabel}
-                </span>
-            </div>
+                </Button>
+            </Box>
 
-            {/* Adet kontrolleri */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
-                <button
+            {/* Adet Kontrolleri */}
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexShrink: 0, bgcolor: 'background.default', borderRadius: 2, p: 0.5 }}>
+                <IconButton
+                    size="small"
                     onClick={() => onQuantityChange(item.productId, -1)}
-                    style={{
-                        width: 26,
-                        height: 26,
-                        borderRadius: 6,
-                        border: '1px solid var(--border)',
-                        background: 'var(--surface3)',
-                        color: 'var(--muted)',
-                        fontSize: 16,
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        flexShrink: 0,
-                        transition: 'all .15s',
-                    }}
-                    onMouseEnter={(e) => {
-                        (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--accent)';
-                        (e.currentTarget as HTMLButtonElement).style.color = 'var(--accent)';
-                    }}
-                    onMouseLeave={(e) => {
-                        (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--border)';
-                        (e.currentTarget as HTMLButtonElement).style.color = 'var(--muted)';
+                    sx={{
+                        width: 28,
+                        height: 28,
+                        bgcolor: 'background.paper',
+                        border: '1px solid',
+                        borderColor: 'divider',
+                        borderRadius: 1.5,
+                        fontSize: 18,
+                        fontWeight: 700,
+                        '&:hover': { borderColor: 'primary.main', color: 'primary.main' }
                     }}
                 >
                     −
-                </button>
+                </IconButton>
 
-                <span
-                    style={{
-                        fontFamily: "'DM Mono', monospace",
-                        fontSize: 15,
-                        fontWeight: 600,
-                        minWidth: 24,
+                <Typography
+                    sx={{
+                        fontSize: '0.9375rem',
+                        fontWeight: 800,
+                        minWidth: 28,
                         textAlign: 'center',
-                        color: 'var(--text)',
+                        color: 'text.primary'
                     }}
                 >
                     {item.quantity}
-                </span>
+                </Typography>
 
-                <button
+                <IconButton
+                    size="small"
                     onClick={() => onQuantityChange(item.productId, 1)}
-                    style={{
-                        width: 26,
-                        height: 26,
-                        borderRadius: 6,
-                        border: '1px solid var(--border)',
-                        background: 'var(--surface3)',
-                        color: 'var(--muted)',
-                        fontSize: 16,
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        flexShrink: 0,
-                        transition: 'all .15s',
-                    }}
-                    onMouseEnter={(e) => {
-                        (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--accent)';
-                        (e.currentTarget as HTMLButtonElement).style.color = 'var(--accent)';
-                    }}
-                    onMouseLeave={(e) => {
-                        (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--border)';
-                        (e.currentTarget as HTMLButtonElement).style.color = 'var(--muted)';
+                    sx={{
+                        width: 28,
+                        height: 28,
+                        bgcolor: 'background.paper',
+                        border: '1px solid',
+                        borderColor: 'divider',
+                        borderRadius: 1.5,
+                        fontSize: 18,
+                        fontWeight: 700,
+                        '&:hover': { borderColor: 'primary.main', color: 'primary.main' }
                     }}
                 >
                     +
-                </button>
-            </div>
+                </IconButton>
+            </Box>
 
-            {/* Satır tutarı */}
-            <div
-                style={{
-                    fontFamily: "'DM Mono', monospace",
-                    fontSize: 15,
-                    fontWeight: 600,
-                    minWidth: 70,
-                    textAlign: 'right',
-                    flexShrink: 0,
-                }}
-            >
+            {/* Satır Tutarı */}
+            <Box sx={{ minWidth: 90, textAlign: 'right', flexShrink: 0 }}>
                 {hasDiscount && (
-                    <div
-                        style={{
-                            fontSize: 12,
-                            color: 'var(--dim)',
+                    <Typography
+                        sx={{
+                            fontSize: '0.75rem',
+                            color: 'text.disabled',
                             textDecoration: 'line-through',
-                            lineHeight: 1.2,
+                            lineHeight: 1
                         }}
                     >
                         {fmt(lineRaw)}
-                    </div>
+                    </Typography>
                 )}
-                <div style={{ color: 'var(--text)' }}>{fmt(lineNet)}</div>
-            </div>
+                <Typography
+                    sx={{
+                        fontSize: '1rem',
+                        fontWeight: 900,
+                        color: 'text.primary',
+                        lineHeight: 1.2
+                    }}
+                >
+                    {fmt(lineNet)}
+                </Typography>
+            </Box>
 
-            {/* Sil butonu */}
-            <button
+            {/* Sil Butonu */}
+            <IconButton
                 onClick={() => onRemove(item.productId)}
-                style={{
-                    width: 26,
-                    height: 26,
-                    border: 'none',
-                    background: 'transparent',
-                    color: 'var(--dim)',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    flexShrink: 0,
-                    borderRadius: 6,
-                    transition: 'all .15s',
-                }}
-                onMouseEnter={(e) => {
-                    (e.currentTarget as HTMLButtonElement).style.background = 'var(--red-d)';
-                    (e.currentTarget as HTMLButtonElement).style.color = 'var(--red)';
-                }}
-                onMouseLeave={(e) => {
-                    (e.currentTarget as HTMLButtonElement).style.background = 'transparent';
-                    (e.currentTarget as HTMLButtonElement).style.color = 'var(--dim)';
+                sx={{
+                    width: 32,
+                    height: 32,
+                    color: 'text.disabled',
+                    borderRadius: 1.5,
+                    '&:hover': { bgcolor: 'error.lighter', color: 'error.main' }
                 }}
             >
                 <TrashIcon />
-            </button>
-        </div>
+            </IconButton>
+        </Box>
     );
 });

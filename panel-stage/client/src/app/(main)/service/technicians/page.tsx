@@ -5,7 +5,6 @@ import {
   Box,
   Typography,
   Button,
-  Paper,
   TextField,
   Dialog,
   DialogTitle,
@@ -28,11 +27,15 @@ import {
   InputLabel,
   Select,
   MenuItem,
+  Stack,
+  alpha,
+  Divider,
 } from '@mui/material';
-import { Add, Search, Edit, Delete, Person, PersonOff, Refresh } from '@mui/icons-material';
+import { Add, Search, Edit, Delete, Person, PersonOff, Refresh, Engineering } from '@mui/icons-material';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axios from '@/lib/axios';
 import { useAuthStore } from '@/stores/authStore';
+import { StandardPage, StandardCard } from '@/components/common';
 
 const DEPARTMAN_OPTIONS = [
   'Kaporta',
@@ -130,48 +133,28 @@ export default function TeknisyenlerPage() {
 
   if (!canManage) {
     return (
-      <Box sx={{ p: 3 }}>
-        <Alert severity="error">Bu sayfaya erişim yetkiniz yok.</Alert>
-      </Box>
+      <StandardPage>
+        <Alert severity="error" sx={{ borderRadius: 2 }}>Bu sayfaya erişim yetkiniz yok.</Alert>
+      </StandardPage>
     );
   }
 
   return (
-    <>
-      <Typography variant="h4" sx={{ fontWeight: 700, mb: 1 }}>
-        Teknisyenler
-      </Typography>
-      <Typography variant="body1" sx={{ mb: 3, color: 'var(--muted-foreground)' }}>
-        Servis teknisyenlerini yönetin
-      </Typography>
-
-      <Paper
-        sx={{
-          borderRadius: 'var(--radius)',
-          border: '1px solid var(--border)',
-          overflow: 'hidden',
-        }}
-      >
-        <Box sx={{ p: 2, display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
-          <TextField
-            size="small"
-            placeholder="Ad soyad veya departman ile ara..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            sx={{ width: { xs: '100%', md: 280 } }}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <Search fontSize="small" />
-                </InputAdornment>
-              ),
-            }}
-          />
+    <StandardPage>
+      <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <Box>
+          <Typography variant="h5" fontWeight="800" sx={{ letterSpacing: '-0.02em', display: 'flex', alignItems: 'center', gap: 1.5 }}>
+            <Engineering sx={{ fontSize: 32, color: 'primary.main' }} />
+            Teknisyenler
+          </Typography>
+          <Typography variant="body2" color="text.secondary">Servis operasyonlarında görev alan teknisyen kadrosunu yönetin.</Typography>
+        </Box>
+        <Stack direction="row" spacing={1.5}>
           <Button
             variant="outlined"
             startIcon={<Refresh />}
             onClick={() => queryClient.invalidateQueries({ queryKey: ['technicians'] })}
-            sx={{ textTransform: 'none' }}
+            sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700 }}
           >
             Yenile
           </Button>
@@ -179,93 +162,128 @@ export default function TeknisyenlerPage() {
             variant="contained"
             startIcon={<Add />}
             onClick={() => setCreateOpen(true)}
-            sx={{
-              bgcolor: 'var(--primary)',
-              color: 'var(--primary-foreground)',
-              textTransform: 'none',
-              fontWeight: 600,
-            }}
+            sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700 }}
           >
             Yeni Teknisyen
           </Button>
+        </Stack>
+      </Box>
+
+      <StandardCard sx={{ p: 0 }}>
+        <Box sx={{ p: 2.5, display: 'flex', gap: 2, alignItems: 'center', borderBottom: 1, borderColor: 'divider' }}>
+          <TextField
+            size="small"
+            placeholder="Ad soyad veya departman ile ara..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            sx={{ maxWidth: 320, '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <Search fontSize="small" color="disabled" />
+                </InputAdornment>
+              ),
+            }}
+          />
         </Box>
 
         <TableContainer>
           <Table>
-            <TableHead>
+            <TableHead sx={{ bgcolor: alpha('#000', 0.02) }}>
               <TableRow>
-                <TableCell sx={{ fontWeight: 600 }}></TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>Ad Soyad</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>Departman</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>Durum</TableCell>
-                <TableCell align="right" sx={{ fontWeight: 600 }}>
-                  İşlem
-                </TableCell>
+                <TableCell sx={{ fontWeight: 800, width: 80 }}></TableCell>
+                <TableCell sx={{ fontWeight: 800 }}>Ad Soyad</TableCell>
+                <TableCell sx={{ fontWeight: 800 }}>Departman</TableCell>
+                <TableCell sx={{ fontWeight: 800 }}>Durum</TableCell>
+                <TableCell align="right" sx={{ fontWeight: 800 }}>İşlem</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={5} align="center" sx={{ py: 4 }}>
+                  <TableCell colSpan={5} align="center" sx={{ py: 6 }}>
                     <CircularProgress size={32} />
                   </TableCell>
                 </TableRow>
               ) : technicians.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} align="center" sx={{ py: 4, color: 'var(--muted-foreground)' }}>
-                    Teknisyen bulunamadı
+                  <TableCell colSpan={5} align="center" sx={{ py: 10 }}>
+                    <Engineering sx={{ fontSize: 48, color: 'text.disabled', mb: 2 }} />
+                    <Typography color="text.secondary" fontWeight={700}>Henüz teknisyen kaydı bulunmuyor</Typography>
                   </TableCell>
                 </TableRow>
               ) : (
                 technicians.map((t) => (
-                  <TableRow key={t.id} hover>
+                  <TableRow key={t.id} hover sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
                     <TableCell>
                       <Avatar
                         sx={{
-                          width: 36,
-                          height: 36,
-                          bgcolor: t.isActive ? '#0ea5e9' : '#94a3b8',
-                          fontSize: '0.875rem',
+                          width: 40,
+                          height: 40,
+                          bgcolor: t.isActive ? alpha('#6366f1', 0.1) : alpha('#94a3b8', 0.1),
+                          color: t.isActive ? 'primary.main' : 'text.disabled',
+                          fontSize: '1rem',
+                          fontWeight: 800,
+                          border: '1px solid',
+                          borderColor: t.isActive ? alpha('#6366f1', 0.2) : alpha('#94a3b8', 0.2),
                         }}
                       >
                         {(t.fullName || '?')[0].toUpperCase()}
                       </Avatar>
                     </TableCell>
-                    <TableCell>{t.fullName || '-'}</TableCell>
-                    <TableCell>{t.department || '-'}</TableCell>
+                    <TableCell>
+                      <Typography variant="body2" fontWeight="700">{t.fullName || '-'}</Typography>
+                      <Typography variant="caption" color="text.disabled">{t.role === 'TECHNICIAN' ? 'Saha Teknisyeni' : t.role}</Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Chip
+                        label={t.department || 'Genel'}
+                        size="small"
+                        sx={{ fontWeight: 700, borderRadius: 1.5, bgcolor: alpha('#0ea5e9', 0.08), color: '#0ea5e9', border: '1px solid', borderColor: alpha('#0ea5e9', 0.1) }}
+                      />
+                    </TableCell>
                     <TableCell>
                       <Chip
                         label={t.isActive ? 'Aktif' : 'Pasif'}
                         size="small"
-                        color={t.isActive ? 'success' : 'default'}
+                        sx={{
+                          fontWeight: 800,
+                          borderRadius: 1.5,
+                          bgcolor: t.isActive ? alpha('#10b981', 0.1) : alpha('#ef4444', 0.1),
+                          color: t.isActive ? 'success.main' : 'error.main',
+                        }}
                       />
                     </TableCell>
                     <TableCell align="right">
-                      <Tooltip title={t.isActive ? 'Pasifleştir' : 'Aktifleştir'}>
-                        <IconButton
-                          size="small"
-                          onClick={() => suspendMutation.mutate(t.id)}
-                          disabled={suspendMutation.isPending}
-                        >
-                          {t.isActive ? (
-                            <PersonOff fontSize="small" />
-                          ) : (
-                            <Person fontSize="small" />
-                          )}
-                        </IconButton>
-                      </Tooltip>
-                      <Tooltip title="Sil">
-                        <IconButton
-                          size="small"
-                          color="error"
-                          onClick={() => {
-                            setSelected(t);
-                            setDeleteOpen(true);
-                          }}
-                        >
-                          <Delete fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
+                      <Stack direction="row" spacing={0.5} justifyContent="flex-end">
+                        <Tooltip title={t.isActive ? 'Pasifleştir' : 'Aktifleştir'}>
+                          <IconButton
+                            size="small"
+                            onClick={() => suspendMutation.mutate(t.id)}
+                            disabled={suspendMutation.isPending}
+                            sx={{ borderRadius: 1.5 }}
+                          >
+                            {t.isActive ? (
+                              <PersonOff fontSize="small" color="warning" />
+                            ) : (
+                              <Person fontSize="small" color="primary" />
+                            )}
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Sil">
+                          <IconButton
+                            size="small"
+                            color="error"
+                            onClick={() => {
+                              setSelected(t);
+                              setDeleteOpen(true);
+                            }}
+                            sx={{ borderRadius: 1.5 }}
+                          >
+                            <Delete fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      </Stack>
                     </TableCell>
                   </TableRow>
                 ))
@@ -273,25 +291,28 @@ export default function TeknisyenlerPage() {
             </TableBody>
           </Table>
         </TableContainer>
-      </Paper>
+      </StandardCard>
 
       {/* Yeni Teknisyen Dialog */}
-      <Dialog open={createOpen} onClose={() => setCreateOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Yeni Teknisyen Ekle</DialogTitle>
+      <Dialog open={createOpen} onClose={() => setCreateOpen(false)} maxWidth="xs" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
+        <DialogTitle sx={{ fontWeight: 800 }}>Yeni Teknisyen Ekle</DialogTitle>
         <DialogContent>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
+          <Stack spacing={2.5} sx={{ pt: 1 }}>
             <TextField
+              fullWidth
               label="Ad Soyad"
               value={createForm.fullName}
               onChange={(e) => setCreateForm((p) => ({ ...p, fullName: e.target.value }))}
               required
+              sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
             />
-            <FormControl required>
+            <FormControl fullWidth required>
               <InputLabel>Departman</InputLabel>
               <Select
                 value={createForm.department}
                 label="Departman"
                 onChange={(e) => setCreateForm((p) => ({ ...p, department: e.target.value }))}
+                sx={{ borderRadius: 2 }}
               >
                 {DEPARTMAN_OPTIONS.map((d) => (
                   <MenuItem key={d} value={d}>
@@ -300,10 +321,10 @@ export default function TeknisyenlerPage() {
                 ))}
               </Select>
             </FormControl>
-          </Box>
+          </Stack>
         </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setCreateOpen(false)}>İptal</Button>
+        <DialogActions sx={{ p: 2.5, pt: 0 }}>
+          <Button onClick={() => setCreateOpen(false)} sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700 }}>İptal</Button>
           <Button
             variant="contained"
             onClick={handleCreate}
@@ -312,6 +333,7 @@ export default function TeknisyenlerPage() {
               !createForm.department ||
               createMutation.isPending
             }
+            sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700 }}
           >
             {createMutation.isPending ? 'Ekleniyor...' : 'Ekle'}
           </Button>
@@ -319,28 +341,29 @@ export default function TeknisyenlerPage() {
       </Dialog>
 
       {/* Silme Onay Dialog */}
-      <Dialog open={deleteOpen} onClose={() => setDeleteOpen(false)}>
-        <DialogTitle>Teknisyeni Sil</DialogTitle>
+      <Dialog open={deleteOpen} onClose={() => setDeleteOpen(false)} PaperProps={{ sx: { borderRadius: 3 } }}>
+        <DialogTitle sx={{ fontWeight: 800 }}>Teknisyeni Sil</DialogTitle>
         <DialogContent>
           {selected && (
-            <Alert severity="warning" sx={{ mt: 1 }}>
-              <strong>{selected.fullName}</strong> ({selected.department || '-'}) adlı teknisyeni silmek
-              istediğinizden emin misiniz? Bu işlem geri alınamaz.
+            <Alert severity="warning" sx={{ borderRadius: 2, mt: 1 }}>
+              <Typography variant="body2" sx={{ fontWeight: 700 }}>{selected.fullName}</Typography>
+              <Typography variant="caption" display="block">Bu teknisyeni silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.</Typography>
             </Alert>
           )}
         </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setDeleteOpen(false)}>İptal</Button>
+        <DialogActions sx={{ p: 2.5, pt: 0 }}>
+          <Button onClick={() => setDeleteOpen(false)} sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700 }}>İptal</Button>
           <Button
             color="error"
             variant="contained"
             onClick={() => selected && deleteMutation.mutate(selected.id)}
             disabled={deleteMutation.isPending}
+            sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700 }}
           >
-            {deleteMutation.isPending ? 'Siliniyor...' : 'Sil'}
+            {deleteMutation.isPending ? 'Siliniyor...' : 'Evet, Sil'}
           </Button>
         </DialogActions>
       </Dialog>
-    </>
+    </StandardPage>
   );
 }

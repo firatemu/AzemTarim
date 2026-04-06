@@ -1,11 +1,11 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Box, Typography, Grid, Card, CardContent, CardActionArea, CircularProgress } from '@mui/material';
-import { Build, DirectionsCar, Assignment, Receipt, AccountBalance, Inventory, Engineering, TrendingUp, Schedule } from '@mui/icons-material';
+import { Box, Typography, Grid, CardActionArea, CircularProgress, Stack, alpha } from '@mui/material';
+import { Build, DirectionsCar, Assignment, Receipt, AccountBalance, Inventory, Engineering, TrendingUp, Schedule, BuildCircle } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/stores/authStore';
-import { StandardPage } from '@/components/common';
+import { StandardPage, StandardCard } from '@/components/common';
 import axios from '@/lib/axios';
 
 type ServisStats = {
@@ -19,60 +19,60 @@ const menuItems = [
     title: 'Müşteri Araçları',
     description: 'Müşteri araçlarını görüntüleyin, ekleyin ve yönetin',
     icon: DirectionsCar,
-    href: '/servis/musteri-araclari',
+    href: '/service/customer-vehicles',
     color: '#0ea5e9',
   },
   {
     title: 'İş Emirleri',
     description: 'Servis iş emirlerini oluşturun ve takip edin',
     icon: Assignment,
-    href: '/servis/is-emirleri',
-    color: '#0ea5e9',
+    href: '/service/work-orders',
+    color: '#6366f1',
   },
   {
     title: 'Parça Tedarik ve Yönetimi',
     description: 'İş emirlerine parça ekleyin ve teknisyen taleplerini karşılayın',
     icon: Inventory,
-    href: '/servis/parca-tedarik-yonetimi',
-    color: '#0ea5e9',
+    href: '/service/part-procurement',
+    color: '#f59e0b',
   },
   {
     title: 'Teknisyenler',
-    description: 'Teknisyenleri yönetin',
+    description: 'Servis operasyonunda görev alan teknisyenleri yönetin',
     icon: Engineering,
-    href: '/servis/teknisyenler',
-    color: '#0ea5e9',
+    href: '/service/technicians',
+    color: '#10b981',
     hideForTechnician: true,
   },
   {
     title: 'Servis Faturaları',
     description: 'Servis faturalarını görüntüleyin ve yönetin',
     icon: Receipt,
-    href: '/servis/faturalar',
-    color: '#0ea5e9',
+    href: '/service/invoices',
+    color: '#8b5cf6',
     hideForTechnician: true,
   },
   {
     title: 'Muhasebe Kayıtları',
     description: 'Servis ile ilgili muhasebe kayıtlarını inceleyin',
     icon: AccountBalance,
-    href: '/servis/muhasebe-kayitlari',
-    color: '#0ea5e9',
+    href: '/service/accounting-records',
+    color: '#64748b',
     hideForTechnician: true,
   },
   {
     title: 'Servis Raporları',
-    description: 'İş emri durumları, gelir ve parça talebi özeti',
+    description: 'İş emri durumları, gelir ve parça talebi analizi',
     icon: TrendingUp,
-    href: '/servis/raporlar',
-    color: '#0ea5e9',
+    href: '/service/reports',
+    color: '#ec4899',
     hideForTechnician: true,
   },
 ];
 
 export default function ServisHubPage() {
   const router = useRouter();
-  const { user } = useAuthStore();
+  const { user } = useAuthStore() as any;
   const isTechnician = user?.role === 'TECHNICIAN';
   const visibleItems = menuItems.filter((item) => !(item as any).hideForTechnician || !isTechnician);
   const [stats, setStats] = useState<ServisStats | null>(null);
@@ -91,32 +91,27 @@ export default function ServisHubPage() {
 
   return (
     <StandardPage maxWidth={false}>
-      <Typography
-        variant="h4"
-        sx={{
-          fontWeight: 700,
-          fontSize: '1.875rem',
-          color: 'var(--foreground)',
-          letterSpacing: '-0.02em',
-          mb: 1,
-        }}
-      >
-        Servis Yönetimi
-      </Typography>
-
-      <Typography
-        variant="body1"
-        sx={{
-          mb: 4,
-          color: 'var(--muted-foreground)',
-          fontSize: '0.875rem',
-        }}
-      >
-        Lütfen işlem yapmak istediğiniz modülü seçiniz
-      </Typography>
+      <Box sx={{ mb: 4 }}>
+        <Typography
+          variant="h4"
+          sx={{
+            fontWeight: 800,
+            color: 'text.primary',
+            letterSpacing: '-0.02em',
+            mb: 0.5,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 2
+          }}
+        >
+          <BuildCircle sx={{ fontSize: 40, color: 'primary.main' }} />
+          Servis Yönetimi
+        </Typography>
+        <Typography variant="body2" color="text.secondary">Lütfen işlem yapmak istediğiniz modülü seçiniz veya genel durumu takip edin.</Typography>
+      </Box>
 
       {!isTechnician && (
-        <Grid container spacing={2} sx={{ mb: 4 }}>
+        <Grid container spacing={3} sx={{ mb: 5 }}>
           {statsLoading ? (
             <Grid size={12}>
               <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}>
@@ -126,96 +121,72 @@ export default function ServisHubPage() {
           ) : stats ? (
             <>
               <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-                <Card
-                  sx={{
-                    borderRadius: 'var(--radius)',
-                    border: '1px solid var(--border)',
-                    bgcolor: 'var(--card)',
-                  }}
-                >
-                  <CardContent sx={{ py: 2, px: 2 }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <Assignment sx={{ color: 'var(--primary)', fontSize: 28 }} />
-                      <Box>
-                        <Typography variant="h4" sx={{ fontWeight: 700 }}>
-                          {stats.workOrders?.total ?? 0}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          Toplam İş Emri
-                        </Typography>
-                      </Box>
+                <StandardCard sx={{ height: '100%', py: 2 }}>
+                  <Stack direction="row" spacing={2} alignItems="center">
+                    <Box sx={{ bgcolor: alpha('#6366f1', 0.1), p: 1.5, borderRadius: 2 }}>
+                      <Assignment sx={{ color: '#6366f1', fontSize: 32 }} />
                     </Box>
-                  </CardContent>
-                </Card>
+                    <Box>
+                      <Typography variant="h4" sx={{ fontWeight: 800 }}>
+                        {stats.workOrders?.total ?? 0}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary" fontWeight={700}>
+                        TOPLAM İŞ EMRİ
+                      </Typography>
+                    </Box>
+                  </Stack>
+                </StandardCard>
               </Grid>
               <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-                <Card
-                  sx={{
-                    borderRadius: 'var(--radius)',
-                    border: '1px solid var(--border)',
-                    bgcolor: 'var(--card)',
-                  }}
-                >
-                  <CardContent sx={{ py: 2, px: 2 }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <Schedule sx={{ color: 'var(--warning)', fontSize: 28 }} />
-                      <Box>
-                        <Typography variant="h4" sx={{ fontWeight: 700 }}>
-                          {stats.workOrders?.inProgress ?? 0}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          Devam Eden
-                        </Typography>
-                      </Box>
+                <StandardCard sx={{ height: '100%', py: 2 }}>
+                  <Stack direction="row" spacing={2} alignItems="center">
+                    <Box sx={{ bgcolor: alpha('#f59e0b', 0.1), p: 1.5, borderRadius: 2 }}>
+                      <Schedule sx={{ color: '#f59e0b', fontSize: 32 }} />
                     </Box>
-                  </CardContent>
-                </Card>
+                    <Box>
+                      <Typography variant="h4" sx={{ fontWeight: 800 }}>
+                        {stats.workOrders?.inProgress ?? 0}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary" fontWeight={700}>
+                        DEVAM EDEN
+                      </Typography>
+                    </Box>
+                  </Stack>
+                </StandardCard>
               </Grid>
               <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-                <Card
-                  sx={{
-                    borderRadius: 'var(--radius)',
-                    border: '1px solid var(--border)',
-                    bgcolor: 'var(--card)',
-                  }}
-                >
-                  <CardContent sx={{ py: 2, px: 2 }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <Inventory sx={{ color: 'var(--info)', fontSize: 28 }} />
-                      <Box>
-                        <Typography variant="h4" sx={{ fontWeight: 700 }}>
-                          {stats.partRequests?.pending ?? 0}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          Bekleyen Parça Talebi
-                        </Typography>
-                      </Box>
+                <StandardCard sx={{ height: '100%', py: 2 }}>
+                  <Stack direction="row" spacing={2} alignItems="center">
+                    <Box sx={{ bgcolor: alpha('#0ea5e9', 0.1), p: 1.5, borderRadius: 2 }}>
+                      <Inventory sx={{ color: '#0ea5e9', fontSize: 32 }} />
                     </Box>
-                  </CardContent>
-                </Card>
+                    <Box>
+                      <Typography variant="h4" sx={{ fontWeight: 800 }}>
+                        {stats.partRequests?.pending ?? 0}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary" fontWeight={700}>
+                        BEKLEYEN PARÇA TALEBİ
+                      </Typography>
+                    </Box>
+                  </Stack>
+                </StandardCard>
               </Grid>
               <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-                <Card
-                  sx={{
-                    borderRadius: 'var(--radius)',
-                    border: '1px solid var(--border)',
-                    bgcolor: 'var(--card)',
-                  }}
-                >
-                  <CardContent sx={{ py: 2, px: 2 }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <TrendingUp sx={{ color: 'var(--success)', fontSize: 28 }} />
-                      <Box>
-                        <Typography variant="h4" sx={{ fontWeight: 700 }}>
-                          {formatCurrency(stats.revenue?.thisMonth ?? 0)}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          Bu Ay Gelir
-                        </Typography>
-                      </Box>
+                <StandardCard sx={{ height: '100%', py: 2 }}>
+                  <Stack direction="row" spacing={2} alignItems="center">
+                    <Box sx={{ bgcolor: alpha('#10b981', 0.1), p: 1.5, borderRadius: 2 }}>
+                      <TrendingUp sx={{ color: '#10b981', fontSize: 32 }} />
                     </Box>
-                  </CardContent>
-                </Card>
+                    <Box>
+                      <Typography variant="h4" sx={{ fontWeight: 800 }}>
+                        {formatCurrency(stats.revenue?.thisMonth ?? 0)}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary" fontWeight={700}>
+                        BU AY GELİR
+                      </Typography>
+                    </Box>
+                  </Stack>
+                </StandardCard>
               </Grid>
             </>
           ) : null}
@@ -226,44 +197,43 @@ export default function ServisHubPage() {
         {visibleItems.map((item, index) => {
           const IconComponent = item.icon;
           return (
-            <Grid key={index} size={{ xs: 12, sm: 6, md: 4 }}>
-              <Card
+            <Grid key={index} size={{ xs: 12, sm: 6, md: 4, lg: 3 }}>
+              <StandardCard
                 sx={{
-                  borderRadius: 'var(--radius)',
-                  border: '1px solid var(--border)',
-                  bgcolor: 'var(--card)',
-                  boxShadow: 'var(--shadow-sm)',
-                  transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                  p: 0,
+                  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                   '&:hover': {
-                    transform: 'translateY(-4px)',
-                    boxShadow: 'var(--shadow-md)',
-                    borderColor: 'var(--ring)',
+                    transform: 'translateY(-6px)',
+                    boxShadow: '0 12px 24px -8px rgba(0,0,0,0.15)',
+                    borderColor: item.color,
                   },
                 }}
               >
-                <CardActionArea onClick={() => router.push(item.href)}>
-                  <CardContent sx={{ p: 4, textAlign: 'center' }}>
+                <CardActionArea onClick={() => router.push(item.href)} sx={{ p: 0 }}>
+                  <Box sx={{ p: 4, textAlign: 'center' }}>
                     <Box
                       sx={{
                         width: 80,
                         height: 80,
-                        borderRadius: 'var(--radius-md)',
-                        bgcolor: `color-mix(in srgb, ${item.color} 15%, transparent)`,
+                        borderRadius: 4,
+                        bgcolor: alpha(item.color, 0.1),
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        margin: '0 auto 16px',
+                        margin: '0 auto 20px',
+                        border: '1px solid',
+                        borderColor: alpha(item.color, 0.2),
                       }}
                     >
                       <IconComponent sx={{ fontSize: 40, color: item.color }} />
                     </Box>
                     <Typography
-                      variant="h5"
+                      variant="h6"
                       sx={{
-                        fontWeight: 700,
-                        fontSize: '1.25rem',
-                        color: 'var(--foreground)',
+                        fontWeight: 800,
+                        color: 'text.primary',
                         mb: 1,
+                        letterSpacing: '-0.01em'
                       }}
                     >
                       {item.title}
@@ -271,15 +241,17 @@ export default function ServisHubPage() {
                     <Typography
                       variant="body2"
                       sx={{
-                        color: 'var(--muted-foreground)',
+                        color: 'text.secondary',
                         fontSize: '0.875rem',
+                        lineHeight: 1.6,
+                        px: 1
                       }}
                     >
                       {item.description}
                     </Typography>
-                  </CardContent>
+                  </Box>
                 </CardActionArea>
-              </Card>
+              </StandardCard>
             </Grid>
           );
         })}

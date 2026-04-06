@@ -17,11 +17,16 @@ import { UpdatePurchaseWaybillDto } from './dto/update-purchase-waybill.dto';
 import { FilterPurchaseWaybillDto } from './dto/filter-purchase-waybill.dto';
 
 @UseGuards(JwtAuthGuard)
-@Controller('purchase-waybill')
+@Controller(['purchase-waybill', 'satin-alma-irsaliyesi'])
 export class PurchaseWaybillController {
   constructor(
     private readonly purchaseWaybillService: PurchaseWaybillService,
   ) { }
+
+  @Get('stats')
+  async getStats() {
+    return this.purchaseWaybillService.getStats();
+  }
 
   @Get()
   async findAll(@Query() filterDto: FilterPurchaseWaybillDto) {
@@ -31,6 +36,11 @@ export class PurchaseWaybillController {
       data: result.data,
       meta: result.meta,
     };
+  }
+
+  @Get('pending/:accountId')
+  async getPendingByAccount(@Param('accountId') accountId: string) {
+    return this.purchaseWaybillService.getPendingByAccount(accountId);
   }
 
   @Get(':id')

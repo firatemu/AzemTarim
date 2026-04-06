@@ -521,6 +521,54 @@ export class B2bAdminCustomerService {
       tenantId,
     );
 
+    // 1. ADIM: Önce satış elemanlarını aktar (plasiyer olarak)
+    const salespersons = await adapter.getSalespersons();
+    let salespersonsAdded = 0;
+    let salespersonsSkipped = 0;
+
+    const existingSalespersons = await this.prisma.b2BSalesperson.findMany({
+      where: { tenantId },
+      select: { email: true }
+    });
+    const existingSalespersonEmails = new Set(existingSalespersons.map(s => s.email));
+
+    for (const sp of salespersons) {
+      const email = sp.email || `${sp.erpSalespersonId}@salesperson.b2b.local`;
+      if (existingSalespersonEmails.has(email)) {
+        salespersonsSkipped++;
+        continue;
+      }
+
+      const plain = randomBytes(12).toString('base64url').slice(0, 16);
+      const passwordHash = await bcrypt.hash(plain, 10);
+
+      await this.prisma.b2BSalesperson.create({
+        data: {
+          tenantId,
+          name: sp.name,
+          email,
+          passwordHash,
+          isActive: sp.isActive,
+        },
+      });
+      salespersonsAdded++;
+    }
+
+    // 2. ADIM: ERP salesperson ID -> B2B salesperson email map oluştur
+    const erpSalespersonMap = new Map<string, string>();
+    for (const sp of salespersons) {
+      const email = sp.email || `${sp.erpSalespersonId}@salesperson.b2b.local`;
+      erpSalespersonMap.set(sp.erpSalespersonId, email);
+    }
+
+    // B2B'deki plasiyerleri email -> ID map'e çevir
+    const b2bSalespersons = await this.prisma.b2BSalesperson.findMany({
+      where: { tenantId },
+      select: { id: true, email: true }
+    });
+    const salespersonEmailToId = new Map(b2bSalespersons.map(s => [s.email, s.id]));
+
+    // 3. ADIM: Cari hesapları aktar (satış elemanı ataması ile)
     const accounts = await adapter.getAccounts(config.lastSyncedAt);
 
     // Tek seferde mevcut cari kodları çekelim
@@ -535,6 +583,7 @@ export class B2bAdminCustomerService {
 
     let added = 0;
     let skipped = 0;
+    let assignedSalesperson = 0;
 
     // Uzun sürebilecek işlem için timeout artıralım (default 5sn yetmeyebilir)
     await this.prisma.$transaction(async (tx) => {
@@ -557,31 +606,200 @@ export class B2bAdminCustomerService {
           safeEmail = `${acc.erpAccountId}_${Date.now()}@b2b.local`;
         }
 
-        // Şifreleme (bcrypt) yavaştır, bu yüzden her kayıtta bekletir. 
+        // Şifreleme (bcrypt) yavaştır, bu yüzden her kayıtta bekletir.
         // Ancak işlem bütünlüğü için burada kalmalı.
         const plain = randomBytes(12).toString('base64url').slice(0, 16);
         const passwordHash = await bcrypt.hash(plain, 10);
 
-        await tx.b2BCustomer.create({
-          data: {
-            tenantId,
-            erpNum: acc.erpNum,
-            erpAccountId: acc.erpAccountId,
-            name: acc.name,
-            email: safeEmail,
-            passwordHash,
-            vatDays: 30,
-          },
-        });
+        // Satış elemanı ataması
+        let salespersonId: string | undefined;
+        if (acc.salespersonId) {
+          const salespersonEmail = erpSalespersonMap.get(acc.salespersonId);
+          if (salespersonEmail) {
+            salespersonId = salespersonEmailToId.get(salespersonEmail);
+          }
+        }
+
+        const customerData: any = {
+          tenantId,
+          erpNum: acc.erpNum,
+          erpAccountId: acc.erpAccountId,
+          name: acc.name,
+          email: safeEmail,
+          passwordHash,
+          vatDays: 30,
+        };
+
+        // Eğer satış elemanı ataması varsa, link tablosuna ekle
+        if (salespersonId) {
+          await tx.b2BCustomer.create({
+            data: {
+              ...customerData,
+              salespersonLinks: {
+                create: {
+                  salespersonId,
+                }
+              }
+            },
+          });
+          assignedSalesperson++;
+        } else {
+          await tx.b2BCustomer.create({
+            data: customerData,
+          });
+        }
         added++;
       }
-    }, { timeout: 60000 }); // 60 saniye timeout
+    }, { timeout: 120000 }); // 120 saniye timeout (artırıldı)
 
     return {
       success: true,
-      message: `${added} cari hesap başarıyla eklendi, ${skipped} kayıt atlandı.`,
+      message: `${added} cari hesap eklendi (${assignedSalesperson} satış elemanı ataması ile), ${skipped} kayıt atlandı. ${salespersonsAdded} plasiyer eklendi.`,
       added,
       skipped,
+      salespersonsAdded,
+      salespersonsSkipped,
+      assignedSalesperson,
+    };
+  }
+
+  async syncExistingFromErp(tenantId: string) {
+    const config = await this.prisma.b2BTenantConfig.findUnique({
+      where: { tenantId },
+    });
+    if (!config) throw new NotFoundException('B2B tenant config not found');
+
+    const adapter = this.adapterFactory.create(
+      config.erpAdapterType,
+      tenantId,
+    );
+
+    // Önce satış elemanlarını güncelle (yeni eklenenleri ekle)
+    const salespersons = await adapter.getSalespersons();
+    const existingSalespersons = await this.prisma.b2BSalesperson.findMany({
+      where: { tenantId },
+      select: { email: true }
+    });
+    const existingSalespersonEmails = new Set(existingSalespersons.map(s => s.email));
+
+    for (const sp of salespersons) {
+      const email = sp.email || `${sp.erpSalespersonId}@salesperson.b2b.local`;
+      if (existingSalespersonEmails.has(email)) continue;
+
+      const plain = randomBytes(12).toString('base64url').slice(0, 16);
+      const passwordHash = await bcrypt.hash(plain, 10);
+
+      await this.prisma.b2BSalesperson.create({
+        data: {
+          tenantId,
+          name: sp.name,
+          email,
+          passwordHash,
+          isActive: sp.isActive,
+        },
+      });
+    }
+
+    // ERP salesperson ID -> B2B salesperson email map oluştur
+    const erpSalespersonMap = new Map<string, string>();
+    for (const sp of salespersons) {
+      const email = sp.email || `${sp.erpSalespersonId}@salesperson.b2b.local`;
+      erpSalespersonMap.set(sp.erpSalespersonId, email);
+    }
+
+    // B2B'deki plasiyerleri email -> ID map'e çevir
+    const b2bSalespersons = await this.prisma.b2BSalesperson.findMany({
+      where: { tenantId },
+      select: { id: true, email: true }
+    });
+    const salespersonEmailToId = new Map(b2bSalespersons.map(s => [s.email, s.id]));
+
+    // Mevcut B2B müşterilerini al
+    const existingCustomers = await this.prisma.b2BCustomer.findMany({
+      where: { tenantId },
+      select: { id: true, erpAccountId: true, erpNum: true, name: true, email: true },
+    });
+
+    if (existingCustomers.length === 0) {
+      return {
+        success: true,
+        message: 'Güncellenecek B2B müşterisi bulunamadı.',
+        updated: 0,
+        notFound: 0,
+      };
+    }
+
+    // ERP'den tüm cari hesapları çek
+    const accounts = await adapter.getAccounts(undefined); // undefined = tüm kayıtları çek
+
+    // erpAccountId'leri map'leyelim
+    const accountMap = new Map(accounts.map(a => [a.erpAccountId, a]));
+
+    let updated = 0;
+    let notFound = 0;
+    let assignedSalesperson = 0;
+
+    for (const customer of existingCustomers) {
+      const account = accountMap.get(customer.erpAccountId);
+      if (!account) {
+        notFound++;
+        continue;
+      }
+
+      // Sadece değişen alanları güncelle
+      const updateData: any = {
+        ...(account.erpNum && account.erpNum !== customer.erpNum && { erpNum: account.erpNum }),
+        ...(account.name && account.name !== customer.name && { name: account.name }),
+        ...(account.email && account.email !== customer.email && { email: account.email }),
+      };
+
+      // Satış elemanı atamasını kontrol et ve güncelle
+      if (account.salespersonId) {
+        const salespersonEmail = erpSalespersonMap.get(account.salespersonId);
+        if (salespersonEmail) {
+          const salespersonId = salespersonEmailToId.get(salespersonEmail);
+          if (salespersonId) {
+            // Mevcut atamayı kontrol et
+            const existingLink = await this.prisma.b2BSalespersonCustomer.findFirst({
+              where: { customerId: customer.id }
+            });
+
+            if (!existingLink || existingLink.salespersonId !== salespersonId) {
+              // Eski atamayı sil, yenisini ekle
+              await this.prisma.$transaction(async (tx) => {
+                if (existingLink) {
+                  await tx.b2BSalespersonCustomer.delete({
+                    where: { id: existingLink.id }
+                  });
+                }
+                await tx.b2BSalespersonCustomer.create({
+                  data: {
+                    customerId: customer.id,
+                    salespersonId,
+                  }
+                });
+              });
+              assignedSalesperson++;
+            }
+          }
+        }
+      }
+
+      if (Object.keys(updateData).length > 0) {
+        await this.prisma.b2BCustomer.update({
+          where: { id: customer.id },
+          data: updateData,
+        });
+        updated++;
+      }
+    }
+
+    return {
+      success: true,
+      message: `${updated} müşteri güncellendi, ${assignedSalesperson} satış elemanı atandı, ${notFound} müşteri ERP'de bulunamadı.`,
+      updated,
+      notFound,
+      assignedSalesperson,
     };
   }
 }
