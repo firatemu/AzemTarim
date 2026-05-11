@@ -197,9 +197,7 @@ export const menuItems = [
     subItems: [
       { id: 'warehouse-warehouses', label: 'Depo Yönetimi', icon: 'Warehouse', path: '/warehouse/warehouses', color: '#6366f1' },
       { id: 'warehouse-transfer-note', label: 'Ambar Transfer Fişi', icon: 'LocalShipping', path: '/warehouse/transfer-note', color: '#f59e0b' },
-      { id: 'warehouse-put-away', label: 'Put-Away İşlemi', icon: 'TrendingUp', path: '/warehouse/operations/put-away', color: '#10b981' },
       { id: 'warehouse-transfer', label: 'Transfer İşlemi', icon: 'TrendingDown', path: '/warehouse/operations/transfer', color: '#f59e0b' },
-      { id: 'warehouse-order-preparation', label: 'Sipariş Hazırlama', icon: 'Assignment', path: '/orders/preparation-list', color: '#f59e0b' },
       { id: 'warehouse-inventory-count', label: 'Stok Sayım', icon: 'Inventory', path: '/inventory-count', color: '#14b8a6' },
       { id: 'warehouse-stock-report', label: 'Ambar Stok Raporu', icon: 'Assessment', path: '/warehouse/stock-report', color: '#14b8a6' },
       { id: 'warehouse-reports', label: 'Depo Raporları', icon: 'Assessment', path: '/warehouse/reports', color: '#14b8a6' },
