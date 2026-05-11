@@ -21,21 +21,20 @@ volumes:
 services:
   postgres:
     image: postgres:16-alpine
-    container_name: otomuhasebe_saas_postgres
+    container_name: azemtarim_postgres
     restart: unless-stopped
-    # Host 5432 sıkça yerel/WSL Postgres ile çakışır; api-stage/server .env çoğu zaman 5433 kullanır
     ports:
-      - "5434:5432"
+      - "5435:5432"
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
-      POSTGRES_DB: otomuhasebe_saas_db
+      POSTGRES_DB: azemtarim_db
       TZ: Europe/Istanbul
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:
       app_net:
-        aliases: [ otomuhasebe_saas_postgres ]
+        aliases: [ azemtarim_postgres ]
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 5s
@@ -44,16 +43,16 @@ services:
 
   redis:
     image: redis:7-alpine
-    container_name: otomuhasebe_saas_redis
+    container_name: azemtarim_redis
     restart: unless-stopped
     ports:
-      - "6370:6379"
+      - "6371:6379"
     command: redis-server --appendonly yes
     volumes:
       - redis_data:/data
     networks:
       app_net:
-        aliases: [ otomuhasebe_saas_redis ]
+        aliases: [ azemtarim_saas_redis ]
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -62,7 +61,7 @@ services:
 
   minio:
     image: minio/minio:latest
-    container_name: otomuhasebe_saas_minio
+    container_name: azemtarim_minio
     restart: unless-stopped
     command: server /data --console-address ":9001" --address ":9000"
     environment:
@@ -72,11 +71,11 @@ services:
     volumes:
       - minio_data:/data
     ports:
-      - "9100:9000"
-      - "9101:9001"
+      - "9200:9000"
+      - "9201:9001"
     networks:
       app_net:
-        aliases: [ otomuhasebe_saas_minio ]
+        aliases: [ azemtarim_saas_minio ]
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
       interval: 10s
@@ -95,7 +94,7 @@ services:
       B2B_ENABLED: "true"
     networks: [ app_net ]
     ports:
-      - "3020:3000"
+      - "3030:3000"
     volumes:
       - backend_uploads:/app/server/uploads
     depends_on:
@@ -114,7 +113,7 @@ services:
     image: node:20-alpine
     working_dir: /app
     ports:
-      - "3010:3000"
+      - "3020:3000"
     env_file:
       - .env.staging
     environment:
@@ -145,9 +144,9 @@ services:
   b2b-portal:
     image: node:20-alpine
     working_dir: /app
-    container_name: otomuhasebe_b2b_portal
+    container_name: azemtarim_b2b_portal
     ports:
-      - "3002:3000"
+      - "3012:3000"
     env_file:
       - .env.staging
     environment:
@@ -158,8 +157,8 @@ services:
       NEXT_TELEMETRY_DISABLED: "1"
       CHOKIDAR_USEPOLLING: "true"
       WATCHPACK_POLLING: "true"
-      NEXT_PUBLIC_API_URL: http://localhost:3020
-      NEXT_PUBLIC_API_BASE_URL: http://localhost:3020
+      NEXT_PUBLIC_API_URL: http://localhost:3030
+      NEXT_PUBLIC_API_BASE_URL: http://localhost:3030
     volumes:
       - ../../b2b-portal:/app
       - b2b_portal_node_modules:/app/node_modules
