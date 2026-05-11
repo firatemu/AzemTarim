@@ -88,3 +88,7 @@ build.log
 
 # Infrastructure data (PostgreSQL etc)
 infra/data/
+
+# pnpm
+.pnpm-store
+node_modules/.cache
