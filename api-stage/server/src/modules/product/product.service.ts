@@ -69,10 +69,6 @@ export class ProductService {
         shelf: dto.shelf ?? undefined,
         barcode: dto.barcode ?? undefined,
         supplierCode: dto.supplierCode ?? undefined,
-        vehicleBrand: dto.vehicleBrand ?? undefined,
-        vehicleModel: dto.vehicleModel ?? undefined,
-        vehicleEngineSize: dto.vehicleEngineSize ?? undefined,
-        vehicleFuelType: dto.vehicleFuelType ?? undefined,
         weight: dto.weight != null ? dto.weight : undefined,
         weightUnit: dto.weightUnit ?? undefined,
         dimensions: dto.dimensions ?? undefined,
@@ -81,7 +77,6 @@ export class ProductService {
         internalNote: dto.internalNote ?? undefined,
         minOrderQty: dto.minOrderQty != null ? dto.minOrderQty : undefined,
         leadTimeDays: dto.leadTimeDays != null ? dto.leadTimeDays : undefined,
-        isB2B: dto.isB2B ?? false,
       };
       const createdStok = await this.prisma.$transaction(async (tx) => {
         const product = await tx.product.create({
@@ -293,7 +288,6 @@ export class ProductService {
             purchasePrice: Number(latestPurchasePriceCard?.price ?? 0),
             salePrice: Number(latestSalePriceCard?.price ?? 0),
             vatRate: Number((product as any).vatRate ?? 20),
-            aracBilgisi: [product.vehicleBrand, product.vehicleModel, product.vehicleEngineSize, product.vehicleFuelType].filter(Boolean).join(' / ') || undefined,
             quantity,
             eslesikUrunler,
             eslesikUrunDetaylari,
@@ -474,10 +468,7 @@ export class ProductService {
     if (dto.shelf != null && dto.shelf !== '') data.shelf = dto.shelf;
     if (dto.barcode != null && dto.barcode !== '') data.barcode = dto.barcode;
     if (dto.supplierCode != null && dto.supplierCode !== '') data.supplierCode = dto.supplierCode;
-    if (dto.vehicleBrand != null && dto.vehicleBrand !== '') data.vehicleBrand = dto.vehicleBrand;
-    if (dto.vehicleModel != null && dto.vehicleModel !== '') data.vehicleModel = dto.vehicleModel;
-    if (dto.vehicleEngineSize != null && dto.vehicleEngineSize !== '') data.vehicleEngineSize = dto.vehicleEngineSize;
-    if (dto.vehicleFuelType != null && dto.vehicleFuelType !== '') data.vehicleFuelType = dto.vehicleFuelType;
+    if (dto.weight != null) data.weight = dto.weight;
     if (dto.weight != null) data.weight = dto.weight;
     if (dto.weightUnit != null && dto.weightUnit !== '') data.weightUnit = dto.weightUnit;
     if (dto.dimensions != null && dto.dimensions !== '') data.dimensions = dto.dimensions;
@@ -486,13 +477,6 @@ export class ProductService {
     if (dto.internalNote != null && dto.internalNote !== '') data.internalNote = dto.internalNote;
     if (dto.minOrderQty != null) data.minOrderQty = dto.minOrderQty;
     if (dto.leadTimeDays != null) data.leadTimeDays = dto.leadTimeDays;
-    if (dto.isB2B != null) {
-      data.isB2B = dto.isB2B;
-      // isB2B değiştiğinde updatedAt'ı güncelle (delta sync için)
-      if (dto.isB2B !== existing.isB2B) {
-        data.updatedAt = new Date();
-      }
-    }
 
     console.log('[DEBUG product.service.update] Güncellenecek data:', JSON.stringify(data, null, 2));
 

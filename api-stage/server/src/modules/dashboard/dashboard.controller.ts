@@ -1,7 +1,6 @@
 import { Controller, Get, Param, UseGuards } from '@nestjs/common';
 import { KpiService } from './kpi.service';
 import { JwtAuthGuard } from '@/common/guards/jwt-auth.guard';
-import { TenantMiddleware } from '@/common/middleware/tenant.middleware';
 
 @Controller('dashboard')
 @UseGuards(JwtAuthGuard)

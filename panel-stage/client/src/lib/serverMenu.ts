@@ -1,7 +1,7 @@
 import { cookies } from 'next/headers';
 import { menuItems } from '@/config/menuItems';
 
-/** authorization/page ile aynı mantık — B2B Yönetimi vb. adminOnly menüler */
+/** authorization/page ile aynı mantık — adminOnly menüler */
 const ADMIN_ROLES = new Set(['SUPER_ADMIN', 'TENANT_ADMIN', 'ADMIN']);
 
 function menuUserIsAdmin(user: { role?: string; isAdmin?: boolean } | null): boolean {

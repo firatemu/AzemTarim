@@ -12,18 +12,11 @@ import { PrismaModule } from './common/prisma.module';
 import { LicenseModule } from './common/services/license.module';
 import { RedisModule } from './common/services/redis.module';
 import { TenantContextModule } from './common/services/tenant-context.module';
-import { B2BPrismaModule } from './common/services/b2b-prisma.module';
 import { DeletionProtectionModule } from './common/services/deletion-protection.module';
 import { SecurityModule } from './common/services/security.module';
 import { TenantSecurityExceptionFilter } from './common/filters/tenant-security-exception.filter';
 import { AnalyticsModule } from './modules/analytics/analytics.module';
 import { VehicleBrandModule } from './modules/vehicle-brand/vehicle-brand.module';
-import { CustomerVehicleModule } from './modules/customer-vehicle/customer-vehicle.module';
-import { WorkOrderModule } from './modules/work-order/work-order.module';
-import { TechniciansModule } from './modules/technicians/technicians.module';
-import { WorkOrderItemModule } from './modules/work-order-item/work-order-item.module';
-import { PartRequestModule } from './modules/part-request/part-request.module';
-import { ServiceInvoiceModule } from './modules/service-invoice/service-invoice.module';
 import { JournalEntryModule } from './modules/journal-entry/journal-entry.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { BankTransferModule } from './modules/bank-transfer/bank-transfer.module';
@@ -87,9 +80,6 @@ import { QueueModule } from './common/modules/queue.module';
 import { CompanyVehiclesModule } from './modules/company-vehicles/company-vehicles.module';
 import { VehicleExpensesModule } from './modules/vehicle-expenses/vehicle-expenses.module';
 import { RlsModule } from './modules/rls/rls.module';
-import { B2bSyncModule } from './modules/b2b-sync/b2b-sync.module';
-import { B2bAdminModule } from './modules/b2b-admin/b2b-admin.module';
-import { B2bPortalModule } from './modules/b2b-portal/b2b-portal.module';
 import { InternalModule } from './modules/internal/internal.module';
 
 @Module({
@@ -111,7 +101,6 @@ import { InternalModule } from './modules/internal/internal.module';
     DeletionProtectionModule,
     SecurityModule,
     RedisModule,
-    B2BPrismaModule,
     LicenseModule,
     JwtModule.register({}),
     AuthModule,
@@ -164,12 +153,6 @@ import { InternalModule } from './modules/internal/internal.module';
     BrandModule,
     CategoryModule,
     VehicleBrandModule,
-    CustomerVehicleModule,
-    WorkOrderModule,
-    TechniciansModule,
-    WorkOrderItemModule,
-    PartRequestModule,
-    ServiceInvoiceModule,
     JournalEntryModule,
     PurchaseOrdersModule,
     SimpleOrderModule,
@@ -184,9 +167,6 @@ import { InternalModule } from './modules/internal/internal.module';
     CompanyVehiclesModule,
     VehicleExpensesModule,
     RlsModule,
-    B2bSyncModule,
-    B2bAdminModule,
-    B2bPortalModule,
     InternalModule,
   ],
   controllers: [AppController],

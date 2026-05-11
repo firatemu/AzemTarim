@@ -101,12 +101,7 @@ interface Malzeme {
   subCategory?: string;
   size?: string;
   supplierCode?: string;
-  vehicleBrand?: string;
-  vehicleModel?: string;
-  vehicleEngineSize?: string;
-  vehicleFuelType?: string;
   quantity?: number;
-  isB2B?: boolean;
 }
 
 interface Location {
@@ -131,10 +126,6 @@ const mapProductToMalzeme = (p: any): Malzeme => {
     altKategori: p.subCategory || '',
     olcu: p.size || '',
     tedarikciKodu: p.supplierCode || '',
-    aracMarka: p.vehicleBrand || '',
-    aracModel: p.vehicleModel || '',
-    aracMotorHacmi: p.vehicleEngineSize || '',
-    aracYakitTipi: p.vehicleFuelType || '',
     miktar: p.quantity ?? 0,
     alisFiyati: Number(purchasePrice),
     satisFiyati: Number(salePrice),

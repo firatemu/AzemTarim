@@ -18,10 +18,8 @@ export const menuItems = [
       { id: 'stock-material-list', label: 'Malzeme Listesi', icon: 'Inventory', path: '/stock/material-list', color: '#06b6d4' },
       { id: 'stock-price-cards', label: 'Fiyat Kartları', icon: 'LocalOffer', path: '/stock/price-cards', color: '#8b5cf6' },
       { id: 'stock-material-movements', label: 'Malzeme Hareketleri', icon: 'Assessment', path: '/stock/material-movements', color: '#06b6d4' },
-      { id: 'stock-product-matching', label: 'Ürün Eşleştirme', icon: 'Settings', path: '/stock/product-matching', color: '#8b5cf6' },
       { id: 'stock-category-management', label: 'Kategori Yönetimi', icon: 'Assessment', path: '/stock/category-management', color: '#06b6d4' },
       { id: 'stock-brand-management', label: 'Marka Yönetimi', icon: 'DirectionsCar', path: '/stock/brand-management', color: '#06b6d4' },
-      { id: 'arac-yonetimi', label: 'Araç Yönetimi', icon: 'DirectionsCar', path: '/vehicles', color: '#10b981' },
       { id: 'stock-unit-sets', label: 'Birim Setleri Yönetimi', icon: 'Settings', path: '/stock/unit-sets', color: '#06b6d4' },
       { id: 'stock-sales-prices', label: 'Satış Fiyatları', icon: 'AttachMoney', path: '/stock/sales-prices', color: '#ef4444' },
       { id: 'stock-purchase-prices', label: 'Satın Alma Fiyatları', icon: 'AttachMoney', path: '/stock/purchase-prices', color: '#0ea5e9' },
@@ -209,27 +207,6 @@ export const menuItems = [
   },
 
   // ========================================================================
-  // SERVİS YÖNETİMİ
-  // ========================================================================
-  {
-    id: 'service',
-    label: 'Servis Yönetimi',
-    icon: 'Build',
-    color: '#0891b2',
-    bgColor: '#ecfeff',
-    subItems: [
-      { id: 'service-work-orders', label: 'İş Emirleri', icon: 'Assignment', path: '/service/work-orders', color: '#0ea5e9' },
-      { id: 'service-customer-vehicles', label: 'Müşteri Araçları', icon: 'DirectionsCar', path: '/service/customer-vehicles', color: '#10b981' },
-      { id: 'service-technicians', label: 'Teknisyenler', icon: 'Engineering', path: '/service/technicians', color: '#f59e0b' },
-      { id: 'service-part-requests', label: 'Parça Talepleri', icon: 'Inventory', path: '/service/part-requests', color: '#ef4444' },
-      { id: 'service-part-procurement', label: 'Parça Tedarik', icon: 'LocalShipping', path: '/service/part-procurement', color: '#8b5cf6' },
-      { id: 'service-invoices', label: 'Servis Faturaları', icon: 'Receipt', path: '/service/invoices', color: '#6366f1' },
-      { id: 'service-accounting-records', label: 'Muhasebe Kayıtları', icon: 'AccountBalanceWallet', path: '/service/accounting-records', color: '#14b8a6' },
-      { id: 'service-reports', label: 'Servis Raporları', icon: 'Assessment', path: '/service/reports', color: '#d946ef' },
-    ],
-  },
-
-  // ========================================================================
   // POS SİSTEMİ
   // ========================================================================
   {
@@ -241,33 +218,6 @@ export const menuItems = [
     subItems: [
       { id: 'pos', label: 'POS Satış (V1)', icon: 'PointOfSale', path: '/pos', color: '#10b981' },
       { id: 'pos-v2', label: 'POS Satış V2', icon: 'FlashOn', path: '/pos-v2', color: '#6366f1' },
-    ],
-  },
-
-  // ========================================================================
-  // B2B YÖNETİMİ
-  // ========================================================================
-  {
-    id: 'b2b-admin',
-    label: 'B2B Yönetimi',
-    icon: 'Store',
-    color: '#0d9488',
-    bgColor: '#f0fdfa',
-    subItems: [
-      { id: 'b2b-admin-home', label: 'Özet', icon: 'Store', path: '/b2b-admin', color: '#0d9488' },
-      { id: 'b2b-admin-settings', label: 'Ayarlar', icon: 'Settings', path: '/b2b-admin/settings', color: '#0d9488' },
-      { id: 'b2b-admin-customers', label: 'B2B cariler', icon: 'People', path: '/b2b-admin/customers', color: '#0d9488' },
-      { id: 'b2b-admin-classes', label: 'Müşteri sınıfları', icon: 'Category', path: '/b2b-admin/customer-classes', color: '#0d9488' },
-      { id: 'b2b-admin-discount-groups', label: 'İskonto grupları', icon: 'Discount', path: '/b2b-admin/discount-groups', color: '#f59e0b' },
-      { id: 'b2b-admin-sales', label: 'Plasiyerler', icon: 'Badge', path: '/b2b-admin/salespersons', color: '#0d9488' },
-      { id: 'b2b-admin-products', label: 'B2B ürünler', icon: 'Inventory', path: '/b2b-admin/products', color: '#0d9488' },
-      { id: 'b2b-admin-discounts', label: 'İndirimler', icon: 'LocalOffer', path: '/b2b-admin/discounts', color: '#0d9488' },
-      { id: 'b2b-admin-orders', label: 'B2B siparişler', icon: 'ReceiptLong', path: '/b2b-admin/orders', color: '#0d9488' },
-      { id: 'b2b-admin-delivery', label: 'Teslimat', icon: 'LocalShipping', path: '/b2b-admin/delivery-methods', color: '#0d9488' },
-      { id: 'b2b-admin-ads', label: 'Reklamlar', icon: 'Campaign', path: '/b2b-admin/advertisements', color: '#0d9488' },
-      { id: 'b2b-admin-reports', label: 'Raporlar', icon: 'Assessment', path: '/b2b-admin/reports', color: '#0d9488' },
-      { id: 'b2b-admin-sync', label: 'Senkron', icon: 'Sync', path: '/b2b-admin/sync', color: '#0d9488' },
-      { id: 'b2b-admin-sync-loops', label: 'Döngüler', icon: 'SwapHoriz', path: '/b2b-admin/sync-loops', color: '#0d9488' },
     ],
   },
 

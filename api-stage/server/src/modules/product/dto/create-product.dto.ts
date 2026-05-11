@@ -82,23 +82,6 @@ export class CreateProductDto {
   @IsString()
   supplierCode?: string;
 
-  // Araç bilgileri
-  @IsOptional()
-  @IsString()
-  vehicleBrand?: string;
-
-  @IsOptional()
-  @IsString()
-  vehicleModel?: string;
-
-  @IsOptional()
-  @IsString()
-  vehicleEngineSize?: string;
-
-  @IsOptional()
-  @IsString()
-  vehicleFuelType?: string;
-
   // Kurumsal / ek özellikler
   @IsOptional()
   @IsNumber()
@@ -131,8 +114,4 @@ export class CreateProductDto {
   @IsOptional()
   @IsNumber()
   leadTimeDays?: number;
-
-  @IsOptional()
-  @IsBoolean()
-  isB2B?: boolean;
 }
