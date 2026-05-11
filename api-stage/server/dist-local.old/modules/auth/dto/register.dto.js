@@ -1,0 +1,86 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", {
+    value: true
+});
+Object.defineProperty(exports, "RegisterDto", {
+    enumerable: true,
+    get: function() {
+        return RegisterDto;
+    }
+});
+const _classvalidator = require("class-validator");
+const _swagger = require("@nestjs/swagger");
+const _userroleenum = require("../../../common/enums/user-role.enum");
+function _ts_decorate(decorators, target, key, desc) {
+    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
+    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
+    else for(var i = decorators.length - 1; i >= 0; i--)if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
+    return c > 3 && r && Object.defineProperty(target, key, r), r;
+}
+function _ts_metadata(k, v) {
+    if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
+}
+let RegisterDto = class RegisterDto {
+};
+_ts_decorate([
+    (0, _classvalidator.IsNotEmpty)(),
+    (0, _classvalidator.IsEmail)(),
+    _ts_metadata("design:type", String)
+], RegisterDto.prototype, "email", void 0);
+_ts_decorate([
+    (0, _classvalidator.IsOptional)(),
+    (0, _classvalidator.IsString)(),
+    _ts_metadata("design:type", String)
+], RegisterDto.prototype, "username", void 0);
+_ts_decorate([
+    (0, _classvalidator.IsNotEmpty)(),
+    (0, _classvalidator.IsString)(),
+    (0, _classvalidator.MinLength)(6),
+    _ts_metadata("design:type", String)
+], RegisterDto.prototype, "password", void 0);
+_ts_decorate([
+    (0, _classvalidator.IsNotEmpty)(),
+    (0, _classvalidator.IsString)(),
+    _ts_metadata("design:type", String)
+], RegisterDto.prototype, "firstName", void 0);
+_ts_decorate([
+    (0, _classvalidator.IsNotEmpty)(),
+    (0, _classvalidator.IsString)(),
+    _ts_metadata("design:type", String)
+], RegisterDto.prototype, "lastName", void 0);
+_ts_decorate([
+    (0, _classvalidator.IsOptional)(),
+    (0, _classvalidator.IsString)(),
+    _ts_metadata("design:type", String)
+], RegisterDto.prototype, "phone", void 0);
+_ts_decorate([
+    (0, _classvalidator.IsOptional)(),
+    (0, _classvalidator.IsString)(),
+    _ts_metadata("design:type", String)
+], RegisterDto.prototype, "companyName", void 0);
+_ts_decorate([
+    (0, _classvalidator.IsOptional)(),
+    (0, _classvalidator.IsString)(),
+    _ts_metadata("design:type", String)
+], RegisterDto.prototype, "fullName", void 0);
+_ts_decorate([
+    (0, _swagger.ApiProperty)({
+        enum: _userroleenum.UserRole,
+        required: false
+    }),
+    (0, _classvalidator.IsOptional)(),
+    (0, _classvalidator.IsEnum)(_userroleenum.UserRole),
+    _ts_metadata("design:type", typeof _userroleenum.UserRole === "undefined" ? Object : _userroleenum.UserRole)
+], RegisterDto.prototype, "role", void 0);
+_ts_decorate([
+    (0, _classvalidator.IsOptional)(),
+    (0, _classvalidator.IsString)(),
+    _ts_metadata("design:type", String)
+], RegisterDto.prototype, "planSlug", void 0);
+_ts_decorate([
+    (0, _classvalidator.IsOptional)(),
+    (0, _classvalidator.IsString)(),
+    _ts_metadata("design:type", String)
+], RegisterDto.prototype, "companyType", void 0);
+
+//# sourceMappingURL=register.dto.js.map

@@ -4,16 +4,22 @@ import { NextResponse } from 'next/server';
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
+import { serverFetch } from '@/lib/serverFetch';
+
 /**
  * GET /api/hizli/token-status
- * Hızlı e-fatura token durumunu kontrol eder
+ * Hızlı e-fatura token durumunu döndürür
  */
-export async function GET() {
-  // Backend endpoint henüz mevcut değil
-  return NextResponse.json({
-    success: false,
-    authenticated: false,
-    message: 'Hızlı e-fatura entegrasyonu henüz aktif değil',
-    error: 'BACKEND_NOT_CONFIGURED'
-  });
+export async function GET(request: Request) {
+  try {
+    const data = await serverFetch('/quick-invoices/token-status');
+    return NextResponse.json(data);
+  } catch (error: any) {
+    return NextResponse.json({
+      hasToken: false,
+      isValid: false,
+      message: error.message || 'Token statüsü alınamadı',
+      status: 'error'
+    }, { status: 500 });
+  }
 }

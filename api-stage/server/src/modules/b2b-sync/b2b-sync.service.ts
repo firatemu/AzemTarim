@@ -23,7 +23,6 @@ export type B2bSyncProductsJob = {
 export type B2bSyncStockJob = {
   tenantId: string;
   erpAdapterType: B2BErpAdapter;
-  forceFull?: boolean;
 };
 
 export type B2bSyncMovementsJob = {
@@ -50,7 +49,7 @@ export class B2bSyncService {
   async manualTrigger(
     tenantId: string,
     syncType: B2BSyncType,
-    extra?: { erpAccountId?: string; orderId?: string; forceFull?: boolean },
+    extra?: { erpAccountId?: string; orderId?: string },
   ): Promise<{ jobId: string | undefined }> {
     const config = await this.prisma.b2BTenantConfig.findUnique({
       where: { tenantId },
@@ -73,13 +72,9 @@ export class B2bSyncService {
         payload = { tenantId, erpAdapterType };
         break;
       case B2BSyncType.STOCK:
-        jobName = 'SYNC_STOCK';
-        payload = {
-          tenantId,
-          erpAdapterType,
-          forceFull: extra?.forceFull ?? false,
-        };
-        break;
+        throw new BadRequestException(
+          'Stok senkronu kuyrukta kullanılmıyor; B2B stok ve fiyatlar ERP’den anlık okunur.',
+        );
       case B2BSyncType.ACCOUNT_MOVEMENTS:
         if (!extra?.erpAccountId) {
           throw new BadRequestException(
@@ -114,6 +109,27 @@ export class B2bSyncService {
       attempts: 3,
       backoff: { type: 'exponential' as const, delay: 5000 },
     };
+  }
+
+  /** Tüm B2B carileri için ERP cari hareketlerini tek kuyruk işinde çeker (bakiye listesi için). */
+  async enqueueSyncAllAccountMovements(
+    tenantId: string,
+  ): Promise<{ jobId: string | undefined }> {
+    const config = await this.prisma.b2BTenantConfig.findUnique({
+      where: { tenantId },
+    });
+    if (!config) {
+      throw new NotFoundException('B2B tenant config not found');
+    }
+    const job = await this.queue.add(
+      'SYNC_ALL_ACCOUNT_MOVEMENTS',
+      { tenantId, erpAdapterType: config.erpAdapterType } satisfies B2bSyncProductsJob,
+      this.jobOpts(),
+    );
+    this.logger.log(
+      `enqueueSyncAllAccountMovements tenant=${tenantId} job=${job.id}`,
+    );
+    return { jobId: job.id };
   }
 
   async enqueueExportOrder(

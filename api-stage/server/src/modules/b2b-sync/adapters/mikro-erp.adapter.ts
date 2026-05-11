@@ -48,8 +48,11 @@ export class MikroErpAdapter implements IErpAdapter {
   getProducts(): Promise<ErpProduct[]> {
     throw new NotImplementedException('Mikro ERP adapter is not implemented yet');
   }
-  getStock(): Promise<ErpStockItem[]> {
+  getStock(_productIds: string[]): Promise<ErpStockItem[]> {
     throw new NotImplementedException('Mikro ERP adapter is not implemented yet');
+  }
+  getStockAll(): Promise<ErpStockItem[]> {
+    return Promise.resolve([]);
   }
   getAccount(): Promise<ErpAccount> {
     throw new NotImplementedException('Mikro ERP adapter is not implemented yet');

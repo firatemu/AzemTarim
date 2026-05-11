@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { extname } from 'path';
 import { B2BSyncType, Prisma } from '@prisma/client';
+import { ErpProductLiveMetricsService } from '../../../common/services/erp-product-live-metrics.service';
 import { PrismaService } from '../../../common/prisma.service';
 import type { IStorageService } from '../../storage/interfaces/storage-service.interface';
 import { B2bSyncService } from '../../b2b-sync/b2b-sync.service';
@@ -19,6 +20,7 @@ export class B2bAdminProductService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly b2bSync: B2bSyncService,
+    private readonly liveMetrics: ErpProductLiveMetricsService,
     @Inject('STORAGE_SERVICE') private readonly storage: IStorageService,
   ) { }
 
@@ -44,8 +46,8 @@ export class B2bAdminProductService {
     if (q.search?.trim()) {
       const s = q.search.trim();
       where.OR = [
-        { name: { contains: s, mode: 'insensitive' } },
-        { stockCode: { contains: s, mode: 'insensitive' } },
+        { product: { name: { contains: s, mode: 'insensitive' } } },
+        { product: { code: { contains: s, mode: 'insensitive' } } },
         { oemCode: { contains: s, mode: 'insensitive' } },
         { supplierCode: { contains: s, mode: 'insensitive' } },
       ];
@@ -57,30 +59,71 @@ export class B2bAdminProductService {
         where,
         skip,
         take: limit,
-        orderBy: { name: 'asc' },
+        orderBy: { product: { name: 'asc' } },
         include: {
-          stocks: true,
           product: {
-            include: {
-              productLocationStocks: {
-                where: { tenantId },
-              },
+            select: {
+              id: true,
+              code: true,
+              name: true,
             },
           },
         },
       }),
     ]);
 
-    return this.paginate(data, total, page, limit);
+    const erpIds = data.map((r) => r.erpProductId);
+    const [qtyMap, priceMap, defaultWh] = await Promise.all([
+      this.liveMetrics.computeNetQuantitiesFromMovements(tenantId, erpIds),
+      this.liveMetrics.getListUnitPricesByProductIds(tenantId, erpIds),
+      this.liveMetrics.getDefaultWarehouse(tenantId),
+    ]);
+
+    const enriched = data.map((row) => {
+      const { product: erp, ...rest } = row;
+      const erpId = row.erpProductId;
+      const netQty = qtyMap.get(erpId) ?? 0;
+      const livePrice = priceMap.get(erpId);
+      const stocks = this.liveMetrics.buildLiveStockSnapshot(netQty, defaultWh);
+      return {
+        ...rest,
+        stockCode: erp?.code ?? row.stockCode,
+        name: erp?.name ?? row.name,
+        erpListPrice: livePrice ?? Number(row.erpListPrice),
+        stocks,
+      };
+    });
+
+    return this.paginate(enriched, total, page, limit);
   }
 
   async getOne(tenantId: string, id: string) {
     const p = await this.prisma.b2BProduct.findFirst({
       where: { id, tenantId },
-      include: { stocks: true },
+      include: {
+        product: {
+          select: { id: true, code: true, name: true },
+        },
+      },
     });
     if (!p) throw new NotFoundException('B2B product not found');
-    return p;
+
+    const erpId = p.erpProductId;
+    const [qtyMap, priceMap, defaultWh] = await Promise.all([
+      this.liveMetrics.computeNetQuantitiesFromMovements(tenantId, [erpId]),
+      this.liveMetrics.getListUnitPricesByProductIds(tenantId, [erpId]),
+      this.liveMetrics.getDefaultWarehouse(tenantId),
+    ]);
+    const netQty = qtyMap.get(erpId) ?? 0;
+    const livePrice = priceMap.get(erpId);
+    const { product: erp, ...rest } = p;
+    return {
+      ...rest,
+      stockCode: erp?.code ?? p.stockCode,
+      name: erp?.name ?? p.name,
+      erpListPrice: livePrice ?? Number(p.erpListPrice),
+      stocks: this.liveMetrics.buildLiveStockSnapshot(netQty, defaultWh),
+    };
   }
 
   async update(tenantId: string, id: string, dto: UpdateB2bProductDto) {
@@ -166,10 +209,13 @@ export class B2bAdminProductService {
     return { ok: true };
   }
 
-  async triggerSync(tenantId: string, type: 'PRODUCTS' | 'PRICES' | 'STOCK' | 'FULL' = 'FULL', userId?: string) {
+  async triggerSync(
+    tenantId: string,
+    type: 'PRODUCTS' | 'PRICES' | 'FULL' = 'FULL',
+    _userId?: string,
+  ): Promise<{ jobId?: string }> {
     const now = new Date();
 
-    // Eski mantığı koruyoruz (lastSyncRequestedAt)
     await this.prisma.b2BTenantConfig.updateMany({
       where: { tenantId },
       data: { lastSyncRequestedAt: now },
@@ -178,9 +224,8 @@ export class B2bAdminProductService {
     let syncTypeEnum: B2BSyncType = B2BSyncType.FULL;
     if (type === 'PRODUCTS') syncTypeEnum = B2BSyncType.PRODUCTS;
     else if (type === 'PRICES') syncTypeEnum = B2BSyncType.PRICES;
-    else if (type === 'STOCK') syncTypeEnum = B2BSyncType.STOCK;
 
-    return this.b2bSync.manualTrigger(tenantId, syncTypeEnum, { forceFull: true });
+    return this.b2bSync.manualTrigger(tenantId, syncTypeEnum);
   }
 
   async getSyncLoops(tenantId: string) {

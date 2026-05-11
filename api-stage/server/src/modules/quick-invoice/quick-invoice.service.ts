@@ -5,7 +5,7 @@ const { soap } = require('strong-soap');
 @Injectable()
 export class QuickInvoiceService {
   private readonly logger = new Logger(QuickInvoiceService.name);
-  private readonly soapUrl = process.env.HIZLI_SOAP_URL || 'https://econnecttest.quick-invoiceteknoloji.com.tr/Services/QuickInvoiceService.svc?wsdl';
+  private readonly soapUrl = process.env.HIZLI_SOAP_URL || 'https://econnecttest.hizliteknoloji.com.tr/Services/HizliService.svc?wsdl';
   private cachedToken: string | null = null;
   private cachedHashedUsername: string | null = null;
   private cachedHashedPassword: string | null = null;
@@ -124,7 +124,7 @@ export class QuickInvoiceService {
    */
   async utilEncrypt(username: string, password: string, secretKey: string) {
     try {
-      const apiBase = process.env.HIZLI_API_BASE || 'https://econnecttest.quick-invoiceteknoloji.com.tr/HizliApi/RestApi';
+      const apiBase = process.env.HIZLI_API_BASE || 'https://econnecttest.hizliteknoloji.com.tr/HizliApi/RestApi';
       const url = `${apiBase}/UtilEncrypt`;
 
       this.logger.log('🔍 UtilEncrypt REST API çağrılıyor (Username: ' + username + ', SecretKey uzunluğu: ' + secretKey.length + ')');
@@ -152,7 +152,7 @@ export class QuickInvoiceService {
    */
   async login(usernameHash: string, passwordHash: string, apiKey: string) {
     try {
-      const apiBase = process.env.HIZLI_API_BASE || 'https://econnecttest.quick-invoiceteknoloji.com.tr/HizliApi/RestApi';
+      const apiBase = process.env.HIZLI_API_BASE || 'https://econnecttest.hizliteknoloji.com.tr/HizliApi/RestApi';
       const url = `${apiBase}/Login`;
 
       this.logger.log('🔍 Login REST API çağrılıyor (Username hash uzunluğu: ' + (usernameHash?.length || 0) + ')');
@@ -748,7 +748,7 @@ export class QuickInvoiceService {
         throw new Error('Token not found. You must login first.');
       }
 
-      const apiBase = process.env.HIZLI_API_BASE || 'https://econnecttest.quick-invoiceteknoloji.com.tr/HizliApi/RestApi';
+      const apiBase = process.env.HIZLI_API_BASE || 'https://econnecttest.hizliteknoloji.com.tr/HizliApi/RestApi';
       const url = `${apiBase}/GetGibUserList`;
 
       this.logger.log(`🔍 GetGibUserList REST API çağrılıyor (AppType: ${appType}, Type: ${type}, Identifier: ${identifier})...`);
@@ -782,7 +782,7 @@ export class QuickInvoiceService {
         throw new Error('Token not found. You must login first.');
       }
 
-      const apiBase = process.env.HIZLI_API_BASE || 'https://econnecttest.quick-invoiceteknoloji.com.tr/HizliApi/RestApi';
+      const apiBase = process.env.HIZLI_API_BASE || 'https://econnecttest.hizliteknoloji.com.tr/HizliApi/RestApi';
       const url = `${apiBase}/SendInvoiceModel`;
 
       this.logger.log('🔍 SendInvoiceModel REST API çağrılıyor (Invoice sayısı: ' + inputInvoices.length + ')');

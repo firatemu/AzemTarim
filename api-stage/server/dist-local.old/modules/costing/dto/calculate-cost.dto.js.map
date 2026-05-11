@@ -1,0 +1,1 @@
+{"version":3,"sources":["../../../../src/modules/costing/dto/calculate-cost.dto.ts"],"sourcesContent":["import { IsUUID } from 'class-validator';\n\nexport class CalculateCostDto {\n  @IsUUID()\n  productId!: string;\n}\n"],"names":["CalculateCostDto"],"mappings":";;;;+BAEaA;;;eAAAA;;;gCAFU;;;;;;;;;;AAEhB,IAAA,AAAMA,mBAAN,MAAMA;AAGb"}

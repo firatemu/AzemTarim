@@ -9,6 +9,7 @@ const NAV: { href: string; label: string }[] = [
   { href: '/b2b-admin/settings', label: 'Sistem Ayarları' },
   { href: '/b2b-admin/customers', label: 'B2B Müşteriler' },
   { href: '/b2b-admin/customer-classes', label: 'Müşteri Sınıfları' },
+  { href: '/b2b-admin/discount-groups', label: 'İskonto grupları' },
   { href: '/b2b-admin/salespersons', label: 'Plasiyerler' },
   { href: '/b2b-admin/products', label: 'Ürün Yönetimi' },
   { href: '/b2b-admin/discounts', label: 'İndirimler' },
@@ -17,6 +18,7 @@ const NAV: { href: string; label: string }[] = [
   { href: '/b2b-admin/advertisements', label: 'Reklamlar' },
   { href: '/b2b-admin/reports', label: 'Raporlar' },
   { href: '/b2b-admin/sync', label: 'Senkronizasyon' },
+  { href: '/b2b-admin/sync-loops', label: 'Senkron döngüleri' },
 ];
 
 export function B2bAdminNav() {

@@ -22,7 +22,9 @@ export async function serverFetch<T>(endpoint: string, options: FetchOptions = {
         headers.set('x-tenant-id', tenantId);
     }
 
-    const baseURL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3010/api';
+    // ✅ Internal Docker Routing: Use API_PROXY_TARGET for SSR to avoid localhost ECONNREFUSED
+    const apiBase = process.env.API_PROXY_TARGET ? `${process.env.API_PROXY_TARGET}/api` : process.env.NEXT_PUBLIC_API_URL;
+    const baseURL = apiBase || 'http://localhost:3010/api';
     const url = `${baseURL}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
 
     // Merge custom Next.js caching controls

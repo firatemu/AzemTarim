@@ -7,6 +7,7 @@ import {
   Prisma,
   SalesOrderStatus,
 } from '@prisma/client';
+import { ErpProductLiveMetricsService } from '../../../common/services/erp-product-live-metrics.service';
 import { PrismaService } from '../../../common/prisma.service';
 import type { IErpAdapter } from './i-erp-adapter.interface';
 import type {
@@ -29,6 +30,7 @@ export class OtomuhasebeErpAdapter implements IErpAdapter {
   constructor(
     private readonly prisma: PrismaService,
     private readonly tenantId: string,
+    private readonly liveMetrics: ErpProductLiveMetricsService,
   ) { }
 
   async getProducts(lastSyncedAt: Date | null): Promise<ErpProduct[]> {
@@ -53,7 +55,8 @@ export class OtomuhasebeErpAdapter implements IErpAdapter {
     });
 
     const productIds = products.map((p) => p.id);
-    const priceByProduct = await this.loadListPrices(productIds);
+    const priceByProduct =
+      await this.liveMetrics.getListUnitPricesByProductIds(this.tenantId, productIds);
 
     const result = products.map((p) => ({
       erpProductId: p.id,
@@ -74,30 +77,6 @@ export class OtomuhasebeErpAdapter implements IErpAdapter {
       `getProducts tenant=${this.tenantId} count=${result.length} ms=${Date.now() - started}`,
     );
     return result;
-  }
-
-  private async loadListPrices(
-    productIds: string[],
-  ): Promise<Map<string, number>> {
-    const map = new Map<string, number>();
-    if (productIds.length === 0) return map;
-
-    const cards = await this.prisma.priceCard.findMany({
-      where: {
-        tenantId: this.tenantId,
-        productId: { in: productIds },
-        isActive: true,
-        type: { in: [PriceCardType.LIST, PriceCardType.SALE] },
-      },
-      orderBy: { updatedAt: 'desc' },
-    });
-
-    for (const c of cards) {
-      if (!map.has(c.productId)) {
-        map.set(c.productId, Number(c.price));
-      }
-    }
-    return map;
   }
 
   async getPrices(lastSyncedAt: Date | null): Promise<{ erpProductId: string, listPrice: number }[]> {
@@ -167,49 +146,54 @@ export class OtomuhasebeErpAdapter implements IErpAdapter {
     return result;
   }
 
-  async getStock(productIds: string[], lastSyncedAt?: Date | null): Promise<ErpStockItem[]> {
+  /**
+   * Depo kırılımlı stok: sadece qtyOnHand (fallback).
+   */
+  private async getStockFromProductLocationStock(
+    productIds: string[],
+  ): Promise<ErpStockItem[]> {
     const started = Date.now();
-    if (productIds.length === 0) return [];
+    const CHUNK = 400;
+    type PlWithWh = Awaited<
+      ReturnType<typeof this.prisma.productLocationStock.findMany>
+    >[number];
+    const rows: PlWithWh[] = [];
 
-    // Hareket bazlı filtreleme:
-    // lastSyncedAt verilmişse, ProductLocationStock.updatedAt > lastSyncedAt olan
-    // (yani son senkronizasyondan sonra stok miktarı değişmiş) ürünleri bul.
-    // Bu yaklaşım hem yeni kayıt eklemeleri hem de fatura güncellemelerini kapsar,
-    // çünkü ProductLocationStock Prisma @updatedAt ile otomatik güncellenir.
-    let filteredIds = productIds;
-
-    if (lastSyncedAt) {
-      const changedStocks = await this.prisma.productLocationStock.findMany({
-        where: {
-          tenantId: this.tenantId,
-          productId: { in: productIds },
-          updatedAt: { gt: lastSyncedAt },
-        },
-        select: { productId: true },
-        distinct: ['productId'],
-      });
-
-      // Eğer hiçbir stok değişmemişse erken çık
-      if (changedStocks.length === 0) {
-        this.logger.log(
-          `getStock tenant=${this.tenantId} no changes since ${lastSyncedAt.toISOString()} — skipped`,
-        );
-        return [];
+    const fetchPl = async (strictPlTenant: boolean): Promise<void> => {
+      rows.length = 0;
+      for (let j = 0; j < productIds.length; j += CHUNK) {
+        const chunk = productIds.slice(j, j + CHUNK);
+        const part = await this.prisma.productLocationStock.findMany({
+          where: strictPlTenant
+            ? {
+                AND: [
+                  { productId: { in: chunk } },
+                  { product: { tenantId: this.tenantId } },
+                  {
+                    OR: [
+                      { tenantId: this.tenantId },
+                      { tenantId: null },
+                    ],
+                  },
+                ],
+              }
+            : {
+                productId: { in: chunk },
+                product: { tenantId: this.tenantId },
+              },
+          include: { warehouse: true },
+        });
+        rows.push(...part);
       }
+    };
 
-      filteredIds = changedStocks.map((s) => s.productId);
-      this.logger.log(
-        `getStock tenant=${this.tenantId} incremental: ${filteredIds.length}/${productIds.length} products affected`,
+    await fetchPl(true);
+    if (rows.length === 0 && productIds.length > 0) {
+      this.logger.warn(
+        `getStockFromProductLocationStock tenant=${this.tenantId}: katı PL tenant filtresi 0 satır; ürün kiracısı ile yeniden deneniyor`,
       );
+      await fetchPl(false);
     }
-
-    const rows = await this.prisma.productLocationStock.findMany({
-      where: {
-        tenantId: this.tenantId,
-        productId: { in: filteredIds },
-      },
-      include: { warehouse: true },
-    });
 
     const agg = new Map<string, ErpStockItem>();
     for (const r of rows) {
@@ -222,7 +206,8 @@ export class OtomuhasebeErpAdapter implements IErpAdapter {
         agg.set(key, {
           erpProductId: r.productId,
           warehouseId: r.warehouseId,
-          warehouseName: r.warehouse.name,
+          warehouseName:
+            (r as { warehouse?: { name: string } }).warehouse?.name ?? 'Depo',
           quantity: qty,
         });
       }
@@ -230,9 +215,57 @@ export class OtomuhasebeErpAdapter implements IErpAdapter {
 
     const result = [...agg.values()];
     this.logger.log(
-      `getStock tenant=${this.tenantId} rows=${result.length} ms=${Date.now() - started}`,
+      `getStockFromProductLocationStock tenant=${this.tenantId} rows=${result.length} ms=${Date.now() - started}`,
     );
     return result;
+  }
+
+  async getStock(productIds: string[]): Promise<ErpStockItem[]> {
+    const started = Date.now();
+    if (productIds.length === 0) return [];
+
+    const defaultWarehouse = await this.liveMetrics.getDefaultWarehouse(
+      this.tenantId,
+    );
+
+    if (!defaultWarehouse) {
+      this.logger.warn(
+        `getStock tenant=${this.tenantId}: tanımlı depo yok; ProductLocationStock kullanılıyor`,
+      );
+      return this.getStockFromProductLocationStock(productIds);
+    }
+
+    const qtyByProduct = await this.liveMetrics.computeNetQuantitiesFromMovements(
+      this.tenantId,
+      productIds,
+    );
+
+    const result: ErpStockItem[] = productIds.map((pid) => ({
+      erpProductId: pid,
+      warehouseId: defaultWarehouse.id,
+      warehouseName: defaultWarehouse.name,
+      quantity: qtyByProduct.get(pid) ?? 0,
+    }));
+
+    this.logger.log(
+      `getStock tenant=${this.tenantId} movementNet rows=${result.length} (malzeme listesi ile uyumlu) ms=${Date.now() - started}`,
+    );
+    return result;
+  }
+
+  /**
+   * Tüm ERP stok kartları için malzeme listesiyle aynı hareket bazlı net miktar.
+   */
+  async getStockAll(): Promise<ErpStockItem[]> {
+    const products = await this.prisma.product.findMany({
+      where: {
+        tenantId: this.tenantId,
+        isCategoryOnly: { not: true },
+        isBrandOnly: { not: true },
+      },
+      select: { id: true },
+    });
+    return this.getStock(products.map((p) => p.id));
   }
 
   async getAccount(erpAccountId: string): Promise<ErpAccount> {

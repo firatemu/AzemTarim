@@ -11,6 +11,7 @@ import {
 import { ApiBearerAuth, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { B2BWarehouseDisplayMode, Prisma } from '@prisma/client';
 import { B2BLicenseGuard } from '../../common/guards/b2b-license.guard';
+import { ErpProductLiveMetricsService } from '../../common/services/erp-product-live-metrics.service';
 import { PrismaService } from '../../common/prisma.service';
 import { B2bDomainGuard } from './guards/b2b-domain.guard';
 import { B2bJwtAuthGuard } from './guards/b2b-jwt-auth.guard';
@@ -36,6 +37,7 @@ export class B2bCatalogController {
     private readonly prisma: PrismaService,
     private readonly price: B2bPriceService,
     private readonly schemaBridge: B2bTenantSchemaBridgeService,
+    private readonly liveMetrics: ErpProductLiveMetricsService,
   ) { }
 
   private parsePricingAt(iso?: string): Date {
@@ -108,6 +110,7 @@ export class B2bCatalogController {
         take: pageSize,
         select: {
           id: true,
+          erpProductId: true,
           stockCode: true,
           name: true,
           description: true,
@@ -119,32 +122,46 @@ export class B2bCatalogController {
           imageUrl: true,
           oemCode: true,
           supplierCode: true,
+          product: {
+            select: { code: true, name: true },
+          },
         },
       }),
     ]);
 
+    const erpIds = rows.map((r) => r.erpProductId);
+    const [qtyMap, priceMap, defaultWh] = await Promise.all([
+      this.liveMetrics.computeNetQuantitiesFromMovements(tenantId, erpIds),
+      this.liveMetrics.getListUnitPricesByProductIds(tenantId, erpIds),
+      this.liveMetrics.getDefaultWarehouse(tenantId),
+    ]);
+
     const data = await Promise.all(
       rows.map(async (p) => {
+        const { product: erpRow, ...pRest } = p;
+        const erpId = p.erpProductId;
+        const netQty = qtyMap.get(erpId) ?? 0;
+        const liveList = priceMap.get(erpId) ?? Number(p.erpListPrice);
+        const stocks = this.liveMetrics.buildLiveStockSnapshot(netQty, defaultWh);
+        const stocksDto = stocks.map((s) => ({
+          warehouseId: s.warehouseId,
+          warehouseName: s.warehouseName,
+          isAvailable: s.isAvailable,
+          quantity: s.quantity,
+        }));
+        const inStock = netQty > 0;
+        const warehouses = collapseWarehouses ? [] : stocksDto;
         const pricing = await this.price.getUnitPriceBreakdown(
           tenantId,
           customerId,
           p.id,
           pricingRef,
         );
-        const stocks = await this.prisma.b2BStock.findMany({
-          where: { tenantId, productId: p.id },
-          orderBy: [{ displayOrder: 'asc' }, { warehouseName: 'asc' }],
-          select: {
-            warehouseId: true,
-            warehouseName: true,
-            isAvailable: true,
-            quantity: true,
-          },
-        });
-        const inStock = stocks.some((s) => Number(s.quantity) > 0);
-        const warehouses = collapseWarehouses ? [] : stocks;
         return {
-          ...p,
+          ...pRest,
+          stockCode: erpRow?.code ?? p.stockCode,
+          name: erpRow?.name ?? p.name,
+          erpListPrice: liveList,
           pricing: {
             listUnit: pricing.listUnit,
             customerClassDiscountUnit: pricing.customerClassDiscountUnit,
@@ -200,31 +217,53 @@ export class B2bCatalogController {
     const product = await this.prisma.b2BProduct.findFirst({
       where: { id: productId, tenantId, isVisibleInB2B: true },
       include: {
-        stocks: {
-          orderBy: [{ displayOrder: 'asc' }, { warehouseName: 'asc' }],
+        product: {
+          select: { code: true, name: true },
         },
       },
     });
     if (!product) {
       throw new NotFoundException('Urun bulunamadi');
     }
+    const [qtyMap, priceMap, defaultWh] = await Promise.all([
+      this.liveMetrics.computeNetQuantitiesFromMovements(tenantId, [
+        product.erpProductId,
+      ]),
+      this.liveMetrics.getListUnitPricesByProductIds(tenantId, [
+        product.erpProductId,
+      ]),
+      this.liveMetrics.getDefaultWarehouse(tenantId),
+    ]);
+    const netQty = qtyMap.get(product.erpProductId) ?? 0;
+    const liveList =
+      priceMap.get(product.erpProductId) ?? Number(product.erpListPrice);
+    const stocks = this.liveMetrics.buildLiveStockSnapshot(netQty, defaultWh);
+    const stocksDto = stocks.map((s) => ({
+      warehouseId: s.warehouseId,
+      warehouseName: s.warehouseName,
+      isAvailable: s.isAvailable,
+      quantity: s.quantity,
+    }));
     const pricing = await this.price.getUnitPriceBreakdown(
       tenantId,
       customerId,
       productId,
       pricingRef,
     );
-    const stocks = product.stocks.filter((s) => Number(s.quantity) > 0);
     const presentation = collapseWarehouses ? 'COMBINED' : 'INDIVIDUAL';
-    const warehouses = collapseWarehouses ? [] : stocks;
+    const warehouses = collapseWarehouses ? [] : stocksDto;
+    const { product: erp, ...rest } = product;
     return {
       product: {
-        ...product,
-        stocks: collapseWarehouses ? [] : product.stocks,
+        ...rest,
+        stockCode: erp?.code ?? product.stockCode,
+        name: erp?.name ?? product.name,
+        erpListPrice: liveList,
+        stocks: collapseWarehouses ? [] : stocksDto,
       },
       pricing,
       stockPresentation: presentation,
-      inStock: stocks.length > 0,
+      inStock: netQty > 0,
       warehouses,
     };
   }

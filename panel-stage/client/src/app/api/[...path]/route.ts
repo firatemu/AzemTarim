@@ -9,7 +9,7 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 120;
 
-const DEFAULT_TARGET = 'http://127.0.0.1:3020';
+const DEFAULT_TARGET = 'http://127.0.0.1:3000';
 
 const SKIP_HEADERS = new Set([
     'connection',

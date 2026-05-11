@@ -120,8 +120,11 @@ export class LogoErpAdapter implements IErpAdapter {
     }
   }
 
-  getStock(): Promise<ErpStockItem[]> {
+  getStock(_productIds: string[]): Promise<ErpStockItem[]> {
     throw new NotImplementedException('Logo ERP adapter is not implemented yet');
+  }
+  getStockAll(): Promise<ErpStockItem[]> {
+    return Promise.resolve([]);
   }
   getAccount(): Promise<ErpAccount> {
     throw new NotImplementedException('Logo ERP adapter is not implemented yet');

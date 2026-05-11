@@ -7,7 +7,6 @@ import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { InvoiceOperationType, InvoiceOperationContext } from '../types/invoice-orchestrator.types';
 import { InvoiceType } from '../invoice.enums';
-
 @Injectable()
 export class InvoiceOrchestratorService {
     private readonly logger = new Logger(InvoiceOrchestratorService.name);

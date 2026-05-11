@@ -152,6 +152,16 @@ export class B2bCustomerListQueryDto extends PaginationQueryDto {
   @IsOptional()
   @IsString()
   search?: string;
+
+  @ApiPropertyOptional({ enum: ['name', 'createdAt', 'balance'] })
+  @IsOptional()
+  @IsIn(['name', 'createdAt', 'balance'])
+  sortBy?: 'name' | 'createdAt' | 'balance';
+
+  @ApiPropertyOptional({ enum: ['asc', 'desc'] })
+  @IsOptional()
+  @IsIn(['asc', 'desc'])
+  sortOrder?: 'asc' | 'desc';
 }
 
 export class B2bCustomerMovementsQueryDto extends PaginationQueryDto {

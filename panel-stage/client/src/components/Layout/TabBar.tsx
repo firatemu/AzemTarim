@@ -12,9 +12,10 @@ export default function TabBar() {
   const router = useRouter();
   const pathname = usePathname();
 
-  // Redirect to /menu when all tabs are closed and not on /menu page
+  // Redirect to /menu when all tabs are closed and not on /menu or print page
   useEffect(() => {
-    if (tabs.length === 0 && pathname !== '/menu') {
+    const isDirectAccessPage = pathname?.includes('/print') || pathname?.includes('/menu');
+    if (tabs.length === 0 && !isDirectAccessPage) {
       router.push('/menu');
     }
   }, [tabs.length, pathname, router]);

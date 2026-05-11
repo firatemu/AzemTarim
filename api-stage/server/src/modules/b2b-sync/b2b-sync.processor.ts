@@ -17,7 +17,6 @@ import type {
   B2bExportOrderJob,
   B2bSyncMovementsJob,
   B2bSyncProductsJob,
-  B2bSyncStockJob,
 } from './b2b-sync.service';
 
 @Processor(B2B_SYNC_QUEUE)
@@ -45,7 +44,6 @@ export class B2bSyncProcessor extends WorkerHost {
       case 'SYNC_FULL':
         await this.handleSyncProducts(job.data as B2bSyncProductsJob, true);
         await this.handleSyncPrices(job.data as B2bSyncProductsJob, true);
-        await this.handleSyncStock(job.data as B2bSyncStockJob);
         break;
       case 'SYNC_PRODUCTS':
         await this.handleSyncProducts(job.data as B2bSyncProductsJob, false);
@@ -53,8 +51,8 @@ export class B2bSyncProcessor extends WorkerHost {
       case 'SYNC_PRICES':
         await this.handleSyncPrices(job.data as B2bSyncProductsJob, false);
         break;
-      case 'SYNC_STOCK':
-        await this.handleSyncStock(job.data as B2bSyncStockJob);
+      case 'SYNC_ALL_ACCOUNT_MOVEMENTS':
+        await this.handleSyncAllAccountMovements(job.data as B2bSyncProductsJob);
         break;
       case 'SYNC_ACCOUNT_MOVEMENTS':
         await this.handleSyncMovements(job.data as B2bSyncMovementsJob);
@@ -245,112 +243,6 @@ export class B2bSyncProcessor extends WorkerHost {
     }
   }
 
-  private async handleSyncStock(data: B2bSyncStockJob): Promise<void> {
-    const { tenantId, erpAdapterType } = data;
-    const log = await this.prisma.b2BSyncLog.create({
-      data: {
-        tenantId,
-        syncType: B2BSyncType.STOCK,
-        status: B2BSyncStatus.RUNNING,
-        startedAt: new Date(),
-      },
-    });
-
-    try {
-      // Son başarılı stok sync zamanını döngü tablosundan al
-      const loop = await this.prisma.b2BSyncLoop.findUnique({
-        where: { tenantId_syncType: { tenantId, syncType: B2BSyncType.STOCK } },
-      });
-      const lastSyncedAt = data.forceFull ? null : (loop?.lastRunAt ?? null);
-
-      // B2B'de yayında olan tüm ürünlerin erpProductId listesini al
-      const b2bProducts = await this.prisma.b2BProduct.findMany({
-        where: { tenantId },
-        select: { id: true, erpProductId: true },
-      });
-      const allErpIds = b2bProducts.map((x) => x.erpProductId);
-      const idByErp = new Map(b2bProducts.map((x) => [x.erpProductId, x.id] as const));
-
-      if (allErpIds.length === 0) {
-        await this.prisma.b2BSyncLog.update({
-          where: { id: log.id },
-          data: { status: B2BSyncStatus.SUCCESS, finishedAt: new Date(), recordsProcessed: 0, recordsAdded: 0, recordsUpdated: 0 },
-        });
-        return;
-      }
-
-      const adapter = this.resolveAdapter(tenantId, erpAdapterType);
-
-      // Adaptöre lastSyncedAt iletiliyor:
-      // - null ise tam sync (tüm ürünler)
-      // - dolu ise sadece son senkronizasyondan sonra stok değişen ürünler
-      const stockItems = await adapter.getStock(allErpIds, lastSyncedAt);
-
-      let upserts = 0;
-
-      await this.prisma.$transaction(async (tx) => {
-        for (const s of stockItems) {
-          const b2bProductId = idByErp.get(s.erpProductId);
-          if (!b2bProductId) continue;
-
-          const available = s.quantity > 0;
-          await tx.b2BStock.upsert({
-            where: {
-              tenantId_productId_warehouseId: {
-                tenantId,
-                productId: b2bProductId,
-                warehouseId: s.warehouseId,
-              },
-            },
-            create: {
-              tenantId,
-              productId: b2bProductId,
-              warehouseId: s.warehouseId,
-              warehouseName: s.warehouseName,
-              isAvailable: available,
-              quantity: new Prisma.Decimal(s.quantity),
-            },
-            update: {
-              warehouseName: s.warehouseName,
-              isAvailable: available,
-              quantity: new Prisma.Decimal(s.quantity),
-            },
-          });
-          upserts += 1;
-        }
-
-        // Döngü tablosunu güncelle
-        await tx.b2BSyncLoop.upsert({
-          where: { tenantId_syncType: { tenantId, syncType: B2BSyncType.STOCK } },
-          create: { tenantId, syncType: B2BSyncType.STOCK, lastRunAt: new Date() },
-          update: { lastRunAt: new Date() },
-        });
-
-        await tx.b2BSyncLog.update({
-          where: { id: log.id },
-          data: {
-            status: B2BSyncStatus.SUCCESS,
-            finishedAt: new Date(),
-            recordsProcessed: stockItems.length,
-            recordsAdded: upserts,
-            recordsUpdated: 0,
-          },
-        });
-      });
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
-      await this.prisma.b2BSyncLog.update({
-        where: { id: log.id },
-        data: {
-          status: B2BSyncStatus.FAILED,
-          finishedAt: new Date(),
-          errorMessage: msg,
-        },
-      });
-      throw e;
-    }
-  }
-
   private async handleSyncMovements(data: B2bSyncMovementsJob): Promise<void> {
     const { tenantId, erpAdapterType, erpAccountId } = data;
 
@@ -433,6 +325,146 @@ export class B2bSyncProcessor extends WorkerHost {
             recordsUpdated: 0,
           },
         });
+      });
+
+      await this.prisma.b2BSyncLoop.upsert({
+        where: {
+          tenantId_syncType: {
+            tenantId,
+            syncType: B2BSyncType.ACCOUNT_MOVEMENTS,
+          },
+        },
+        create: {
+          tenantId,
+          syncType: B2BSyncType.ACCOUNT_MOVEMENTS,
+          lastRunAt: new Date(),
+        },
+        update: { lastRunAt: new Date() },
+      });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      await this.prisma.b2BSyncLog.update({
+        where: { id: log.id },
+        data: {
+          status: B2BSyncStatus.FAILED,
+          finishedAt: new Date(),
+          errorMessage: msg,
+        },
+      });
+      throw e;
+    }
+  }
+
+  /** Tüm B2B müşterileri için ERP’den cari hareket çekimi (tek log kaydı). */
+  private async handleSyncAllAccountMovements(
+    data: B2bSyncProductsJob,
+  ): Promise<void> {
+    const { tenantId, erpAdapterType } = data;
+
+    const log = await this.prisma.b2BSyncLog.create({
+      data: {
+        tenantId,
+        syncType: B2BSyncType.ACCOUNT_MOVEMENTS,
+        status: B2BSyncStatus.RUNNING,
+        startedAt: new Date(),
+      },
+    });
+
+    try {
+      const lastOk = await this.prisma.b2BSyncLog.findFirst({
+        where: {
+          tenantId,
+          syncType: B2BSyncType.ACCOUNT_MOVEMENTS,
+          status: B2BSyncStatus.SUCCESS,
+          id: { not: log.id },
+        },
+        orderBy: { finishedAt: 'desc' },
+      });
+      const lastSyncedAt = lastOk?.finishedAt ?? null;
+
+      const customers = await this.prisma.b2BCustomer.findMany({
+        where: { tenantId },
+        select: { id: true, erpAccountId: true, vatDays: true },
+      });
+
+      const adapter = this.resolveAdapter(tenantId, erpAdapterType);
+      let totalProcessed = 0;
+      let totalInserted = 0;
+
+      for (const customer of customers) {
+        const movements = await adapter.getAccountMovements(
+          customer.erpAccountId,
+          lastSyncedAt,
+        );
+        totalProcessed += movements.length;
+
+        let inserted = 0;
+        await this.prisma.$transaction(async (tx) => {
+          for (const m of movements) {
+            const exists = await tx.b2BAccountMovement.findUnique({
+              where: {
+                tenantId_erpMovementId: {
+                  tenantId,
+                  erpMovementId: m.erpMovementId,
+                },
+              },
+            });
+            if (exists) continue;
+
+            const dueDate =
+              customer.vatDays > 0
+                ? new Date(m.date.getTime() + customer.vatDays * 86400000)
+                : null;
+
+            await tx.b2BAccountMovement.create({
+              data: {
+                tenantId,
+                erpMovementId: m.erpMovementId,
+                customerId: customer.id,
+                date: m.date,
+                type: m.type as B2BMovementType,
+                description: m.description,
+                debit: new Prisma.Decimal(m.debit),
+                credit: new Prisma.Decimal(m.credit),
+                balance: new Prisma.Decimal(m.balance),
+                erpInvoiceNo: m.erpInvoiceNo ?? null,
+                dueDate,
+                isPastDue:
+                  dueDate != null &&
+                  dueDate < new Date() &&
+                  Number(m.debit) > Number(m.credit),
+              },
+            });
+            inserted += 1;
+          }
+        });
+        totalInserted += inserted;
+      }
+
+      await this.prisma.b2BSyncLog.update({
+        where: { id: log.id },
+        data: {
+          status: B2BSyncStatus.SUCCESS,
+          finishedAt: new Date(),
+          recordsProcessed: totalProcessed,
+          recordsAdded: totalInserted,
+          recordsUpdated: 0,
+        },
+      });
+
+      await this.prisma.b2BSyncLoop.upsert({
+        where: {
+          tenantId_syncType: {
+            tenantId,
+            syncType: B2BSyncType.ACCOUNT_MOVEMENTS,
+          },
+        },
+        create: {
+          tenantId,
+          syncType: B2BSyncType.ACCOUNT_MOVEMENTS,
+          lastRunAt: new Date(),
+        },
+        update: { lastRunAt: new Date() },
       });
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);

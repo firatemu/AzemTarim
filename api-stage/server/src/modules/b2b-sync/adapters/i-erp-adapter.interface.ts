@@ -12,7 +12,12 @@ import type {
 export interface IErpAdapter {
   getProducts(lastSyncedAt: Date | null): Promise<ErpProduct[]>;
   getPrices(lastSyncedAt: Date | null): Promise<{ erpProductId: string, listPrice: number }[]>;
-  getStock(productIds: string[], lastSyncedAt?: Date | null): Promise<ErpStockItem[]>;
+  getStock(productIds: string[]): Promise<ErpStockItem[]>;
+  /**
+   * Kiracıdaki tüm stok kartları için anlık depo miktarları (malzeme hareket tarihi / artımsal senkron yok).
+   * B2B kataloğundan bağımsız ERP ürün kümesi.
+   */
+  getStockAll(): Promise<ErpStockItem[]>;
   getAccount(erpAccountId: string): Promise<ErpAccount>;
   getAccounts(lastSyncedAt: Date | null): Promise<ErpAccount[]>;
   getAccountMovements(

@@ -39,6 +39,7 @@ import {
   DialogTitle,
   FormControl,
   IconButton,
+  InputLabel,
   MenuItem,
   Select,
   Table,
@@ -56,20 +57,20 @@ import {
   Popover,
   Menu,
   Grid,
+  Paper,
+  ListItemIcon,
 } from '@mui/material';
 import { alpha } from '@mui/material/styles';
 import KPIStoreCard from '@/components/KPIStoreCard';
 import * as XLSX from 'xlsx';
 import { jsPDF } from 'jspdf';
 import { format } from 'date-fns';
-import StandardPage from '@/components/common/StandardPage';
-import StandardCard from '@/components/common/StandardCard';
 import ExpensePrintForm from '@/components/PrintForm/ExpensePrintForm';
-import { DataGrid, GridColDef } from '@mui/x-data-grid';
+import { DataGrid, GridColDef, GridFooterContainer, GridPagination, GridRenderCellParams } from '@mui/x-data-grid';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import { useSnackbar } from 'notistack';
-import { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import React, { memo, useCallback, useEffect, useMemo, useState } from 'react';
 
 interface MasrafKategori {
   id: string;
@@ -168,7 +169,7 @@ const AuditPopover = ({ anchorEl, onClose, data }: any) => (
         bgcolor: 'var(--card)',
         border: '1px solid var(--border)',
         boxShadow: 'var(--shadow-lg)',
-        borderRadius: 'var(--radius-lg)',
+        borderRadius: 'var(--radius)',
       },
     }}
   >
@@ -219,7 +220,7 @@ const MasrafFormDialog = memo(({
         sx: {
           bgcolor: 'var(--card)',
           backgroundImage: 'none',
-          borderRadius: isMobile ? 0 : 'var(--radius-xl)',
+          borderRadius: isMobile ? 0 : 'var(--radius)',
           border: isMobile ? 'none' : '1px solid var(--border)',
           boxShadow: 'var(--shadow-2xl)',
           overflow: 'hidden',
@@ -381,7 +382,7 @@ const MasrafFormDialog = memo(({
           variant="outlined"
           onClick={onClose}
           sx={{
-            borderRadius: 'var(--radius-lg)',
+            borderRadius: 'var(--radius)',
             textTransform: 'none',
             fontWeight: 600,
             color: 'var(--foreground)',
@@ -401,7 +402,7 @@ const MasrafFormDialog = memo(({
           onClick={onSubmit}
           disabled={loading}
           sx={{
-            borderRadius: 'var(--radius-lg)',
+            borderRadius: 'var(--radius)',
             textTransform: 'none',
             fontWeight: 700,
             bgcolor: 'var(--destructive)',
@@ -549,7 +550,7 @@ export default function MasrafPage() {
   const isMasrafLoading = masrafLoading || masrafFetching || actionLoading;
 
   const handleViewDetail = useCallback((id: string) => {
-    router.push(`/masraf/${id}`);
+    router.push(`/expense/${id}`);
   }, [router]);
 
   const handleOpenDialog = useCallback((masraf?: Masraf) => {
@@ -671,7 +672,7 @@ export default function MasrafPage() {
 
   const handleExportPdf = () => {
     if (masraflar.length === 0) {
-      showSnackbar('Dışa aktarılacak veri bulunamadı', 'info');
+      enqueueSnackbar('Dışa aktarılacak veri bulunamadı', { variant: 'info' });
       return;
     }
     setPrintOpen(true);
@@ -875,98 +876,157 @@ export default function MasrafPage() {
       valueGetter: (params: any) => params?.row?.paymentType ? getOdemeTipiLabel((params.row as Masraf).paymentType) : '-',
     },
     {
-      field: 'createdAt',
-      headerName: 'Kayıt Tarihi',
-      minWidth: 170,
-      renderCell: (params: any) => {
-        const row = params.row as Masraf;
-        if (!row) return <Typography variant="body2">-</Typography>;
-        return (
-          <Box>
-            <Typography variant="body2">{formatDate(row.createdAt)}</Typography>
-            {row.updatedAt && row.updatedAt !== row.createdAt && (
-              <Typography variant="caption" sx={{ color: 'var(--chart-3)' }}>
-                Güncellendi
-              </Typography>
-            )}
-          </Box>
-        );
-      },
-      valueGetter: (params: any) => params?.row?.createdAt ? formatDate((params.row as Masraf).createdAt) : '-',
-    },
-    {
       field: 'actions',
       headerName: 'İşlemler',
       sortable: false,
       filterable: false,
       width: 140,
-      renderCell: (params: any) => {
-        const row = params.row as Masraf;
+      renderCell: (params: GridRenderCellParams) => {
+        const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
+        const open = Boolean(anchorEl);
+        const row = params.row;
+
+        const handleToggle = (event: React.MouseEvent<HTMLElement>) => {
+          event.stopPropagation();
+          setAnchorEl(event.currentTarget);
+        };
+
+        const handleClose = () => {
+          setAnchorEl(null);
+        };
+
         if (!row) return null;
+
         return (
-          <Box sx={{ display: 'flex', gap: 1 }}>
-            <Tooltip title="Detay">
-              <IconButton
-                size="small"
-                onClick={() => handleViewDetail(row.id)}
-                sx={{
+          <>
+            <IconButton
+              size="small"
+              onClick={handleToggle}
+              sx={{
+                color: open ? 'var(--primary)' : 'text.secondary',
+                '&:hover': {
+                  bgcolor: 'color-mix(in srgb, var(--primary) 10%, transparent)',
                   color: 'var(--primary)',
-                  '&:hover': {
-                    bgcolor: 'color-mix(in srgb, var(--primary) 10%, transparent)',
-                  },
-                }}
-              >
-                <Visibility fontSize="small" />
-              </IconButton>
-            </Tooltip>
-            <Tooltip title="Düzenle">
-              <IconButton
-                size="small"
-                onClick={() => handleOpenDialog(row)}
-                sx={{
-                  color: 'var(--chart-3)',
-                  '&:hover': {
-                    bgcolor: 'color-mix(in srgb, var(--chart-3) 10%, transparent)',
-                  },
-                }}
-              >
-                <Edit fontSize="small" />
-              </IconButton>
-            </Tooltip>
-            <Tooltip title="Sil">
-              <IconButton
-                size="small"
-                onClick={() => {
-                  setSelectedMasraf(row);
-                  setOpenDelete(true);
-                }}
-                sx={{
-                  color: 'var(--destructive)',
-                  '&:hover': {
-                    bgcolor: 'color-mix(in srgb, var(--destructive) 10%, transparent)',
-                  },
-                }}
-              >
-                <Delete fontSize="small" />
-              </IconButton>
-            </Tooltip>
-          </Box>
+                },
+              }}
+            >
+              <MoreVert fontSize="small" />
+            </IconButton>
+
+            <Menu
+              anchorEl={anchorEl}
+              open={open}
+              onClose={handleClose}
+              onClick={(e) => e.stopPropagation()}
+              PaperProps={{
+                elevation: 8,
+                sx: {
+                  minWidth: 200,
+                  mt: 1,
+                  borderRadius: 2,
+                  border: '1px solid var(--border)',
+                  boxShadow: '0 8px 32px rgba(0, 0, 0, 0.12)',
+                }
+              }}
+              transformOrigin={{ horizontal: 'right', vertical: 'top' }}
+              anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
+            >
+              <Box sx={{ px: 2, py: 1.5, bgcolor: 'var(--muted)', borderBottom: '1px solid var(--border)' }}>
+                <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, textTransform: 'uppercase' }}>
+                  Masraf İşlemleri
+                </Typography>
+                <Typography variant="body2" fontWeight="bold" sx={{ mt: 0.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {row.aciklama || 'Masraf Kaydı'}
+                </Typography>
+              </Box>
+
+              <Box sx={{ p: 1 }}>
+                <MenuItem
+                  onClick={() => {
+                    handleClose();
+                    handleOpenDialog(row);
+                  }}
+                  sx={{ borderRadius: 1.5, mb: 0.5 }}
+                >
+                  <ListItemIcon><Edit fontSize="small" /></ListItemIcon>
+                  <Typography variant="body2" fontWeight={500}>Düzenle</Typography>
+                </MenuItem>
+
+                <MenuItem
+                  onClick={(e) => {
+                    handleClose();
+                    setAuditAnchor({ el: e.currentTarget, data: row });
+                  }}
+                  sx={{ borderRadius: 1.5, mb: 0.5 }}
+                >
+                  <ListItemIcon><History fontSize="small" /></ListItemIcon>
+                  <Typography variant="body2" fontWeight={500}>Denetim Bilgileri</Typography>
+                </MenuItem>
+
+                <MenuItem
+                  onClick={() => {
+                    handleClose();
+                    setSelectedMasraf(row);
+                    setOpenDelete(true);
+                  }}
+                  sx={{
+                    borderRadius: 1.5,
+                    color: 'error.main',
+                    '&:hover': { bgcolor: 'color-mix(in srgb, var(--error) 10%, transparent)' }
+                  }}
+                >
+                  <ListItemIcon><Delete fontSize="small" color="error" /></ListItemIcon>
+                  <Typography variant="body2" fontWeight={600}>Sil</Typography>
+                </MenuItem>
+              </Box>
+            </Menu>
+          </>
         );
       },
     },
   ], [handleOpenDialog, handleViewDetail]);
 
   return (
-    <StandardPage
-      title="Gider Yönetimi"
-      headerActions={
-        <Box sx={{ display: 'flex', gap: 1.5 }}>
+    <Box sx={{ pb: 4 }}>
+      {/* Sayfa Header */}
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, py: 1 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+          <Box sx={{
+            width: 40,
+            height: 40,
+            borderRadius: 'var(--radius)',
+            background: 'linear-gradient(135deg, var(--destructive), color-mix(in srgb, var(--destructive) 70%, black))',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: 'white',
+            boxShadow: '0 4px 12px color-mix(in srgb, var(--destructive) 25%, transparent)',
+          }}>
+            <CurrencyLira sx={{ fontSize: 22 }} />
+          </Box>
+          <Box>
+            <Typography variant="h6" sx={{ fontWeight: 800, color: 'var(--foreground)', lineHeight: 1.2 }}>
+              Gider Yönetimi
+            </Typography>
+            <Typography variant="caption" sx={{ color: 'var(--muted-foreground)', fontWeight: 500 }}>
+              İşletme harcamaları ve masraf kayıtları
+            </Typography>
+          </Box>
+        </Box>
+        <Stack direction="row" spacing={1}>
           <Button
             size="small"
             variant="outlined"
             startIcon={<Category />}
             onClick={() => handleOpenKategoriDialog()}
-            sx={{ borderRadius: 2.5 }}
+            sx={{
+              borderRadius: 'var(--radius)',
+              textTransform: 'none',
+              fontWeight: 600,
+              color: 'var(--foreground)',
+              borderColor: 'var(--border)',
+              '&:hover': { bgcolor: 'var(--muted)', borderColor: 'var(--primary)' }
+            }}
           >
             Kategoriler
           </Button>
@@ -975,707 +1035,795 @@ export default function MasrafPage() {
             variant="contained"
             startIcon={<Add />}
             onClick={() => handleOpenDialog()}
-            sx={{ borderRadius: 2.5, bgcolor: 'var(--destructive)', fontWeight: 700 }}
+            sx={{
+              borderRadius: 'var(--radius)',
+              textTransform: 'none',
+              fontWeight: 700,
+              bgcolor: 'var(--destructive)',
+              color: 'var(--destructive-foreground)',
+              boxShadow: '0 4px 12px color-mix(in srgb, var(--destructive) 30%, transparent)',
+              '&:hover': {
+                bgcolor: 'color-mix(in srgb, var(--destructive) 90%, black)',
+                boxShadow: '0 6px 16px color-mix(in srgb, var(--destructive) 40%, transparent)',
+              }
+            }}
           >
             Yeni Masraf
           </Button>
-        </Box>
-      }
-    >
-      <Box sx={{ pb: 4 }}>
+        </Stack>
+      </Box>
 
-        {/* KPI / Metrics strip */}
-        {/* KPI Stats */}
-        <Grid container spacing={isMobile ? 1.5 : 2} sx={{ mb: 3 }}>
-          <Grid item xs={12} sm={6} md={3}>
-            <KPIStoreCard
-              title="TOPLAM MASRAF"
-              value={formatCurrency(stats?.toplamExpense || 0)}
-              icon={<TrendingDown />}
-              color="error"
-            />
-          </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <KPIStoreCard
-              title="KAYIT SAYISI"
-              value={String(stats?.toplamAdet || 0)}
-              icon={<TableRows />}
-              color="primary"
-            />
-          </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <KPIStoreCard
-              title="KATEGORİ"
-              value={String(kategoriler.length)}
-              icon={<Category />}
-              color="secondary"
-            />
-          </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <KPIStoreCard
-              title="ORTALAMA"
-              value={(stats?.toplamAdet ?? 0) > 0 ? formatCurrency((stats?.toplamExpense ?? 0) / (stats?.toplamAdet ?? 1)) : '₺0'}
-              icon={<TrendingUp />}
-              color="info"
-            />
-          </Grid>
-        </Grid>
+      {/* KPI / Metrics strip */}
+      <Paper variant="outlined" sx={{
+        mb: 2,
+        p: 0,
+        display: 'flex',
+        flexWrap: 'wrap',
+        borderRadius: 'var(--radius)',
+        bgcolor: 'var(--card)',
+        overflow: 'hidden',
+        border: '1px solid var(--border)',
+      }}>
+        {[
+          { label: 'TOPLAM MASRAF', value: formatCurrency(stats?.toplamExpense || 0), icon: <TrendingDown />, color: 'var(--destructive)' },
+          { label: 'KAYIT SAYISI', value: String(stats?.toplamAdet || 0), icon: <TableRows />, color: 'var(--primary)' },
+          { label: 'KATEGORİ', value: String(kategoriler.length), icon: <Category />, color: 'var(--chart-2)' },
+          { label: 'ORTALAMA', value: (stats?.toplamAdet ?? 0) > 0 ? formatCurrency((stats?.toplamExpense ?? 0) / (stats?.toplamAdet ?? 1)) : '₺0', icon: <TrendingUp />, color: 'var(--chart-4)' }
+        ].map((item, idx) => (
+          <Box key={idx} sx={{
+            flex: '1 1 120px',
+            p: 2,
+            borderRight: idx === 3 ? 'none' : '1px solid var(--border)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 2,
+            minWidth: isMobile ? '50%' : 'auto',
+            borderBottom: isMobile && idx < 2 ? '1px solid var(--border)' : 'none'
+          }}>
+            <Box sx={{
+              width: 36,
+              height: 36,
+              borderRadius: 'var(--radius)',
+              bgcolor: `color-mix(in srgb, ${item.color} 10%, transparent)`,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: item.color
+            }}>
+              {item.icon}
+            </Box>
+            <Box>
+              <Typography variant="caption" sx={{ color: 'var(--muted-foreground)', fontWeight: 600, display: 'block', mb: 0.2 }}>
+                {item.label}
+              </Typography>
+              <Typography variant="subtitle1" sx={{ fontWeight: 800, color: 'var(--foreground)', lineHeight: 1.2 }}>
+                {item.value}
+              </Typography>
+            </Box>
+          </Box>
+        ))}
+      </Paper>
 
-        {/* Toolbar */}
-        <StandardCard sx={{ mb: 2 }}>
+      {/* Toolbar */}
+      <Paper variant="outlined" sx={{ mb: 2, borderRadius: 'var(--radius)', border: '1px solid var(--border)', bgcolor: 'var(--card)' }}>
+        <Stack
+          direction={isTablet ? 'column' : 'row'}
+          spacing={2}
+          sx={{ p: 2, alignItems: isTablet ? 'stretch' : 'center' }}
+        >
+          <TextField
+            size="small"
+            placeholder="Açıklama veya kategori ara..."
+            sx={{ flex: 1 }}
+            value={categorySearch}
+            onChange={(e: any) => setCategorySearch(e.target.value)}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <Search sx={{ color: 'text.secondary', fontSize: 20 }} />
+                </InputAdornment>
+              ),
+              sx: { borderRadius: 2.5 }
+            }}
+          />
+
+          {!isTablet && <Divider orientation="vertical" flexItem />}
+
           <Stack
-            direction={isTablet ? 'column' : 'row'}
-            spacing={2}
-            sx={{ p: 2, alignItems: isTablet ? 'stretch' : 'center' }}
+            direction="row"
+            spacing={1}
+            sx={{
+              alignItems: 'center',
+              overflowX: 'auto',
+              pb: isMobile ? 1 : 0,
+              '&::-webkit-scrollbar': { display: 'none' }
+            }}
+          >
+            <Chip
+              label="Bugün"
+              onClick={() => handleQuickFilter('today')}
+              size="small"
+              variant={filterBaslangic === new Date().toISOString().split('T')[0] ? 'filled' : 'outlined'}
+              sx={{ borderRadius: 2, fontWeight: 600 }}
+            />
+            <Chip
+              label="Bu Hafta"
+              onClick={() => handleQuickFilter('week')}
+              size="small"
+              variant="outlined"
+              sx={{ borderRadius: 2, fontWeight: 600 }}
+            />
+            <Chip
+              label="Bu Ay"
+              onClick={() => handleQuickFilter('month')}
+              size="small"
+              variant="outlined"
+              sx={{ borderRadius: 2, fontWeight: 600 }}
+            />
+          </Stack>
+
+          {!isTablet && <Divider orientation="vertical" flexItem />}
+
+          <Stack
+            direction={isMobile ? 'column' : 'row'}
+            spacing={isMobile ? 1.5 : 1}
+            sx={{ flex: isTablet ? 'none' : '1 1 300px' }}
           >
             <TextField
               size="small"
-              placeholder="Açıklama veya kategori ara..."
-              sx={{ flex: 1 }}
-              value={categorySearch}
-              onChange={(e: any) => setCategorySearch(e.target.value)}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <Search sx={{ color: 'text.secondary', fontSize: 20 }} />
-                  </InputAdornment>
-                ),
-                sx: { borderRadius: 2.5 }
-              }}
+              type="date"
+              label="Başlangıç"
+              fullWidth={isMobile}
+              value={filterBaslangic}
+              onChange={(e: any) => setFilterBaslangic(e.target.value)}
+              InputLabelProps={{ shrink: true }}
+              sx={{ '& .MuiInputBase-root': { borderRadius: 2.5 } }}
             />
-
-            {!isTablet && <Divider orientation="vertical" flexItem />}
-
-            <Stack
-              direction="row"
-              spacing={1}
-              sx={{
-                alignItems: 'center',
-                overflowX: 'auto',
-                pb: isMobile ? 1 : 0,
-                '&::-webkit-scrollbar': { display: 'none' }
-              }}
-            >
-              <Chip
-                label="Bugün"
-                onClick={() => handleQuickFilter('today')}
-                size="small"
-                variant={filterBaslangic === new Date().toISOString().split('T')[0] ? 'filled' : 'outlined'}
-                sx={{ borderRadius: 2, fontWeight: 600 }}
-              />
-              <Chip
-                label="Bu Hafta"
-                onClick={() => handleQuickFilter('week')}
-                size="small"
-                variant="outlined"
-                sx={{ borderRadius: 2, fontWeight: 600 }}
-              />
-              <Chip
-                label="Bu Ay"
-                onClick={() => handleQuickFilter('month')}
-                size="small"
-                variant="outlined"
-                sx={{ borderRadius: 2, fontWeight: 600 }}
-              />
-            </Stack>
-
-            {!isTablet && <Divider orientation="vertical" flexItem />}
-
-            <Stack
-              direction={isMobile ? 'column' : 'row'}
-              spacing={isMobile ? 1.5 : 1}
-              sx={{ flex: isTablet ? 'none' : '1 1 300px' }}
-            >
-              <TextField
-                size="small"
-                type="date"
-                label="Başlangıç"
-                fullWidth={isMobile}
-                value={filterBaslangic}
-                onChange={(e: any) => setFilterBaslangic(e.target.value)}
-                InputLabelProps={{ shrink: true }}
-                sx={{ '& .MuiInputBase-root': { borderRadius: 2.5 } }}
-              />
-              <TextField
-                size="small"
-                type="date"
-                label="Bitiş"
-                fullWidth={isMobile}
-                value={filterBitis}
-                onChange={(e: any) => setFilterBitis(e.target.value)}
-                InputLabelProps={{ shrink: true }}
-                sx={{ '& .MuiInputBase-root': { borderRadius: 2.5 } }}
-              />
-            </Stack>
-
-            <Button
-              variant="outlined"
-              startIcon={<FileDownload />}
-              onClick={(e: any) => setExportAnchorEl(e.currentTarget)}
-              sx={{ borderRadius: 2.5, height: 40, px: 2 }}
-            >
-              Dışa Aktar
-            </Button>
+            <TextField
+              size="small"
+              type="date"
+              label="Bitiş"
+              fullWidth={isMobile}
+              value={filterBitis}
+              onChange={(e: any) => setFilterBitis(e.target.value)}
+              InputLabelProps={{ shrink: true }}
+              sx={{ '& .MuiInputBase-root': { borderRadius: 2.5 } }}
+            />
           </Stack>
-        </StandardCard>
 
-        {stats && stats.categoryler && stats.categoryler.length > 0 && (
-          <Box sx={{
-            display: 'flex',
-            gap: 1.5,
-            overflowX: 'auto',
-            pb: 1,
-            mb: 1.5,
-            '&::-webkit-scrollbar': { display: 'none' },
-          }}>
-            {stats.categoryler.map((kat: any) => (
-              <Box key={kat.categoryId}>
-                <StandardCard
-                  sx={{
-                    px: 1.8,
-                    py: 1.2,
-                    borderRadius: 3,
-                    minWidth: 'fit-content',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 1.5,
-                  }}
-                >
-                  <Box sx={{
-                    width: 8,
-                    height: 8,
-                    borderRadius: '50%',
-                    bgcolor: 'primary.main',
-                    opacity: 0.6
-                  }} />
-                  <Typography variant="caption" sx={{ fontWeight: 600, color: 'text.secondary', whiteSpace: 'nowrap' }}>
-                    {kat.name}
+          <Button
+            variant="outlined"
+            startIcon={<FileDownload />}
+            onClick={(e: any) => setExportAnchorEl(e.currentTarget)}
+            sx={{ borderRadius: 2.5, height: 40, px: 2 }}
+          >
+            Dışa Aktar
+          </Button>
+        </Stack>
+      </Paper>
+
+      {stats && stats.categoryler && stats.categoryler.length > 0 && (
+        <Box sx={{
+          display: 'flex',
+          gap: 1.5,
+          overflowX: 'auto',
+          pb: 1,
+          mb: 1.5,
+          '&::-webkit-scrollbar': { display: 'none' },
+        }}>
+          {stats.categoryler.map((kat: any) => (
+            <Box key={kat.categoryId}>
+              <Paper
+                variant="outlined"
+                sx={{
+                  px: 1.8,
+                  py: 1.2,
+                  borderRadius: 3,
+                  minWidth: 'fit-content',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 1.5,
+                }}
+              >
+                <Box sx={{
+                  width: 8,
+                  height: 8,
+                  borderRadius: '50%',
+                  bgcolor: 'primary.main',
+                  opacity: 0.6
+                }} />
+                <Typography variant="caption" sx={{ fontWeight: 600, color: 'text.secondary', whiteSpace: 'nowrap' }}>
+                  {kat.name}
+                </Typography>
+                <Typography variant="subtitle2" sx={{ fontWeight: 800, whiteSpace: 'nowrap' }}>
+                  {formatCurrency(kat.toplam)}
+                </Typography>
+                <Box sx={{
+                  px: 0.8,
+                  py: 0.2,
+                  borderRadius: 1,
+                  bgcolor: 'action.hover',
+                  display: 'flex',
+                  alignItems: 'center'
+                }}>
+                  <Typography variant="caption" sx={{ fontWeight: 700, fontSize: '0.65rem', color: 'text.secondary' }}>
+                    {kat.adet}
                   </Typography>
-                  <Typography variant="subtitle2" sx={{ fontWeight: 800, whiteSpace: 'nowrap' }}>
-                    {formatCurrency(kat.toplam)}
-                  </Typography>
-                  <Box sx={{
-                    px: 0.8,
-                    py: 0.2,
-                    borderRadius: 1,
-                    bgcolor: 'action.hover',
-                    display: 'flex',
-                    alignItems: 'center'
-                  }}>
-                    <Typography variant="caption" sx={{ fontWeight: 700, fontSize: '0.65rem', color: 'text.secondary' }}>
-                      {kat.adet}
+                </Box>
+              </Paper>
+            </Box>
+          ))}
+        </Box>
+      )}
+
+      <Paper variant="outlined" sx={{ overflow: 'hidden', borderRadius: 'var(--radius)', border: '1px solid var(--border)', bgcolor: 'var(--card)' }}>
+        <Box sx={{ height: 600, width: '100%' }}>
+          <DataGrid
+            rows={masraflar}
+            columns={masrafColumns}
+            loading={isMasrafLoading}
+            disableRowSelectionOnClick
+            pageSizeOptions={[25, 50, 100]}
+            rowHeight={44}
+            columnHeaderHeight={40}
+            density="compact"
+            initialState={{
+              pagination: {
+                paginationModel: { pageSize: 25, page: 0 },
+              },
+            }}
+            slots={{
+              noRowsOverlay: DataGridNoRowsOverlay,
+              footer: () => (
+                <Box sx={{
+                  p: 1.5,
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  borderTop: '1px solid var(--border)',
+                  bgcolor: 'color-mix(in srgb, var(--muted) 30%, transparent)'
+                }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                    <Typography variant="caption" sx={{ fontWeight: 700, color: 'var(--muted-foreground)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                      Toplam Tutar
+                    </Typography>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 800, color: 'var(--destructive)', fontSize: '0.9rem' }}>
+                      {formatCurrency(stats?.toplamExpense || 0)}
                     </Typography>
                   </Box>
-                </StandardCard>
-              </Box>
-            ))}
-          </Box>
-        )}
-
-        <StandardCard padding={0}>
-          <Box sx={{ height: 650, width: '100%' }}>
-            <DataGrid
-              rows={masraflar}
-              columns={masrafColumns}
-              loading={isMasrafLoading}
-              disableRowSelectionOnClick
-              pageSizeOptions={[25, 50, 100]}
-              initialState={{
-                pagination: {
-                  paginationModel: { pageSize: 25, page: 0 },
-                },
-              }}
-              slots={{
-                noRowsOverlay: DataGridNoRowsOverlay,
-              }}
-              sx={{
-                border: 'none',
-                '& .MuiDataGrid-columnHeaders': {
-                  bgcolor: 'background.neutral',
-                  color: 'text.primary',
-                  fontWeight: 800,
-                },
-                '& .MuiDataGrid-cell': {
-                  borderColor: 'divider',
-                },
-                '& .MuiDataGrid-row:hover': {
-                  bgcolor: (theme: any) => alpha(theme.palette.primary.main, 0.04),
-                },
-              }}
-            />
-          </Box>
-        </StandardCard>
-
-        {/* Audit Popover */}
-        <AuditPopover
-          anchorEl={auditAnchor.el}
-          data={auditAnchor.data}
-          onClose={() => setAuditAnchor({ el: null, data: null })}
-        />
-
-
-        {/* Form Dialog */}
-        <MasrafFormDialog
-          open={openDialog}
-          editMode={editMode}
-          formData={formData}
-          kategoriler={kategoriler}
-          loading={actionLoading}
-          onClose={handleCloseDialog}
-          onSubmit={handleSubmit}
-          onFormChange={handleFormChange}
-          isMobile={isMobile}
-        />
-
-        {/* Kurumsal Yazdırma Formu */}
-        <ExpensePrintForm
-          open={printOpen}
-          expenses={masraflar}
-          onClose={() => setPrintOpen(false)}
-          dateRange={{ start: filterBaslangic, end: filterBitis }}
-        />
-
-        {/* Silme Dialog */}
-        <Dialog
-          open={openDelete}
-          onClose={() => setOpenDelete(false)}
-          PaperProps={{
-            sx: { borderRadius: 3, p: 1 }
-          }}
-        >
-          <DialogTitle sx={{ fontWeight: 800 }}>Masraf Kaydını Sil</DialogTitle>
-          <DialogContent>
-            <Typography>Bu masraf kaydını silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.</Typography>
-          </DialogContent>
-          <DialogActions sx={{ p: 2, gap: 1 }}>
-            <Button onClick={() => setOpenDelete(false)} sx={{ borderRadius: 2 }}>İptal</Button>
-            <Button
-              variant="contained"
-              color="error"
-              onClick={handleDelete}
-              disabled={actionLoading}
-              sx={{ borderRadius: 2, fontWeight: 700 }}
-            >
-              Masrafı Sil
-            </Button>
-          </DialogActions>
-        </Dialog>
-
-        {/* Kategori Yönetimi Dialog */}
-        <Dialog
-          open={openKategoriDialog}
-          onClose={() => setOpenKategoriDialog(false)}
-          maxWidth="md"
-          fullWidth
-          fullScreen={isMobile}
-          PaperProps={{
-            sx: {
-              bgcolor: 'var(--card)',
-              backgroundImage: 'none',
-              borderRadius: isMobile ? 0 : 'var(--radius-xl)',
-              border: isMobile ? 'none' : '1px solid var(--border)',
-              boxShadow: 'var(--shadow-2xl)',
-              overflow: 'hidden',
-            },
-          }}
-        >
-          <Box sx={{
-            p: 2.5,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            borderBottom: '1px solid var(--border)',
-            background: 'linear-gradient(to right, var(--card), color-mix(in srgb, var(--primary) 3%, transparent))',
-          }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-              <Box sx={{
-                width: 36,
-                height: 36,
-                borderRadius: 2,
-                bgcolor: 'color-mix(in srgb, var(--secondary) 10%, transparent)',
+                  <GridPagination />
+                </Box>
+              )
+            }}
+            sx={{
+              border: 'none',
+              fontSize: '0.8125rem',
+              '& .MuiDataGrid-columnHeaders': {
+                bgcolor: 'color-mix(in srgb, var(--muted) 50%, transparent)',
+                fontSize: '0.75rem',
+                fontWeight: 700,
+                letterSpacing: '0.02em',
+                textTransform: 'uppercase',
+                borderBottom: '1px solid var(--border)',
+              },
+              '& .MuiDataGrid-cell': {
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'center',
-                color: 'var(--secondary)',
-              }}>
-                <Category sx={{ fontSize: 20 }} />
-              </Box>
-              <Box>
-                <Typography variant="subtitle1" sx={{ fontWeight: 800, color: 'var(--foreground)', lineHeight: 1.2 }}>
-                  Masraf Kategorileri
-                </Typography>
-                <Typography variant="caption" sx={{ color: 'var(--muted-foreground)', fontWeight: 500 }}>
-                  Gider kalemlerinizi gruplandırın ve yönetin
-                </Typography>
-              </Box>
-            </Box>
-            <IconButton
-              size="small"
-              onClick={() => setOpenKategoriDialog(false)}
-              sx={{
-                color: 'var(--muted-foreground)',
-                transition: 'all 0.2s',
-                '&:hover': {
-                  color: 'var(--destructive)',
-                  bgcolor: 'color-mix(in srgb, var(--destructive) 8%, transparent)',
-                  transform: 'rotate(90deg)',
-                },
-              }}
-            >
-              <Close fontSize="small" />
-            </IconButton>
-          </Box>
+                py: 0,
+                borderBottom: '1px solid color-mix(in srgb, var(--border) 60%, transparent)',
+                color: 'var(--foreground)',
+              },
+              '& .MuiDataGrid-row': {
+                '&:hover': { bgcolor: 'color-mix(in srgb, var(--primary) 4%, transparent)' },
+              },
+              '& .MuiDataGrid-footerContainer': {
+                display: 'none', // Custom footer kullandığımız için varsayılanı gizliyoruz
+              },
+            }}
+          />
+        </Box>
+      </Paper>
 
-          <DialogContent sx={{ p: 0, bgcolor: 'var(--card)', height: isMobile ? '100%' : '70vh', display: 'flex', flexDirection: { xs: 'column', md: 'row' } }}>
-            {/* Sidebar: Liste ve Arama */}
+      {/* Dışa Aktarım Menüsü */}
+      <Menu
+        anchorEl={exportAnchorEl}
+        open={openExportMenu}
+        onClose={() => setExportAnchorEl(null)}
+        PaperProps={{
+          elevation: 8,
+          sx: {
+            minWidth: 180,
+            mt: 1,
+            borderRadius: 2,
+            border: '1px solid var(--border)',
+          }
+        }}
+        transformOrigin={{ horizontal: 'right', vertical: 'top' }}
+        anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
+      >
+        <MenuItem onClick={handleExportExcel} sx={{ gap: 1.5, py: 1 }}>
+          <ListItemIcon sx={{ minWidth: 'auto', color: 'success.main' }}>
+            <FileDownload fontSize="small" />
+          </ListItemIcon>
+          <Typography variant="body2" fontWeight={500}>Excel ile Aktar</Typography>
+        </MenuItem>
+        <MenuItem onClick={() => { setExportAnchorEl(null); setPrintOpen(true); }} sx={{ gap: 1.5, py: 1 }}>
+          <ListItemIcon sx={{ minWidth: 'auto', color: 'primary.main' }}>
+            <PictureAsPdf fontSize="small" />
+          </ListItemIcon>
+          <Typography variant="body2" fontWeight={500}>PDF / Yazdır</Typography>
+        </MenuItem>
+      </Menu>
+
+      {/* Audit Popover */}
+      <AuditPopover
+        anchorEl={auditAnchor.el}
+        data={auditAnchor.data}
+        onClose={() => setAuditAnchor({ el: null, data: null })}
+      />
+
+
+      {/* Form Dialog */}
+      <MasrafFormDialog
+        open={openDialog}
+        editMode={editMode}
+        formData={formData}
+        kategoriler={kategoriler}
+        loading={actionLoading}
+        onClose={handleCloseDialog}
+        onSubmit={handleSubmit}
+        onFormChange={handleFormChange}
+        isMobile={isMobile}
+      />
+
+      {/* Kurumsal Yazdırma Formu */}
+      <ExpensePrintForm
+        open={printOpen}
+        expenses={masraflar}
+        onClose={() => setPrintOpen(false)}
+        dateRange={{ start: filterBaslangic, end: filterBitis }}
+      />
+
+      {/* Silme Dialog */}
+      <Dialog
+        open={openDelete}
+        onClose={() => setOpenDelete(false)}
+        PaperProps={{
+          sx: { borderRadius: 3, p: 1 }
+        }}
+      >
+        <DialogTitle sx={{ fontWeight: 800 }}>Masraf Kaydını Sil</DialogTitle>
+        <DialogContent>
+          <Typography>Bu masraf kaydını silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.</Typography>
+        </DialogContent>
+        <DialogActions sx={{ p: 2, gap: 1 }}>
+          <Button onClick={() => setOpenDelete(false)} sx={{ borderRadius: 2 }}>İptal</Button>
+          <Button
+            variant="contained"
+            color="error"
+            onClick={handleDelete}
+            disabled={actionLoading}
+            sx={{ borderRadius: 2, fontWeight: 700 }}
+          >
+            Masrafı Sil
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Kategori Yönetimi Dialog */}
+      <Dialog
+        open={openKategoriDialog}
+        onClose={() => setOpenKategoriDialog(false)}
+        maxWidth="md"
+        fullWidth
+        fullScreen={isMobile}
+        PaperProps={{
+          sx: {
+            bgcolor: 'var(--card)',
+            backgroundImage: 'none',
+            borderRadius: isMobile ? 0 : 'var(--radius)',
+            border: isMobile ? 'none' : '1px solid var(--border)',
+            boxShadow: 'var(--shadow-2xl)',
+            overflow: 'hidden',
+          },
+        }}
+      >
+        <Box sx={{
+          p: 2.5,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          borderBottom: '1px solid var(--border)',
+          background: 'linear-gradient(to right, var(--card), color-mix(in srgb, var(--primary) 3%, transparent))',
+        }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
             <Box sx={{
-              width: { xs: '100%', md: '360px' },
-              borderRight: { xs: 'none', md: '1px solid var(--border)' },
-              borderBottom: { xs: '1px solid var(--border)', md: 'none' },
-              display: (isMobile && kategoriEditMode) ? 'none' : 'flex',
-              flexDirection: 'column',
-              bgcolor: 'color-mix(in srgb, var(--primary) 1%, var(--card))',
-              height: { xs: '100%', md: 'auto' }
+              width: 36,
+              height: 36,
+              borderRadius: 2,
+              bgcolor: 'color-mix(in srgb, var(--secondary) 10%, transparent)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: 'var(--secondary)',
             }}>
-              <Box sx={{ p: 2, borderBottom: '1px solid var(--border)' }}>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                  <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>Kategori Listesi</Typography>
-                  <Button
-                    size="small"
-                    startIcon={<Add />}
-                    onClick={() => {
-                      setKategoriEditMode(false);
-                      setSelectedKategori(null);
-                      setKategoriFormData({ name: '', notes: '' });
-                    }}
-                    sx={{ textTransform: 'none', fontWeight: 600 }}
-                  >
-                    Yeni Ekle
-                  </Button>
-                </Box>
-                <TextField
-                  fullWidth
-                  size="small"
-                  placeholder="Kategori ara..."
-                  value={categorySearch}
-                  onChange={(e) => setCategorySearch(e.target.value)}
-                  InputProps={{
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <Search sx={{ fontSize: 18, color: 'var(--muted-foreground)' }} />
-                      </InputAdornment>
-                    ),
-                    sx: { borderRadius: 'var(--radius-md)', bgcolor: 'var(--card)' }
-                  }}
-                />
-              </Box>
-              <Box sx={{ flex: 1, overflowY: 'auto', p: 1.5 }}>
-                <Stack spacing={1}>
-                  {kategoriler
-                    .filter(k => k.name.toLowerCase().includes(categorySearch.toLowerCase()))
-                    .map((kat) => {
-                      const stat = stats?.categoryler?.find(s => s.categoryId === kat.id);
-                      const percentage = stats?.toplamExpense ? ((stat?.toplam || 0) / stats.toplamExpense) * 100 : 0;
-                      const isActive = selectedKategori?.id === kat.id && kategoriEditMode;
+              <Category sx={{ fontSize: 20 }} />
+            </Box>
+            <Box>
+              <Typography variant="subtitle1" sx={{ fontWeight: 800, color: 'var(--foreground)', lineHeight: 1.2 }}>
+                Masraf Kategorileri
+              </Typography>
+              <Typography variant="caption" sx={{ color: 'var(--muted-foreground)', fontWeight: 500 }}>
+                Gider kalemlerinizi gruplandırın ve yönetin
+              </Typography>
+            </Box>
+          </Box>
+          <IconButton
+            size="small"
+            onClick={() => setOpenKategoriDialog(false)}
+            sx={{
+              color: 'var(--muted-foreground)',
+              transition: 'all 0.2s',
+              '&:hover': {
+                color: 'var(--destructive)',
+                bgcolor: 'color-mix(in srgb, var(--destructive) 8%, transparent)',
+                transform: 'rotate(90deg)',
+              },
+            }}
+          >
+            <Close fontSize="small" />
+          </IconButton>
+        </Box>
 
-                      return (
-                        <Box
-                          key={kat.id}
-                          onClick={() => handleOpenKategoriDialog(kat)}
-                          sx={{
-                            p: 1.5,
-                            borderRadius: 'var(--radius-lg)',
-                            cursor: 'pointer',
-                            transition: 'all 0.2s',
-                            border: '1px solid',
-                            borderColor: isActive ? 'var(--primary)' : 'transparent',
-                            bgcolor: isActive ? 'color-mix(in srgb, var(--primary) 5%, var(--card))' : 'transparent',
-                            '&:hover': {
-                              bgcolor: isActive ? 'color-mix(in srgb, var(--primary) 8%, var(--card))' : 'var(--muted)',
-                              transform: 'translateX(4px)',
-                            }
-                          }}
-                        >
-                          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
-                            <Typography variant="body2" sx={{ fontWeight: 700, color: 'var(--foreground)' }}>
-                              {kat.name}
-                            </Typography>
-                            <Chip
-                              label={kat._count?.expenses || 0}
-                              size="small"
-                              sx={{ height: 18, fontSize: '0.65rem', fontWeight: 800, bgcolor: 'var(--background)', color: 'var(--muted-foreground)' }}
-                            />
+        <DialogContent sx={{ p: 0, bgcolor: 'var(--card)', height: isMobile ? '100%' : '70vh', display: 'flex', flexDirection: { xs: 'column', md: 'row' } }}>
+          {/* Sidebar: Liste ve Arama */}
+          <Box sx={{
+            width: { xs: '100%', md: '360px' },
+            borderRight: { xs: 'none', md: '1px solid var(--border)' },
+            borderBottom: { xs: '1px solid var(--border)', md: 'none' },
+            display: (isMobile && kategoriEditMode) ? 'none' : 'flex',
+            flexDirection: 'column',
+            bgcolor: 'color-mix(in srgb, var(--primary) 1%, var(--card))',
+            height: { xs: '100%', md: 'auto' }
+          }}>
+            <Box sx={{ p: 2, borderBottom: '1px solid var(--border)' }}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>Kategori Listesi</Typography>
+                <Button
+                  size="small"
+                  startIcon={<Add />}
+                  onClick={() => {
+                    setKategoriEditMode(false);
+                    setSelectedKategori(null);
+                    setKategoriFormData({ name: '', notes: '' });
+                  }}
+                  sx={{ textTransform: 'none', fontWeight: 600 }}
+                >
+                  Yeni Ekle
+                </Button>
+              </Box>
+              <TextField
+                fullWidth
+                size="small"
+                placeholder="Kategori ara..."
+                value={categorySearch}
+                onChange={(e) => setCategorySearch(e.target.value)}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <Search sx={{ fontSize: 18, color: 'var(--muted-foreground)' }} />
+                    </InputAdornment>
+                  ),
+                  sx: { borderRadius: 'var(--radius-md)', bgcolor: 'var(--card)' }
+                }}
+              />
+            </Box>
+            <Box sx={{ flex: 1, overflowY: 'auto', p: 1.5 }}>
+              <Stack spacing={1}>
+                {kategoriler
+                  .filter(k => k.name.toLowerCase().includes(categorySearch.toLowerCase()))
+                  .map((kat) => {
+                    const stat = stats?.categoryler?.find(s => s.categoryId === kat.id);
+                    const percentage = stats?.toplamExpense ? ((stat?.toplam || 0) / stats.toplamExpense) * 100 : 0;
+                    const isActive = selectedKategori?.id === kat.id && kategoriEditMode;
+
+                    return (
+                      <Box
+                        key={kat.id}
+                        onClick={() => handleOpenKategoriDialog(kat)}
+                        sx={{
+                          p: 1.5,
+                          borderRadius: 'var(--radius)',
+                          cursor: 'pointer',
+                          transition: 'all 0.2s',
+                          border: '1px solid',
+                          borderColor: isActive ? 'var(--primary)' : 'transparent',
+                          bgcolor: isActive ? 'color-mix(in srgb, var(--primary) 5%, var(--card))' : 'transparent',
+                          '&:hover': {
+                            bgcolor: isActive ? 'color-mix(in srgb, var(--primary) 8%, var(--card))' : 'var(--muted)',
+                            transform: 'translateX(4px)',
+                          }
+                        }}
+                      >
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
+                          <Typography variant="body2" sx={{ fontWeight: 700, color: 'var(--foreground)' }}>
+                            {kat.name}
+                          </Typography>
+                          <Chip
+                            label={kat._count?.expenses || 0}
+                            size="small"
+                            sx={{ height: 18, fontSize: '0.65rem', fontWeight: 800, bgcolor: 'var(--background)', color: 'var(--muted-foreground)' }}
+                          />
+                        </Box>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                          <Box sx={{ flex: 1, height: 4, bgcolor: 'var(--border)', borderRadius: 2, overflow: 'hidden' }}>
+                            <Box sx={{
+                              width: `${Math.min(100, percentage)}%`,
+                              height: '100%',
+                              bgcolor: 'var(--secondary)',
+                              borderRadius: 2
+                            }} />
                           </Box>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                            <Box sx={{ flex: 1, height: 4, bgcolor: 'var(--border)', borderRadius: 2, overflow: 'hidden' }}>
-                              <Box sx={{
-                                width: `${Math.min(100, percentage)}%`,
-                                height: '100%',
-                                bgcolor: 'var(--secondary)',
-                                borderRadius: 2
-                              }} />
-                            </Box>
-                            <Typography variant="caption" sx={{ color: 'var(--muted-foreground)', fontWeight: 600, minWidth: 35 }}>
-                              %{Math.round(percentage)}
-                            </Typography>
-                          </Box>
-                          <Typography variant="caption" sx={{ color: 'var(--muted-foreground)', display: 'block', mt: 0.5 }}>
-                            {formatCurrency(stat?.toplam || 0)} harcama
+                          <Typography variant="caption" sx={{ color: 'var(--muted-foreground)', fontWeight: 600, minWidth: 35 }}>
+                            %{Math.round(percentage)}
                           </Typography>
                         </Box>
-                      );
-                    })}
-                </Stack>
-              </Box>
-            </Box>
-
-            {/* Main: Form ve Detay */}
-            <Box sx={{
-              flex: 1,
-              p: { xs: 2.5, md: 4 },
-              display: (isMobile && !kategoriEditMode) ? 'none' : 'flex',
-              flexDirection: 'column',
-              bgcolor: 'var(--card)',
-              overflowY: 'auto'
-            }}>
-              <Box sx={{ mb: 4 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                  {isMobile && kategoriEditMode && (
-                    <IconButton
-                      size="small"
-                      onClick={() => setKategoriEditMode(false)}
-                      sx={{ mr: 1, color: 'var(--primary)' }}
-                    >
-                      <Visibility sx={{ transform: 'rotate(180deg)' }} />
-                    </IconButton>
-                  )}
-                  <Typography variant="h6" sx={{ fontWeight: 800, color: 'var(--foreground)' }}>
-                    {kategoriEditMode ? 'Kategori Düzenle' : 'Yeni Kategori Tanımla'}
-                  </Typography>
-                </Box>
-                <Typography variant="body2" sx={{ color: 'var(--muted-foreground)' }}>
-                  {kategoriEditMode
-                    ? 'Kategori bilgilerini güncelleyerek harcamalarınızı daha iyi organize edin.'
-                    : 'Masraflarınızı gruplandırmak için yeni bir kategori adı ve isteğe bağlı açıklama girin.'}
-                </Typography>
-              </Box>
-
-              <Stack spacing={3}>
-                <TextField
-                  fullWidth
-                  label="Kategori Başlığı *"
-                  className="form-control-textfield"
-                  value={kategoriFormData.name}
-                  onChange={(e) => setKategoriFormData(prev => ({ ...prev, name: e.target.value }))}
-                  placeholder="Harcama grubunu isimlendirin..."
-                />
-                <TextField
-                  fullWidth
-                  label="Açıklama"
-                  className="form-control-textfield"
-                  value={kategoriFormData.notes}
-                  onChange={(e) => setKategoriFormData(prev => ({ ...prev, notes: e.target.value }))}
-                  placeholder="Bu kategori neleri kapsıyor? (Opsiyonel)"
-                  multiline
-                  rows={3}
-                />
-
-                <Box sx={{ display: 'flex', gap: 2, pt: 2 }}>
-                  <Button
-                    variant="contained"
-                    onClick={handleKategoriSubmit}
-                    disabled={actionLoading}
-                    sx={{
-                      px: 4,
-                      height: 44,
-                      borderRadius: 'var(--radius-lg)',
-                      bgcolor: 'var(--secondary)',
-                      color: 'var(--secondary-foreground)',
-                      textTransform: 'none',
-                      fontWeight: 700,
-                      boxShadow: '0 4px 12px color-mix(in srgb, var(--secondary) 25%, transparent)',
-                      '&:hover': {
-                        bgcolor: 'color-mix(in srgb, var(--secondary) 90%, black)',
-                        boxShadow: '0 6px 16px color-mix(in srgb, var(--secondary) 35%, transparent)',
-                      },
-                    }}
-                  >
-                    {kategoriEditMode ? 'Değişiklikleri Kaydet' : 'Kategoriyi Oluştur'}
-                  </Button>
-                  {kategoriEditMode && (
-                    <Box sx={{ display: 'flex', gap: 1 }}>
-                      <Button
-                        variant="outlined"
-                        onClick={() => {
-                          setKategoriEditMode(false);
-                          setSelectedKategori(null);
-                          setKategoriFormData({ name: '', notes: '' });
-                        }}
-                        sx={{
-                          height: 44,
-                          borderRadius: 'var(--radius-lg)',
-                          textTransform: 'none',
-                          fontWeight: 600,
-                          color: 'var(--muted-foreground)',
-                          borderColor: 'var(--border)',
-                        }}
-                      >
-                        Vazgeç
-                      </Button>
-                      <IconButton
-                        onClick={() => {
-                          setOpenKategoriDelete(true);
-                        }}
-                        sx={{
-                          width: 44,
-                          height: 44,
-                          borderRadius: 'var(--radius-lg)',
-                          color: 'var(--destructive)',
-                          bgcolor: 'color-mix(in srgb, var(--destructive) 8%, transparent)',
-                          '&:hover': { bgcolor: 'color-mix(in srgb, var(--destructive) 15%, transparent)' }
-                        }}
-                        disabled={!!selectedKategori?._count?.expenses}
-                      >
-                        <Delete fontSize="small" />
-                      </IconButton>
-                    </Box>
-                  )}
-                </Box>
+                        <Typography variant="caption" sx={{ color: 'var(--muted-foreground)', display: 'block', mt: 0.5 }}>
+                          {formatCurrency(stat?.toplam || 0)} harcama
+                        </Typography>
+                      </Box>
+                    );
+                  })}
               </Stack>
-
-              {kategoriEditMode && (selectedKategori?._count?.expenses ?? 0) > 0 && (
-                <Alert severity="info" sx={{ mt: 'auto', borderRadius: 'var(--radius-lg)', bgcolor: 'color-mix(in srgb, var(--primary) 5%, var(--card))', border: 'none' }}>
-                  Bu kategoride {selectedKategori?._count?.expenses} adet harcama kaydı bulunmaktadır.
-                </Alert>
-              )}
             </Box>
-          </DialogContent>
-          <DialogActions sx={{ bgcolor: 'var(--card)', borderTop: '1px solid var(--border)' }}>
-            <Button
-              onClick={() => setOpenKategoriDialog(false)}
-              sx={{
-                borderColor: 'var(--border)',
-                color: 'var(--foreground)',
-                '&:hover': {
-                  borderColor: 'var(--primary)',
-                  bgcolor: 'color-mix(in srgb, var(--primary) 10%, transparent)',
-                },
-              }}
-            >
-              Kapat
-            </Button>
-          </DialogActions>
-        </Dialog>
+          </Box>
 
-        {/* Kategori Silme Dialog */}
-        <Dialog
-          open={openKategoriDelete}
-          onClose={() => setOpenKategoriDelete(false)}
-          PaperProps={{
-            sx: {
-              bgcolor: 'var(--card)',
-              backgroundImage: 'none',
-              borderRadius: 'var(--radius-xl)',
-              border: '1px solid var(--border)',
-              boxShadow: 'var(--shadow-2xl)',
-              overflow: 'hidden',
-              minWidth: 320,
-            },
-          }}
-        >
-          <DialogTitle sx={{
-            fontWeight: 800,
-            color: 'var(--foreground)',
-            borderBottom: '1px solid var(--border)',
-            textAlign: 'center',
-            py: 2
+          {/* Main: Form ve Detay */}
+          <Box sx={{
+            flex: 1,
+            p: { xs: 2.5, md: 4 },
+            display: (isMobile && !kategoriEditMode) ? 'none' : 'flex',
+            flexDirection: 'column',
+            bgcolor: 'var(--card)',
+            overflowY: 'auto'
           }}>
-            Kategori Silme Onayı
-          </DialogTitle>
-          <DialogContent sx={{ p: 3, bgcolor: 'var(--card)' }}>
-            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: 2, pt: 1 }}>
-              <Box sx={{
-                width: 56,
-                height: 56,
-                borderRadius: '50%',
-                bgcolor: 'color-mix(in srgb, var(--destructive) 10%, transparent)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: 'var(--destructive)',
-                mb: 1
-              }}>
-                <Delete sx={{ fontSize: 32 }} />
-              </Box>
-              <Typography variant="body1" sx={{ color: 'var(--foreground)', fontWeight: 500 }}>
-                Bu kategoriyi silmek istediğinizden emin misiniz?
-              </Typography>
-
-              <Box sx={{
-                width: '100%',
-                p: 2,
-                bgcolor: 'var(--background)',
-                borderRadius: 'var(--radius-lg)',
-                border: '1px solid var(--border)',
-                textAlign: 'left',
-                mt: 1
-              }}>
-                <Typography variant="caption" display="block" sx={{ color: 'var(--muted-foreground)', mb: 0.5 }}>KATEGORİ ADI</Typography>
-                <Typography variant="body2" sx={{ fontWeight: 600, color: 'var(--foreground)' }}>
-                  {selectedKategori?.name}
+            <Box sx={{ mb: 4 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                {isMobile && kategoriEditMode && (
+                  <IconButton
+                    size="small"
+                    onClick={() => setKategoriEditMode(false)}
+                    sx={{ mr: 1, color: 'var(--primary)' }}
+                  >
+                    <Visibility sx={{ transform: 'rotate(180deg)' }} />
+                  </IconButton>
+                )}
+                <Typography variant="h6" sx={{ fontWeight: 800, color: 'var(--foreground)' }}>
+                  {kategoriEditMode ? 'Kategori Düzenle' : 'Yeni Kategori Tanımla'}
                 </Typography>
               </Box>
-
-              {selectedKategori?._count?.expenses ? (
-                <Alert severity="error" sx={{ mt: 2, width: '100%', borderRadius: 'var(--radius-md)' }}>
-                  Bu kategoride **{selectedKategori._count.expenses}** adet masraf kaydı var. Önce bu kayıtları silmeniz gerekir.
-                </Alert>
-              ) : (
-                <Alert severity="warning" sx={{ mt: 2, width: '100%', borderRadius: 'var(--radius-md)' }}>
-                  Bu işlem geri alınamaz!
-                </Alert>
-              )}
+              <Typography variant="body2" sx={{ color: 'var(--muted-foreground)' }}>
+                {kategoriEditMode
+                  ? 'Kategori bilgilerini güncelleyerek harcamalarınızı daha iyi organize edin.'
+                  : 'Masraflarınızı gruplandırmak için yeni bir kategori adı ve isteğe bağlı açıklama girin.'}
+              </Typography>
             </Box>
-          </DialogContent>
-          <DialogActions sx={{ p: 2, bgcolor: 'color-mix(in srgb, var(--primary) 2%, var(--card))', borderTop: '1px solid var(--border)', gap: 1.5 }}>
-            <Button
-              fullWidth
-              variant="outlined"
-              onClick={() => setOpenKategoriDelete(false)}
-              sx={{
-                borderRadius: 'var(--radius-lg)',
-                textTransform: 'none',
-                fontWeight: 600,
-                color: 'var(--foreground)',
-                borderColor: 'var(--border)',
-                '&:hover': { borderColor: 'var(--primary)', bgcolor: 'transparent' }
-              }}
-            >
-              Vazgeç
-            </Button>
-            <Button
-              fullWidth
-              variant="contained"
-              onClick={handleKategoriDelete}
-              disabled={actionLoading || !!selectedKategori?._count?.expenses}
-              sx={{
-                borderRadius: 'var(--radius-lg)',
-                textTransform: 'none',
-                fontWeight: 700,
-                bgcolor: 'var(--destructive)',
-                color: 'var(--destructive-foreground)',
-                boxShadow: '0 4px 12px color-mix(in srgb, var(--destructive) 30%, transparent)',
-                '&:hover': {
-                  bgcolor: 'color-mix(in srgb, var(--destructive) 90%, black)',
-                  boxShadow: '0 6px 16px color-mix(in srgb, var(--destructive) 40%, transparent)',
-                }
-              }}
-            >
-              Evet, Sil
-            </Button>
-          </DialogActions>
-        </Dialog>
-      </Box>
-    </StandardPage>
+
+            <Stack spacing={3}>
+              <TextField
+                fullWidth
+                label="Kategori Başlığı *"
+                className="form-control-textfield"
+                value={kategoriFormData.name}
+                onChange={(e) => setKategoriFormData(prev => ({ ...prev, name: e.target.value }))}
+                placeholder="Harcama grubunu isimlendirin..."
+              />
+              <TextField
+                fullWidth
+                label="Açıklama"
+                className="form-control-textfield"
+                value={kategoriFormData.notes}
+                onChange={(e) => setKategoriFormData(prev => ({ ...prev, notes: e.target.value }))}
+                placeholder="Bu kategori neleri kapsıyor? (Opsiyonel)"
+                multiline
+                rows={3}
+              />
+
+              <Box sx={{ display: 'flex', gap: 2, pt: 2 }}>
+                <Button
+                  variant="contained"
+                  onClick={handleKategoriSubmit}
+                  disabled={actionLoading}
+                  sx={{
+                    px: 4,
+                    height: 44,
+                    borderRadius: 'var(--radius)',
+                    bgcolor: 'var(--secondary)',
+                    color: 'var(--secondary-foreground)',
+                    textTransform: 'none',
+                    fontWeight: 700,
+                    boxShadow: '0 4px 12px color-mix(in srgb, var(--secondary) 25%, transparent)',
+                    '&:hover': {
+                      bgcolor: 'color-mix(in srgb, var(--secondary) 90%, black)',
+                      boxShadow: '0 6px 16px color-mix(in srgb, var(--secondary) 35%, transparent)',
+                    },
+                  }}
+                >
+                  {kategoriEditMode ? 'Değişiklikleri Kaydet' : 'Kategoriyi Oluştur'}
+                </Button>
+                {kategoriEditMode && (
+                  <Box sx={{ display: 'flex', gap: 1 }}>
+                    <Button
+                      variant="outlined"
+                      onClick={() => {
+                        setKategoriEditMode(false);
+                        setSelectedKategori(null);
+                        setKategoriFormData({ name: '', notes: '' });
+                      }}
+                      sx={{
+                        height: 44,
+                        borderRadius: 'var(--radius)',
+                        textTransform: 'none',
+                        fontWeight: 600,
+                        color: 'var(--muted-foreground)',
+                        borderColor: 'var(--border)',
+                      }}
+                    >
+                      Vazgeç
+                    </Button>
+                    <IconButton
+                      onClick={() => {
+                        setOpenKategoriDelete(true);
+                      }}
+                      sx={{
+                        width: 44,
+                        height: 44,
+                        borderRadius: 'var(--radius)',
+                        color: 'var(--destructive)',
+                        bgcolor: 'color-mix(in srgb, var(--destructive) 8%, transparent)',
+                        '&:hover': { bgcolor: 'color-mix(in srgb, var(--destructive) 15%, transparent)' }
+                      }}
+                      disabled={!!selectedKategori?._count?.expenses}
+                    >
+                      <Delete fontSize="small" />
+                    </IconButton>
+                  </Box>
+                )}
+              </Box>
+            </Stack>
+
+            {kategoriEditMode && (selectedKategori?._count?.expenses ?? 0) > 0 && (
+              <Alert severity="info" sx={{ mt: 'auto', borderRadius: 'var(--radius)', bgcolor: 'color-mix(in srgb, var(--primary) 5%, var(--card))', border: 'none' }}>
+                Bu kategoride {selectedKategori?._count?.expenses} adet harcama kaydı bulunmaktadır.
+              </Alert>
+            )}
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ bgcolor: 'var(--card)', borderTop: '1px solid var(--border)' }}>
+          <Button
+            onClick={() => setOpenKategoriDialog(false)}
+            sx={{
+              borderColor: 'var(--border)',
+              color: 'var(--foreground)',
+              '&:hover': {
+                borderColor: 'var(--primary)',
+                bgcolor: 'color-mix(in srgb, var(--primary) 10%, transparent)',
+              },
+            }}
+          >
+            Kapat
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Kategori Silme Dialog */}
+      <Dialog
+        open={openKategoriDelete}
+        onClose={() => setOpenKategoriDelete(false)}
+        PaperProps={{
+          sx: {
+            bgcolor: 'var(--card)',
+            backgroundImage: 'none',
+            borderRadius: 'var(--radius)',
+            border: '1px solid var(--border)',
+            boxShadow: 'var(--shadow-2xl)',
+            overflow: 'hidden',
+            minWidth: 320,
+          },
+        }}
+      >
+        <DialogTitle sx={{
+          fontWeight: 800,
+          color: 'var(--foreground)',
+          borderBottom: '1px solid var(--border)',
+          textAlign: 'center',
+          py: 2
+        }}>
+          Kategori Silme Onayı
+        </DialogTitle>
+        <DialogContent sx={{ p: 3, bgcolor: 'var(--card)' }}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: 2, pt: 1 }}>
+            <Box sx={{
+              width: 56,
+              height: 56,
+              borderRadius: '50%',
+              bgcolor: 'color-mix(in srgb, var(--destructive) 10%, transparent)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: 'var(--destructive)',
+              mb: 1
+            }}>
+              <Delete sx={{ fontSize: 32 }} />
+            </Box>
+            <Typography variant="body1" sx={{ color: 'var(--foreground)', fontWeight: 500 }}>
+              Bu kategoriyi silmek istediğinizden emin misiniz?
+            </Typography>
+
+            <Box sx={{
+              width: '100%',
+              p: 2,
+              bgcolor: 'var(--background)',
+              borderRadius: 'var(--radius)',
+              border: '1px solid var(--border)',
+              textAlign: 'left',
+              mt: 1
+            }}>
+              <Typography variant="caption" display="block" sx={{ color: 'var(--muted-foreground)', mb: 0.5 }}>KATEGORİ ADI</Typography>
+              <Typography variant="body2" sx={{ fontWeight: 600, color: 'var(--foreground)' }}>
+                {selectedKategori?.name}
+              </Typography>
+            </Box>
+
+            {selectedKategori?._count?.expenses ? (
+              <Alert severity="error" sx={{ mt: 2, width: '100%', borderRadius: 'var(--radius-md)' }}>
+                Bu kategoride **{selectedKategori._count.expenses}** adet masraf kaydı var. Önce bu kayıtları silmeniz gerekir.
+              </Alert>
+            ) : (
+              <Alert severity="warning" sx={{ mt: 2, width: '100%', borderRadius: 'var(--radius-md)' }}>
+                Bu işlem geri alınamaz!
+              </Alert>
+            )}
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ p: 2, bgcolor: 'color-mix(in srgb, var(--primary) 2%, var(--card))', borderTop: '1px solid var(--border)', gap: 1.5 }}>
+          <Button
+            fullWidth
+            variant="outlined"
+            onClick={() => setOpenKategoriDelete(false)}
+            sx={{
+              borderRadius: 'var(--radius)',
+              textTransform: 'none',
+              fontWeight: 600,
+              color: 'var(--foreground)',
+              borderColor: 'var(--border)',
+              '&:hover': { borderColor: 'var(--primary)', bgcolor: 'transparent' }
+            }}
+          >
+            Vazgeç
+          </Button>
+          <Button
+            fullWidth
+            variant="contained"
+            onClick={handleKategoriDelete}
+            disabled={actionLoading || !!selectedKategori?._count?.expenses}
+            sx={{
+              borderRadius: 'var(--radius)',
+              textTransform: 'none',
+              fontWeight: 700,
+              bgcolor: 'var(--destructive)',
+              color: 'var(--destructive-foreground)',
+              boxShadow: '0 4px 12px color-mix(in srgb, var(--destructive) 30%, transparent)',
+              '&:hover': {
+                bgcolor: 'color-mix(in srgb, var(--destructive) 90%, black)',
+                boxShadow: '0 6px 16px color-mix(in srgb, var(--destructive) 40%, transparent)',
+              }
+            }}
+          >
+            Evet, Sil
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </Box>
   );
 }

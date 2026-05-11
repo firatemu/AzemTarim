@@ -123,7 +123,9 @@ export default function B2bAdminCustomerDetailPage() {
   const { data: movements = [], refetch: refetchMovements, isLoading: movementsLoading } = useQuery({
     queryKey: ['b2b-customer-movements', id],
     queryFn: async () => {
-      const res = await axios.get(`/b2b-admin/customers/${id}/movements`);
+      const res = await axios.get(`/b2b-admin/customers/${id}/account-movements`, {
+        params: { page: 1, limit: 100 },
+      });
       return res.data.data || [];
     },
     enabled: !!id && tabValue === 2,
@@ -300,14 +302,28 @@ export default function B2bAdminCustomerDetailPage() {
             </Stack>
 
             <DataGrid
-              rows={movements.map((r: any, i: number) => ({ id: i, ...r }))}
+              rows={movements}
+              getRowId={(row: { id: string }) => row.id}
               columns={[
-                { field: 'date', headerName: 'Tarih', width: 140, renderCell: (p: GridRenderCellParams) => <Typography variant="body2" sx={{ fontWeight: 800 }}>{new Date(p.value).toLocaleDateString('tr-TR')}</Typography> },
-                { field: 'type', headerName: 'İşlem Tipi', width: 120, renderCell: (p: GridRenderCellParams) => <Chip label={p.value} size="small" variant="outlined" sx={{ fontWeight: 900, borderRadius: 1 }} /> },
-                { field: 'description', headerName: 'Açıklama / Belge No', flex: 1, renderCell: (p: GridRenderCellParams) => <Typography variant="body2" sx={{ fontWeight: 600 }}>{p.value}</Typography> },
-                { field: 'debit', headerName: 'Borç', width: 130, align: 'right', renderCell: (p: GridRenderCellParams) => p.value > 0 ? <Typography sx={{ fontWeight: 900, fontFamily: 'monospace', color: 'error.main' }}>{new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY' }).format(p.value)}</Typography> : '—' },
-                { field: 'credit', headerName: 'Alacak', width: 130, align: 'right', renderCell: (p: GridRenderCellParams) => p.value > 0 ? <Typography sx={{ fontWeight: 900, fontFamily: 'monospace', color: 'success.main' }}>{new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY' }).format(p.value)}</Typography> : '—' },
-                { field: 'balance', headerName: 'Bakiye', width: 140, align: 'right', renderCell: (p: GridRenderCellParams) => <Typography sx={{ fontWeight: 950, fontFamily: 'monospace' }}>{new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY' }).format(p.value)}</Typography> },
+                { field: 'date', headerName: 'Tarih', width: 140, renderCell: (p: GridRenderCellParams) => <Typography variant="body2" sx={{ fontWeight: 800 }}>{new Date(p.value as string).toLocaleDateString('tr-TR')}</Typography> },
+                { field: 'type', headerName: 'İşlem Tipi', width: 120, renderCell: (p: GridRenderCellParams) => <Chip label={String(p.value)} size="small" variant="outlined" sx={{ fontWeight: 900, borderRadius: 1 }} /> },
+                {
+                  field: 'description',
+                  headerName: 'Açıklama / Belge No',
+                  flex: 1,
+                  renderCell: (p: GridRenderCellParams) => {
+                    const row = p.row as { description?: string | null; erpInvoiceNo?: string | null };
+                    const line = [row.erpInvoiceNo, row.description].filter(Boolean).join(' · ') || '—';
+                    return (
+                      <Typography variant="body2" sx={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {line}
+                      </Typography>
+                    );
+                  },
+                },
+                { field: 'debit', headerName: 'Borç', width: 130, align: 'right', renderCell: (p: GridRenderCellParams) => Number(p.value) > 0 ? <Typography sx={{ fontWeight: 900, fontFamily: 'monospace', color: 'error.main' }}>{new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY' }).format(Number(p.value))}</Typography> : '—' },
+                { field: 'credit', headerName: 'Alacak', width: 130, align: 'right', renderCell: (p: GridRenderCellParams) => Number(p.value) > 0 ? <Typography sx={{ fontWeight: 900, fontFamily: 'monospace', color: 'success.main' }}>{new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY' }).format(Number(p.value))}</Typography> : '—' },
+                { field: 'balance', headerName: 'Bakiye', width: 140, align: 'right', renderCell: (p: GridRenderCellParams) => <Typography sx={{ fontWeight: 950, fontFamily: 'monospace' }}>{new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY' }).format(Number(p.value))}</Typography> },
                 { field: 'isPastDue', headerName: 'Vade', width: 100, align: 'center', renderCell: (p: GridRenderCellParams) => p.value ? <Chip label="GECİKMİŞ" color="error" size="small" sx={{ fontWeight: 900, borderRadius: 1.5, fontSize: '0.6rem' }} /> : <Chip label="NORMAL" color="success" size="small" variant="outlined" sx={{ fontWeight: 900, borderRadius: 1.5, fontSize: '0.6rem' }} /> },
               ]}
               loading={movementsLoading}

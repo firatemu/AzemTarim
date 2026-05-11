@@ -14,7 +14,11 @@ import { B2B_SYNC_QUEUE, B2bSyncService } from './b2b-sync.service';
     }),
   ],
   controllers: [B2bSyncController],
-  providers: [B2bSyncService, B2bSyncProcessor, B2BAdapterFactory],
+  providers: [
+    B2bSyncService,
+    B2bSyncProcessor,
+    B2BAdapterFactory,
+  ],
   exports: [B2bSyncService, B2BAdapterFactory],
 })
 export class B2bSyncModule {}

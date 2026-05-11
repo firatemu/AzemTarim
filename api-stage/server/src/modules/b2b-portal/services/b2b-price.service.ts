@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { B2BDiscountType, Prisma } from '@prisma/client';
+import { ErpProductLiveMetricsService } from '../../../common/services/erp-product-live-metrics.service';
 import { PrismaService } from '../../../common/prisma.service';
 
 export interface B2bUnitPriceBreakdown {
@@ -11,7 +12,10 @@ export interface B2bUnitPriceBreakdown {
 
 @Injectable()
 export class B2bPriceService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly liveMetrics: ErpProductLiveMetricsService,
+  ) {}
 
   private async loadActiveDiscounts(tenantId: string, now: Date) {
     return this.prisma.b2BDiscount.findMany({
@@ -94,8 +98,12 @@ export class B2bPriceService {
           name: true,
           brand: true,
           category: true,
+          erpProductId: true,
           erpListPrice: true,
           minOrderQuantity: true,
+          product: {
+            select: { code: true, name: true },
+          },
         },
       }),
       this.prisma.b2BCustomer.findFirst({
@@ -112,7 +120,13 @@ export class B2bPriceService {
       throw new NotFoundException('Müşteri bulunamadı');
     }
 
-    const listUnit = new Prisma.Decimal(product.erpListPrice);
+    const liveMap = await this.liveMetrics.getListUnitPricesByProductIds(tenantId, [
+      product.erpProductId,
+    ]);
+    const liveList = liveMap.get(product.erpProductId);
+    const listUnit = new Prisma.Decimal(
+      liveList ?? product.erpListPrice,
+    );
     const classRate = customer.customerClass?.discountRate
       ? new Prisma.Decimal(customer.customerClass.discountRate)
       : new Prisma.Decimal(0);
@@ -138,8 +152,8 @@ export class B2bPriceService {
     return {
       product: {
         id: product.id,
-        stockCode: product.stockCode,
-        name: product.name,
+        stockCode: product.product?.code ?? product.stockCode,
+        name: product.product?.name ?? product.name,
         minOrderQuantity: product.minOrderQuantity,
       },
       listUnit,

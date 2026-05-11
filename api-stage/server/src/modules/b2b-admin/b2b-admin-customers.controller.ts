@@ -53,6 +53,14 @@ export class B2bAdminCustomersController {
     return this.service.list(await this.tenant(), q);
   }
 
+  @Post('sync-account-movements-all')
+  @ApiOperation({
+    summary: 'Tüm B2B cariler için ERP cari hareket senkronu (tek kuyruk işi)',
+  })
+  async syncAllAccountMovements() {
+    return this.service.queueSyncAllAccountMovements(await this.tenantWrite());
+  }
+
   @Get(':id/orders')
   @ApiOperation({ summary: 'Cari sipariş geçmişi' })
   async orders(

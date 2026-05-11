@@ -2,18 +2,8 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import {
-  Box,
-  Paper,
-  Typography,
-  Stack,
-  Button,
-  ButtonGroup,
-  Divider,
-  IconButton,
-  Tooltip,
-  Grid,
-} from '@mui/material';
+import { Box, Paper, Typography, Stack, Button, ButtonGroup, Divider, IconButton, Tooltip } from '@mui/material';
+import Grid from '@mui/material/Grid';
 import { Print, Close, PictureAsPdf, ZoomIn, ZoomOut } from '@mui/icons-material';
 import { useReactToPrint } from 'react-to-print';
 import axios from '@/lib/axios';
@@ -119,6 +109,38 @@ export default function TahsilatPrintPage() {
         ]);
         setTahsilat(tahsilatRes.data);
         setTenant(tenantRes.data);
+
+        // API'den gelen account verisini cari formatına dönüştür
+        if (tahsilatRes.data.account && !tahsilatRes.data.cari) {
+          const account = tahsilatRes.data.account;
+          tahsilatRes.data.cari = {
+            cariKodu: account.code || '',
+            unvan: account.title || account.fullName || '',
+            adres: account.address || null,
+            telefon: account.phone || null,
+            vergiNo: account.taxNumber || null,
+            vergiDairesi: account.taxOffice || null,
+          };
+        }
+
+        // API'den gelen alan adlarını frontend'in beklediği formata dönüştür
+        if (tahsilatRes.data.amount !== undefined) {
+          tahsilatRes.data.tutar = tahsilatRes.data.amount;
+        }
+        if (tahsilatRes.data.paymentType) {
+          const paymentTypeMap: Record<string, string> = {
+            CASH: 'NAKIT',
+            CREDIT_CARD: 'KREDI_KARTI',
+            BANK_TRANSFER: 'BANKA_TRANSFERI',
+            CHECK: 'CEK',
+            PROMISSORY_NOTE: 'SENET',
+            GIFT_CARD: 'HEDIYE_CEZASI',
+            LOAN_ACCOUNT: 'ALACAK_HESABI',
+          };
+          tahsilatRes.data.odemeTipi = paymentTypeMap[tahsilatRes.data.paymentType] || tahsilatRes.data.paymentType;
+        }
+
+        setTahsilat(tahsilatRes.data);
       } catch (error) {
         console.error('Veri alınamadı:', error);
       } finally {

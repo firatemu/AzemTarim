@@ -78,18 +78,6 @@ Popup olarak açılan ekranlar (Dialog/Modal/Drawer içinde açılan “mini say
 - Dialog ölçüleri:
   - `fullWidth` + uygun `maxWidth` kullan
   - Mobilde taşma yapmayacak şekilde `xs`/`sm` yerleşim düşün
- - Popup yüzeyi/renk standardı:
-   - `Dialog`/`PaperProps` için `bgcolor: 'var(--card)'`, `borderRadius: 'var(--radius)'`, `border: '1px solid var(--border)'` gibi token değerler kullan
-   - Köşe formu (oval çerçeve):
-     - Popup yüzeyinde keskin köşe kullanma; `borderRadius` için genelde `var(--radius-xl)` veya daha büyük değer tercih et
-     - `DialogTitle` (üst) ve `DialogActions` (alt) arka planı kullanan yerlerde aynı radius’u koru (çerçeve “oval” görünmeli)
-     - `overflow: 'hidden'` ile popup içindeki arka planların radius dışına taşmasını engelle
-   - `DialogContent` dış katmanını çoğunlukla `display: 'flex'` + `overflowY: 'hidden'` yap; gerçek scroll’u içteki tek bir wrapper’a (`overflowY: 'auto'`, `maxHeight: 'calc(100vh - ...)'`) ver
-   - `DialogActions` alanı görünür kalmalı; `bgcolor: 'var(--muted)'` veya `var(--card)` + `borderTop: '1px solid var(--border)'` tercih et
-   - Primary/CTA butonlarda hard-coded `#...` kullanma; `var(--primary)` / `var(--primary-foreground)` ve `color-mix(...)` ile hover/active tonlarını üret
- - (Opsiyonel) CSS module/class ile popup stili yazacaksan:
-   - Token tabanlı değerler (`var(--card)`, `var(--muted)`, `var(--border)`, `var(--ring)`) kullan
-   - Scrollbar/box-shadow gibi detaylarda bile hex/rgb sabitleme yerine token kullan
 
 ## 6) Tablo Ekleme Standartları (DataGrid / tablo ekranları)
 

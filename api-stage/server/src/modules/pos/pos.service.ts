@@ -20,7 +20,6 @@ import { InvoiceService } from '../invoice/invoice.service';
 import { CollectionService } from '../collection/collection.service';
 import { SalesAgentResponseDto } from './dto/sales-agent-response.dto';
 import { CashboxService } from '../cashbox/cashbox.service';
-
 export interface BarcodeProductResult {
   id: string;
   name: string;

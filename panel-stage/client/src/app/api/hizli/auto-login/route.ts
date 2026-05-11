@@ -4,31 +4,28 @@ import { NextResponse } from 'next/server';
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
+import { serverFetch } from '@/lib/serverFetch';
+
 /**
  * POST /api/hizli/auto-login
  * Hızlı e-fatura otomatik giriş işlemi
  */
 export async function POST(request: Request) {
   try {
-    const body = await request.json();
-    const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3011';
-
-    // Backend endpoint mevcut değilse hemen bildir
-    return NextResponse.json({
-      success: false,
-      message: 'Hızlı e-fatura entegrasyonu henüz aktif değil. Lütfen sistem yöneticisiyle iletişime geçin.',
-      error: 'BACKEND_NOT_CONFIGURED',
-      authenticated: false
+    const data = await serverFetch('/quick-invoices/auto-login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' }
     });
-  } catch (error) {
+    return NextResponse.json(data);
+  } catch (error: any) {
     return NextResponse.json(
       {
         success: false,
-        message: 'Hızlı e-fatura entegrasyonu henüz aktif değil',
-        error: 'BACKEND_NOT_CONFIGURED',
+        message: error.message || 'Oturum açma hatası',
+        error: 'BACKEND_FETCH_ERROR',
         authenticated: false
       },
-      { status: 200 }
+      { status: 500 }
     );
   }
 }

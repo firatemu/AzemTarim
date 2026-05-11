@@ -167,6 +167,8 @@ export function SatisFaturaForm({ faturaId: editFaturaId, onBack }: { faturaId?:
           kdvOrani: Number(s.vatRate) || 20,
           barkod: s.barcode,
           birim: s.unit || 'ADET',
+          // ProductService.findAll returns `quantity` (total on-hand)
+          miktar: Number(s.quantity ?? 0),
         })));
 
         setSatisElemanlari(agentsRes.data || []);
@@ -375,8 +377,8 @@ export function SatisFaturaForm({ faturaId: editFaturaId, onBack }: { faturaId?:
       }
 
       setTimeout(() => {
-        if (isEdit) removeTab(`sales-invoice-edit-${editFaturaId}`);
-        else removeTab('sales-invoice-yeni');
+        if (isEdit) removeTab(`invoice-sales-edit-${editFaturaId}`);
+        else removeTab('invoice-sales-yeni');
 
         if (onBack) onBack();
         else router.push('/invoice/sales');

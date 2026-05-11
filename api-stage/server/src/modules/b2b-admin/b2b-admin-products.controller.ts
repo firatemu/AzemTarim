@@ -57,21 +57,27 @@ export class B2bAdminProductsController {
   }
 
   @Post('sync')
-  @ApiOperation({ summary: 'Ürün/stok/fiyat senkronizasyon kuyruğu' })
+  @ApiOperation({
+    summary: 'Ürün/fiyat senkronizasyon kuyruğu',
+    description:
+      'Stok ve liste fiyatı B2B API okumalarında ERP’den anlık alınır; kuyruk ürün kartı ve fiyat kartı eşitlemesi içindir.',
+  })
   async triggerSync(
-    @Body() dto: { type?: 'PRODUCTS' | 'PRICES' | 'STOCK' | 'FULL' },
+    @Body() dto: { type?: 'PRODUCTS' | 'PRICES' | 'FULL' },
     @CurrentUser() user: any,
   ) {
     const type = dto?.type || 'FULL';
     const result = await this.service.triggerSync(
       await this.tenantWrite(),
-      type as 'PRODUCTS' | 'PRICES' | 'STOCK' | 'FULL',
+      type as 'PRODUCTS' | 'PRICES' | 'FULL',
       user?.id,
     );
+
     return {
       success: true,
       message: 'Senkronizasyon kuyruğa alındı',
       jobId: result.jobId,
+      inline: false,
     };
   }
 

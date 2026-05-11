@@ -195,7 +195,18 @@ export function SatisIadeFaturaForm({ faturaId, onBack }: { faturaId?: string; o
         ]);
 
         setCariler(carilerRes.data.data || []);
-        setStoklar(stoklarRes.data.data || []);
+        setStoklar(
+          (stoklarRes.data.data || []).map((s: any) => ({
+            ...s,
+            stokKodu: s.stokKodu ?? s.code,
+            stokAdi: s.stokAdi ?? s.name,
+            barkod: s.barkod ?? s.barcode,
+            birim: s.birim ?? s.unit ?? 'ADET',
+            kdvOrani: Number(s.kdvOrani ?? s.vatRate ?? 20),
+            satisFiyati: Number(s.satisFiyati ?? s.salePrice ?? 0),
+            miktar: Number(s.miktar ?? s.quantity ?? 0),
+          })),
+        );
         setWarehouses(warehousesRes.data || []);
         setSatisElemanlari(staffRes.data.data || []);
 

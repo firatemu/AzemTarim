@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState } from 'react';
 import {
   Box,
   Button,
@@ -20,34 +20,30 @@ import {
   InputAdornment,
   Tooltip,
   Divider,
-  CircularProgress,
-  Menu,
-  MenuItem,
 } from '@mui/material';
 import {
   Visibility as VisibilityIcon,
   VisibilityOff as VisibilityOffIcon,
   Edit as EditIcon,
   Image as ImageIcon,
-  Sync as SyncIcon,
   Search as SearchIcon,
   Inventory as InventoryIcon,
-  Refresh as RefreshIcon,
-  Category as CategoryIcon,
-  BrandingWatermark as BrandIcon,
-  PriceCheck as PriceIcon,
   CloudUpload as UploadIcon,
   Settings as SettingsIcon,
-  CheckCircle,
-  Error,
-  KeyboardArrowDown,
 } from '@mui/icons-material';
 import { DataGrid, GridColDef, GridRenderCellParams } from '@mui/x-data-grid';
 import StandardPage from '@/components/common/StandardPage';
-import { B2bDrawerWithActions, ImageUpload } from '@/components/b2b-admin';
+import {
+  B2bDrawerWithActions,
+  ImageUpload,
+  B2bSyncStatusChips,
+  B2bErpSyncMenuButton,
+  B2bSyncRecentLogsCard,
+  useB2bSyncMonitor,
+} from '@/components/b2b-admin';
 import { ErpProductTransferDialog } from '@/components/b2b-admin/ErpProductTransferDialog';
 import axios from '@/lib/axios';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSnackbar } from 'notistack';
 
 type ProductRow = {
@@ -66,12 +62,6 @@ type ProductRow = {
     isAvailable: boolean;
     quantity: number | string;
   }>;
-  product?: {
-    productLocationStocks: Array<{
-      warehouseId: string;
-      qtyOnHand: number | string;
-    }>;
-  };
 };
 
 export default function B2bAdminProductsPage() {
@@ -82,21 +72,25 @@ export default function B2bAdminProductsPage() {
   const [visibilityFilter, setVisibilityFilter] = useState<'all' | 'visible' | 'hidden'>('all');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [drawerProduct, setDrawerProduct] = useState<ProductRow | null>(null);
-  const [isSyncing, setIsSyncing] = useState(false);
-  const [lastSyncStartTime, setLastSyncStartTime] = useState<number | null>(null);
   const [addFromErpOpen, setAddFromErpOpen] = useState(false);
-  const [syncAnchorEl, setSyncAnchorEl] = useState<null | HTMLElement>(null);
 
-  const handleSyncMenuOpen = (event: React.MouseEvent<HTMLButtonElement>) => {
-    setSyncAnchorEl(event.currentTarget);
-  };
-  const handleSyncMenuClose = () => {
-    setSyncAnchorEl(null);
-  };
-  const handleSyncTrigger = (type: 'PRODUCTS' | 'PRICES' | 'STOCK' | 'FULL') => {
-    setSyncAnchorEl(null);
-    syncMutation.mutate(type);
-  };
+  const {
+    syncStatus,
+    isSyncing,
+    syncAnchorEl,
+    handleSyncMenuOpen,
+    handleSyncMenuClose,
+    handleSyncTrigger,
+  } = useB2bSyncMonitor({
+    onSyncLogFinished: (ev) => {
+      if (ev.success) {
+        void queryClient.invalidateQueries({ queryKey: ['b2b-products'] });
+        enqueueSnackbar('Senkronizasyon tamamlandı, ürün listesi güncellendi.', { variant: 'success' });
+      } else {
+        enqueueSnackbar('Senkronizasyon başarısız: ' + (ev.errorMessage || ''), { variant: 'error' });
+      }
+    },
+  });
 
   // Fetch products
   const { data: products = [], isLoading, refetch } = useQuery({
@@ -164,60 +158,6 @@ export default function B2bAdminProductsPage() {
     },
   });
 
-  // Sync status
-  const { data: syncStatus, refetch: refetchSyncStatus } = useQuery({
-    queryKey: ['b2b-sync-status'],
-    queryFn: async () => {
-      const res = await axios.get('/b2b-admin/products/sync/status');
-      return res.data;
-    },
-    refetchInterval: (query) => {
-      const status = query.state.data?.recentLogs?.[0]?.status;
-      return status === 'RUNNING' || lastSyncStartTime ? 3000 : 15000;
-    },
-  });
-
-  useEffect(() => {
-    if (!lastSyncStartTime) return;
-
-    const latestLog = syncStatus?.recentLogs?.[0];
-    if (latestLog && (latestLog.status === 'SUCCESS' || latestLog.status === 'FAILED')) {
-      const finishedAt = latestLog.finishedAt ? new Date(latestLog.finishedAt).getTime() : 0;
-
-      // Eğer log'un bitiş zamanı bizim senkronizasyonu başlattığımız zamandan sonraysa
-      if (finishedAt > lastSyncStartTime) {
-        if (latestLog.status === 'SUCCESS') {
-          queryClient.invalidateQueries({ queryKey: ['b2b-products'] });
-          enqueueSnackbar('Senkronizasyon tamamlandı, ürün listesi güncellendi.', { variant: 'success' });
-        } else {
-          enqueueSnackbar('Senkronizasyon başarısız: ' + latestLog.errorMessage, { variant: 'error' });
-        }
-
-        setLastSyncStartTime(null);
-        setIsSyncing(false);
-      }
-    }
-  }, [syncStatus, lastSyncStartTime, queryClient, enqueueSnackbar]);
-
-  // Sync trigger
-  const syncMutation = useMutation({
-    mutationFn: async (type: 'PRODUCTS' | 'PRICES' | 'STOCK' | 'FULL' = 'FULL') => {
-      setIsSyncing(true);
-      setLastSyncStartTime(Date.now());
-      const res = await axios.post('/b2b-admin/products/sync', { type });
-      return res.data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['b2b-sync-status'] });
-      enqueueSnackbar(`ERP senkronizasyonu başlatıldı, lütfen bekleyiniz...`, { variant: 'info' });
-    },
-    onError: (error: any) => {
-      setIsSyncing(false);
-      setLastSyncStartTime(null);
-      enqueueSnackbar('Senkronizasyon başlatılamadı: ' + (error.response?.data?.message || error.message), { variant: 'error' });
-    },
-  });
-
   const handleBulkToggle = (visible: boolean) => {
     selectedIds.forEach((id: string) => toggleVisibilityMutation.mutate({ productId: id, visible }));
     setSelectedIds([]);
@@ -277,58 +217,23 @@ export default function B2bAdminProductsPage() {
     },
     {
       field: 'stocks',
-      headerName: 'B2B Stok',
-      width: 140,
+      headerName: 'Stok',
+      width: 130,
       renderCell: (params: GridRenderCellParams<ProductRow>) => {
         const stocks = params.row.stocks || [];
         const totalQty = stocks.reduce((acc, s) => acc + Number(s.quantity || 0), 0);
         const isAvailable = totalQty > 0;
 
         return (
-          <Stack direction="row" spacing={1} alignItems="center">
-            <Chip
-              label={isAvailable ? totalQty : 'YOK'}
-              size="small"
-              variant="outlined"
-              color={isAvailable ? 'success' : 'error'}
-              sx={{ fontWeight: 900, borderRadius: 1.5, fontSize: '0.75rem', height: 20, minWidth: 40 }}
-            />
-          </Stack>
-        );
-      },
-    },
-    {
-      field: 'erpStock',
-      headerName: 'ERP Stok',
-      width: 120,
-      renderCell: (params: GridRenderCellParams<ProductRow>) => {
-        const erpStocks = params.row.product?.productLocationStocks || [];
-        const erpTotalQty = erpStocks.reduce((acc, s) => acc + Number(s.qtyOnHand || 0), 0);
-
-        return (
-          <Typography variant="body2" sx={{ fontWeight: 800, color: 'text.secondary', fontFamily: 'monospace' }}>
-            {erpTotalQty}
-          </Typography>
-        );
-      },
-    },
-    {
-      field: 'stockDiff',
-      headerName: 'Fark',
-      width: 100,
-      align: 'center',
-      renderCell: (params: GridRenderCellParams<ProductRow>) => {
-        const b2bQty = (params.row.stocks || []).reduce((acc, s) => acc + Number(s.quantity || 0), 0);
-        const erpQty = (params.row.product?.productLocationStocks || []).reduce((acc, s) => acc + Number(s.qtyOnHand || 0), 0);
-        const diff = erpQty - b2bQty;
-
-        if (diff === 0) return <CheckCircle sx={{ fontSize: 16, color: 'success.light', opacity: 0.5 }} />;
-
-        return (
-          <Tooltip title={`ERP ve B2B stokları arasında ${Math.abs(diff)} birim fark var. Güncelleme yapılması önerilir.`}>
-            <Stack direction="row" spacing={0.5} alignItems="center" sx={{ color: 'error.main' }}>
-              <Error sx={{ fontSize: 16 }} />
-              <Typography variant="caption" sx={{ fontWeight: 900 }}>{diff > 0 ? `+${diff}` : diff}</Typography>
+          <Tooltip title="ERP malzeme hareketlerinden anlık net stok (sayfa yenilendiğinde güncel)">
+            <Stack direction="row" spacing={1} alignItems="center">
+              <Chip
+                label={isAvailable ? totalQty : 'YOK'}
+                size="small"
+                variant="outlined"
+                color={isAvailable ? 'success' : 'error'}
+                sx={{ fontWeight: 900, borderRadius: 1.5, fontSize: '0.75rem', height: 20, minWidth: 40 }}
+              />
             </Stack>
           </Tooltip>
         );
@@ -370,94 +275,15 @@ export default function B2bAdminProductsPage() {
       title="B2B Ürün Yönetimi"
       breadcrumbs={[{ label: 'B2B Admin', href: '/b2b-admin' }, { label: 'Ürünler' }]}
       headerActions={
-        <Stack direction="row" spacing={1.5} alignItems="center">
-          {syncStatus?.recentLogs && syncStatus.recentLogs.length > 0 && (
-            <Tooltip title={`Son sync durumu: ${syncStatus.recentLogs[0].status}`}>
-              <Chip
-                icon={syncStatus.recentLogs[0].status === 'SUCCESS' ? <CheckCircle sx={{ fontSize: 14 }} /> : <Error sx={{ fontSize: 14 }} />}
-                label={`${syncStatus.recentLogs[0].status === 'SUCCESS' ? 'Başarılı' : 'Başarısız'} - ${syncStatus.recentLogs[0].recordsProcessed || 0} kayıt`}
-                size="small"
-                variant="outlined"
-                sx={{
-                  fontWeight: 800,
-                  borderRadius: 2,
-                  color: syncStatus.recentLogs[0].status === 'SUCCESS' ? 'success.main' : 'error.main',
-                  borderColor: syncStatus.recentLogs[0].status === 'SUCCESS' ? 'success.main' : 'error.main',
-                }}
-              />
-            </Tooltip>
-          )}
-          {syncStatus?.lastSyncRequestedAt && (
-            <Tooltip title="Son güncelleme isteği gönderilme zamanı">
-              <Chip
-                icon={<SyncIcon sx={{ fontSize: 14 }} />}
-                label={`İstek: ${new Date(syncStatus.lastSyncRequestedAt).toLocaleString('tr-TR')}`}
-                size="small"
-                variant="outlined"
-                color="secondary"
-                sx={{ fontWeight: 800, borderRadius: 2 }}
-              />
-            </Tooltip>
-          )}
-          {syncStatus?.lastSyncedAt && (
-            <Tooltip title="Son başarılı senkronizasyon zamanı">
-              <Chip
-                icon={<CheckCircle sx={{ fontSize: 14 }} />}
-                label={`Eşitlenen: ${new Date(syncStatus.lastSyncedAt).toLocaleString('tr-TR')}`}
-                size="small"
-                variant="outlined"
-                sx={{ fontWeight: 800, borderRadius: 2 }}
-              />
-            </Tooltip>
-          )}
-          <Button
-            variant="contained"
-            startIcon={isSyncing ? <CircularProgress size={18} color="inherit" /> : <SyncIcon />}
-            endIcon={<KeyboardArrowDown />}
-            onClick={handleSyncMenuOpen}
-            disabled={isSyncing}
-            sx={{ fontWeight: 900, borderRadius: 3, px: 3 }}
-          >
-            {isSyncing ? 'Güncelleniyor...' : 'ERP\'den Güncelle'}
-          </Button>
-          <Menu
-            anchorEl={syncAnchorEl}
-            open={Boolean(syncAnchorEl)}
+        <Stack direction="row" spacing={1.5} alignItems="center" flexWrap="wrap" useFlexGap>
+          <B2bSyncStatusChips syncStatus={syncStatus} />
+          <B2bErpSyncMenuButton
+            isSyncing={isSyncing}
+            syncAnchorEl={syncAnchorEl}
+            onOpen={handleSyncMenuOpen}
             onClose={handleSyncMenuClose}
-            sx={{
-              '& .MuiPaper-root': {
-                borderRadius: 3,
-                minWidth: 280,
-                boxShadow: theme.shadows[8],
-                mt: 1.5,
-              },
-              '& .MuiMenuItem-root': {
-                fontWeight: 600,
-                py: 1.5,
-                px: 2,
-                gap: 1.5,
-                transition: 'all 0.2s',
-                '&:hover': {
-                  bgcolor: alpha(theme.palette.primary.main, 0.08),
-                  pl: 2.5,
-                }
-              }
-            }}
-          >
-            <MenuItem onClick={() => handleSyncTrigger('PRODUCTS')}>
-              <BrandIcon sx={{ fontSize: 22, color: 'info.main' }} /> Ürün Bilgilerini Güncelle
-            </MenuItem>
-            <MenuItem onClick={() => handleSyncTrigger('PRICES')}>
-              <PriceIcon sx={{ fontSize: 22, color: 'success.main' }} /> Fiyat Bilgilerini Güncelle
-            </MenuItem>
-            <MenuItem onClick={() => handleSyncTrigger('STOCK')}>
-              <InventoryIcon sx={{ fontSize: 22, color: 'warning.main' }} /> Stok Miktarlarını Güncelle
-            </MenuItem>
-            <Divider sx={{ my: 1 }} />
-            <MenuItem onClick={() => handleSyncTrigger('FULL')} sx={{ color: 'primary.main', bgcolor: alpha(theme.palette.primary.main, 0.04) }}>
-              <SyncIcon sx={{ fontSize: 22 }} /> Tümünü Güncelle (Tam Senkronizasyon)
-            </MenuItem>
-          </Menu>
+            onTrigger={handleSyncTrigger}
+          />
           <Button
             variant="outlined"
             startIcon={<UploadIcon />}
@@ -525,38 +351,7 @@ export default function B2bAdminProductsPage() {
         )}
       </Paper>
 
-      {/* Sync Logs */}
-      {syncStatus?.recentLogs && syncStatus.recentLogs.length > 0 && (
-        <Paper variant="outlined" sx={{ p: 2, mb: 3, borderRadius: 4, bgcolor: alpha(theme.palette.info.main, 0.02) }}>
-          <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
-            <SyncIcon sx={{ fontSize: 18, color: 'info.main' }} />
-            <Typography variant="subtitle2" sx={{ fontWeight: 900 }}>
-              Son Senkronizasyon Logları
-            </Typography>
-          </Stack>
-          <Stack spacing={1}>
-            {syncStatus.recentLogs.slice(0, 3).map((log: any) => (
-              <Stack key={log.id} direction="row" spacing={2} sx={{ px: 2, py: 1, borderRadius: 2, bgcolor: 'background.paper', border: '1px solid', borderColor: 'divider' }}>
-                <Chip
-                  label={log.status}
-                  size="small"
-                  color={log.status === 'SUCCESS' ? 'success' : log.status === 'RUNNING' ? 'info' : 'error'}
-                  sx={{ fontWeight: 800, minWidth: 80 }}
-                />
-                <Typography variant="caption" sx={{ fontWeight: 700, color: 'text.secondary' }}>
-                  {log.syncType}
-                </Typography>
-                <Typography variant="caption" sx={{ flex: 1 }}>
-                  {log.recordsProcessed || 0} işlendi • {log.recordsAdded || 0} eklendi • {log.recordsUpdated || 0} güncellendi
-                </Typography>
-                <Typography variant="caption" sx={{ color: 'text.disabled' }}>
-                  {log.finishedAt ? new Date(log.finishedAt).toLocaleString('tr-TR') : 'Devam ediyor...'}
-                </Typography>
-              </Stack>
-            ))}
-          </Stack>
-        </Paper>
-      )}
+      <B2bSyncRecentLogsCard syncStatus={syncStatus} maxLogs={3} />
 
       <Box sx={{
         height: 650,
@@ -675,7 +470,7 @@ function ProductDrawer({ product, onClose, onUpdate, onUploadImage, onDeleteImag
         <Paper variant="outlined" sx={{ p: 3, borderRadius: 4, bgcolor: alpha(theme.palette.primary.main, 0.01) }}>
           <Stack spacing={2.5}>
             <Box>
-              <Typography variant="caption" sx={{ fontWeight: 900, color: 'text.secondary', display: 'flex', alignItems: 'center', gap: 0.5 }}><InventoryIcon sx={{ fontSize: 14 }} /> STOK VE ERP TANIMI</Typography>
+              <Typography variant="caption" sx={{ fontWeight: 900, color: 'text.secondary', display: 'flex', alignItems: 'center', gap: 0.5 }}><InventoryIcon sx={{ fontSize: 14 }} /> ÜRÜN TANIMI</Typography>
               <Typography variant="h6" sx={{ fontWeight: 900, mt: 0.5 }}>{product.name}</Typography>
               <Typography variant="body2" sx={{ fontWeight: 700, fontFamily: 'monospace', color: 'primary.main' }}>{product.stockCode}</Typography>
             </Box>

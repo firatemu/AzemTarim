@@ -1,0 +1,55 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", {
+    value: true
+});
+Object.defineProperty(exports, "CreateAdvanceDto", {
+    enumerable: true,
+    get: function() {
+        return CreateAdvanceDto;
+    }
+});
+const _classvalidator = require("class-validator");
+function _ts_decorate(decorators, target, key, desc) {
+    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
+    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
+    else for(var i = decorators.length - 1; i >= 0; i--)if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
+    return c > 3 && r && Object.defineProperty(target, key, r), r;
+}
+function _ts_metadata(k, v) {
+    if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
+}
+let CreateAdvanceDto = class CreateAdvanceDto {
+};
+_ts_decorate([
+    (0, _classvalidator.IsNotEmpty)({
+        message: 'Employee ID zorunludur'
+    }),
+    (0, _classvalidator.IsString)(),
+    _ts_metadata("design:type", String)
+], CreateAdvanceDto.prototype, "employeeId", void 0);
+_ts_decorate([
+    (0, _classvalidator.IsNotEmpty)({
+        message: 'Tutar zorunludur'
+    }),
+    (0, _classvalidator.IsNumber)(),
+    (0, _classvalidator.Min)(0.01, {
+        message: 'Tutar 0\'dan büyük olmalıdır'
+    }),
+    _ts_metadata("design:type", Number)
+], CreateAdvanceDto.prototype, "amount", void 0);
+_ts_decorate([
+    (0, _classvalidator.IsOptional)(),
+    _ts_metadata("design:type", typeof Date === "undefined" ? Object : Date)
+], CreateAdvanceDto.prototype, "date", void 0);
+_ts_decorate([
+    (0, _classvalidator.IsOptional)(),
+    (0, _classvalidator.IsString)(),
+    _ts_metadata("design:type", String)
+], CreateAdvanceDto.prototype, "notes", void 0);
+_ts_decorate([
+    (0, _classvalidator.IsOptional)(),
+    (0, _classvalidator.IsString)(),
+    _ts_metadata("design:type", String)
+], CreateAdvanceDto.prototype, "cashboxId", void 0);
+
+//# sourceMappingURL=create-advance.dto.js.map

@@ -154,6 +154,7 @@ export function SatinAlmaFaturaForm({ faturaId: editFaturaId, onBack }: { fatura
           kdvOrani: Number(s.vatRate) || 20,
           barkod: s.barcode,
           birim: s.unit || 'ADET',
+          miktar: Number(s.quantity ?? 0),
         })));
 
         const warehouseList = warehousesRes.data || [];
@@ -464,11 +465,7 @@ export function SatinAlmaFaturaForm({ faturaId: editFaturaId, onBack }: { fatura
           {isMobile ? (
             <Box>
               <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 2, color: 'var(--foreground)' }}>Genel Bilgiler</Typography>
-              <Box sx={{
-                display: 'grid',
-                gridTemplateColumns: '1fr',
-                gap: 2
-              }}>
+              <Box sx={{ display: 'grid', gridTemplateColumns: '1fr', gap: 2 }}>
                 <TextField
                   className="form-control-textfield"
                   label="Fatura No"
@@ -477,35 +474,40 @@ export function SatinAlmaFaturaForm({ faturaId: editFaturaId, onBack }: { fatura
                   required
                   fullWidth
                 />
-                <TextField
-                  className="form-control-textfield"
-                  type="date"
-                  label="Tarih"
-                  value={formData.tarih}
-                  onChange={e => setFormData(p => ({ ...p, tarih: e.target.value }))}
-                  InputLabelProps={{ shrink: true }}
-                  required
-                  fullWidth
-                />
-                <TextField
-                  className="form-control-textfield"
-                  type="date"
-                  label="Vade"
-                  value={formData.vade}
-                  onChange={e => setFormData(p => ({ ...p, vade: e.target.value }))}
-                  InputLabelProps={{ shrink: true }}
-                  fullWidth
-                />
-                <FormControl className="form-control-select" required fullWidth>
-                  <InputLabel>Ambar</InputLabel>
-                  <Select
-                    value={formData.warehouseId}
-                    onChange={e => setFormData(p => ({ ...p, warehouseId: e.target.value }))}
-                    label="Ambar"
-                  >
-                    {warehouses.map(w => <MenuItem key={w.id} value={w.id}>{w.name}</MenuItem>)}
-                  </Select>
-                </FormControl>
+                <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
+                  <TextField
+                    className="form-control-textfield"
+                    type="date"
+                    label="Tarih"
+                    value={formData.tarih}
+                    onChange={e => setFormData(p => ({ ...p, tarih: e.target.value }))}
+                    InputLabelProps={{ shrink: true }}
+                    required
+                    fullWidth
+                  />
+                  <TextField
+                    className="form-control-textfield"
+                    type="date"
+                    label="Vade"
+                    value={formData.vade}
+                    onChange={e => setFormData(p => ({ ...p, vade: e.target.value }))}
+                    InputLabelProps={{ shrink: true }}
+                    fullWidth
+                  />
+                </Box>
+                <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
+                  <FormControl className="form-control-select" required fullWidth>
+                    <InputLabel>Ambar</InputLabel>
+                    <Select
+                      value={formData.warehouseId}
+                      onChange={e => setFormData(p => ({ ...p, warehouseId: e.target.value }))}
+                      label="Ambar"
+                    >
+                      {warehouses.map(w => <MenuItem key={w.id} value={w.id}>{w.name}</MenuItem>)}
+                    </Select>
+                  </FormControl>
+                  <Box sx={{ display: { xs: 'none', sm: 'block' } }} />
+                </Box>
               </Box>
 
               <Box sx={{ mt: 2 }}>
@@ -531,7 +533,7 @@ export function SatinAlmaFaturaForm({ faturaId: editFaturaId, onBack }: { fatura
             </Box>
           ) : (
             <TabPanel value={tabValue} index={0}>
-              <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 2 }}>
+              <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 2 }}>
                 <TextField
                   disabled={!!editFaturaId && formData.durum === 'APPROVED'}
                   className="form-control-textfield"
@@ -574,7 +576,6 @@ export function SatinAlmaFaturaForm({ faturaId: editFaturaId, onBack }: { fatura
                   </Select>
                 </FormControl>
               </Box>
-
               <Box sx={{ mt: 2 }}>
                 <Autocomplete
                   disabled={!!editFaturaId && formData.durum === 'APPROVED'}
@@ -596,6 +597,7 @@ export function SatinAlmaFaturaForm({ faturaId: editFaturaId, onBack }: { fatura
                   renderInput={params => <TextField {...params} label="Cari Seçin" required />}
                 />
               </Box>
+
             </TabPanel>
           )}
 

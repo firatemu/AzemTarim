@@ -42,10 +42,30 @@ export class B2bAdminCustomerService {
     return { data, total, page, limit };
   }
 
+  private readonly customerListInclude = {
+    customerClass: true,
+    salespersonLinks: {
+      include: { salesperson: { select: { name: true } } },
+      take: 1 as const,
+    },
+    accountMovements: {
+      orderBy: [{ date: 'desc' as const }, { id: 'desc' as const }],
+      take: 1,
+      select: { balance: true, date: true },
+    },
+    orders: {
+      take: 1,
+      orderBy: { createdAt: 'desc' as const },
+      select: { createdAt: true },
+    },
+  } satisfies Prisma.B2BCustomerInclude;
+
   async list(tenantId: string, q: B2bCustomerListQueryDto) {
     const page = q.page ?? 1;
     const limit = q.limit ?? 25;
     const skip = (page - 1) * limit;
+    const sortBy = q.sortBy ?? 'createdAt';
+    const sortOrder = q.sortOrder ?? 'desc';
 
     const where: Prisma.B2BCustomerWhereInput = { tenantId };
     if (q.search?.trim()) {
@@ -57,36 +77,117 @@ export class B2bAdminCustomerService {
       ];
     }
 
+    const overdueRowsPromise = this.prisma.b2BAccountMovement.findMany({
+      where: { tenantId, isPastDue: true },
+      select: { customerId: true },
+      distinct: ['customerId'],
+    });
+
+    if (sortBy === 'balance') {
+      const search = q.search?.trim();
+      const searchSql = search
+        ? Prisma.sql`AND (
+            c.name ILIKE ${'%' + search + '%'}
+            OR c.email ILIKE ${'%' + search + '%'}
+            OR c."erpAccountId" ILIKE ${'%' + search + '%'}
+          )`
+        : Prisma.empty;
+
+      const countRows = await this.prisma.$queryRaw<[{ c: bigint }]>`
+        SELECT COUNT(*)::bigint AS c
+        FROM "b2b_customers" c
+        WHERE c."tenantId" = ${tenantId}
+        ${searchSql}
+      `;
+      const total = Number(countRows[0]?.c ?? 0);
+
+      const idRows =
+        sortOrder === 'asc'
+          ? await this.prisma.$queryRaw<{ id: string }[]>`
+              SELECT c.id
+              FROM "b2b_customers" c
+              LEFT JOIN LATERAL (
+                SELECT m.balance
+                FROM "b2b_account_movements" m
+                WHERE m."customerId" = c.id AND m."tenantId" = ${tenantId}
+                ORDER BY m.date DESC, m.id DESC
+                LIMIT 1
+              ) lm ON true
+              WHERE c."tenantId" = ${tenantId}
+              ${searchSql}
+              ORDER BY lm.balance ASC NULLS LAST, c."createdAt" DESC
+              LIMIT ${limit} OFFSET ${skip}
+            `
+          : await this.prisma.$queryRaw<{ id: string }[]>`
+              SELECT c.id
+              FROM "b2b_customers" c
+              LEFT JOIN LATERAL (
+                SELECT m.balance
+                FROM "b2b_account_movements" m
+                WHERE m."customerId" = c.id AND m."tenantId" = ${tenantId}
+                ORDER BY m.date DESC, m.id DESC
+                LIMIT 1
+              ) lm ON true
+              WHERE c."tenantId" = ${tenantId}
+              ${searchSql}
+              ORDER BY lm.balance DESC NULLS LAST, c."createdAt" DESC
+              LIMIT ${limit} OFFSET ${skip}
+            `;
+
+      const overdueRows = await overdueRowsPromise;
+      const overdueSet = new Set(overdueRows.map((r) => r.customerId));
+
+      const ids = idRows.map((r) => r.id);
+      if (ids.length === 0) {
+        return this.paginate([], total, page, limit);
+      }
+
+      const rows = await this.prisma.b2BCustomer.findMany({
+        where: { id: { in: ids }, tenantId },
+        include: this.customerListInclude,
+      });
+      const rowMap = new Map(rows.map((r) => [r.id, r]));
+      const ordered = ids
+        .map((id) => rowMap.get(id))
+        .filter((x): x is (typeof rows)[number] => x != null);
+
+      const data = ordered.map((c: any) => ({
+        id: c.id,
+        erpNum: c.erpNum,
+        erpAccountId: c.erpAccountId,
+        name: c.name,
+        email: c.email,
+        isActive: c.isActive,
+        vatDays: c.vatDays,
+        createdAt: c.createdAt,
+        customerClass: c.customerClass,
+        lastOrderAt: c.orders[0]?.createdAt ?? null,
+        lastMovementAt: c.accountMovements[0]?.date ?? null,
+        riskStatus: overdueSet.has(c.id) ? 'OVERDUE' : 'OK',
+        salespersonName: c.salespersonLinks[0]?.salesperson?.name ?? '—',
+        balance: c.accountMovements[0]?.balance ?? 0,
+      }));
+
+      return this.paginate(data, total, page, limit);
+    }
+
+    let orderBy: Prisma.B2BCustomerOrderByWithRelationInput = {
+      createdAt: sortOrder,
+    };
+    if (sortBy === 'name') {
+      orderBy = { name: sortOrder };
+    }
+
     const [total, rows, overdueRows] = await Promise.all([
       this.prisma.b2BCustomer.count({ where }),
       this.prisma.b2BCustomer.findMany({
         where,
         skip,
         take: limit,
-        orderBy: { createdAt: 'desc' },
-        include: {
-          customerClass: true,
-          salespersonLinks: {
-            include: { salesperson: { select: { name: true } } },
-            take: 1
-          },
-          accountMovements: {
-            orderBy: [{ date: 'desc' }, { id: 'desc' }],
-            take: 1,
-            select: { balance: true }
-          },
-          orders: {
-            take: 1,
-            orderBy: { createdAt: 'desc' },
-            select: { createdAt: true },
-          },
-        },
+        orderBy,
+        include: this.customerListInclude,
       }),
-      this.prisma.b2BAccountMovement.findMany({
-        where: { tenantId, isPastDue: true },
-        select: { customerId: true },
-        distinct: ['customerId'],
-      }),
+      overdueRowsPromise,
     ]);
 
     const overdueSet = new Set(overdueRows.map((r) => r.customerId));
@@ -99,8 +200,10 @@ export class B2bAdminCustomerService {
       email: c.email,
       isActive: c.isActive,
       vatDays: c.vatDays,
+      createdAt: c.createdAt,
       customerClass: c.customerClass,
       lastOrderAt: c.orders[0]?.createdAt ?? null,
+      lastMovementAt: c.accountMovements[0]?.date ?? null,
       riskStatus: overdueSet.has(c.id) ? 'OVERDUE' : 'OK',
       salespersonName: c.salespersonLinks[0]?.salesperson?.name ?? '—',
       balance: c.accountMovements[0]?.balance ?? 0,
@@ -508,6 +611,15 @@ export class B2bAdminCustomerService {
     return this.b2bSync.manualTrigger(tenantId, B2BSyncType.ACCOUNT_MOVEMENTS, {
       erpAccountId: c.erpAccountId,
     });
+  }
+
+  /** Tüm cariler için ERP hareketlerini tek işte kuyruğa alır (bakiye tablosu güncellemesi). */
+  async queueSyncAllAccountMovements(tenantId: string) {
+    await this.prisma.b2BTenantConfig.updateMany({
+      where: { tenantId },
+      data: { lastSyncRequestedAt: new Date() },
+    });
+    return this.b2bSync.enqueueSyncAllAccountMovements(tenantId);
   }
 
   async importFromErp(tenantId: string) {

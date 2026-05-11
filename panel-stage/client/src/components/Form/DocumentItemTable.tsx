@@ -20,6 +20,7 @@ export interface Product {
     id: string;
     stokKodu: string;
     stokAdi: string;
+    miktar?: number;
     barkod?: string;
     birim?: string;
     kdvOrani?: number;
@@ -157,7 +158,13 @@ const MobileItemCard = ({
                                 </Box>
                             );
                         }}
-                        renderInput={(params: any) => <TextField {...params} label="Stok / Hizmet" placeholder="Kod veya ad ile ara" />}
+                        renderInput={(params: any) => (
+                          <TextField
+                            {...params}
+                            label="Stok / Hizmet"
+                            placeholder="Kod veya ad ile ara"
+                          />
+                        )}
                         isOptionEqualToValue={(option: any, value: any) => option.id === value.id}
                     />
                 </Box>
@@ -458,14 +465,14 @@ export default function DocumentItemTable({
                                     <Checkbox disabled={disabled} indeterminate={selectedRows.length > 0 && selectedRows.length < kalemler.length} checked={kalemler.length > 0 && selectedRows.length === kalemler.length} onChange={handleToggleAll} size="small" />
                                 </TableCell>
                                 <TableCell sx={{ fontWeight: 600, color: 'var(--muted-foreground)', minWidth: 405 }}>Stok Adı / Ürün</TableCell>
-                                <TableCell sx={{ fontWeight: 700, color: 'var(--foreground) !important', minWidth: 5 }}>Miktar</TableCell>
+                                <TableCell sx={{ fontWeight: 700, color: 'var(--foreground) !important', minWidth: 120, width: 120 }}>Miktar</TableCell>
                                 <TableCell sx={{ fontWeight: 700, color: 'var(--foreground) !important', minWidth: 120 }}>Birim</TableCell>
-                                <TableCell sx={{ fontWeight: 700, color: 'var(--foreground) !important', minWidth: 180 }}>Birim Fiyat</TableCell>
-                                <TableCell sx={{ fontWeight: 700, color: 'var(--foreground) !important', minWidth: 90 }}>KDV %</TableCell>
+                                <TableCell sx={{ fontWeight: 700, color: 'var(--foreground) !important', minWidth: 170, width: 170 }}>Birim Fiyat</TableCell>
+                                <TableCell sx={{ fontWeight: 700, color: 'var(--foreground) !important', minWidth: 100, width: 100 }}>KDV %</TableCell>
                                 <TableCell sx={{ fontWeight: 700, color: 'var(--foreground) !important', minWidth: 60 }} title="Çoklu İskonto">Ç.İ.</TableCell>
-                                <TableCell sx={{ fontWeight: 700, color: 'var(--foreground) !important', minWidth: 10 }}>İsk. Oran %</TableCell>
-                                <TableCell sx={{ fontWeight: 700, color: 'var(--foreground) !important', minWidth: 110 }}>İsk. Tutar</TableCell>
-                                <TableCell align="right" sx={{ fontWeight: 700, color: 'var(--foreground) !important', minWidth: 140 }}>Toplam</TableCell>
+                                <TableCell sx={{ fontWeight: 700, color: 'var(--foreground) !important', minWidth: 100, width: 100 }}>İsk. Oran %</TableCell>
+                                <TableCell sx={{ fontWeight: 700, color: 'var(--foreground) !important', minWidth: 130, width: 130, px: 0.75 }}>İsk. Tutar</TableCell>
+                                <TableCell align="right" sx={{ fontWeight: 700, color: 'var(--foreground) !important', minWidth: 110, width: 110, px: 0.75 }}>Toplam</TableCell>
                             </TableRow>
                         </TableHead>
                         <TableBody>
@@ -548,7 +555,7 @@ export default function DocumentItemTable({
                                                 isOptionEqualToValue={(option: any, value: any) => option.id === value.id}
                                             />
                                         </TableCell>
-                                        <TableCell sx={{ minWidth: 120 }}>
+                                        <TableCell sx={{ minWidth: 120, width: 120 }}>
                                             <TextField disabled={disabled} fullWidth type="number" size="small" className="form-control-textfield" value={kalem.miktar} onChange={(e: any) => handleKalemChange(index, 'miktar', e.target.value)} onKeyDown={(e: any) => { if (e.key === 'Enter') { e.preventDefault(); handleAddKalem(); } }} inputProps={{ min: 1, step: 1 }} sx={numberInputSx} />
                                         </TableCell>
                                         <TableCell sx={{ minWidth: 120 }}>
@@ -561,7 +568,7 @@ export default function DocumentItemTable({
                                                 )}
                                             </TextField>
                                         </TableCell>
-                                        <TableCell sx={{ minWidth: 180 }}>
+                                        <TableCell sx={{ minWidth: 170, width: 170 }}>
                                             <Box sx={{ position: 'relative' }}>
                                                 <TextField disabled={disabled} fullWidth type="number" size="small" className="form-control-textfield" value={kalem.birimFiyat} onChange={(e: any) => handleKalemChange(index, 'birimFiyat', e.target.value)} onKeyDown={(e: any) => { if (e.key === 'Enter') { e.preventDefault(); handleAddKalem(); } else if (['+', '-', '*', '/'].includes(e.key)) { e.preventDefault(); setCalculatorRowIndex(index); setCalculatorExpression(kalem.birimFiyat?.toString() || '0'); setCalculatorAnchor(e.currentTarget); } }} inputProps={{ min: 0, step: 0.01 }} sx={numberInputSx} />
                                                 <IconButton disabled={disabled} size="small" onClick={(e: any) => { setCalculatorRowIndex(index); setCalculatorExpression(kalem.birimFiyat?.toString() || '0'); setCalculatorAnchor(e.currentTarget); }} sx={{ position: 'absolute', right: 4, top: '50%', transform: 'translateY(-50%)', padding: 0.5, bgcolor: 'var(--muted)', '&:hover': { bgcolor: 'var(--primary)' } }}>🧮</IconButton>
@@ -570,7 +577,7 @@ export default function DocumentItemTable({
                                                 )}
                                             </Box>
                                         </TableCell>
-                                        <TableCell sx={{ minWidth: 90 }}>
+                                        <TableCell sx={{ minWidth: 100, width: 100 }}>
                                             <TextField disabled={disabled} fullWidth type="number" size="small" className="form-control-textfield" value={kalem.kdvOrani || 0} onChange={(e: any) => handleKalemChange(index, 'kdvOrani', e.target.value)} onKeyDown={(e: any) => { if (e.key === 'Enter') { e.preventDefault(); handleAddKalem(); } }} inputProps={{ min: 0, max: 100, step: 1 }} sx={numberInputSx} />
                                         </TableCell>
                                         <TableCell align="center" sx={{ minWidth: 60 }}>
@@ -578,17 +585,17 @@ export default function DocumentItemTable({
                                                 {kalem.cokluIskonto ? <ToggleOn fontSize="small" /> : <ToggleOff fontSize="small" />}
                                             </IconButton>
                                         </TableCell>
-                                        <TableCell sx={{ minWidth: 80 }}>
+                                        <TableCell sx={{ minWidth: 80, width: 80 }}>
                                             {kalem.cokluIskonto ? (
                                                 <TextField disabled={disabled} fullWidth size="small" className="form-control-textfield" value={kalem.iskontoFormula || ''} onChange={(e: any) => handleKalemChange(index, 'iskontoFormula', e.target.value)} placeholder="10+5" />
                                             ) : (
                                                 <TextField disabled={disabled} fullWidth type="number" size="small" className="form-control-textfield" value={kalem.iskontoOran || 0} onChange={(e: any) => handleKalemChange(index, 'iskontoOran', e.target.value)} inputProps={{ min: 0, max: 100, step: 0.01 }} sx={numberInputSx} />
                                             )}
                                         </TableCell>
-                                        <TableCell sx={{ minWidth: 110 }}>
+                                        <TableCell sx={{ minWidth: 130, width: 130, px: 0.75 }}>
                                             <TextField disabled={disabled} fullWidth type="number" size="small" className="form-control-textfield" value={kalem.iskontoTutar || 0} onChange={(e: any) => handleKalemChange(index, 'iskontoTutar', e.target.value)} inputProps={{ min: 0, step: 0.01 }} sx={numberInputSx} />
                                         </TableCell>
-                                        <TableCell align="right"><strong>{formatCurrency(calculateKalemTotals(kalem).finalAmount)}</strong></TableCell>
+                                        <TableCell align="right" sx={{ minWidth: 110, width: 110, px: 0.75 }}><strong>{formatCurrency(calculateKalemTotals(kalem).finalAmount)}</strong></TableCell>
                                     </TableRow>
                                 ))
                             )}

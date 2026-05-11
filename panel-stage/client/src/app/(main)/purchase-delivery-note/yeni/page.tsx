@@ -137,6 +137,7 @@ export function SatinAlmaIrsaliyeForm({ irsaliyeId: editIrsaliyeId, onBack }: { 
           kdvOrani: Number(s.vatRate) || 20,
           barkod: s.barcode,
           birim: s.unit || 'ADET',
+          miktar: Number(s.quantity ?? 0),
         }));
         setStoklar(mappedStoklar);
 

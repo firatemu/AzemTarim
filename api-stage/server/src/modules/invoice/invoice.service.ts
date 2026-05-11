@@ -34,7 +34,6 @@ import { AccountEffectService } from './services/account-effect.service';
 import { InvoiceOperationType } from './types/invoice-orchestrator.types';
 import { UnitSetService } from '../unit-set/unit-set.service';
 import { StatusCalculatorService } from '../shared/status-calculator/status-calculator.service';
-
 @Injectable()
 export class InvoiceService {
   constructor(
@@ -177,6 +176,7 @@ export class InvoiceService {
         },
         data: {
           qtyOnHand: newQty,
+          updatedAt: new Date(),
         },
       });
     } else {
@@ -2201,9 +2201,11 @@ export class InvoiceService {
       return executeWork(tx);
     }
 
-    return this.prisma.$transaction(async (prisma) => {
+    const result = await this.prisma.$transaction(async (prisma) => {
       return executeWork(prisma as Prisma.TransactionClient);
     });
+
+    return result;
   }
 
   async getDueDateAnalysis(accountId?: string) {
@@ -3495,7 +3497,10 @@ export class InvoiceService {
                 id: locationStock.id,
                 ...buildTenantWhereClause(effectiveTenantId ?? undefined),
               },
-              data: { qtyOnHand: { decrement: slip.quantity } },
+              data: {
+                qtyOnHand: { decrement: slip.quantity },
+                updatedAt: new Date(),
+              },
             });
           }
 
