@@ -1,1 +1,0 @@
-{"version":3,"sources":["../../../src/modules/cashbox/cashbox.enums.ts"],"sourcesContent":["export enum CashboxType {\n    CASH = 'CASH',\n    POS = 'POS',\n    COMPANY_CREDIT_CARD = 'COMPANY_CREDIT_CARD',\n    BANK = 'BANK',\n    CHECK_PROMISSORY = 'CHECK_PROMISSORY'\n}\n"],"names":["CashboxType"],"mappings":";;;;+BAAYA;;;eAAAA;;;AAAL,IAAA,AAAKA,qCAAAA;;;;;;WAAAA"}

@@ -1,1 +1,0 @@
-{"version":3,"sources":["../../../../src/modules/vehicle-brand/dto/index.ts"],"sourcesContent":["export * from './create-vehicle-brand.dto';\nexport * from './update-vehicle-brand.dto';\n"],"names":[],"mappings":";;;;qBAAc;qBACA"}
